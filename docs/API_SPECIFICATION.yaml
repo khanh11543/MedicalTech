@@ -1,0 +1,1484 @@
+openapi: 3.0.0
+info:
+  title: Online Medical Appointment System API
+  description: |
+    API for Online Medical Appointment System with 1 Backend & 2 Frontend (Patient + Doctor)
+    
+    ## Architecture
+    - **Backend**: Spring Boot REST API
+    - **Frontend-Patient**: React/Vue Patient App
+    - **Frontend-Doctor**: React/Vue Doctor App
+    
+    ## Base URLs
+    - Development: http://localhost:8080/api/v1
+    - Production: https://api.medicaltech.com/api/v1
+  version: 1.0.0
+  contact:
+    name: MedicalTech Team
+    email: support@medicaltech.com
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Development Server
+  - url: https://api.medicaltech.com/api/v1
+    description: Production Server
+
+paths:
+  # ============== AUTH ENDPOINTS ==============
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: User Registration (Patient & Doctor)
+      operationId: registerUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/PatientRegisterRequest'
+                - $ref: '#/components/schemas/DoctorRegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid input or email already exists
+        '500':
+          description: Server error
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User Login
+      operationId: loginUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+        '500':
+          description: Server error
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh JWT Token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: New token issued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid refresh token
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: User Logout
+      operationId: logoutUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+        '401':
+          description: Unauthorized
+
+  # ============== DOCTOR ENDPOINTS ==============
+  /doctors:
+    get:
+      tags:
+        - Doctor
+      summary: List all doctors with filters
+      operationId: listDoctors
+      parameters:
+        - name: specialty
+          in: query
+          description: Filter by specialty (Cardiology, Dermatology, etc)
+          schema:
+            type: string
+        - name: available
+          in: query
+          description: Filter by availability
+          schema:
+            type: boolean
+        - name: minRating
+          in: query
+          description: Minimum rating (0-5)
+          schema:
+            type: number
+            minimum: 0
+            maximum: 5
+        - name: page
+          in: query
+          description: Page number (0-indexed)
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          description: Page size
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: List of doctors
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorListResponse'
+        '400':
+          description: Invalid parameters
+
+    post:
+      tags:
+        - Doctor
+      summary: Create new doctor (Admin only)
+      operationId: createDoctor
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DoctorRegisterRequest'
+      responses:
+        '201':
+          description: Doctor created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorResponse'
+        '403':
+          description: Forbidden - Admin only
+
+  /doctors/{doctorId}:
+    get:
+      tags:
+        - Doctor
+      summary: Get doctor details
+      operationId: getDoctorDetail
+      parameters:
+        - name: doctorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Doctor details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorDetailResponse'
+        '404':
+          description: Doctor not found
+
+    put:
+      tags:
+        - Doctor
+      summary: Update doctor profile (Doctor only)
+      operationId: updateDoctor
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: doctorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DoctorUpdateRequest'
+      responses:
+        '200':
+          description: Doctor updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DoctorResponse'
+        '403':
+          description: Forbidden - Can only update own profile
+        '404':
+          description: Doctor not found
+
+  /doctors/{doctorId}/schedule:
+    get:
+      tags:
+        - Doctor Schedule
+      summary: Get doctor's schedule
+      operationId: getDoctorSchedule
+      parameters:
+        - name: doctorId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: date
+          in: query
+          description: Get schedule for specific date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Doctor schedule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+        '404':
+          description: Doctor not found
+
+    put:
+      tags:
+        - Doctor Schedule
+      summary: Update doctor's schedule (Doctor only)
+      operationId: updateDoctorSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: doctorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleUpdateRequest'
+      responses:
+        '200':
+          description: Schedule updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleResponse'
+        '403':
+          description: Forbidden
+
+  /doctors/{doctorId}/available-slots:
+    get:
+      tags:
+        - Doctor Schedule
+      summary: Get available time slots
+      operationId: getAvailableSlots
+      parameters:
+        - name: doctorId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: date
+          in: query
+          required: true
+          description: Date to check availability (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Available time slots
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlotsResponse'
+        '404':
+          description: Doctor not found
+
+  /doctors/{doctorId}/fee:
+    put:
+      tags:
+        - Doctor
+      summary: Set consultation fee (Doctor only)
+      operationId: setConsultationFee
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: doctorId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FeeRequest'
+      responses:
+        '200':
+          description: Fee updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeResponse'
+        '403':
+          description: Forbidden
+
+  # ============== APPOINTMENT ENDPOINTS ==============
+  /appointments:
+    get:
+      tags:
+        - Appointment
+      summary: Get user's appointments
+      operationId: getUserAppointments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [BOOKED, CONFIRMED, COMPLETED, CANCELLED]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of appointments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentListResponse'
+        '401':
+          description: Unauthorized
+
+    post:
+      tags:
+        - Appointment
+      summary: Create new appointment (Patient only)
+      operationId: createAppointment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentCreateRequest'
+      responses:
+        '201':
+          description: Appointment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '400':
+          description: Slot not available or invalid data
+        '401':
+          description: Unauthorized
+        '404':
+          description: Doctor not found
+
+  /appointments/{appointmentId}:
+    get:
+      tags:
+        - Appointment
+      summary: Get appointment details
+      operationId: getAppointmentDetail
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Appointment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '403':
+          description: Forbidden - Only participants can view
+        '404':
+          description: Appointment not found
+
+    put:
+      tags:
+        - Appointment
+      summary: Update appointment (reschedule)
+      operationId: updateAppointment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentUpdateRequest'
+      responses:
+        '200':
+          description: Appointment updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '400':
+          description: Cannot update appointment in this status
+        '403':
+          description: Forbidden
+        '404':
+          description: Appointment not found
+
+  /appointments/{appointmentId}/cancel:
+    post:
+      tags:
+        - Appointment
+      summary: Cancel appointment
+      operationId: cancelAppointment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+      responses:
+        '200':
+          description: Appointment cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '400':
+          description: Cannot cancel appointment in this status
+        '403':
+          description: Forbidden
+        '404':
+          description: Appointment not found
+
+  /appointments/{appointmentId}/confirm:
+    post:
+      tags:
+        - Appointment
+      summary: Confirm appointment (Doctor only)
+      operationId: confirmAppointment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Appointment confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Appointment not found
+
+  /appointments/{appointmentId}/complete:
+    post:
+      tags:
+        - Appointment
+      summary: Mark appointment as completed (Doctor only)
+      operationId: completeAppointment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: appointmentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentCompleteRequest'
+      responses:
+        '200':
+          description: Appointment completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Appointment not found
+
+  # ============== PATIENT ENDPOINTS ==============
+  /patients/{patientId}/profile:
+    get:
+      tags:
+        - Patient
+      summary: Get patient medical profile
+      operationId: getPatientProfile
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Patient profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientProfileResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Patient not found
+
+    put:
+      tags:
+        - Patient
+      summary: Update patient medical profile
+      operationId: updatePatientProfile
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientProfileUpdateRequest'
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientProfileResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Patient not found
+
+  /patients/{patientId}/appointments/history:
+    get:
+      tags:
+        - Patient
+      summary: Get appointment history
+      operationId: getAppointmentHistory
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Appointment history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentHistoryResponse'
+        '403':
+          description: Forbidden
+        '404':
+          description: Patient not found
+
+  /patients/{patientId}/favorite-doctors:
+    get:
+      tags:
+        - Patient
+      summary: Get favorite doctors
+      operationId: getFavoriteDoctors
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Favorite doctors
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  doctors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DoctorResponse'
+        '403':
+          description: Forbidden
+
+    post:
+      tags:
+        - Patient
+      summary: Add doctor to favorites
+      operationId: addFavoriteDoctor
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: patientId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: doctorId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '201':
+          description: Doctor added to favorites
+        '403':
+          description: Forbidden
+        '404':
+          description: Patient or Doctor not found
+
+  # ============== REVIEW ENDPOINTS ==============
+  /reviews:
+    post:
+      tags:
+        - Review
+      summary: Create appointment review (Patient only)
+      operationId: createReview
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewCreateRequest'
+      responses:
+        '201':
+          description: Review created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewResponse'
+        '400':
+          description: Invalid review or appointment not completed
+        '401':
+          description: Unauthorized
+
+  /doctors/{doctorId}/reviews:
+    get:
+      tags:
+        - Review
+      summary: Get doctor's reviews
+      operationId: getDoctorReviews
+      parameters:
+        - name: doctorId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Doctor reviews
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewListResponse'
+        '404':
+          description: Doctor not found
+
+  # ============== NOTIFICATION ENDPOINTS ==============
+  /notifications:
+    get:
+      tags:
+        - Notification
+      summary: Get user notifications
+      operationId: getNotifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: unreadOnly
+          in: query
+          description: Get only unread notifications
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: User notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationListResponse'
+        '401':
+          description: Unauthorized
+
+  /notifications/{notificationId}/read:
+    put:
+      tags:
+        - Notification
+      summary: Mark notification as read
+      operationId: markNotificationAsRead
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Notification marked as read
+        '404':
+          description: Notification not found
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ============== AUTH SCHEMAS ==============
+    PatientRegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+        - phoneNumber
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+          description: Password must be at least 8 characters
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phoneNumber:
+          type: string
+          pattern: '^\d{10,15}$'
+        dateOfBirth:
+          type: string
+          format: date
+
+    DoctorRegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+        - phoneNumber
+        - specialties
+        - licenseNumber
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phoneNumber:
+          type: string
+          pattern: '^\d{10,15}$'
+        specialties:
+          type: array
+          items:
+            type: string
+          example: [Cardiology, General Practice]
+        licenseNumber:
+          type: string
+        qualifications:
+          type: array
+          items:
+            type: string
+          example: [MBBS, MD]
+        experience:
+          type: integer
+          description: Years of experience
+        bio:
+          type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          description: Token expiry in seconds
+        user:
+          $ref: '#/components/schemas/UserResponse'
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          type: string
+          enum: [PATIENT, DOCTOR, ADMIN]
+        createdAt:
+          type: string
+          format: date-time
+
+    # ============== DOCTOR SCHEMAS ==============
+    DoctorResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phoneNumber:
+          type: string
+        specialties:
+          type: array
+          items:
+            type: string
+        licenseNumber:
+          type: string
+        experience:
+          type: integer
+        rating:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 5
+        consultationFee:
+          type: number
+          format: double
+          minimum: 0
+        available:
+          type: boolean
+        bio:
+          type: string
+        profileImage:
+          type: string
+          format: uri
+
+    DoctorDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/DoctorResponse'
+        - type: object
+          properties:
+            qualifications:
+              type: array
+              items:
+                type: string
+            availableSlots:
+              type: array
+              items:
+                $ref: '#/components/schemas/TimeSlot'
+            reviewCount:
+              type: integer
+            averageRating:
+              type: number
+
+    DoctorListResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/DoctorResponse'
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        currentPage:
+          type: integer
+        size:
+          type: integer
+
+    DoctorUpdateRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phoneNumber:
+          type: string
+        bio:
+          type: string
+        specialties:
+          type: array
+          items:
+            type: string
+        profileImage:
+          type: string
+          format: binary
+
+    # ============== SCHEDULE SCHEMAS ==============
+    ScheduleResponse:
+      type: object
+      properties:
+        doctorId:
+          type: integer
+        workingDays:
+          type: array
+          items:
+            type: string
+            enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+        startTime:
+          type: string
+          format: time
+          example: '09:00'
+        endTime:
+          type: string
+          format: time
+          example: '17:00'
+        breakTimes:
+          type: array
+          items:
+            $ref: '#/components/schemas/BreakTime'
+        blockedDates:
+          type: array
+          items:
+            type: string
+            format: date
+
+    ScheduleUpdateRequest:
+      type: object
+      properties:
+        workingDays:
+          type: array
+          items:
+            type: string
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+        breakTimes:
+          type: array
+          items:
+            $ref: '#/components/schemas/BreakTime'
+
+    BreakTime:
+      type: object
+      properties:
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+
+    SlotsResponse:
+      type: object
+      properties:
+        doctorId:
+          type: integer
+        date:
+          type: string
+          format: date
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeSlot'
+
+    TimeSlot:
+      type: object
+      properties:
+        time:
+          type: string
+          format: time
+        available:
+          type: boolean
+
+    FeeRequest:
+      type: object
+      required:
+        - amount
+      properties:
+        amount:
+          type: number
+          format: double
+          minimum: 0
+
+    FeeResponse:
+      type: object
+      properties:
+        doctorId:
+          type: integer
+        amount:
+          type: number
+          format: double
+        currency:
+          type: string
+          default: USD
+        updatedAt:
+          type: string
+          format: date-time
+
+    # ============== APPOINTMENT SCHEMAS ==============
+    AppointmentCreateRequest:
+      type: object
+      required:
+        - doctorId
+        - appointmentDate
+        - appointmentTime
+      properties:
+        doctorId:
+          type: integer
+        appointmentDate:
+          type: string
+          format: date
+        appointmentTime:
+          type: string
+          format: time
+        reason:
+          type: string
+          maxLength: 500
+        notes:
+          type: string
+          maxLength: 1000
+
+    AppointmentResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        patientId:
+          type: integer
+        doctorId:
+          type: integer
+        appointmentDate:
+          type: string
+          format: date
+        appointmentTime:
+          type: string
+          format: time
+        status:
+          type: string
+          enum: [BOOKED, CONFIRMED, COMPLETED, CANCELLED]
+        reason:
+          type: string
+        notes:
+          type: string
+        doctorNotes:
+          type: string
+          description: Notes added by doctor after consultation
+        cancellationReason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        doctor:
+          $ref: '#/components/schemas/DoctorResponse'
+        patient:
+          type: object
+          properties:
+            id:
+              type: integer
+            firstName:
+              type: string
+            lastName:
+              type: string
+            email:
+              type: string
+
+    AppointmentUpdateRequest:
+      type: object
+      properties:
+        appointmentDate:
+          type: string
+          format: date
+        appointmentTime:
+          type: string
+          format: time
+        reason:
+          type: string
+        notes:
+          type: string
+
+    AppointmentCompleteRequest:
+      type: object
+      properties:
+        doctorNotes:
+          type: string
+          maxLength: 2000
+        prescription:
+          type: string
+          maxLength: 5000
+
+    AppointmentListResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppointmentResponse'
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+        currentPage:
+          type: integer
+
+    AppointmentHistoryResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppointmentResponse'
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    CancelRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+
+    # ============== PATIENT SCHEMAS ==============
+    PatientProfileResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phoneNumber:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [MALE, FEMALE, OTHER]
+        bloodType:
+          type: string
+          enum: [O_POSITIVE, O_NEGATIVE, A_POSITIVE, A_NEGATIVE, B_POSITIVE, B_NEGATIVE, AB_POSITIVE, AB_NEGATIVE]
+        allergies:
+          type: array
+          items:
+            type: string
+          example: [Penicillin, Shellfish]
+        medicalHistory:
+          type: array
+          items:
+            type: string
+          example: [Diabetes, Hypertension]
+        currentMedications:
+          type: array
+          items:
+            type: string
+        emergencyContact:
+          $ref: '#/components/schemas/EmergencyContact'
+        documents:
+          type: array
+          items:
+            $ref: '#/components/schemas/MedicalDocument'
+
+    PatientProfileUpdateRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phoneNumber:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        gender:
+          type: string
+        bloodType:
+          type: string
+        allergies:
+          type: array
+          items:
+            type: string
+        medicalHistory:
+          type: array
+          items:
+            type: string
+        currentMedications:
+          type: array
+          items:
+            type: string
+        emergencyContact:
+          $ref: '#/components/schemas/EmergencyContact'
+
+    EmergencyContact:
+      type: object
+      properties:
+        name:
+          type: string
+        relationship:
+          type: string
+        phoneNumber:
+          type: string
+
+    MedicalDocument:
+      type: object
+      properties:
+        id:
+          type: integer
+        fileName:
+          type: string
+        fileType:
+          type: string
+          enum: [PRESCRIPTION, TEST_RESULT, REPORT, OTHER]
+        uploadedAt:
+          type: string
+          format: date-time
+        url:
+          type: string
+          format: uri
+
+    # ============== REVIEW SCHEMAS ==============
+    ReviewCreateRequest:
+      type: object
+      required:
+        - appointmentId
+        - rating
+      properties:
+        appointmentId:
+          type: integer
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          maxLength: 1000
+
+    ReviewResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        appointmentId:
+          type: integer
+        doctorId:
+          type: integer
+        patientId:
+          type: integer
+        rating:
+          type: integer
+        comment:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        patientName:
+          type: string
+
+    ReviewListResponse:
+      type: object
+      properties:
+        reviews:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewResponse'
+        totalCount:
+          type: integer
+        averageRating:
+          type: number
+          format: float
+
+    # ============== NOTIFICATION SCHEMAS ==============
+    NotificationListResponse:
+      type: object
+      properties:
+        notifications:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationResponse'
+        unreadCount:
+          type: integer
+        totalCount:
+          type: integer
+
+    NotificationResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        title:
+          type: string
+        message:
+          type: string
+        type:
+          type: string
+          enum: [APPOINTMENT_REMINDER, APPOINTMENT_CONFIRMED, APPOINTMENT_CANCELLED, REVIEW, SYSTEM]
+        relatedEntityId:
+          type: integer
+          description: Appointment ID or other related entity ID
+        isRead:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        readAt:
+          type: string
+          format: date-time
+
+    # ============== ERROR SCHEMAS ==============
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: integer
+        message:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+
+tags:
+  - name: Authentication
+    description: User registration and login
+  - name: Doctor
+    description: Doctor management and discovery
+  - name: Doctor Schedule
+    description: Doctor schedule and availability management
+  - name: Appointment
+    description: Appointment booking and management
+  - name: Patient
+    description: Patient profile and medical information
+  - name: Review
+    description: Patient reviews for doctors
+  - name: Notification
+    description: User notifications
+
