@@ -75,7 +75,7 @@
 ┌──────────────────────────┐      ┌───────────────────────────┐
 │    DATA ACCESS LAYER     │      │   EXTERNAL SERVICES       │
 ├──────────────────────────┤      ├───────────────────────────┤
-│   RDBMS (MySQL/PostgreSQL)      │  - Email Service          │
+│   RDBMS (MySQL)                 │  - Email Service          │
 │   - Tables:                     │    (SendGrid/Mailgun)     │
 │     • users                     │  - SMS Service (Twilio)   │
 │     • doctors                   │  - Payment Gateway        │
