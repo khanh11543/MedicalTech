@@ -1,9 +1,13 @@
 package com.q2k.meditech.entity;
 
+import com.q2k.meditech.entity.enums.VerificationStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -11,50 +15,107 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "doctors")
-public class Doctor extends BaseEntity {
+@Table(
+        name = "doctors",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_doctors_user_id", columnNames = "user_id"),
+                @UniqueConstraint(name = "uk_doctors_license_number", columnNames = "license_number"),
+                @UniqueConstraint(name = "uk_doctors_staff_registry_id", columnNames = "staff_registry_id")
+        },
+        indexes = {
+                @Index(name = "idx_doctors_user_id", columnList = "user_id"),
+                @Index(name = "idx_doctors_verification_status", columnList = "verification_status"),
+                @Index(name = "idx_doctors_available", columnList = "is_available")
+        }
+)
+public class Doctor {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY) @JoinColumn(name = "user_id", nullable = false, unique = true)
+    /**
+     * user_id: tài khoản đăng nhập
+     */
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_doctors_user"))
     private User user;
 
-    @Column(name = "full_name", nullable = false)
+    /**
+     * staff_registry_id: whitelist nội bộ
+     */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "staff_registry_id", foreignKey = @ForeignKey(name = "fk_doctors_staff_registry"))
+    private StaffRegistry staffRegistry;
+
+    @Column(name="full_name", nullable = false, length = 255)
     private String fullName;
 
-    @Column(name = "license_number", unique = true)
+    @Column(name="license_number", length = 50)
     private String licenseNumber;
 
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String bio;
 
-    @Lob
+    @Column(columnDefinition = "TEXT")
     private String education;
 
-    @Column(name = "experience_years")
+    @Column(name="experience_years")
     private Integer experienceYears = 0;
 
-    @Column(name = "consultation_fee")
+    @Column(name="consultation_fee", precision = 12, scale = 2)
     private BigDecimal consultationFee = BigDecimal.ZERO;
 
-    @Column(name = "follow_up_fee")
+    @Column(name="follow_up_fee", precision = 12, scale = 2)
     private BigDecimal followUpFee = BigDecimal.ZERO;
 
-    @Column(name = "rating_avg")
+    @Column(name="rating_avg", precision = 3, scale = 2)
     private BigDecimal ratingAvg = BigDecimal.ZERO;
 
-    @Column(name = "rating_count")
+    @Column(name="rating_count")
     private Integer ratingCount = 0;
 
-    @Column(name = "is_available")
+    @Column(name="is_available")
     private Boolean isAvailable = true;
 
-    @Column(name = "hospital_affiliation")
+    @Column(name="hospital_affiliation", length = 255)
     private String hospitalAffiliation;
 
-    @Lob
-    @Column(name = "office_address")
+    @Column(name="office_address", columnDefinition = "TEXT")
     private String officeAddress;
+
+    // ===== Verification (Model B) =====
+    @Enumerated(EnumType.STRING)
+    @Column(name="verification_status", nullable = false, length = 20)
+    private VerificationStatus verificationStatus = VerificationStatus.PENDING;
+
+    @Column(name="verified_at")
+    private LocalDateTime verifiedAt;
+
+    /**
+     * admin user duyệt
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "verified_by", foreignKey = @ForeignKey(name = "fk_doctors_verified_by"))
+    private User verifiedBy;
+
+    @Column(name="rejection_reason", columnDefinition = "TEXT")
+    private String rejectionReason;
+
+    // ===== timestamps (nếu bạn đã có BaseEntity thì có thể bỏ 2 field dưới) =====
+    @Column(name="created_at", nullable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    @Column(name="updated_at", nullable = false)
+    private LocalDateTime updatedAt = LocalDateTime.now();
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    // ===== Relations =====
+    @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<DoctorDocument> documents = new ArrayList<>();
 }

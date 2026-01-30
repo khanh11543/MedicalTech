@@ -6,25 +6,44 @@ import lombok.*;
 import java.util.HashSet;
 import java.util.Set;
 
+/**
+ * Role Entity - Represents user roles (ADMIN, DOCTOR, PATIENT, RECEPTIONIST)
+ * Maps to 'roles' table in database
+ */
+@Entity
+@Table(name = "roles")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Entity
-@Table(name = "roles")
-public class Role {
+public class Role extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false, unique = true, length = 50)
-    private String name; // ADMIN/DOCTOR/PATIENT/RECEPTIONIST
+    @Column(name = "name", nullable = false, unique = true, length = 50)
+    private String name;
 
-    @Column(length = 255)
+    @Column(name = "description", length = 255)
     private String description;
 
-    @OneToMany(mappedBy = "role", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    // Relationships
+    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<UserRole> userRoles = new HashSet<>();
+
+    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Set<RolePermission> rolePermissions = new HashSet<>();
+
+    // Helper methods
+    public void addPermission(RolePermission rolePermission) {
+        rolePermissions.add(rolePermission);
+        rolePermission.setRole(this);
+    }
+
+    public void removePermission(RolePermission rolePermission) {
+        rolePermissions.remove(rolePermission);
+        rolePermission.setRole(null);
+    }
 }

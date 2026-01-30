@@ -3,6 +3,9 @@ package com.q2k.meditech.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.util.HashSet;
+import java.util.Set;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -24,4 +27,7 @@ public class Permission {
 
     @Column(length = 50)
     private String module;
+    // Relationships
+    @OneToMany(mappedBy = "permission", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<RolePermission> rolePermissions = new HashSet<>();
 }
