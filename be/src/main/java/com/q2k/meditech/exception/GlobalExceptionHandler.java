@@ -142,6 +142,30 @@ public class GlobalExceptionHandler {
         
         return new ResponseEntity<>(error, HttpStatus.FORBIDDEN);
     }
+
+    /**
+     * Handle MethodArgumentTypeMismatchException (400)
+     * This happens when path variable cannot be converted (e.g., {id} instead of a number)
+     */
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiErrorResponse> handleMethodArgumentTypeMismatchException(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex,
+            WebRequest request) {
+        
+        String message = String.format("Invalid value '%s' for parameter '%s'. Expected type: %s",
+                ex.getValue(), ex.getName(), 
+                ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
+        
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(LocalDateTime.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .message(message)
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+        
+        return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
+    }
     
     /**
      * Handle all other exceptions (500)
