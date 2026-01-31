@@ -1,0 +1,398 @@
+{
+	"info": {
+		"_postman_id": "doctor-schedule-api",
+		"name": "MediTech - Doctor Schedule API",
+		"description": "Collection để test Doctor Schedule/TimeSlots APIs",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Weekly Schedules",
+			"item": [
+				{
+					"name": "Create Schedule - Monday Morning",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dayOfWeek\": 1,\n  \"startTime\": \"08:00:00\",\n  \"endTime\": \"12:00:00\",\n  \"slotDuration\": 30,\n  \"maxPatients\": 20,\n  \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/doctor/schedules",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"schedules"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Create Schedule - Monday Afternoon",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"dayOfWeek\": 1,\n  \"startTime\": \"14:00:00\",\n  \"endTime\": \"17:00:00\",\n  \"slotDuration\": 30,\n  \"maxPatients\": 15\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/doctor/schedules",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"schedules"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List All Schedules",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/doctor/schedules",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"schedules"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Schedules - Filter by Monday",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/doctor/schedules?dayOfWeek=1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"schedules"
+							],
+							"query": [
+								{
+									"key": "dayOfWeek",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Schedule",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"startTime\": \"08:30:00\",\n  \"endTime\": \"12:30:00\",\n  \"maxPatients\": 25\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/doctor/schedules/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"schedules",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Schedule",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/doctor/schedules/2",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"schedules",
+								"2"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. Schedule Exceptions",
+			"item": [
+				{
+					"name": "Add Exception - OFF",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"exceptionDate\": \"2026-02-15\",\n  \"exceptionType\": \"OFF\",\n  \"reason\": \"Nghỉ phép\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/doctor/schedule-exceptions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"schedule-exceptions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Exception - MODIFIED",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"exceptionDate\": \"2026-02-16\",\n  \"exceptionType\": \"MODIFIED\",\n  \"startTime\": \"09:00:00\",\n  \"endTime\": \"11:00:00\",\n  \"reason\": \"Làm việc ngắn ngày\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/doctor/schedule-exceptions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"schedule-exceptions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Add Exception - EXTRA",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"exceptionDate\": \"2026-02-17\",\n  \"exceptionType\": \"EXTRA\",\n  \"startTime\": \"18:00:00\",\n  \"endTime\": \"20:00:00\",\n  \"reason\": \"Thêm giờ tối\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/doctor/schedule-exceptions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"schedule-exceptions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List All Exceptions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/doctor/schedule-exceptions",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"schedule-exceptions"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Exception",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/doctor/schedule-exceptions/1",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"schedule-exceptions",
+								"1"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Time Slots",
+			"item": [
+				{
+					"name": "Generate Time Slots",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"startDate\": \"2026-02-10\",\n  \"endDate\": \"2026-02-17\",\n  \"overwriteExisting\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/doctor/time-slots/generate",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"time-slots",
+								"generate"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Time Slots",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/doctor/time-slots?startDate=2026-02-10&endDate=2026-02-17",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"time-slots"
+							],
+							"query": [
+								{
+									"key": "startDate",
+									"value": "2026-02-10"
+								},
+								{
+									"key": "endDate",
+									"value": "2026-02-17"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Block Time Slot",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"reason\": \"Bận họp\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/doctor/time-slots/5/block",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"time-slots",
+								"5",
+								"block"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Unblock Time Slot",
+					"request": {
+						"method": "PATCH",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/doctor/time-slots/5/unblock",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"doctor",
+								"time-slots",
+								"5",
+								"unblock"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8080/api",
+			"type": "string"
+		}
+	]
+}
