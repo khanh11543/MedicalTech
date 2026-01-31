@@ -1,88 +1,151 @@
 package com.q2k.meditech.entity;
 
-import com.q2k.meditech.entity.enums.StaffRegistryStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
 
+/**
+ * StaffRegistry Entity - Whitelist cho nhân viên nội bộ
+ * Admin tạo entry này để cho phép nhân viên đăng ký
+ * Maps to 'staff_registry' table in database
+ */
+@Entity
+@Table(name = "staff_registry", indexes = {
+        @Index(name = "idx_staff_registry_email", columnList = "email"),
+        @Index(name = "idx_staff_registry_phone", columnList = "phone"),
+        @Index(name = "idx_staff_registry_status", columnList = "status"),
+        @Index(name = "idx_staff_registry_role", columnList = "expected_role")
+})
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Entity
-@Table(
-        name = "staff_registry",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_staff_registry_email", columnNames = "email"),
-                @UniqueConstraint(name = "uk_staff_registry_staff_code", columnNames = "staff_code")
-        },
-        indexes = {
-                @Index(name = "idx_staff_registry_email", columnList = "email"),
-                @Index(name = "idx_staff_registry_status", columnList = "status")
-        }
-)
-public class StaffRegistry {
+public class StaffRegistry extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name="staff_code", nullable = false, length = 50)
+    /**
+     * Staff code - Mã nhân viên duy nhất
+     */
+    @Column(name = "staff_code", nullable = false, unique = true, length = 50)
     private String staffCode;
 
-    @Column(nullable = false, length = 255)
+    /**
+     * Email của nhân viên được mời
+     */
+    @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
 
-    @Column(name="full_name", nullable = false, length = 255)
+    /**
+     * Phone của nhân viên (optional)
+     */
+    @Column(name = "phone", length = 20)
+    private String phone;
+
+    /**
+     * Tên đầy đủ của nhân viên
+     */
+    @Column(name = "full_name", nullable = false, length = 255)
     private String fullName;
 
-    @Column(length = 100)
+    /**
+     * Role mong đợi khi nhân viên đăng ký (DOCTOR, RECEPTIONIST)
+     * KHÔNG bao gồm PATIENT (chỉ staff nội bộ)
+     */
+    @Column(name = "expected_role", nullable = false, length = 50)
+    private String expectedRole;
+
+    /**
+     * Department (phòng ban)
+     */
+    @Column(name = "department", length = 100)
     private String department;
 
     /**
-     * Nếu bạn muốn gán sẵn specialty cho staff nội bộ (optional).
-     * Nếu không dùng, bạn có thể xóa field + mapping này.
+     * Status của registry entry
+     * PENDING - Chưa đăng ký
+     * REGISTERED - Đã đăng ký thành công
+     * DISABLED - Đã vô hiệu hóa
+     * EXPIRED - Hết hạn (nếu có expiry)
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "specialty_id", foreignKey = @ForeignKey(name = "fk_staff_registry_specialty"))
-    private Specialty specialty;
-
-    @Column(name="license_number", length = 50)
-    private String licenseNumber;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private StaffRegistryStatus status = StaffRegistryStatus.INVITED;
-
-    @Column(name="invited_at", nullable = false)
-    private LocalDateTime invitedAt = LocalDateTime.now();
+    @Column(name = "status", nullable = false, length = 20)
+    private String status = "PENDING";
 
     /**
-     * invited_by: admin user
+     * Ngày hết hạn lời mời (optional)
+     * Nếu null = không giới hạn
+     */
+    @Column(name = "invite_expires_at")
+    private LocalDateTime inviteExpiresAt;
+
+    /**
+     * User ID sau khi đăng ký thành công
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "registered_user_id", foreignKey = @ForeignKey(name = "fk_staff_registry_user"))
+    private User registeredUser;
+
+    /**
+     * Ngày đăng ký thành công
+     */
+    @Column(name = "registered_at")
+    private LocalDateTime registeredAt;
+
+    /**
+     * Admin tạo lời mời
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invited_by", foreignKey = @ForeignKey(name = "fk_staff_registry_invited_by"))
     private User invitedBy;
 
-    @Column(name="claimed_at")
-    private LocalDateTime claimedAt;
+    /**
+     * Ngày tạo lời mời
+     */
+    @Column(name = "invited_at", nullable = false)
+    private LocalDateTime invitedAt;
 
     /**
-     * claimed_user_id: user doctor sau khi doctor đăng ký thành công
+     * Admin disable entry (nếu có)
      */
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "claimed_user_id", foreignKey = @ForeignKey(name = "fk_staff_registry_claimed_user"))
-    private User claimedUser;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "disabled_by", foreignKey = @ForeignKey(name = "fk_staff_registry_disabled_by"))
+    private User disabledBy;
 
-    @Column(columnDefinition = "TEXT")
+    /**
+     * Ngày disable
+     */
+    @Column(name = "disabled_at")
+    private LocalDateTime disabledAt;
+
+    /**
+     * Lý do disable
+     */
+    @Column(name = "disable_reason", length = 500)
+    private String disableReason;
+
+    /**
+     * Ghi chú thêm
+     */
+    @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
     /**
-     * 1 staff_registry -> 1 doctor (sau khi claim)
-     * mappedBy: field staffRegistry trong Doctor
+     * Invitation token (để verify khi đăng ký)
+     * Optional - có thể dùng để secure registration process
      */
-    @OneToOne(mappedBy = "staffRegistry", fetch = FetchType.LAZY)
-    private Doctor doctor;
+    @Column(name = "invitation_token", length = 255)
+    private String invitationToken;
+
+    // Helper methods
+    public boolean isExpired() {
+        return inviteExpiresAt != null && inviteExpiresAt.isBefore(LocalDateTime.now());
+    }
+
+    public boolean canRegister() {
+        return "PENDING".equals(status) && !isExpired();
+    }
 }
