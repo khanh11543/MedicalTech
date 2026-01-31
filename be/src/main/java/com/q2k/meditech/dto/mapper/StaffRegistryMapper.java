@@ -93,7 +93,7 @@ public abstract class StaffRegistryMapper {
      */
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "staffCode", ignore = true)
-    @Mapping(target = "status", constant = "PENDING")
+    @Mapping(target = "status", ignore = true)
     @Mapping(target = "registeredUser", ignore = true)
     @Mapping(target = "registeredAt", ignore = true)
     @Mapping(target = "invitedBy", ignore = true)
