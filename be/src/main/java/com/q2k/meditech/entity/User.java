@@ -40,9 +40,11 @@ public class User extends BaseEntity {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
+    @Builder.Default
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
+    @Builder.Default
     @Column(name = "is_verified", nullable = false)
     private Boolean isVerified = false;
 
@@ -55,12 +57,30 @@ public class User extends BaseEntity {
     @Column(name = "reset_token_expiry")
     private LocalDateTime resetTokenExpiry;
 
+    @Column(name = "reset_token_used_at")
+    private LocalDateTime resetTokenUsedAt;
+
+    @Column(name = "otp_code", length = 6)
+    private String otpCode;
+
+    @Column(name = "otp_created_at")
+    private LocalDateTime otpCreatedAt;
+
+    @Column(name = "otp_expires_at")
+    private LocalDateTime otpExpiresAt;
+
+    @Builder.Default
+    @Column(name = "otp_attempt_count", nullable = false)
+    private Integer otpAttemptCount = 0;
+
+    @Builder.Default
     @Column(name = "two_factor_enabled", nullable = false)
     private Boolean twoFactorEnabled = false;
 
     @Column(name = "two_factor_secret", length = 255)
     private String twoFactorSecret;
 
+    @Builder.Default
     @Column(name = "failed_login_count", nullable = false)
     private Integer failedLoginCount = 0;
 
@@ -74,8 +94,26 @@ public class User extends BaseEntity {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Set<UserRole> userRoles = new HashSet<>();
 
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<UserSession> sessions = new HashSet<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<RefreshToken> refreshTokens = new HashSet<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<EmailVerification> emailVerifications = new HashSet<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<TwoFactorBackup> twoFactorBackups = new HashSet<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<LoginAttempt> loginAttempts = new HashSet<>();
+
     // Helper methods
     public void addRole(UserRole userRole) {
+        if (this.userRoles == null) {
+            this.userRoles = new HashSet<>();
+        }
         userRoles.add(userRole);
         userRole.setUser(this);
     }

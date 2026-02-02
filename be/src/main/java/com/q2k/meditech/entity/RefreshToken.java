@@ -36,8 +36,9 @@ public class RefreshToken {
     @Column(name="revoked_at")
     private LocalDateTime revokedAt;
 
+    @Builder.Default
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="replaced_by_token_id")
-    private RefreshToken replacedByToken;
+    private RefreshToken replacedByToken = null;
 
     @Column(name="ip_address", length = 45)
     private String ipAddress;
@@ -52,5 +53,6 @@ public class RefreshToken {
     @PrePersist
     void prePersist() {
         if (createdAt == null) createdAt = LocalDateTime.now();
+        if (revokedAt == null) revokedAt = null;
     }
 }
