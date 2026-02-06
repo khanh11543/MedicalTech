@@ -2,6 +2,12 @@ package com.q2k.meditech.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -79,4 +85,55 @@ public class Appointment extends BaseEntity {
 
     @Column(name = "queue_number")
     private Integer queueNumber;
+    @ManyToOne
+    @JoinColumn(name = "patient_id", nullable = false)
+    private Patient patient;
+
+    @ManyToOne
+    @JoinColumn(name = "doctor_id", nullable = false)
+    private Doctor doctor;
+
+    @Column(name = "appointment_date", nullable = false)
+    private LocalDateTime appointmentDate;
+
+    @Column(name = "end_date")
+    private LocalDateTime endDate;
+
+    @Column(length = 20)
+    private String status;
+
+    @Column(length = 20)
+    private String type;
+
+    @Column(name = "consultation_fee", precision = 12, scale = 2)
+    private BigDecimal consultationFee;
+
+    @Column(columnDefinition = "TEXT")
+    private String symptoms;
+
+    @Column(columnDefinition = "TEXT")
+    private String diagnosis;
+
+    @Column(columnDefinition = "TEXT")
+    private String prescription;
+
+    @Column(columnDefinition = "TEXT")
+    private String notes;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = LocalDateTime.now();
+        updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

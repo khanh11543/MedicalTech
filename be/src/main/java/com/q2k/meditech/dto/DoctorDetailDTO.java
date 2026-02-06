@@ -1,6 +1,8 @@
 package com.q2k.meditech.dto;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -16,11 +18,9 @@ import java.util.List;
 public class DoctorDetailDTO {
     private Long id;
     private String fullName;
-    private String avatarUrl;
     private String email;
     private String phone;
-    
-    // Professional info
+    private String avatarUrl;
     private String licenseNumber;
     private String bio;
     private String education;

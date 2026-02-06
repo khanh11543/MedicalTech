@@ -1,7 +1,6 @@
 package com.q2k.meditech.repository;
 
 import com.q2k.meditech.entity.Doctor;
-import com.q2k.meditech.entity.enums.VerificationStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

@@ -5,28 +5,24 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
-/**
- * DTO for Doctor card in search results
- */
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class DoctorCardDTO {
+public class FavoriteDoctorDTO {
+
     private Long id;
-    private String fullName;
+    private Long doctorId;
+    private String doctorName;
     private String avatarUrl;
-    private String primarySpecialty;
     private List<String> specialties;
     private Integer experienceYears;
     private BigDecimal consultationFee;
     private BigDecimal ratingAvg;
     private Integer ratingCount;
     private String hospitalAffiliation;
-    private String city;
-    private String officeAddress;
     private Boolean isAvailable;
+    private LocalDateTime createdAt;
 }

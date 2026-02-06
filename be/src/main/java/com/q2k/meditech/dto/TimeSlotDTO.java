@@ -1,6 +1,8 @@
 package com.q2k.meditech.dto;
 
 import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -20,4 +22,5 @@ public class TimeSlotDTO {
     private LocalTime startTime;
     private LocalTime endTime;
     private String status; // AVAILABLE, BOOKED, BLOCKED, COMPLETED
+    private Boolean isAvailable;
 }
