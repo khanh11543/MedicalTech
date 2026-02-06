@@ -757,6 +757,203 @@ paths:
         '404':
           description: Doctor not found
 
+  # ============== MEDICAL RECORDS ENDPOINTS (DOCTOR) ==============
+  /doctor/medical-records:
+    post:
+      tags:
+        - Medical Records (Doctor)
+      summary: Tạo hồ sơ y tế mới
+      description: |
+        Bác sĩ tạo hồ sơ y tế mới cho bệnh nhân sau khi khám bệnh.
+        Hệ thống tự động tạo mã hồ sơ duy nhất theo format: MR-YYYYMMDD-XXXXX.
+        Chỉ bác sĩ (ROLE_DOCTOR) mới có quyền truy cập.
+      operationId: createMedicalRecord
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicalRecordCreateRequest'
+            example:
+              patientId: 1
+              appointmentId: 5
+              visitDate: "2026-02-06"
+              chiefComplaint: "Đau đầu kéo dài 3 ngày, kèm chóng mặt"
+              presentIllness: "Bệnh nhân đau đầu vùng trán, tăng khi cúi xuống, kèm buồn nôn nhẹ"
+              vitalSigns:
+                bloodPressure: "130/85"
+                heartRate: 78
+                temperature: 37.2
+                weight: 65
+                height: 170
+              physicalExam: "Tỉnh táo, huyết áp hơi cao, không dấu thần kinh khu trú"
+              diagnosis: "Migraine - Đau nửa đầu Migraine"
+              diagnosisCode: "G43.9"
+              treatmentPlan: "Nghỉ ngơi, tránh stress, uống thuốc theo đơn, tái khám sau 2 tuần"
+              prescription: "1. Paracetamol 500mg x 3 lần/ngày sau ăn (5 ngày)\n2. Flunarizine 5mg x 1 viên tối (14 ngày)"
+              labResults:
+                bloodTest: "Bình thường"
+                ctScan: "Chưa yêu cầu"
+              followUpDate: "2026-02-20"
+              followUpNotes: "Tái khám sau 2 tuần, nếu không giảm sẽ chỉ định CT scan"
+              isConfidential: false
+      responses:
+        '201':
+          description: Tạo hồ sơ y tế thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalRecordResponse'
+        '400':
+          description: Dữ liệu đầu vào không hợp lệ
+        '401':
+          description: Chưa xác thực (Unauthorized)
+        '403':
+          description: Không có quyền - Không phải bác sĩ
+        '404':
+          description: Không tìm thấy bệnh nhân hoặc lịch hẹn
+
+  /doctor/medical-records/{id}:
+    put:
+      tags:
+        - Medical Records (Doctor)
+      summary: Cập nhật hồ sơ y tế
+      description: |
+        Bác sĩ cập nhật hồ sơ y tế đã tạo. Chỉ cập nhật các trường được gửi lên (non-null).
+        Bác sĩ chỉ có thể cập nhật hồ sơ của chính mình tạo ra.
+      operationId: updateMedicalRecord
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID của hồ sơ y tế
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicalRecordUpdateRequest'
+            example:
+              diagnosis: "Migraine có aura - Đau nửa đầu kèm tiền triệu thị giác"
+              diagnosisCode: "G43.1"
+              treatmentPlan: "Bổ sung Topiramate 25mg phòng ngừa, tiếp tục thuốc cũ"
+              prescription: "1. Paracetamol 500mg x 3 lần/ngày (5 ngày)\n2. Flunarizine 5mg x 1 tối (14 ngày)\n3. Topiramate 25mg x 1 tối (30 ngày)"
+              followUpNotes: "Theo dõi thêm tần suất cơn đau, ghi nhật ký đau đầu"
+      responses:
+        '200':
+          description: Cập nhật hồ sơ y tế thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalRecordResponse'
+        '400':
+          description: Dữ liệu đầu vào không hợp lệ
+        '401':
+          description: Chưa xác thực
+        '403':
+          description: Không có quyền
+        '404':
+          description: Không tìm thấy hồ sơ hoặc hồ sơ không thuộc bác sĩ này
+
+  # ============== MEDICAL RECORDS ENDPOINTS (PATIENT) ==============
+  /patient/medical-records:
+    get:
+      tags:
+        - Medical Records (Patient)
+      summary: Xem danh sách hồ sơ y tế của tôi
+      description: |
+        Bệnh nhân xem danh sách hồ sơ y tế của mình, hỗ trợ lọc theo khoảng ngày và phân trang.
+        Chỉ bệnh nhân (ROLE_PATIENT) mới có quyền truy cập.
+        Bệnh nhân chỉ xem được hồ sơ của chính mình.
+      operationId: getMyMedicalRecords
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: Ngày bắt đầu lọc (yyyy-MM-dd)
+          schema:
+            type: string
+            format: date
+          example: "2026-01-01"
+        - name: to
+          in: query
+          required: false
+          description: Ngày kết thúc lọc (yyyy-MM-dd)
+          schema:
+            type: string
+            format: date
+          example: "2026-12-31"
+        - name: pageNumber
+          in: query
+          required: false
+          description: Số trang (bắt đầu từ 0)
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: pageSize
+          in: query
+          required: false
+          description: Số bản ghi mỗi trang (mặc định 10, tối đa 100)
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+      responses:
+        '200':
+          description: Lấy danh sách hồ sơ y tế thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalRecordPageResponse'
+        '401':
+          description: Chưa xác thực
+        '403':
+          description: Không có quyền - Không phải bệnh nhân
+
+  /patient/medical-records/{id}:
+    get:
+      tags:
+        - Medical Records (Patient)
+      summary: Xem chi tiết hồ sơ y tế
+      description: |
+        Bệnh nhân xem chi tiết một hồ sơ y tế cụ thể.
+        Bệnh nhân chỉ xem được hồ sơ thuộc về mình.
+      operationId: getMedicalRecordDetail
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID của hồ sơ y tế
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Lấy chi tiết hồ sơ y tế thành công
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MedicalRecordResponse'
+        '401':
+          description: Chưa xác thực
+        '403':
+          description: Không có quyền
+        '404':
+          description: Không tìm thấy hồ sơ y tế
+
   # ============== NOTIFICATION ENDPOINTS ==============
   /notifications:
     get:
@@ -1413,6 +1610,212 @@ components:
           type: number
           format: float
 
+    # ============== MEDICAL RECORDS SCHEMAS ==============
+    MedicalRecordCreateRequest:
+      type: object
+      required:
+        - patientId
+        - visitDate
+      properties:
+        patientId:
+          type: integer
+          format: int64
+          description: ID bệnh nhân
+        appointmentId:
+          type: integer
+          format: int64
+          description: ID lịch hẹn (không bắt buộc)
+        visitDate:
+          type: string
+          format: date
+          description: Ngày khám
+        chiefComplaint:
+          type: string
+          description: Lý do khám / Triệu chứng chính
+        presentIllness:
+          type: string
+          description: Bệnh sử hiện tại
+        vitalSigns:
+          type: object
+          description: "Sinh hiệu (JSON: bloodPressure, heartRate, temperature, weight, height...)"
+          properties:
+            bloodPressure:
+              type: string
+              example: "120/80"
+            heartRate:
+              type: integer
+              example: 72
+            temperature:
+              type: number
+              format: float
+              example: 36.5
+            weight:
+              type: number
+              example: 65
+            height:
+              type: number
+              example: 170
+        physicalExam:
+          type: string
+          description: Kết quả khám lâm sàng
+        diagnosis:
+          type: string
+          description: Chẩn đoán
+        diagnosisCode:
+          type: string
+          maxLength: 20
+          description: Mã ICD-10 chẩn đoán
+          example: "G43.9"
+        treatmentPlan:
+          type: string
+          description: Phác đồ điều trị
+        prescription:
+          type: string
+          description: Đơn thuốc
+        labResults:
+          type: object
+          description: Kết quả xét nghiệm (JSON)
+        followUpDate:
+          type: string
+          format: date
+          description: Ngày tái khám
+        followUpNotes:
+          type: string
+          description: Ghi chú tái khám
+        attachments:
+          type: object
+          description: Tệp đính kèm (JSON - URLs ảnh, file)
+        isConfidential:
+          type: boolean
+          default: false
+          description: Hồ sơ bảo mật
+
+    MedicalRecordUpdateRequest:
+      type: object
+      description: Tất cả các trường đều không bắt buộc - chỉ cập nhật trường có giá trị
+      properties:
+        chiefComplaint:
+          type: string
+        presentIllness:
+          type: string
+        vitalSigns:
+          type: object
+        physicalExam:
+          type: string
+        diagnosis:
+          type: string
+        diagnosisCode:
+          type: string
+          maxLength: 20
+        treatmentPlan:
+          type: string
+        prescription:
+          type: string
+        labResults:
+          type: object
+        followUpDate:
+          type: string
+          format: date
+        followUpNotes:
+          type: string
+        attachments:
+          type: object
+        isConfidential:
+          type: boolean
+
+    MedicalRecordResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        recordCode:
+          type: string
+          description: "Mã hồ sơ tự động (format: MR-YYYYMMDD-XXXXX)"
+          example: "MR-20260206-04821"
+        patientId:
+          type: integer
+          format: int64
+        patientName:
+          type: string
+          example: "Nguyễn Văn A"
+        doctorId:
+          type: integer
+          format: int64
+        doctorName:
+          type: string
+          example: "BS. Trần Thị B"
+        appointmentId:
+          type: integer
+          format: int64
+        visitDate:
+          type: string
+          format: date
+        chiefComplaint:
+          type: string
+        presentIllness:
+          type: string
+        vitalSigns:
+          type: object
+        physicalExam:
+          type: string
+        diagnosis:
+          type: string
+        diagnosisCode:
+          type: string
+        treatmentPlan:
+          type: string
+        prescription:
+          type: string
+        labResults:
+          type: object
+        followUpDate:
+          type: string
+          format: date
+        followUpNotes:
+          type: string
+        attachments:
+          type: object
+        isConfidential:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MedicalRecordPageResponse:
+      type: object
+      description: Kết quả phân trang danh sách hồ sơ y tế
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/MedicalRecordResponse'
+        totalElements:
+          type: integer
+          format: int64
+          description: Tổng số hồ sơ
+        totalPages:
+          type: integer
+          description: Tổng số trang
+        number:
+          type: integer
+          description: Trang hiện tại (bắt đầu từ 0)
+        size:
+          type: integer
+          description: Kích thước trang
+        first:
+          type: boolean
+          description: Có phải trang đầu tiên không
+        last:
+          type: boolean
+          description: Có phải trang cuối cùng không
+        empty:
+          type: boolean
+          description: Danh sách có rỗng không
+
     # ============== NOTIFICATION SCHEMAS ==============
     NotificationListResponse:
       type: object
@@ -1479,6 +1882,10 @@ tags:
     description: Patient profile and medical information
   - name: Review
     description: Patient reviews for doctors
+  - name: Medical Records (Doctor)
+    description: Bác sĩ quản lý hồ sơ y tế (tạo, cập nhật)
+  - name: Medical Records (Patient)
+    description: Bệnh nhân xem hồ sơ y tế của mình
   - name: Notification
     description: User notifications
 
