@@ -37,6 +37,10 @@ public class SecurityConfig {
                 
                 // Authorization rules
                 .authorizeHttpRequests(auth -> auth
+                        // These auth endpoints require valid JWT (must come before /auth/**)
+                        .requestMatchers("/auth/change-password").authenticated()
+                        .requestMatchers("/auth/logout").authenticated()
+                        
                         // Public endpoints - no authentication required
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/public/**").permitAll()
