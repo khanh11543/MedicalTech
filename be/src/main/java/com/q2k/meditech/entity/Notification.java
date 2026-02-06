@@ -2,9 +2,6 @@ package com.q2k.meditech.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -18,23 +15,13 @@ import java.util.Map;
 @Builder
 @Entity
 @Table(name = "notifications")
-
-
-public class Notification {
+public class Notification extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="user_id", nullable = false)
-    private User user;
-
-    @Column(nullable = false)
-    private String title;
-
-    @Lob
-    @Column(nullable = false)
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
@@ -47,45 +34,15 @@ public class Notification {
     @Column(nullable = false, length = 30)
     private String type;
 
-    @Column(name="reference_type", length = 50)
-    private String referenceType; // appointment/payment...
-
-    @Column(name="reference_id")
-    private Long referenceId;
-
-    @Column(name="is_read")
-    private Boolean isRead = false;
-
-    @Column(name="read_at")
-    private LocalDateTime readAt;
-
-    // JSON: ["IN_APP","EMAIL","SMS"]
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name="sent_via", columnDefinition = "json")
-    private Object sentVia;
-
-    @Column(name="email_sent")
-    private Boolean emailSent = false;
-
-    @Column(name="sms_sent")
-    private Boolean smsSent = false;
-
-    @Column(name="push_sent")
-    private Boolean pushSent = false;
-
-    @Column(name="scheduled_at")
-    private LocalDateTime scheduledAt;
-
-    @Column(name="sent_at")
-    private LocalDateTime sentAt;
     @Column(name = "reference_type", length = 50)
     private String referenceType;
 
     @Column(name = "reference_id")
     private Long referenceId;
 
+    @Builder.Default
     @Column(name = "is_read", columnDefinition = "TINYINT(1) DEFAULT 0")
-    private Boolean isRead;
+    private Boolean isRead = false;
 
     @Column(name = "read_at")
     private LocalDateTime readAt;
@@ -94,38 +51,21 @@ public class Notification {
     @Column(name = "sent_via", columnDefinition = "JSON")
     private Map<String, Object> sentVia;
 
+    @Builder.Default
     @Column(name = "email_sent", columnDefinition = "TINYINT(1) DEFAULT 0")
-    private Boolean emailSent;
+    private Boolean emailSent = false;
 
+    @Builder.Default
     @Column(name = "sms_sent", columnDefinition = "TINYINT(1) DEFAULT 0")
-    private Boolean smsSent;
+    private Boolean smsSent = false;
 
+    @Builder.Default
     @Column(name = "push_sent", columnDefinition = "TINYINT(1) DEFAULT 0")
-    private Boolean pushSent;
+    private Boolean pushSent = false;
 
     @Column(name = "scheduled_at")
     private LocalDateTime scheduledAt;
 
     @Column(name = "sent_at")
     private LocalDateTime sentAt;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (isRead == null) {
-            isRead = false;
-        }
-        if (emailSent == null) {
-            emailSent = false;
-        }
-        if (smsSent == null) {
-            smsSent = false;
-        }
-        if (pushSent == null) {
-            pushSent = false;
-        }
-    }
 }

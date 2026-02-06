@@ -2,13 +2,8 @@ package com.q2k.meditech.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.time.LocalTime;
-
 import java.time.LocalTime;
 
 @Getter
@@ -26,12 +21,7 @@ public class DoctorSchedule extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "doctor_id", nullable = false)
-    private Doctor doctor;
-
-    @Column(name = "day_of_week", nullable = false)
-    private Integer dayOfWeek; // 0..6
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doctor_id", nullable = false)
     private Doctor doctor;
 
@@ -44,16 +34,11 @@ public class DoctorSchedule extends BaseEntity {
     @Column(name = "end_time", nullable = false)
     private LocalTime endTime;
 
-    @Column(name = "slot_duration")
-    private Integer slotDuration = 30;
+    @Column(name = "slot_duration_minutes", columnDefinition = "INT DEFAULT 30")
+    private Integer slotDurationMinutes;
 
     @Column(name = "max_patients")
     private Integer maxPatients = 20;
-
-    @Column(name = "is_active")
-    private Boolean isActive = true;
-    @Column(name = "slot_duration_minutes", columnDefinition = "INT DEFAULT 30")
-    private Integer slotDurationMinutes;
 
     @Column(name = "is_active", columnDefinition = "TINYINT(1) DEFAULT 1")
     private Boolean isActive;

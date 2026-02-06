@@ -34,31 +34,24 @@ public class User extends BaseEntity {
     private Long id;
 
     @Column(name = "email", nullable = false, unique = true, length = 255)
-    @Column(nullable = false, unique = true, length = 255)
     private String email;
 
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 
     @Column(name = "phone", length = 20)
-    @Column(length = 20)
     private String phone;
 
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
     @Builder.Default
-    @Column(name = "is_active", nullable = false)
+    @Column(name = "is_active", columnDefinition = "TINYINT(1) DEFAULT 1")
     private Boolean isActive = true;
 
     @Builder.Default
-    @Column(name = "is_verified", nullable = false)
-    private Boolean isVerified = false;
-    @Column(name = "is_active", columnDefinition = "TINYINT(1) DEFAULT 1")
-    private Boolean isActive;
-
     @Column(name = "is_verified", columnDefinition = "TINYINT(1) DEFAULT 0")
-    private Boolean isVerified;
+    private Boolean isVerified = false;
 
     @Column(name = "verification_token", length = 255)
     private String verificationToken;
@@ -86,19 +79,15 @@ public class User extends BaseEntity {
     private Integer otpAttemptCount = 0;
 
     @Builder.Default
-    @Column(name = "two_factor_enabled", nullable = false)
-    private Boolean twoFactorEnabled = false;
     @Column(name = "two_factor_enabled", columnDefinition = "TINYINT(1) DEFAULT 0")
-    private Boolean twoFactorEnabled;
+    private Boolean twoFactorEnabled = false;
 
     @Column(name = "two_factor_secret", length = 255)
     private String twoFactorSecret;
 
     @Builder.Default
-    @Column(name = "failed_login_count", nullable = false)
-    private Integer failedLoginCount = 0;
     @Column(name = "failed_login_count", columnDefinition = "INT DEFAULT 0")
-    private Integer failedLoginCount;
+    private Integer failedLoginCount = 0;
 
     @Column(name = "locked_until")
     private LocalDateTime lockedUntil;
@@ -143,19 +132,3 @@ public class User extends BaseEntity {
         return lockedUntil != null && lockedUntil.isAfter(LocalDateTime.now());
     }
 }
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }

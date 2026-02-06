@@ -2,20 +2,12 @@ package com.q2k.meditech.entity;
 
 import com.q2k.meditech.entity.enums.VerificationStatus;
 import jakarta.persistence.*;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 
 @Getter
 @Setter
@@ -126,4 +118,20 @@ public class Doctor {
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<DoctorDocument> documents = new ArrayList<>();
+
+    @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<DoctorSpecialty> doctorSpecialties = new ArrayList<>();
+
+    /**
+     * Helper method to get list of Specialty objects
+     */
+    public List<Specialty> getSpecialties() {
+        if (doctorSpecialties == null) {
+            return new ArrayList<>();
+        }
+        return doctorSpecialties.stream()
+                .map(DoctorSpecialty::getSpecialty)
+                .collect(java.util.stream.Collectors.toList());
+    }
 }

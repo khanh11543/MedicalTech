@@ -2,9 +2,6 @@ package com.q2k.meditech.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
@@ -31,8 +28,6 @@ public class Specialty extends BaseEntity {
     @Column(name = "icon_url", length = 500)
     private String iconUrl;
 
-    @Column(name = "is_active")
-    private Boolean isActive = true;
     @Column(name = "is_active", columnDefinition = "TINYINT(1) DEFAULT 1")
     private Boolean isActive;
 
