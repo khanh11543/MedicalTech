@@ -9,10 +9,10 @@ SELECT * FROM roles;
 
 -- Step 2: If roles table is empty, insert default roles
 INSERT IGNORE INTO roles (id, name, description, created_at, updated_at) VALUES
-(1, 'ADMIN', 'Quản trị viên hệ thống', NOW(), NOW()),
-(2, 'DOCTOR', 'Bác sĩ', NOW(), NOW()),
-(3, 'RECEPTIONIST', 'Lễ tân', NOW(), NOW()),
-(4, 'PATIENT', 'Bệnh nhân', NOW(), NOW());
+(1, 'ADMIN', 'System Administrator', NOW(), NOW()),
+(2, 'DOCTOR', 'Doctor', NOW(), NOW()),
+(3, 'RECEPTIONIST', 'Receptionist', NOW(), NOW()),
+(4, 'PATIENT', 'Patient', NOW(), NOW());
 
 -- Step 3: Verify insert
 SELECT 'Roles after insert:' as status;

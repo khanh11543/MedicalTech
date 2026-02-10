@@ -5,10 +5,10 @@ USE medical_appointment_system;
 
 -- Insert roles if not exists
 INSERT IGNORE INTO roles (id, name, description, created_at) VALUES
-(1, 'ADMIN', 'Quản trị viên hệ thống', NOW()),
-(2, 'DOCTOR', 'Bác sĩ', NOW()),
-(3, 'RECEPTIONIST', 'Lễ tân', NOW()),
-(4, 'PATIENT', 'Bệnh nhân', NOW());
+(1, 'ADMIN', 'System Administrator', NOW()),
+(2, 'DOCTOR', 'Doctor', NOW()),
+(3, 'RECEPTIONIST', 'Receptionist', NOW()),
+(4, 'PATIENT', 'Patient', NOW());
 
 -- Verify roles
 SELECT * FROM roles;

@@ -71,45 +71,53 @@ public class AuthService {
             throw new BadRequestException("Passwords do not match");
         }
 
-        // Check if email already exists
+        // Check if email already exists in users table
         if (userRepository.findByEmail(registerDTO.getEmail()).isPresent()) {
             throw new DuplicateResourceException("Email already registered");
         }
 
-        // Check if phone already exists
+        // Check if phone already exists in users table
         if (registerDTO.getPhone() != null && 
             userRepository.findByPhone(registerDTO.getPhone()).isPresent()) {
             throw new DuplicateResourceException("Phone number already registered");
         }
 
-        // Create user
-        User user = User.builder()
-            .email(registerDTO.getEmail())
-            .passwordHash(passwordEncoder.encode(registerDTO.getPassword()))
-            .phone(registerDTO.getPhone())
-            .isActive(true)
-            .isVerified(false)
-            .failedLoginCount(0)
-            .twoFactorEnabled(false)
-            .build();
-
-        // Assign PATIENT role by default
-        Role patientRole = roleRepository.findByName("PATIENT")
-            .orElseThrow(() -> new ResourceNotFoundException("Role PATIENT not found"));
-        
-        UserRole userRole = new UserRole();
-        userRole.setRole(patientRole);
-        user.addRole(userRole);
-
-        user = userRepository.save(user);
+        // Check if there's already a pending verification for this email
+        emailVerificationRepository.findLatestByEmailAndStatus(
+            registerDTO.getEmail(), VerificationStatus.PENDING)
+            .ifPresent(verification -> {
+                // If not expired, throw exception
+                if (!verification.isExpired()) {
+                    throw new BadRequestException(
+                        "A verification code has already been sent to this email. Please check your inbox or wait for it to expire.");
+                }
+                // If expired, mark it as expired
+                verification.markAsExpired();
+                emailVerificationRepository.save(verification);
+            });
 
         // Generate and send OTP
         String otpCode = emailService.generateOtp();
-        createEmailVerification(user, registerDTO.getEmail(), otpCode, request);
+        String passwordHash = passwordEncoder.encode(registerDTO.getPassword());
+        
+        // Create email verification with registration data (NO user created yet)
+        createEmailVerificationForRegistration(
+            registerDTO.getEmail(), 
+            otpCode, 
+            passwordHash,
+            registerDTO.getPhone(),
+            request
+        );
+        
         emailService.sendOtpEmail(registerDTO.getEmail(), otpCode);
 
-        // Convert to DTO
-        return convertToUserDTO(user);
+        // Return a temporary DTO (user not created yet)
+        return UserDTO.builder()
+            .email(registerDTO.getEmail())
+            .phone(registerDTO.getPhone())
+            .isActive(false)
+            .isVerified(false)
+            .build();
     }
 
     /**
@@ -117,10 +125,6 @@ public class AuthService {
      */
     @Transactional
     public MessageDTO verifyEmail(VerifyOtpDTO verifyOtpDTO) {
-        // Find user by email
-        User user = userRepository.findByEmail(verifyOtpDTO.getEmail())
-            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-
         // Find latest pending verification
         EmailVerification verification = emailVerificationRepository
             .findLatestByEmailAndStatus(verifyOtpDTO.getEmail(), VerificationStatus.PENDING)
@@ -151,11 +155,65 @@ public class AuthService {
         verification.markAsVerified();
         emailVerificationRepository.save(verification);
 
-        user.setIsVerified(true);
-        userRepository.save(user);
+        // Check if this is a registration flow (no user exists yet)
+        if (verification.getUser() == null) {
+            // Create user NOW after successful OTP verification
+            if (verification.getPasswordHash() == null) {
+                throw new BadRequestException("Invalid verification record - missing password");
+            }
 
-        // Send welcome email
-        emailService.sendWelcomeEmail(user.getEmail(), user.getEmail());
+            // Double-check email is still available
+            if (userRepository.findByEmail(verification.getEmail()).isPresent()) {
+                throw new DuplicateResourceException("Email already registered");
+            }
+
+            // Double-check phone is still available (if provided)
+            if (verification.getPhone() != null && 
+                userRepository.findByPhone(verification.getPhone()).isPresent()) {
+                throw new DuplicateResourceException("Phone number already registered");
+            }
+
+            // Create new user
+            User newUser = User.builder()
+                .email(verification.getEmail())
+                .passwordHash(verification.getPasswordHash())
+                .phone(verification.getPhone())
+                .isActive(true)  // Active immediately after verification
+                .isVerified(true)  // Verified immediately
+                .failedLoginCount(0)
+                .twoFactorEnabled(false)
+                .build();
+
+            // Assign PATIENT role by default
+            Role patientRole = roleRepository.findByName("PATIENT")
+                .orElseThrow(() -> new ResourceNotFoundException("Role PATIENT not found"));
+            
+            UserRole userRole = new UserRole();
+            userRole.setRole(patientRole);
+            newUser.addRole(userRole);
+
+            newUser = userRepository.save(newUser);
+
+            // Update verification record to link to the new user
+            verification.setUser(newUser);
+            emailVerificationRepository.save(verification);
+
+            // Send welcome email
+            emailService.sendWelcomeEmail(newUser.getEmail(), newUser.getEmail());
+
+            log.info("New user created and verified: {}", newUser.getEmail());
+        } else {
+            // This is for email change flow - just activate existing user
+            User user = verification.getUser();
+            user.setIsVerified(true);
+            user.setIsActive(true);
+            userRepository.save(user);
+
+            // Send welcome email
+            emailService.sendWelcomeEmail(user.getEmail(), user.getEmail());
+
+            log.info("Existing user verified: {}", user.getEmail());
+        }
 
         return MessageDTO.success("Email verified successfully");
     }
@@ -187,11 +245,11 @@ public class AuthService {
                     "Account is locked until " + user.getLockedUntil());
             }
 
-            // Check if account is active
+            // Check if account is active (account must be activated after email verification)
             if (!user.getIsActive()) {
                 recordLoginAttempt(user, loginDTO.getEmail(), false, 
-                    "Account inactive", ipAddress, userAgent);
-                throw new BadRequestException("Account is inactive");
+                    "Account not activated", ipAddress, userAgent);
+                throw new UnverifiedAccountException("Please verify your email to activate your account");
             }
 
             // Check if email is verified
@@ -458,6 +516,11 @@ public class AuthService {
             .expiresAt(jwtService.calculateAccessTokenExpiry())
             .refreshExpiresAt(jwtService.calculateRefreshTokenExpiry())
             .sessionKey(sessionKey)
+            .userId(user.getId())
+            .email(user.getEmail())
+            .roles(user.getUserRoles().stream()
+                    .map(ur -> ur.getRole().getName())
+                    .collect(Collectors.toSet()))
             .build();
     }
 
@@ -485,6 +548,24 @@ public class AuthService {
             .attemptedAt(LocalDateTime.now())
             .build();
         loginAttemptRepository.save(attempt);
+    }
+
+    private void createEmailVerificationForRegistration(String email, String otpCode,
+                                                       String passwordHash, String phone,
+                                                       HttpServletRequest request) {
+        EmailVerification verification = EmailVerification.builder()
+            .user(null)  // No user yet - will be created after OTP verification
+            .email(email)
+            .otpCode(otpCode)
+            .passwordHash(passwordHash)  // Store temporarily
+            .phone(phone)  // Store temporarily
+            .expiresAt(LocalDateTime.now().plusMinutes(otpExpiryMinutes))
+            .attemptCount(0)
+            .status(VerificationStatus.PENDING)
+            .ipAddress(getClientIp(request))
+            .userAgent(request.getHeader("User-Agent"))
+            .build();
+        emailVerificationRepository.save(verification);
     }
 
     private void createEmailVerification(User user, String email, String otpCode, 

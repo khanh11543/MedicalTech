@@ -30,7 +30,7 @@ public class EmailVerification extends BaseEntity {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
+    @JoinColumn(name = "user_id", nullable = true)  // Allow null for registration flow
     private User user;
 
     @Column(name = "email", nullable = false, length = 255)
@@ -38,6 +38,13 @@ public class EmailVerification extends BaseEntity {
 
     @Column(name = "otp_code", nullable = false, length = 6)
     private String otpCode;
+    
+    // Temporary fields for registration flow (before user creation)
+    @Column(name = "password_hash", columnDefinition = "TEXT")
+    private String passwordHash;
+    
+    @Column(name = "phone", length = 20)
+    private String phone;
 
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;

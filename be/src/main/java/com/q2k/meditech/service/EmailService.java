@@ -43,7 +43,7 @@ public class EmailService {
      */
     public void sendOtpEmail(String email, String otpCode) {
         try {
-            String subject = "Mã xác thực OTP - MedicalTech";
+            String subject = "OTP Verification Code - MedicalTech";
             String htmlContent = buildOtpEmailTemplate(otpCode);
             
             sendHtmlEmail(email, subject, htmlContent);
@@ -59,7 +59,7 @@ public class EmailService {
      */
     public void sendResetPasswordEmail(String email, String resetToken) {
         try {
-            String subject = "Đặt lại mật khẩu - MedicalTech";
+            String subject = "Reset Password - MedicalTech";
             String htmlContent = buildResetPasswordEmailTemplate(resetToken);
             
             sendHtmlEmail(email, subject, htmlContent);
@@ -75,7 +75,7 @@ public class EmailService {
      */
     public void sendWelcomeEmail(String email, String name) {
         try {
-            String subject = "Chào mừng đến với MedicalTech!";
+            String subject = "Welcome to MedicalTech!";
             String htmlContent = buildWelcomeEmailTemplate(name);
             
             sendHtmlEmail(email, subject, htmlContent);
@@ -91,7 +91,7 @@ public class EmailService {
      */
     public void sendAccountLockedEmail(String email) {
         try {
-            String subject = "Tài khoản bị khóa - MedicalTech";
+            String subject = "Account Locked - MedicalTech";
             String htmlContent = buildAccountLockedEmailTemplate();
             
             sendHtmlEmail(email, subject, htmlContent);
@@ -195,10 +195,10 @@ public class EmailService {
                 "            <h1>🏥 MedicalTech</h1>\n" +
                 "        </div>\n" +
                 "        <div class='content'>\n" +
-                "            <h2>Đặt lại mật khẩu</h2>\n" +
-                "            <p>Bạn đã yêu cầu đặt lại mật khẩu. Sử dụng mã token sau:</p>\n" +
+                "            <h2>Reset Password</h2>\n" +
+                "            <p>You requested a password reset. Use the following token:</p>\n" +
                 "            <div class='token-box'><strong>" + resetToken + "</strong></div>\n" +
-                "            <p style='color: #e74c3c;'>⏰ Mã này sẽ hết hạn sau 60 phút</p>\n" +
+                "            <p style='color: #e74c3c;'>⏰ This code will expire in 60 minutes</p>\n" +
                 "        </div>\n" +
                 "        <div class='footer'>\n" +
                 "            <p>© 2026 MedicalTech. All rights reserved.</p>\n" +
@@ -230,10 +230,10 @@ public class EmailService {
                 "            <h1>🏥 MedicalTech</h1>\n" +
                 "        </div>\n" +
                 "        <div class='content'>\n" +
-                "            <h2>Chào mừng đến với MedicalTech!</h2>\n" +
-                "            <p>Xin chào <strong>" + name + "</strong>,</p>\n" +
-                "            <p>Tài khoản của bạn đã được xác thực thành công! Cảm ơn bạn đã tham gia hệ thống quản lý y tế của chúng tôi.</p>\n" +
-                "            <p>Bạn có thể bắt đầu sử dụng các dịch vụ ngay bây giờ.</p>\n" +
+                "            <h2>Welcome to MedicalTech!</h2>\n" +
+                "            <p>Hello <strong>" + name + "</strong>,</p>\n" +
+                "            <p>Your account has been verified successfully! Thank you for joining our healthcare management system.</p>\n" +
+                "            <p>You can now start using our services.</p>\n" +
                 "        </div>\n" +
                 "        <div class='footer'>\n" +
                 "            <p>© 2026 MedicalTech. All rights reserved.</p>\n" +
@@ -262,12 +262,12 @@ public class EmailService {
                 "<body>\n" +
                 "    <div class='container'>\n" +
                 "        <div class='header'>\n" +
-                "            <h1>⚠️ Cảnh báo bảo mật</h1>\n" +
+                "            <h1>⚠️ Security Alert</h1>\n" +
                 "        </div>\n" +
                 "        <div class='content'>\n" +
-                "            <h2>Tài khoản đã bị khóa</h2>\n" +
-                "            <p>Tài khoản của bạn đã bị khóa do nhiều lần đăng nhập thất bại.</p>\n" +
-                "            <p>Vui lòng liên hệ bộ phận hỗ trợ hoặc chờ tài khoản tự động mở khóa.</p>\n" +
+                "            <h2>Account Locked</h2>\n" +
+                "            <p>Your account has been locked due to multiple failed login attempts.</p>\n" +
+                "            <p>Please contact support or wait for the account to unlock automatically.</p>\n" +
                 "        </div>\n" +
                 "        <div class='footer'>\n" +
                 "            <p>© 2026 MedicalTech. All rights reserved.</p>\n" +

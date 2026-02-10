@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 
 /**
  * Token Response DTO
@@ -30,4 +31,9 @@ public class TokenDTO {
     
     // Session information
     private String sessionKey;
+    
+    // User information
+    private Long userId;
+    private String email;
+    private Set<String> roles;
 }
