@@ -18,7 +18,7 @@ public class SpecialtyController {
     @GetMapping
     public ResponseEntity<List<SpecialtyDTO>> getAllSpecialties(
             @RequestParam(required = false) Boolean isActive) {
-        List<SpecialtyDTO> specialties = specialtyService.getAllSpecialties(isActive);
+        List<SpecialtyDTO> specialties = specialtyService.searchSpecialties(null, isActive);
         return ResponseEntity.ok(specialties);
     }
 }

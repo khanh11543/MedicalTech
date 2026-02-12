@@ -187,7 +187,7 @@ public class ReviewService {
         dto.setAppointmentId(review.getAppointment() != null ? review.getAppointment().getId() : null);
         dto.setPatientId(review.getPatient() != null ? review.getPatient().getId() : null);
         dto.setPatientName(review.getIsAnonymous() ? "Anonymous" : 
-                (review.getPatient() != null ? review.getPatient().getFullName() : null));
+                (review.getPatient() != null && review.getPatient().getUser() != null ? review.getPatient().getUser().getFullName() : null));
         dto.setDoctorId(review.getDoctor() != null ? review.getDoctor().getId() : null);
         dto.setDoctorName(review.getDoctor() != null ? review.getDoctor().getFullName() : null);
         dto.setRating(review.getRating());

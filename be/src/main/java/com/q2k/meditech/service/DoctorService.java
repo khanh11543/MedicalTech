@@ -123,7 +123,7 @@ public class DoctorService {
                             currentDate,
                             schedule.getStartTime(),
                             schedule.getEndTime(),
-                            schedule.getSlotDurationMinutes()
+                            schedule.getSlotDuration()
                     );
                     timeSlots.addAll(dailySlots);
                 }
@@ -152,8 +152,8 @@ public class DoctorService {
         while (currentTime.plusMinutes(durationMinutes).isBefore(endTime) ||
                currentTime.plusMinutes(durationMinutes).equals(endTime)) {
 
-            LocalDateTime slotStart = LocalDateTime.of(date, currentTime);
-            LocalDateTime slotEnd = slotStart.plusMinutes(durationMinutes);
+            LocalTime slotStart = currentTime;
+            LocalTime slotEnd = currentTime.plusMinutes(durationMinutes);
 
             TimeSlotDTO slot = new TimeSlotDTO();
             slot.setStartTime(slotStart);

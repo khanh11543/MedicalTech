@@ -33,7 +33,7 @@ public class FavoriteDoctorController {
 
         favoriteDoctorService.removeFavorite(id, patientId);
 
-        MessageDTO response = new MessageDTO("Favorite removed successfully", true);
+        MessageDTO response = MessageDTO.success("Favorite removed successfully");
         return ResponseEntity.ok(response);
     }
 }

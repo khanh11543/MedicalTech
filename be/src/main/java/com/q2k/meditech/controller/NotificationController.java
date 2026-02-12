@@ -37,7 +37,7 @@ public class NotificationController {
 
         notificationService.markAsRead(id, userId);
 
-        MessageDTO response = new MessageDTO("Notification marked as read", true);
+        MessageDTO response = MessageDTO.success("Notification marked as read");
         return ResponseEntity.ok(response);
     }
 }
