@@ -1,0 +1,30 @@
+package com.q2k.meditech.dto;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import lombok.*;
+
+import java.util.List;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class TemplateCreateDTO {
+    
+    @NotBlank(message = "Template name is required")
+    private String templateName;
+    
+    private String description;
+    
+    private String diagnosisTemplate; // Chẩn đoán mẫu
+    
+    private String notesTemplate; // Ghi chú mẫu
+    
+    private Integer defaultFollowUpDays; // Số ngày tái khám mặc định
+    
+    @NotEmpty(message = "Template must have at least one item")
+    @Valid
+    private List<TemplateItemDTO> items;
+}

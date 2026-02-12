@@ -1,0 +1,86 @@
+package com.q2k.meditech.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+/**
+ * AppointmentHistory Entity - Tracks all changes to appointments
+ * Maps to 'appointment_history' table in database
+ */
+@Entity
+@Table(name = "appointment_history", indexes = {
+        @Index(name = "idx_appointment_history_appointment", columnList = "appointment_id")
+})
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class AppointmentHistory extends BaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    /**
+     * Appointment được thay đổi
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "appointment_id", nullable = false,
+            foreignKey = @ForeignKey(name = "fk_appointment_history_appointment"))
+    private Appointment appointment;
+
+    /**
+     * User thực hiện thay đổi
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "changed_by",
+            foreignKey = @ForeignKey(name = "fk_appointment_history_changed_by"))
+    private User changedBy;
+
+    /**
+     * Status cũ
+     */
+    @Column(name = "old_status", length = 20)
+    private String oldStatus;
+
+    /**
+     * Status mới
+     */
+    @Column(name = "new_status", length = 20)
+    private String newStatus;
+
+    /**
+     * Ngày cũ
+     */
+    @Column(name = "old_date")
+    private LocalDate oldDate;
+
+    /**
+     * Ngày mới
+     */
+    @Column(name = "new_date")
+    private LocalDate newDate;
+
+    /**
+     * Giờ cũ
+     */
+    @Column(name = "old_time")
+    private LocalTime oldTime;
+
+    /**
+     * Giờ mới
+     */
+    @Column(name = "new_time")
+    private LocalTime newTime;
+
+    /**
+     * Lý do thay đổi
+     */
+    @Column(name = "change_reason", columnDefinition = "TEXT")
+    private String changeReason;
+}

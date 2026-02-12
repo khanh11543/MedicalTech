@@ -46,5 +46,5 @@ public class CreateUserDTO {
     private Boolean isVerified = false;
     
     // Role IDs để assign cho user ngay khi tạo
-    private Set<Integer> roleIds;
+    private Set<Long> roleIds;
 }

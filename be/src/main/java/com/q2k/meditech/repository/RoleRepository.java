@@ -14,7 +14,7 @@ import java.util.Set;
  * Repository for Role entity
  */
 @Repository
-public interface RoleRepository extends JpaRepository<Role, Integer> {
+public interface RoleRepository extends JpaRepository<Role, Long> {
     
     /**
      * Tìm role theo tên
@@ -27,10 +27,10 @@ public interface RoleRepository extends JpaRepository<Role, Integer> {
     List<Role> findByNameIn(Set<String> names);
     
     /**
-     * Tìm nhiều roles theo IDs
+     * TÌm nhiều roles theo IDs
      */
     @Query("SELECT r FROM Role r WHERE r.id IN :ids")
-    List<Role> findByIdIn(@Param("ids") Set<Integer> ids);
+    List<Role> findByIdIn(@Param("ids") Set<Long> ids);
     
     /**
      * Check role name đã tồn tại chưa

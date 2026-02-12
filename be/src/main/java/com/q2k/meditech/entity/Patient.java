@@ -3,73 +3,39 @@ package com.q2k.meditech.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
+@Entity
+@Table(name = "patients")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Entity
-@Table(name = "patients")
 public class Patient extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @OneToOne(fetch = FetchType.LAZY) @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
-
-    @Column(name = "full_name", nullable = false)
-    private String fullName;
 
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
-    @Column(length = 10)
-    private String gender; // MALE/FEMALE/OTHER
+    @Column(name = "gender")
+    private String gender;
 
-    @Column(name = "identity_number", length = 20)
-    private String identityNumber;
-
-    @Lob
+    @Column(name = "address")
     private String address;
 
-    private String city;
-    private String district;
-    private String ward;
-
-    @Column(name = "emergency_contact")
-    private String emergencyContact;
-
-    @Column(name = "emergency_phone", length = 20)
-    private String emergencyPhone;
-
-    @Column(name = "blood_type", length = 5)
-    private String bloodType;
-
-    @Column(name = "height_cm")
-    private BigDecimal heightCm;
-
-    @Column(name = "weight_kg")
-    private BigDecimal weightKg;
-
-    @Lob
-    private String allergies;
-
-    @Lob
-    @Column(name = "chronic_conditions")
-    private String chronicConditions;
-
-    @Lob
-    @Column(name = "current_medications")
-    private String currentMedications;
-
-    @Column(name = "insurance_number", length = 50)
+    @Column(name = "insurance_number")
     private String insuranceNumber;
 
-    @Column(name = "insurance_provider", length = 100)
-    private String insuranceProvider;
+    @Column(name = "medical_history", columnDefinition = "TEXT")
+    private String medicalHistory;
+
+    @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<Appointment> appointments = new ArrayList<>();
 }

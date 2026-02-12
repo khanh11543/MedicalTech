@@ -3,62 +3,75 @@ package com.q2k.meditech.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
+@Entity
+@Table(name = "prescription_templates", indexes = {
+        @Index(name = "idx_template_doctor", columnList = "doctor_id"),
+        @Index(name = "idx_template_active", columnList = "is_active")
+})
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Entity
-@Table(
-        name = "prescription_templates",
-        indexes = {
-                @Index(name = "idx_prescription_templates_doctor", columnList = "doctor_id"),
-                @Index(name = "idx_prescription_templates_active", columnList = "is_active")
-        }
-)
-public class PrescriptionTemplate {
+public class PrescriptionTemplate extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    // FK doctors(id)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name="doctor_id", nullable = false)
-    private Doctor doctor;
+    @JoinColumn(name = "doctor_id", nullable = false)
+    private Doctor doctor; // Template thuộc về doctor nào
 
-    @Column(nullable = false, length = 255)
-    private String name;
+    @Column(name = "template_name", nullable = false)
+    private String templateName; // Tên template (vd: "Điều trị cảm cúm thông thường")
 
-    @Lob
-    private String notes;
+    @Column(name = "description", columnDefinition = "TEXT")
+    private String description; // Mô tả template
 
-    @Column(name="is_active")
+    @Column(name = "diagnosis_template", columnDefinition = "TEXT")
+    private String diagnosisTemplate; // Chẩn đoán mẫu
+
+    @Column(name = "notes_template", columnDefinition = "TEXT")
+    private String notesTemplate; // Ghi chú mẫu
+
+    @Column(name = "default_follow_up_days")
+    private Integer defaultFollowUpDays; // Số ngày tái khám mặc định
+
+    @Column(name = "is_active")
+    @Builder.Default
     private Boolean isActive = true;
 
-    @Column(name="created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name="updated_at")
-    private LocalDateTime updatedAt;
+    @Column(name = "usage_count")
+    @Builder.Default
+    private Integer usageCount = 0; // Số lần sử dụng template
 
     @OneToMany(mappedBy = "template", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<PrescriptionTemplateItem> items = new HashSet<>();
+    @OrderBy("itemOrder ASC")
+    @Builder.Default
+    private List<PrescriptionTemplateItem> items = new ArrayList<>();
 
-    @PrePersist
-    void prePersist() {
-        LocalDateTime now = LocalDateTime.now();
-        if (createdAt == null) createdAt = now;
-        updatedAt = now;
-        if (isActive == null) isActive = true;
+    // Helper method để thêm item
+    public void addItem(PrescriptionTemplateItem item) {
+        items.add(item);
+        item.setTemplate(this);
     }
 
-    @PreUpdate
-    void preUpdate() {
-        updatedAt = LocalDateTime.now();
+    // Helper method để xóa item
+    public void removeItem(PrescriptionTemplateItem item) {
+        items.remove(item);
+        item.setTemplate(null);
+    }
+
+    // Helper method để clear và set items
+    public void setItems(List<PrescriptionTemplateItem> newItems) {
+        this.items.clear();
+        if (newItems != null) {
+            newItems.forEach(this::addItem);
+        }
+    }
+
+    // Tăng số lần sử dụng
+    public void incrementUsageCount() {
+        this.usageCount++;
     }
 }

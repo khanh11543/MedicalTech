@@ -17,10 +17,6 @@ import java.time.LocalDateTime;
 @Table(name = "payments")
 public class Payment extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     @Column(name="payment_code", nullable = false, unique = true, length = 20)
     private String paymentCode;
 

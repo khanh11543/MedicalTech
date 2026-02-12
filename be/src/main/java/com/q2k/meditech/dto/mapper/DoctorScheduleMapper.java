@@ -21,11 +21,9 @@ public interface DoctorScheduleMapper {
     List<DoctorScheduleDTO> toDTOList(List<DoctorSchedule> entities);
 
     @Mapping(target = "doctor", ignore = true)
-    @Mapping(target = "id", ignore = true)
     DoctorSchedule toEntity(DoctorScheduleDTO dto);
 
     @Mapping(target = "doctor", ignore = true)
-    @Mapping(target = "id", ignore = true)
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void updateEntityFromDTO(DoctorScheduleDTO dto, @MappingTarget DoctorSchedule entity);
 
@@ -37,7 +35,6 @@ public interface DoctorScheduleMapper {
     List<ScheduleExceptionDTO> toExceptionDTOList(List<ScheduleException> entities);
 
     @Mapping(target = "doctor", ignore = true)
-    @Mapping(target = "id", ignore = true)
     ScheduleException toExceptionEntity(ScheduleExceptionDTO dto);
 
     // ========== TimeSlot Mappings ==========

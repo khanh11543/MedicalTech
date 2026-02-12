@@ -93,7 +93,7 @@ public class UserServiceImpl implements UserService {
         log.info("Getting user detail for ID: {}", userId);
 
         User user = userRepository.findByIdWithRoles(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         UserDetailDTO dto = userMapper.toDetailDTO(user);
         dto.setRoles(userMapper.mapRolesToDetailDTO(user.getUserRoles()));
@@ -146,7 +146,7 @@ public class UserServiceImpl implements UserService {
         // Reload user with roles
         Long userId = user.getId();
         user = userRepository.findByIdWithRoles(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         log.info("User created successfully with ID: {}", user.getId());
         UserDTO result = userMapper.toDTO(user);
@@ -184,7 +184,7 @@ public class UserServiceImpl implements UserService {
         // Reload with roles
         Long savedUserId = user.getId();
         user = userRepository.findByIdWithRoles(savedUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", savedUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + savedUserId));
 
         log.info("User updated successfully: {}", userId);
         UserDTO result = userMapper.toDTO(user);
@@ -213,7 +213,7 @@ public class UserServiceImpl implements UserService {
         // Reload with roles
         Long statusUserId = user.getId();
         user = userRepository.findByIdWithRoles(statusUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", statusUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + statusUserId));
 
         log.info("User status updated successfully: {}", userId);
         UserDTO result = userMapper.toDTO(user);
@@ -227,10 +227,10 @@ public class UserServiceImpl implements UserService {
         log.info("Assigning roles to user ID: {}, roles: {}", userId, dto.getRoleIds());
 
         User user = userRepository.findByIdWithRoles(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         User currentUser = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", currentUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + currentUserId));
 
         // Delete all existing roles
         userRoleRepository.deleteByUserId(userId);
@@ -280,14 +280,14 @@ public class UserServiceImpl implements UserService {
     /**
      * Helper method to assign roles to user
      */
-    private void assignRolesToUser(User user, Set<Integer> roleIds, Long assignedBy) {
+    private void assignRolesToUser(User user, Set<Long> roleIds, Long assignedBy) {
         // Validate all roles exist
         List<Role> roles = roleRepository.findByIdIn(roleIds);
         if (roles.size() != roleIds.size()) {
-            Set<Integer> foundRoleIds = roles.stream()
+            Set<Long> foundRoleIds = roles.stream()
                     .map(Role::getId)
                     .collect(Collectors.toSet());
-            Set<Integer> missingRoleIds = roleIds.stream()
+            Set<Long> missingRoleIds = roleIds.stream()
                     .filter(id -> !foundRoleIds.contains(id))
                     .collect(Collectors.toSet());
             throw new ResourceNotFoundException("Roles not found with IDs: " + missingRoleIds);

@@ -1,0 +1,50 @@
+package com.q2k.meditech.controller;
+
+import com.q2k.meditech.dto.*;
+import com.q2k.meditech.entity.enums.AppointmentStatus;
+import com.q2k.meditech.service.AppointmentService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+
+/**
+ * Controller for Admin appointment operations
+ */
+@RestController
+@RequestMapping("/api/admin/appointments")
+@RequiredArgsConstructor
+public class AdminAppointmentController {
+    
+    private final AppointmentService appointmentService;
+    
+    /**
+     * Admin views all appointments with filters
+     * GET /api/admin/appointments
+     */
+    @GetMapping
+    public ResponseEntity<Page<AppointmentDTO>> getAllAppointments(
+            @RequestParam(required = false) Long doctorId,
+            @RequestParam(required = false) Long patientId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(defaultValue = "0") Integer pageNumber,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
+        
+        AppointmentFilterDTO filter = AppointmentFilterDTO.builder()
+                .doctorId(doctorId)
+                .patientId(patientId)
+                .status(status != null ? AppointmentStatus.valueOf(status.toUpperCase()) : null)
+                .from(from != null ? LocalDate.parse(from) : null)
+                .to(to != null ? LocalDate.parse(to) : null)
+                .pageNumber(pageNumber)
+                .pageSize(pageSize)
+                .build();
+        
+        Page<AppointmentDTO> result = appointmentService.getAllAppointments(filter);
+        return ResponseEntity.ok(result);
+    }
+}

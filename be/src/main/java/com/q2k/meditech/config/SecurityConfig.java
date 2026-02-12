@@ -24,49 +24,49 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 // Disable CSRF (since we're using JWT/stateless)
                 .csrf(AbstractHttpConfigurer::disable)
-                
+
                 // Stateless session (no session cookies)
-                .sessionManagement(session -> 
+                .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                
+
                 // Authorization rules
                 .authorizeHttpRequests(auth -> auth
                         // These auth endpoints require valid JWT (must come before /auth/**)
                         .requestMatchers("/auth/change-password").authenticated()
                         .requestMatchers("/auth/logout").authenticated()
-                        
+
                         // Public endpoints - no authentication required
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/public/**").permitAll()
-                        
+
                         // Swagger/OpenAPI endpoints
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
-                        
+
                         // Admin endpoints - require ADMIN role
                         .requestMatchers("/admin/**").hasRole("ADMIN")
-                        
+
                         // Doctor endpoints - require DOCTOR role
                         .requestMatchers("/doctor/**").hasRole("DOCTOR")
-                        
+
                         // Patient endpoints - require PATIENT role
                         .requestMatchers("/patient/**").hasRole("PATIENT")
-                        
+
                         // Receptionist endpoints - require RECEPTIONIST role
                         .requestMatchers("/receptionist/**").hasRole("RECEPTIONIST")
-                        
+
                         // All other requests need authentication
                         .anyRequest().authenticated()
                 )
-                
+
                 // Add JWT filter before UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-        
+
         return http.build();
     }
 

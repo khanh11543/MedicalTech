@@ -1,0 +1,244 @@
+package com.q2k.meditech.service;
+
+import com.q2k.meditech.dto.InvoiceDTO;
+import com.q2k.meditech.dto.InvoiceItemDTO;
+import com.q2k.meditech.dto.InvoiceUpdateDTO;
+import com.q2k.meditech.entity.*;
+import com.q2k.meditech.exception.BadRequestException;
+import com.q2k.meditech.exception.DuplicateResourceException;
+import com.q2k.meditech.exception.ResourceNotFoundException;
+import com.q2k.meditech.repository.InvoiceRepository;
+import com.q2k.meditech.repository.PaymentRepository;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * Invoice Service Implementation
+ */
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class InvoiceServiceImpl implements InvoiceService {
+
+    private final InvoiceRepository invoiceRepository;
+    private final PaymentRepository paymentRepository;
+
+    @Override
+    @Transactional
+    public InvoiceDTO createInvoiceForPayment(Long paymentId) {
+        log.info("Creating invoice for payment ID: {}", paymentId);
+
+        // Validate paymentId is not null
+        if (paymentId == null) {
+            throw new ResourceNotFoundException("Payment", "id", null);
+        }
+
+        // Check if invoice already exists - return existing instead of throwing exception
+        Invoice existingInvoice = invoiceRepository.findByPaymentIdWithDetails(paymentId).orElse(null);
+        if (existingInvoice != null) {
+            log.info("Invoice already exists for payment: {}, returning existing invoice: {}", 
+                    paymentId, existingInvoice.getInvoiceNumber());
+            return mapToDTO(existingInvoice);
+        }
+
+        // Get payment
+        Payment payment = paymentRepository.findByIdWithDetails(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
+
+        // Create invoice
+        Invoice invoice = Invoice.builder()
+                .invoiceNumber(generateInvoiceNumber())
+                .payment(payment)
+                .patient(payment.getPatient())
+                .invoiceDate(LocalDate.now())
+                .dueDate(LocalDate.now().plusDays(30))
+                .subtotal(payment.getAmount())
+                .discount(payment.getDiscountAmount())
+                .tax(payment.getTaxAmount())
+                .total(payment.getTotalAmount())
+                .status("PAID") // Already paid if invoice is being created
+                .build();
+
+        invoice = invoiceRepository.save(invoice);
+
+        // Create invoice item for consultation
+        InvoiceItem item = InvoiceItem.builder()
+                .invoice(invoice)
+                .description("Medical Consultation - Appointment #" + payment.getAppointment().getId())
+                .quantity(1)
+                .unitPrice(payment.getAmount())
+                .totalPrice(payment.getAmount())
+                .build();
+
+        // Note: InvoiceItem will be saved automatically via cascade
+
+        log.info("Invoice created with number: {}", invoice.getInvoiceNumber());
+
+        return mapToDTO(invoice);
+    }
+
+    @Override
+    public InvoiceDTO getInvoiceByPaymentId(Long paymentId) {
+        log.info("Getting invoice by payment ID: {}", paymentId);
+
+        // Validate paymentId is not null
+        if (paymentId == null) {
+            throw new ResourceNotFoundException("Payment", "id", null);
+        }
+
+        Invoice invoice = invoiceRepository.findByPaymentIdWithDetails(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found for payment: " + paymentId));
+
+        return mapToDTO(invoice);
+    }
+
+    @Override
+    public InvoiceDTO getInvoiceById(Long invoiceId) {
+        log.info("Getting invoice by ID: {}", invoiceId);
+
+        // Validate invoiceId is not null
+        if (invoiceId == null) {
+            throw new ResourceNotFoundException("Invoice", "id", null);
+        }
+
+        Invoice invoice = invoiceRepository.findByIdWithDetails(invoiceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice", "id", invoiceId));
+
+        return mapToDTO(invoice);
+    }
+
+    // ========== HELPER METHODS ==========
+
+    private String generateInvoiceNumber() {
+        LocalDateTime now = LocalDateTime.now();
+        String datePart = String.format("%04d%02d%02d", now.getYear(), now.getMonthValue(), now.getDayOfMonth());
+        int randomPart = (int) (Math.random() * 90000) + 10000;
+        return "INV-" + datePart + "-" + randomPart;
+    }
+
+    private InvoiceDTO mapToDTO(Invoice invoice) {
+        InvoiceDTO dto = InvoiceDTO.builder()
+                .id(invoice.getId())
+                .invoiceNumber(invoice.getInvoiceNumber())
+                .paymentId(invoice.getPayment().getId())
+                .paymentCode(invoice.getPayment().getPaymentCode())
+                .patientId(invoice.getPatient().getId())
+                .patientName(invoice.getPatient().getUser() != null ? invoice.getPatient().getUser().getFullName() : "Unknown")
+                .invoiceDate(invoice.getInvoiceDate())
+                .dueDate(invoice.getDueDate())
+                .subtotal(invoice.getSubtotal())
+                .discount(invoice.getDiscount())
+                .tax(invoice.getTax())
+                .total(invoice.getTotal())
+                .status(invoice.getStatus())
+                .notes(invoice.getNotes())
+                .createdAt(invoice.getCreatedAt())
+                .items(new ArrayList<>()) // Will add items if needed
+                .build();
+
+        return dto;
+    }
+
+    private InvoiceItemDTO mapItemToDTO(InvoiceItem item) {
+        return InvoiceItemDTO.builder()
+                .id(item.getId())
+                .description(item.getDescription())
+                .quantity(item.getQuantity())
+                .unitPrice(item.getUnitPrice())
+                .totalPrice(item.getTotalPrice())
+                .build();
+    }
+
+    // ========== PATIENT METHODS ==========
+
+    @Override
+    public InvoiceDTO getInvoiceByPaymentIdForPatient(Long paymentId, Long patientId) {
+        log.info("Getting invoice for payment ID: {} for patient ID: {}", paymentId, patientId);
+
+        // Validate parameters
+        if (paymentId == null) {
+            throw new ResourceNotFoundException("Payment", "id", null);
+        }
+        if (patientId == null) {
+            throw new BadRequestException("Patient ID cannot be null");
+        }
+
+        Invoice invoice = invoiceRepository.findByPaymentIdWithDetails(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found for payment: " + paymentId));
+
+        // Check ownership
+        if (!invoice.getPatient().getId().equals(patientId)) {
+            throw new BadRequestException("You can only view your own invoices");
+        }
+
+        return mapToDTO(invoice);
+    }
+
+    @Override
+    public InvoiceDTO getInvoiceByIdForPatient(Long invoiceId, Long patientId) {
+        log.info("Getting invoice ID: {} for patient ID: {}", invoiceId, patientId);
+
+        // Validate parameters
+        if (invoiceId == null) {
+            throw new ResourceNotFoundException("Invoice", "id", null);
+        }
+        if (patientId == null) {
+            throw new BadRequestException("Patient ID cannot be null");
+        }
+
+        Invoice invoice = invoiceRepository.findByIdWithDetails(invoiceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice", "id", invoiceId));
+
+        // Check ownership
+        if (!invoice.getPatient().getId().equals(patientId)) {
+            throw new BadRequestException("You can only view your own invoices");
+        }
+
+        return mapToDTO(invoice);
+    }
+    // ========== ADMIN METHODS ==========
+
+    @Override
+    @Transactional
+    public InvoiceDTO updateInvoice(Long invoiceId, InvoiceUpdateDTO dto, Long currentUserId) {
+        log.info("Admin updating invoice ID: {}", invoiceId);
+
+        // Validate invoiceId is not null
+        if (invoiceId == null) {
+            throw new ResourceNotFoundException("Invoice", "id", null);
+        }
+
+        Invoice invoice = invoiceRepository.findByIdWithDetails(invoiceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice", "id", invoiceId));
+
+        // Update fields if provided
+        if (dto.getNotes() != null) {
+            invoice.setNotes(dto.getNotes());
+        }
+
+        if (dto.getDueDate() != null) {
+            invoice.setDueDate(dto.getDueDate());
+        }
+
+        if (dto.getStatus() != null) {
+            // Validate status
+            if (!dto.getStatus().matches("PAID|UNPAID|OVERDUE|CANCELLED")) {
+                throw new BadRequestException("Invalid invoice status: " + dto.getStatus());
+            }
+            invoice.setStatus(dto.getStatus());
+        }
+
+        Invoice saved = invoiceRepository.save(invoice);
+
+        log.info("Invoice updated successfully: {}", invoiceId);
+        return mapToDTO(saved);
+    }
+}

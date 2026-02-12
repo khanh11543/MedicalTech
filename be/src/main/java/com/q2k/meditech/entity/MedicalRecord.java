@@ -16,10 +16,6 @@ import java.time.LocalDate;
 @Table(name = "medical_records")
 public class MedicalRecord extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     @Column(name="record_code", nullable = false, unique = true, length = 20)
     private String recordCode;
 

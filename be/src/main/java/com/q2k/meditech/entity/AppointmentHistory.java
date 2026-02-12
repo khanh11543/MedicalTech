@@ -1,5 +1,6 @@
 package com.q2k.meditech.entity;
 
+import com.q2k.meditech.entity.enums.AppointmentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -7,30 +8,36 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
+@Entity
+@Table(name = "appointment_histories", indexes = {
+        @Index(name = "idx_history_appointment", columnList = "appointment_id"),
+        @Index(name = "idx_history_changed_at", columnList = "changed_at")
+})
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Entity
-@Table(name = "appointment_history")
 public class AppointmentHistory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "appointment_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "appointment_id", nullable = false)
     private Appointment appointment;
 
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name = "changed_by")
-    private User changedBy;
+    @Column(name = "action", nullable = false)
+    private String action; // CREATED, CONFIRMED, RESCHEDULED, CANCELLED, CHECKED_IN, etc.
 
-    @Column(name = "old_status", length = 20)
-    private String oldStatus;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "old_status")
+    private AppointmentStatus oldStatus;
 
-    @Column(name = "new_status", length = 20)
-    private String newStatus;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "new_status")
+    private AppointmentStatus newStatus;
 
     @Column(name = "old_date")
     private LocalDate oldDate;
@@ -38,21 +45,34 @@ public class AppointmentHistory {
     @Column(name = "new_date")
     private LocalDate newDate;
 
-    @Column(name = "old_time")
-    private LocalTime oldTime;
+    @Column(name = "old_start_time")
+    private LocalTime oldStartTime;
 
-    @Column(name = "new_time")
-    private LocalTime newTime;
+    @Column(name = "new_start_time")
+    private LocalTime newStartTime;
 
-    @Lob
-    @Column(name = "change_reason")
-    private String changeReason;
+    @Column(name = "old_end_time")
+    private LocalTime oldEndTime;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    @Column(name = "new_end_time")
+    private LocalTime newEndTime;
+
+    @Column(name = "changed_by_user_id")
+    private Long changedByUserId;
+
+    @Column(name = "changed_by_role")
+    private String changedByRole;
+
+    @Column(name = "reason", columnDefinition = "TEXT")
+    private String reason;
+
+    @Column(name = "changed_at", nullable = false)
+    private LocalDateTime changedAt;
 
     @PrePersist
-    void prePersist() {
-        if (createdAt == null) createdAt = LocalDateTime.now();
+    protected void onCreate() {
+        if (changedAt == null) {
+            changedAt = LocalDateTime.now();
+        }
     }
 }

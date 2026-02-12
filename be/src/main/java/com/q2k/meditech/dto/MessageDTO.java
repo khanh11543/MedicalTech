@@ -1,24 +1,32 @@
 package com.q2k.meditech.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
-/**
- * Generic message response DTO
- * Dùng cho các API response đơn giản chỉ trả message
- */
+import java.time.LocalDateTime;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class MessageDTO {
+    
     private String message;
+    private Boolean success;
+    private LocalDateTime timestamp;
     
     public static MessageDTO success(String message) {
         return MessageDTO.builder()
                 .message(message)
+                .success(true)
+                .timestamp(LocalDateTime.now())
+                .build();
+    }
+    
+    public static MessageDTO error(String message) {
+        return MessageDTO.builder()
+                .message(message)
+                .success(false)
+                .timestamp(LocalDateTime.now())
                 .build();
     }
 }

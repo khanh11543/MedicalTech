@@ -12,10 +12,6 @@ import lombok.*;
 @Table(name = "receptionists")
 public class Receptionist extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     @OneToOne(fetch = FetchType.LAZY) @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 

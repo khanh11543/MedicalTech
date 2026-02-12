@@ -4,9 +4,12 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.UnsupportedEncodingException;
@@ -21,13 +24,13 @@ import java.security.SecureRandom;
 public class EmailService {
 
     private final JavaMailSender mailSender;
-    
+
     @Value("${app.mail.from}")
     private String fromEmail;
-    
+
     @Value("${app.mail.from-name}")
     private String fromName;
-    
+
     private static final SecureRandom random = new SecureRandom();
 
     /**
@@ -45,10 +48,10 @@ public class EmailService {
         try {
             String subject = "OTP Verification Code - MedicalTech";
             String htmlContent = buildOtpEmailTemplate(otpCode);
-            
+
             sendHtmlEmail(email, subject, htmlContent);
             log.info("✅ OTP email sent successfully to: {}", email);
-        } catch (MessagingException e) {
+        } catch (Exception e) {
             log.error("❌ Failed to send OTP email to: {}", email, e);
             throw new RuntimeException("Failed to send email", e);
         }
@@ -61,10 +64,10 @@ public class EmailService {
         try {
             String subject = "Reset Password - MedicalTech";
             String htmlContent = buildResetPasswordEmailTemplate(resetToken);
-            
+
             sendHtmlEmail(email, subject, htmlContent);
             log.info("✅ Reset password email sent successfully to: {}", email);
-        } catch (MessagingException e) {
+        } catch (Exception e) {
             log.error("❌ Failed to send reset password email to: {}", email, e);
             throw new RuntimeException("Failed to send email", e);
         }
@@ -77,10 +80,10 @@ public class EmailService {
         try {
             String subject = "Welcome to MedicalTech!";
             String htmlContent = buildWelcomeEmailTemplate(name);
-            
+
             sendHtmlEmail(email, subject, htmlContent);
             log.info("✅ Welcome email sent successfully to: {}", email);
-        } catch (MessagingException e) {
+        } catch (Exception e) {
             log.error("❌ Failed to send welcome email to: {}", email, e);
             // Don't throw exception for welcome email
         }
@@ -93,35 +96,15 @@ public class EmailService {
         try {
             String subject = "Account Locked - MedicalTech";
             String htmlContent = buildAccountLockedEmailTemplate();
-            
+
             sendHtmlEmail(email, subject, htmlContent);
             log.info("✅ Account locked email sent successfully to: {}", email);
-        } catch (MessagingException e) {
+        } catch (Exception e) {
             log.error("❌ Failed to send account locked email to: {}", email, e);
             // Don't throw exception for notification email
         }
     }
-    
-    /**
-     * Send HTML email
-     */
-    private void sendHtmlEmail(String to, String subject, String htmlContent) throws MessagingException {
-        MimeMessage message = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-        
-        try {
-            helper.setFrom(fromEmail, fromName);
-        } catch (UnsupportedEncodingException e) {
-            // Fallback to simple email without personal name
-            helper.setFrom(fromEmail);
-        }
-        helper.setTo(to);
-        helper.setSubject(subject);
-        helper.setText(htmlContent, true);
-        
-        mailSender.send(message);
-    }
-    
+
     /**
      * Build OTP email HTML template
      */
@@ -171,7 +154,7 @@ public class EmailService {
                 "</body>\n" +
                 "</html>";
     }
-    
+
     /**
      * Build Reset Password email HTML template
      */
@@ -207,7 +190,7 @@ public class EmailService {
                 "</body>\n" +
                 "</html>";
     }
-    
+
     /**
      * Build Welcome email HTML template
      */
@@ -242,7 +225,7 @@ public class EmailService {
                 "</body>\n" +
                 "</html>";
     }
-    
+
     /**
      * Build Account Locked email HTML template
      */
@@ -275,5 +258,118 @@ public class EmailService {
                 "    </div>\n" +
                 "</body>\n" +
                 "</html>";
+    }
+    /**
+     * Send simple email (async)
+     */
+    @Async
+    public void sendSimpleEmail(String to, String subject, String text) {
+        try {
+            SimpleMailMessage message = new SimpleMailMessage();
+            message.setFrom(fromEmail);
+            message.setTo(to);
+            message.setSubject(subject);
+            message.setText(text);
+
+            mailSender.send(message);
+            log.info("Simple email sent to: {}, subject: {}", to, subject);
+
+        } catch (Exception e) {
+            log.error("Failed to send simple email to: {}", to, e);
+        }
+    }
+
+    /**
+     * Send HTML email with attachment (async)
+     */
+    @Async
+    public void sendHtmlEmail(String to, String subject, String htmlContent) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail, fromName);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true); // true = HTML
+
+            mailSender.send(message);
+            log.info("HTML email sent to: {}, subject: {}", to, subject);
+
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            log.error("Failed to send HTML email to: {}", to, e);
+        }
+    }
+
+    /**
+     * Send HTML email with PDF attachment
+     */
+    @Async
+    public void sendEmailWithAttachment(String to, String subject, String htmlContent,
+                                        byte[] attachmentBytes, String attachmentFileName) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail, fromName);
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true); // true = HTML
+
+            // Add PDF attachment
+            helper.addAttachment(attachmentFileName,
+                    new jakarta.mail.util.ByteArrayDataSource(attachmentBytes, "application/pdf"));
+
+            mailSender.send(message);
+            log.info("HTML email with attachment sent to: {}, subject: {}", to, subject);
+
+        } catch (MessagingException | UnsupportedEncodingException e) {
+            log.error("Failed to send email with attachment to: {}", to, e);
+        }
+    }
+
+    /**
+     * Send invoice email
+     */
+    @Async
+    public void sendInvoiceEmail(String to, String invoiceNumber, String patientName, String htmlContent) {
+        String subject = "Invoice #" + invoiceNumber + " - Medical Tech";
+        sendHtmlEmail(to, subject, htmlContent);
+    }
+
+    /**
+     * Send payment confirmation email
+     */
+    @Async
+    public void sendPaymentConfirmationEmail(String to, String paymentCode, String amount) {
+        String subject = "Payment Confirmation - " + paymentCode;
+        String htmlContent = String.format(
+                "<h2>Payment Confirmed</h2>" +
+                        "<p>Your payment has been received successfully.</p>" +
+                        "<p><strong>Payment Code:</strong> %s</p>" +
+                        "<p><strong>Amount:</strong> %s VND</p>" +
+                        "<p>Thank you for your payment!</p>" +
+                        "<p>Best regards,<br>Medical Tech</p>",
+                paymentCode, amount);
+
+        sendHtmlEmail(to, subject, htmlContent);
+    }
+
+    /**
+     * Send refund notification email
+     */
+    @Async
+    public void sendRefundEmail(String to, String paymentCode, String refundAmount) {
+        String subject = "Refund Notification - " + paymentCode;
+        String htmlContent = String.format(
+                "<h2>Refund Processed</h2>" +
+                        "<p>Your refund has been processed successfully.</p>" +
+                        "<p><strong>Payment Code:</strong> %s</p>" +
+                        "<p><strong>Refund Amount:</strong> %s VND</p>" +
+                        "<p>The funds will be returned to your original payment method within 3-5 business days.</p>" +
+                        "<p>Best regards,<br>Medical Tech</p>",
+                paymentCode, refundAmount);
+
+        sendHtmlEmail(to, subject, htmlContent);
     }
 }

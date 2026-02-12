@@ -3,60 +3,47 @@ package com.q2k.meditech.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+@Entity
+@Table(name = "prescription_template_items")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Entity
-@Table(
-        name = "prescription_template_items",
-        indexes = {
-                @Index(name="idx_template_items_template", columnList = "template_id"),
-                @Index(name="idx_template_items_medication", columnList = "medication_id")
-        }
-)
 public class PrescriptionTemplateItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // FK prescription_templates(id)
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name="template_id", nullable = false)
+    @JoinColumn(name = "template_id", nullable = false)
     private PrescriptionTemplate template;
 
-    // FK medications(id) optional
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name="medication_id")
-    private Medication medication;
+    @Column(name = "medicine_name", nullable = false)
+    private String medicineName; // Tên thuốc
 
-    @Column(name="medication_name", nullable = false, length = 255)
-    private String medicationName;
+    @Column(name = "default_dosage", nullable = false)
+    private String defaultDosage; // Liều lượng mặc định
 
-    @Column(length = 100)
-    private String dosage;
+    @Column(name = "default_frequency", nullable = false)
+    private String defaultFrequency; // Tần suất mặc định
 
-    @Column(length = 100)
-    private String frequency;
+    @Column(name = "default_duration")
+    private String defaultDuration; // Thời gian dùng mặc định
 
-    @Column(length = 100)
-    private String duration;
+    @Column(name = "default_quantity")
+    private Integer defaultQuantity; // Số lượng mặc định
 
-    private Integer quantity;
+    @Column(name = "unit")
+    private String unit; // Đơn vị
 
-    @Column(length = 50)
-    private String unit;
+    @Column(name = "default_instructions", columnDefinition = "TEXT")
+    private String defaultInstructions; // Hướng dẫn mặc định
 
-    @Column(name="take_with_food")
-    private Boolean takeWithFood = false;
+    @Column(name = "notes")
+    private String notes;
 
-    @Lob
-    private String instructions;
-
-    @PrePersist
-    void prePersist() {
-        if (takeWithFood == null) takeWithFood = false;
-    }
+    @Column(name = "item_order")
+    private Integer itemOrder; // Thứ tự hiển thị
 }

@@ -4,54 +4,71 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.ArrayList;
+import java.util.List;
 
+@Entity
+@Table(name = "prescriptions", indexes = {
+        @Index(name = "idx_prescription_patient", columnList = "patient_id"),
+        @Index(name = "idx_prescription_doctor", columnList = "doctor_id"),
+        @Index(name = "idx_prescription_date", columnList = "prescription_date")
+})
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Entity
-@Table(name = "prescriptions")
-public class Prescription {
+public class Prescription extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(name="prescription_code", nullable = false, unique = true, length = 20)
-    private String prescriptionCode;
-
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="medical_record_id")
-    private MedicalRecord medicalRecord;
-
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="appointment_id")
-    private Appointment appointment;
-
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="patient_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="doctor_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "doctor_id", nullable = false)
     private Doctor doctor;
 
-    @Column(name="issue_date", nullable = false)
-    private LocalDate issueDate;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "appointment_id")
+    private Appointment appointment; // Liên kết với lần khám (optional)
 
-    @Column(name="valid_until")
-    private LocalDate validUntil;
+    @Column(name = "prescription_date", nullable = false)
+    private LocalDate prescriptionDate;
 
-    @Lob
-    private String notes;
+    @Column(name = "diagnosis", columnDefinition = "TEXT")
+    private String diagnosis; // Chẩn đoán
 
-    @Column(name="created_at")
-    private java.time.LocalDateTime createdAt;
+    @Column(name = "notes", columnDefinition = "TEXT")
+    private String notes; // Ghi chú thêm
 
-    @PrePersist
-    void prePersist() {
-        if (createdAt == null) createdAt = java.time.LocalDateTime.now();
-    }
+    @Column(name = "follow_up_date")
+    private LocalDate followUpDate; // Ngày tái khám
+
+    @Column(name = "is_active")
+    @Builder.Default
+    private Boolean isActive = true;
 
     @OneToMany(mappedBy = "prescription", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<PrescriptionItem> items = new HashSet<>();
+    @Builder.Default
+    private List<PrescriptionItem> items = new ArrayList<>();
+
+    // Helper method để thêm item
+    public void addItem(PrescriptionItem item) {
+        items.add(item);
+        item.setPrescription(this);
+    }
+
+    // Helper method để xóa item
+    public void removeItem(PrescriptionItem item) {
+        items.remove(item);
+        item.setPrescription(null);
+    }
+
+    // Helper method để clear và set items
+    public void setItems(List<PrescriptionItem> newItems) {
+        this.items.clear();
+        if (newItems != null) {
+            newItems.forEach(this::addItem);
+        }
+    }
 }

@@ -37,7 +37,6 @@ public class SpecialtyMapper {
         if (dto == null) return null;
         
         return Specialty.builder()
-                .id(dto.getId())
                 .name(dto.getName())
                 .description(dto.getDescription())
                 .iconUrl(dto.getIconUrl())

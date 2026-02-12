@@ -20,5 +20,5 @@ import java.util.Set;
 public class AssignRolesDTO {
     
     @NotEmpty(message = "Role IDs cannot be empty")
-    private Set<Integer> roleIds;
+    private Set<Long> roleIds;
 }

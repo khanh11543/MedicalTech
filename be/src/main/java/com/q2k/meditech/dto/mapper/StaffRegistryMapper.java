@@ -91,7 +91,6 @@ public abstract class StaffRegistryMapper {
     /**
      * Convert StaffInviteDTO to StaffRegistry entity
      */
-    @Mapping(target = "id", ignore = true)
     @Mapping(target = "staffCode", ignore = true)
     @Mapping(target = "status", ignore = true)
     @Mapping(target = "registeredUser", ignore = true)

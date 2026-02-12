@@ -16,8 +16,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -317,23 +315,9 @@ public class DoctorScheduleController {
      * Extracts user ID from authentication and finds associated doctor profile
      */
     private Long getCurrentDoctorId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        Long userId = com.q2k.meditech.util.SecurityUtil.getCurrentUserId();
+        if (userId == null) {
             throw new BadRequestException("User not authenticated");
-        }
-
-        // Get user ID from principal
-        // Assuming the principal contains the user ID or we can get it from username
-        String username = authentication.getName();
-        
-        // For testing purposes, if username is a number, treat it as user ID
-        // In production, you should properly extract user ID from JWT claims
-        Long userId;
-        try {
-            userId = Long.parseLong(username);
-        } catch (NumberFormatException e) {
-            // If not a number, we need to look up by email/username
-            throw new BadRequestException("Cannot determine user ID from authentication");
         }
 
         // Find doctor by user ID

@@ -1,0 +1,81 @@
+package com.q2k.meditech.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
+<<<<<<< HEAD
+=======
+/**
+ * DTO trả về thông tin lịch hẹn
+ */
+>>>>>>> origin/Dev
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class AppointmentDTO {
+<<<<<<< HEAD
+    
+    private Long id;
+    
+    // Patient info
+=======
+
+    private Long id;
+    private String appointmentCode;
+>>>>>>> origin/Dev
+    private Long patientId;
+    private String patientName;
+    private String patientEmail;
+    private String patientPhone;
+<<<<<<< HEAD
+    
+    // Doctor info
+    private Long doctorId;
+    private String doctorName;
+    private String doctorSpecialization;
+    private String doctorEmail;
+    
+    // Appointment details
+    private LocalDate appointmentDate;
+    private LocalTime startTime;
+    private LocalTime endTime;
+    private AppointmentStatus status;
+    private BookedBy bookedBy;
+    private String bookedByUserName;
+    
+    private Integer queueNumber;
+    private String reasonForVisit;
+    private String symptoms;
+    private String notes;
+    private String cancellationReason;
+    
+    private LocalDateTime checkedInAt;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+}
+=======
+    private Long doctorId;
+    private String doctorName;
+    private String specialtyName;
+    private LocalDate appointmentDate;
+    private LocalTime appointmentTime;
+    private LocalTime endTime;
+    private String appointmentType;
+    private String status;
+    private String reason;
+    private String symptoms;
+    private String notes;
+    private Integer queueNumber;
+    private LocalDateTime confirmedAt;
+    private LocalDateTime cancelledAt;
+    private String cancellationReason;
+    private LocalDateTime createdAt;
+}
+>>>>>>> origin/Dev

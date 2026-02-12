@@ -24,15 +24,14 @@ import java.util.Set;
 @Builder
 public class User extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
 
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
+
+    @Column(name = "full_name", length = 255)
+    private String fullName;
 
     @Column(name = "phone", length = 20)
     private String phone;

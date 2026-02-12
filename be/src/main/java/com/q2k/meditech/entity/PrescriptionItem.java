@@ -3,65 +3,47 @@ package com.q2k.meditech.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+@Entity
+@Table(name = "prescription_items")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Entity
-@Table(name = "prescription_items")
 public class PrescriptionItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="prescription_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "prescription_id", nullable = false)
     private Prescription prescription;
 
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="medication_id")
-    private Medication medication;
+    @Column(name = "medicine_name", nullable = false)
+    private String medicineName; // Tên thuốc
 
-    @Column(name="medication_name", nullable = false)
-    private String medicationName;
+    @Column(name = "dosage", nullable = false)
+    private String dosage; // Liều lượng (vd: "500mg")
 
-    @Column(length = 100)
-    private String dosage;
+    @Column(name = "frequency", nullable = false)
+    private String frequency; // Tần suất (vd: "2 lần/ngày")
 
-    @Column(length = 100)
-    private String frequency;
+    @Column(name = "duration")
+    private String duration; // Thời gian dùng (vd: "7 ngày")
 
-    @Column(length = 100)
-    private String duration;
+    @Column(name = "quantity")
+    private Integer quantity; // Số lượng
 
-    private Integer quantity;
+    @Column(name = "unit")
+    private String unit; // Đơn vị (viên, gói, chai...)
 
-    @Column(length = 50)
-    private String unit;
+    @Column(name = "instructions", columnDefinition = "TEXT")
+    private String instructions; // Hướng dẫn sử dụng (vd: "Uống sau ăn")
 
-    @Column(name="morning_dose", length = 50)
-    private String morningDose;
+    @Column(name = "notes")
+    private String notes; // Ghi chú thêm
 
-    @Column(name="noon_dose", length = 50)
-    private String noonDose;
-
-    @Column(name="evening_dose", length = 50)
-    private String eveningDose;
-
-    @Column(name="night_dose", length = 50)
-    private String nightDose;
-
-    @Column(name="take_with_food")
-    private Boolean takeWithFood = false;
-
-    @Lob
-    private String instructions;
-
-    @Column(name="created_at")
-    private java.time.LocalDateTime createdAt;
-
-    @PrePersist
-    void prePersist() {
-        if (createdAt == null) createdAt = java.time.LocalDateTime.now();
-    }
+    @Column(name = "item_order")
+    private Integer itemOrder; // Thứ tự hiển thị
 }

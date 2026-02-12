@@ -41,7 +41,7 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
 
         // Validate doctor exists
         Doctor doctor = doctorRepository.findById(doctorId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "id", doctorId));
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + doctorId));
 
         // Validate time range
         validateTimeRange(dto.getStartTime(), dto.getEndTime());
@@ -94,7 +94,7 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
 
         // Find and validate ownership
         DoctorSchedule schedule = scheduleRepository.findByIdWithDoctor(scheduleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Schedule", "id", scheduleId));
+                .orElseThrow(() -> new ResourceNotFoundException("Schedule not found with id: " + scheduleId));
 
         if (!schedule.getDoctor().getId().equals(doctorId)) {
             throw new BadRequestException("You can only update your own schedules");
@@ -185,7 +185,7 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
         log.info("Deleting exception ID: {} for doctor ID: {}", exceptionId, doctorId);
 
         ScheduleException exception = exceptionRepository.findByIdWithDoctor(exceptionId)
-                .orElseThrow(() -> new ResourceNotFoundException("ScheduleException", "id", exceptionId));
+                .orElseThrow(() -> new ResourceNotFoundException("ScheduleException not found with id: " + exceptionId));
 
         if (!exception.getDoctor().getId().equals(doctorId)) {
             throw new BadRequestException("You can only delete your own exceptions");
@@ -394,7 +394,7 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
                currentTime.plusMinutes(slotDuration).equals(endTime)) {
             
             TimeSlot slot = TimeSlot.builder()
-                    .doctor(doctor)
+                    .doctor(doctor.getUser())
                     .slotDate(date)
                     .startTime(currentTime)
                     .endTime(currentTime.plusMinutes(slotDuration))

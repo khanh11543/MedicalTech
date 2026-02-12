@@ -28,6 +28,9 @@ public class PaymentQr {
     @Column(name="qr_payload", nullable = false)
     private String qrPayload;
 
+    @Column(name="pay_url", length = 1000)
+    private String payUrl; // MoMo payment URL for QR generation
+
     @Column(name="expires_at", nullable = false)
     private LocalDateTime expiresAt;
 

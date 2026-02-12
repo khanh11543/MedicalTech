@@ -24,10 +24,6 @@ import java.time.LocalDateTime;
 @Builder
 public class StaffRegistry extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     /**
      * Staff code - Mã nhân viên duy nhất
      */

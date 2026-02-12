@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class UserRoleDetailDTO {
-    private Integer roleId;
+    private Long roleId;
     private String roleName;
     private String roleDescription;
     

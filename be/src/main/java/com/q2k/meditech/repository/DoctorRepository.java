@@ -10,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -39,6 +40,15 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
             @Param("maxFee") BigDecimal maxFee,
             Pageable pageable
     );
+    @Query("SELECT d FROM Doctor d WHERE d.user.id = :userId")
+    Optional<Doctor> findByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT d FROM Doctor d JOIN FETCH d.user WHERE d.id = :id")
+    Optional<Doctor> findByIdWithUser(@Param("id") Long id);
+
+    List<Doctor> findBySpecialization(String specialization);
+
+    List<Doctor> findByIsAvailableTrue();
 
     /**
      * Find doctor by ID with verification check (for public view)
@@ -54,11 +64,6 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
      * Find doctor by ID (admin view - all statuses)
      */
     Optional<Doctor> findById(Long id);
-
-    /**
-     * Find doctor by user ID
-     */
-    Optional<Doctor> findByUserId(Long userId);
 
     /**
      * Check if doctor exists by license number

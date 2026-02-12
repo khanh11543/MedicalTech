@@ -14,10 +14,6 @@ import java.time.LocalDateTime;
 @Table(name = "reviews")
 public class Review extends BaseEntity {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
     // unique appointment_id
     @OneToOne(fetch = FetchType.LAZY) @JoinColumn(name="appointment_id", nullable = false, unique = true)
     private Appointment appointment;

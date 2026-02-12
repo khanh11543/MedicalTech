@@ -60,6 +60,9 @@ public class Doctor {
     @Column(columnDefinition = "TEXT")
     private String education;
 
+    @Column(name="specialization", length = 255)
+    private String specialization;
+
     @Column(name="experience_years")
     private Integer experienceYears = 0;
 
@@ -75,7 +78,7 @@ public class Doctor {
     @Column(name="rating_count")
     private Integer ratingCount = 0;
 
-    @Column(name="is_available")
+    @Column(name="is_available", nullable = false)
     private Boolean isAvailable = true;
 
     @Column(name="hospital_affiliation", length = 255)

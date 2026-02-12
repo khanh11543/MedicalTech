@@ -4,6 +4,9 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.q2k.meditech.entity.enums.AppointmentStatus;
+import com.q2k.meditech.entity.enums.BookedBy;
+
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -19,25 +22,36 @@ import java.time.LocalTime;
 public class AppointmentDTO {
 
     private Long id;
+
     private String appointmentCode;
     private Long patientId;
     private String patientName;
     private String patientEmail;
     private String patientPhone;
+
+    // Doctor info
     private Long doctorId;
     private String doctorName;
-    private String specialtyName;
+    private String doctorSpecialization;
+    private String doctorEmail;
+
+    // Appointment details
     private LocalDate appointmentDate;
-    private LocalTime appointmentTime;
+    private LocalTime startTime;
     private LocalTime endTime;
-    private String appointmentType;
-    private String status;
-    private String reason;
+    private AppointmentStatus status;
+    private BookedBy bookedBy;
+    private String bookedByUserName;
+
+    private Integer queueNumber;
+    private String reasonForVisit;
     private String symptoms;
     private String notes;
-    private Integer queueNumber;
-    private LocalDateTime confirmedAt;
-    private LocalDateTime cancelledAt;
     private String cancellationReason;
+
+    private LocalDateTime checkedInAt;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }
+
+

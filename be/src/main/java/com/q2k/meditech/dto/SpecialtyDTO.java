@@ -11,7 +11,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class SpecialtyDTO {
-    private Integer id;
+    private Long id;
     private String name;
     private String description;
     private String iconUrl;
