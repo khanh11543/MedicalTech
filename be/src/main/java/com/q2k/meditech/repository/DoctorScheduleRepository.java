@@ -29,6 +29,11 @@ public interface DoctorScheduleRepository extends JpaRepository<DoctorSchedule, 
     List<DoctorSchedule> findByDoctorIdAndIsActiveTrueOrderByDayOfWeekAscStartTimeAsc(Long doctorId);
 
     /**
+     * Find schedules for a doctor by active status
+     */
+    List<DoctorSchedule> findByDoctorIdAndIsActive(Long doctorId, Boolean isActive);
+
+    /**
      * Find active schedules for a doctor by day of week
      */
     List<DoctorSchedule> findByDoctorIdAndDayOfWeekAndIsActiveTrueOrderByStartTimeAsc(Long doctorId, Integer dayOfWeek);

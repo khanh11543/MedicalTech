@@ -5,65 +5,7 @@
 		"description": "Collection để test Doctor Schedule/TimeSlots APIs",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
-	"auth": {
-		"type": "bearer",
-		"bearer": [
-			{
-				"key": "token",
-				"value": "{{accessToken}}",
-				"type": "string"
-			}
-		]
-	},
 	"item": [
-		{
-			"name": "0. Auth",
-			"item": [
-				{
-					"name": "Login as Doctor",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"pm.test('Status code is 200', function () {",
-									"    pm.response.to.have.status(200);",
-									"});",
-									"",
-									"pm.test('Save tokens', function () {",
-									"    var jsonData = pm.response.json();",
-									"    pm.collectionVariables.set('accessToken', jsonData.accessToken);",
-									"    pm.collectionVariables.set('refreshToken', jsonData.refreshToken);",
-									"});"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"auth": { "type": "noauth" },
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"email\": \"{{doctorEmail}}\",\n    \"password\": \"{{doctorPassword}}\",\n    \"deviceId\": \"postman-doctor\",\n    \"deviceName\": \"Postman Doctor Client\"\n}"
-						},
-						"url": {
-							"raw": "{{base_url}}/auth/login",
-							"host": ["{{base_url}}"],
-							"path": ["auth", "login"]
-						},
-						"description": "Login as a doctor to get access token. Make sure to set doctorEmail and doctorPassword variables first."
-					},
-					"response": []
-				}
-			]
-		},
 		{
 			"name": "1. Weekly Schedules",
 			"item": [
@@ -450,26 +392,6 @@
 		{
 			"key": "base_url",
 			"value": "http://localhost:8080/api",
-			"type": "string"
-		},
-		{
-			"key": "accessToken",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "refreshToken",
-			"value": "",
-			"type": "string"
-		},
-		{
-			"key": "doctorEmail",
-			"value": "doctor@example.com",
-			"type": "string"
-		},
-		{
-			"key": "doctorPassword",
-			"value": "Doctor@1234",
 			"type": "string"
 		}
 	]

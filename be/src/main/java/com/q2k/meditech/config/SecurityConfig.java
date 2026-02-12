@@ -37,10 +37,13 @@ public class SecurityConfig {
 
                 // Authorization rules
                 .authorizeHttpRequests(auth -> auth
+<<<<<<< HEAD
                         // These auth endpoints require valid JWT (must come before /auth/**)
                         .requestMatchers("/auth/change-password").authenticated()
                         .requestMatchers("/auth/logout").authenticated()
 
+=======
+>>>>>>> Thang/Task-4-11-12
                         // Public endpoints - no authentication required
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/public/**").permitAll()

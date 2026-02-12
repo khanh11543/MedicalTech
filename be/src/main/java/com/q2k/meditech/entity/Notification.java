@@ -6,6 +6,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -14,54 +15,57 @@ import java.time.LocalDateTime;
 @Builder
 @Entity
 @Table(name = "notifications")
-public class Notification {
+public class Notification extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="user_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 255)
     private String title;
 
-    @Lob
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String message;
 
     @Column(nullable = false, length = 30)
     private String type;
 
-    @Column(name="reference_type", length = 50)
-    private String referenceType; // appointment/payment...
+    @Column(name = "reference_type", length = 50)
+    private String referenceType;
 
-    @Column(name="reference_id")
+    @Column(name = "reference_id")
     private Long referenceId;
 
-    @Column(name="is_read")
+    @Builder.Default
+    @Column(name = "is_read", columnDefinition = "TINYINT(1) DEFAULT 0")
     private Boolean isRead = false;
 
-    @Column(name="read_at")
+    @Column(name = "read_at")
     private LocalDateTime readAt;
 
-    // JSON: ["IN_APP","EMAIL","SMS"]
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name="sent_via", columnDefinition = "json")
-    private Object sentVia;
+    @Column(name = "sent_via", columnDefinition = "JSON")
+    private Map<String, Object> sentVia;
 
-    @Column(name="email_sent")
+    @Builder.Default
+    @Column(name = "email_sent", columnDefinition = "TINYINT(1) DEFAULT 0")
     private Boolean emailSent = false;
 
-    @Column(name="sms_sent")
+    @Builder.Default
+    @Column(name = "sms_sent", columnDefinition = "TINYINT(1) DEFAULT 0")
     private Boolean smsSent = false;
 
-    @Column(name="push_sent")
+    @Builder.Default
+    @Column(name = "push_sent", columnDefinition = "TINYINT(1) DEFAULT 0")
     private Boolean pushSent = false;
 
-    @Column(name="scheduled_at")
+    @Column(name = "scheduled_at")
     private LocalDateTime scheduledAt;
 
-    @Column(name="sent_at")
+    @Column(name = "sent_at")
     private LocalDateTime sentAt;
 }

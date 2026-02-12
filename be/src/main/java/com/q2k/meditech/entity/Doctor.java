@@ -121,4 +121,20 @@ public class Doctor {
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<DoctorDocument> documents = new ArrayList<>();
+
+    @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<DoctorSpecialty> doctorSpecialties = new ArrayList<>();
+
+    /**
+     * Helper method to get list of Specialty objects
+     */
+    public List<Specialty> getSpecialties() {
+        if (doctorSpecialties == null) {
+            return new ArrayList<>();
+        }
+        return doctorSpecialties.stream()
+                .map(DoctorSpecialty::getSpecialty)
+                .collect(java.util.stream.Collectors.toList());
+    }
 }

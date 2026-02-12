@@ -1,6 +1,10 @@
 package com.q2k.meditech.dto;
 
 import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 /**
  * DTO for Specialty list response
@@ -16,4 +20,6 @@ public class SpecialtyDTO {
     private String description;
     private String iconUrl;
     private Boolean isActive;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

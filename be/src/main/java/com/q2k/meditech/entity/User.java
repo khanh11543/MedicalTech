@@ -2,6 +2,11 @@ package com.q2k.meditech.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDateTime;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -40,11 +45,11 @@ public class User extends BaseEntity {
     private String avatarUrl;
 
     @Builder.Default
-    @Column(name = "is_active", nullable = false)
+    @Column(name = "is_active", columnDefinition = "TINYINT(1) DEFAULT 1")
     private Boolean isActive = true;
 
     @Builder.Default
-    @Column(name = "is_verified", nullable = false)
+    @Column(name = "is_verified", columnDefinition = "TINYINT(1) DEFAULT 0")
     private Boolean isVerified = false;
 
     @Column(name = "verification_token", length = 255)
@@ -73,14 +78,14 @@ public class User extends BaseEntity {
     private Integer otpAttemptCount = 0;
 
     @Builder.Default
-    @Column(name = "two_factor_enabled", nullable = false)
+    @Column(name = "two_factor_enabled", columnDefinition = "TINYINT(1) DEFAULT 0")
     private Boolean twoFactorEnabled = false;
 
     @Column(name = "two_factor_secret", length = 255)
     private String twoFactorSecret;
 
     @Builder.Default
-    @Column(name = "failed_login_count", nullable = false)
+    @Column(name = "failed_login_count", columnDefinition = "INT DEFAULT 0")
     private Integer failedLoginCount = 0;
 
     @Column(name = "locked_until")

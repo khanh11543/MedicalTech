@@ -3,7 +3,7 @@ package com.q2k.meditech.dto;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 
 /**
  * DTO for Time slot information
@@ -17,7 +17,8 @@ public class TimeSlotDTO {
     private Long id;
     private Long doctorId;
     private LocalDate slotDate;
-    private LocalTime startTime;
-    private LocalTime endTime;
+    private LocalDateTime startTime;
+    private LocalDateTime endTime;
     private String status; // AVAILABLE, BOOKED, BLOCKED, COMPLETED
+    private Boolean isAvailable;
 }

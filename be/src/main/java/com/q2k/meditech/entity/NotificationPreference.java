@@ -12,24 +12,39 @@ import lombok.*;
 @Table(name = "notification_preferences")
 public class NotificationPreference extends BaseEntity {
 
+<<<<<<< HEAD
     @OneToOne(fetch = FetchType.LAZY) @JoinColumn(name="user_id", nullable = false, unique = true)
+=======
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+>>>>>>> Thang/Task-4-11-12
     private User user;
 
-    @Column(name="email_enabled")
+    @Builder.Default
+    @Column(name = "email_enabled", columnDefinition = "TINYINT(1) DEFAULT 1")
     private Boolean emailEnabled = true;
 
-    @Column(name="sms_enabled")
+    @Builder.Default
+    @Column(name = "sms_enabled", columnDefinition = "TINYINT(1) DEFAULT 1")
     private Boolean smsEnabled = true;
 
-    @Column(name="push_enabled")
+    @Builder.Default
+    @Column(name = "push_enabled", columnDefinition = "TINYINT(1) DEFAULT 1")
     private Boolean pushEnabled = true;
 
-    @Column(name="appointment_reminders")
+    @Builder.Default
+    @Column(name = "appointment_reminders", columnDefinition = "TINYINT(1) DEFAULT 1")
     private Boolean appointmentReminders = true;
 
-    @Column(name="promotional_emails")
+    @Builder.Default
+    @Column(name = "promotional_emails", columnDefinition = "TINYINT(1) DEFAULT 0")
     private Boolean promotionalEmails = false;
 
-    @Column(name="reminder_hours_before")
+    @Builder.Default
+    @Column(name = "reminder_hours_before", columnDefinition = "INT DEFAULT 24")
     private Integer reminderHoursBefore = 24;
 }

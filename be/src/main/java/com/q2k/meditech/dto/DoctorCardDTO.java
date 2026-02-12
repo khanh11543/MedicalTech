@@ -25,5 +25,6 @@ public class DoctorCardDTO {
     private Integer ratingCount;
     private String hospitalAffiliation;
     private String city;
+    private String officeAddress;
     private Boolean isAvailable;
 }

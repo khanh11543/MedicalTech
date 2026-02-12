@@ -16,11 +16,9 @@ import java.util.List;
 public class DoctorDetailDTO {
     private Long id;
     private String fullName;
-    private String avatarUrl;
     private String email;
     private String phone;
-    
-    // Professional info
+    private String avatarUrl;
     private String licenseNumber;
     private String bio;
     private String education;
