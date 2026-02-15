@@ -28,6 +28,7 @@ public class Permission {
     @Column(length = 50)
     private String module;
     // Relationships
+    @Builder.Default
     @OneToMany(mappedBy = "permission", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Set<RolePermission> rolePermissions = new HashSet<>();
 }

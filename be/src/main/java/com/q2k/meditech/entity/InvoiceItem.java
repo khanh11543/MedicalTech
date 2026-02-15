@@ -25,6 +25,7 @@ public class InvoiceItem {
     @Column(nullable = false)
     private String description;
 
+    @Builder.Default
     private Integer quantity = 1;
 
     @Column(name="unit_price", nullable = false)

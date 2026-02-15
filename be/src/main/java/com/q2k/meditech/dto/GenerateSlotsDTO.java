@@ -28,5 +28,6 @@ public class GenerateSlotsDTO {
     private Integer slotDuration;
     
     // Whether to overwrite existing slots (default: false)
+    @Builder.Default
     private Boolean overwriteExisting = false;
 }

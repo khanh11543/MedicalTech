@@ -47,6 +47,7 @@ public class DoctorDocument {
     @Column(name="file_hash", length = 128)
     private String fileHash;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private ReviewStatus status = ReviewStatus.PENDING;
@@ -64,6 +65,7 @@ public class DoctorDocument {
     @Column(name="review_note", columnDefinition = "TEXT")
     private String reviewNote;
 
+    @Builder.Default
     @Column(name="created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 }

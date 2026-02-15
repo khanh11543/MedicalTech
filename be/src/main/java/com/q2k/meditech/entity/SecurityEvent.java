@@ -35,6 +35,7 @@ public class SecurityEvent {
     @Column(name = "event_type", nullable = false, length = 50)
     private String eventType; // FAILED_LOGIN, LOCKOUT, PASSWORD_CHANGED, 2FA_ENABLED...
 
+    @Builder.Default
     @Column(name = "severity", length = 10)
     private String severity = "INFO"; // INFO/WARN/HIGH
 

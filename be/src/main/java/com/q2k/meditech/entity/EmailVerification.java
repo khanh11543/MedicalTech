@@ -49,12 +49,14 @@ public class EmailVerification extends BaseEntity {
     @Column(name = "expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
+    @Builder.Default
     @Column(name = "attempt_count", nullable = false)
     private Integer attemptCount = 0;
 
     @Column(name = "verified_at")
     private LocalDateTime verifiedAt;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private VerificationStatus status = VerificationStatus.PENDING;

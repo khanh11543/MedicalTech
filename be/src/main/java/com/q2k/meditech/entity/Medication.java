@@ -55,12 +55,14 @@ public class Medication extends BaseEntity {
     @Column(name="storage_conditions")
     private String storageConditions;
 
+    @Builder.Default
     @Column(name="requires_prescription")
     private Boolean requiresPrescription = true;
 
     @Column(name="unit_price")
     private BigDecimal unitPrice;
 
+    @Builder.Default
     @Column(name="is_active")
     private Boolean isActive = true;
 }

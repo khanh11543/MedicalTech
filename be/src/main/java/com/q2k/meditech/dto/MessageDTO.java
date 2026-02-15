@@ -3,6 +3,7 @@ package com.q2k.meditech.dto;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 @Data
 @NoArgsConstructor
@@ -10,15 +11,17 @@ import java.time.LocalDateTime;
 @Builder
 public class MessageDTO {
     
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    
     private String message;
     private Boolean success;
-    private LocalDateTime timestamp;
+    private String timestamp;
     
     public static MessageDTO success(String message) {
         return MessageDTO.builder()
                 .message(message)
                 .success(true)
-                .timestamp(LocalDateTime.now())
+                .timestamp(LocalDateTime.now().format(FORMATTER))
                 .build();
     }
     
@@ -26,7 +29,7 @@ public class MessageDTO {
         return MessageDTO.builder()
                 .message(message)
                 .success(false)
-                .timestamp(LocalDateTime.now())
+                .timestamp(LocalDateTime.now().format(FORMATTER))
                 .build();
     }
 }

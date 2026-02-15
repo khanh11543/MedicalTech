@@ -33,6 +33,7 @@ public class DeviceToken {
     @Column(name="device_name", length = 100)
     private String deviceName;
 
+    @Builder.Default
     @Column(name="is_active")
     private Boolean isActive = true;
 

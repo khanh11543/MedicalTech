@@ -13,7 +13,10 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,7 +27,17 @@ import java.util.stream.Collectors;
  * Xử lý tất cả exceptions trong application và trả về response format thống nhất
  */
 @RestControllerAdvice
+@Slf4j
 public class GlobalExceptionHandler {
+    
+    private static final DateTimeFormatter FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    
+    /**
+     * Get current timestamp as formatted string
+     */
+    private String getCurrentTimestamp() {
+        return LocalDateTime.now().format(FORMATTER);
+    }
     
     /**
      * Handle ResourceNotFoundException (404)
@@ -35,7 +48,7 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         
         ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(getCurrentTimestamp())
                 .status(HttpStatus.NOT_FOUND.value())
                 .error(HttpStatus.NOT_FOUND.getReasonPhrase())
                 .message(ex.getMessage())
@@ -54,7 +67,7 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         
         ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(getCurrentTimestamp())
                 .status(HttpStatus.CONFLICT.value())
                 .error(HttpStatus.CONFLICT.getReasonPhrase())
                 .message(ex.getMessage())
@@ -73,7 +86,7 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         
         ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(getCurrentTimestamp())
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                 .message(ex.getMessage())
@@ -99,7 +112,7 @@ public class GlobalExceptionHandler {
         });
         
         ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(getCurrentTimestamp())
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                 .message("Validation failed")
@@ -119,7 +132,7 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         
         ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(getCurrentTimestamp())
                 .status(HttpStatus.UNAUTHORIZED.value())
                 .error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
                 .message(ex.getMessage())
@@ -138,7 +151,7 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         
         ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(getCurrentTimestamp())
                 .status(HttpStatus.FORBIDDEN.value())
                 .error(HttpStatus.FORBIDDEN.getReasonPhrase())
                 .message("You don't have permission to access this resource")
@@ -157,7 +170,7 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         
         ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(getCurrentTimestamp())
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                 .message(ex.getMessage())
@@ -176,7 +189,7 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         
         ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(getCurrentTimestamp())
                 .status(HttpStatus.FORBIDDEN.value())
                 .error(HttpStatus.FORBIDDEN.getReasonPhrase())
                 .message(ex.getMessage())
@@ -195,7 +208,7 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         
         ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(getCurrentTimestamp())
                 .status(HttpStatus.UNAUTHORIZED.value())
                 .error(HttpStatus.UNAUTHORIZED.getReasonPhrase())
                 .message(ex.getMessage())
@@ -214,7 +227,7 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         
         ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(getCurrentTimestamp())
                 .status(HttpStatus.FORBIDDEN.value())
                 .error(HttpStatus.FORBIDDEN.getReasonPhrase())
                 .message(ex.getMessage())
@@ -238,7 +251,7 @@ public class GlobalExceptionHandler {
                 ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
         
         ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(getCurrentTimestamp())
                 .status(HttpStatus.BAD_REQUEST.value())
                 .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
                 .message(message)
@@ -257,7 +270,7 @@ public class GlobalExceptionHandler {
             WebRequest request) {
         
         ApiErrorResponse error = ApiErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
+                .timestamp(getCurrentTimestamp())
                 .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
                 .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
                 .message("An unexpected error occurred")
@@ -265,8 +278,9 @@ public class GlobalExceptionHandler {
                 .build();
         
         // Log the exception for debugging
-        ex.printStackTrace();
+        log.error("Unhandled exception [{}]: {}", ex.getClass().getName(), ex.getMessage(), ex);
         
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }
+

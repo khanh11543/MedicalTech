@@ -40,6 +40,7 @@ public class BlockedIp {
     @Column(name="unblocked_at")
     private LocalDateTime unblockedAt;
 
+    @Builder.Default
     @Column(name="is_active")
     private Boolean isActive = true;
 

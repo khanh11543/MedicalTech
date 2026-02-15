@@ -38,12 +38,15 @@ public class Invoice {
     @Column(nullable = false)
     private BigDecimal subtotal;
 
+    @Builder.Default
     private BigDecimal discount = BigDecimal.ZERO;
+    @Builder.Default
     private BigDecimal tax = BigDecimal.ZERO;
 
     @Column(nullable = false)
     private BigDecimal total;
 
+    @Builder.Default
     @Column(length = 20)
     private String status = "ISSUED";
 

@@ -29,21 +29,25 @@ public class Payment extends BaseEntity {
     @Column(nullable = false)
     private BigDecimal amount;
 
+    @Builder.Default
     @Column(name="discount_amount")
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
+    @Builder.Default
     @Column(name="tax_amount")
     private BigDecimal taxAmount = BigDecimal.ZERO;
 
     @Column(name="total_amount", nullable = false)
     private BigDecimal totalAmount;
 
+    @Builder.Default
     @Column(length = 3)
     private String currency = "VND";
 
     @Column(name="payment_method", length = 30)
     private String paymentMethod; // CASH/VNPAY/MOMO...
 
+    @Builder.Default
     @Column(name="payment_status", length = 20)
     private String paymentStatus = "PENDING";
 

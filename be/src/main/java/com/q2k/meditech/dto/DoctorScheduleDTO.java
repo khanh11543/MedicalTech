@@ -29,14 +29,17 @@ public class DoctorScheduleDTO {
     @NotNull(message = "End time is required")
     private LocalTime endTime;
     
+    @Builder.Default
     @Min(value = 10, message = "Slot duration must be at least 10 minutes")
     @Max(value = 120, message = "Slot duration must not exceed 120 minutes")
     private Integer slotDuration = 30; // in minutes
     
+    @Builder.Default
     @Min(value = 1, message = "Max patients must be at least 1")
     @Max(value = 100, message = "Max patients must not exceed 100")
     private Integer maxPatients = 20;
     
+    @Builder.Default
     private Boolean isActive = true;
     
     // Helper method to get day name

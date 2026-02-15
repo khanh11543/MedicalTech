@@ -34,6 +34,7 @@ public class PaymentQr {
     @Column(name="expires_at", nullable = false)
     private LocalDateTime expiresAt;
 
+    @Builder.Default
     @Column(length = 20)
     private String status = "ACTIVE"; // ACTIVE/EXPIRED/REVOKED
 

@@ -55,6 +55,7 @@ public class TimeSlot extends BaseEntity {
     /**
      * Status: AVAILABLE, BOOKED, BLOCKED, COMPLETED
      */
+    @Builder.Default
     @Column(name = "status", nullable = false, length = 20)
     private String status = "AVAILABLE";
 

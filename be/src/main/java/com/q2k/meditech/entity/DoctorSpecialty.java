@@ -23,6 +23,7 @@ public class DoctorSpecialty extends BaseEntity {
     @JoinColumn(name = "specialty_id", nullable = false)
     private Specialty specialty;
 
+    @Builder.Default
     @Column(name = "is_primary")
     private Boolean isPrimary = false;
 }

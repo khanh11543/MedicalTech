@@ -57,6 +57,22 @@ public class AuthController {
     }
 
     /**
+     * Resend OTP
+     * POST /api/auth/resend-otp
+     */
+    @PostMapping("/resend-otp")
+    @Operation(summary = "Resend OTP verification code",
+               description = "Resend a new OTP code to the email for verification")
+    public ResponseEntity<MessageDTO> resendOtp(
+            @RequestBody java.util.Map<String, String> body,
+            HttpServletRequest request) {
+        String email = body.get("email");
+        log.info("Resend OTP request for: {}", email);
+        MessageDTO response = authService.resendOtp(email, request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Login
      * POST /api/auth/login
      */

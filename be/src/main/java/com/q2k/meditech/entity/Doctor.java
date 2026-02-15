@@ -63,21 +63,27 @@ public class Doctor {
     @Column(name="specialization", length = 255)
     private String specialization;
 
+    @Builder.Default
     @Column(name="experience_years")
     private Integer experienceYears = 0;
 
+    @Builder.Default
     @Column(name="consultation_fee", precision = 12, scale = 2)
     private BigDecimal consultationFee = BigDecimal.ZERO;
 
+    @Builder.Default
     @Column(name="follow_up_fee", precision = 12, scale = 2)
     private BigDecimal followUpFee = BigDecimal.ZERO;
 
+    @Builder.Default
     @Column(name="rating_avg", precision = 3, scale = 2)
     private BigDecimal ratingAvg = BigDecimal.ZERO;
 
+    @Builder.Default
     @Column(name="rating_count")
     private Integer ratingCount = 0;
 
+    @Builder.Default
     @Column(name="is_available", nullable = false)
     private Boolean isAvailable = true;
 
@@ -88,6 +94,7 @@ public class Doctor {
     private String officeAddress;
 
     // ===== Verification (Model B) =====
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name="verification_status", nullable = false, length = 20)
     private VerificationStatus verificationStatus = VerificationStatus.PENDING;
@@ -106,9 +113,11 @@ public class Doctor {
     private String rejectionReason;
 
     // ===== timestamps (nếu bạn đã có BaseEntity thì có thể bỏ 2 field dưới) =====
+    @Builder.Default
     @Column(name="created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Builder.Default
     @Column(name="updated_at", nullable = false)
     private LocalDateTime updatedAt = LocalDateTime.now();
 

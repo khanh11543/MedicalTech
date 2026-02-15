@@ -68,6 +68,7 @@ public class StaffRegistry extends BaseEntity {
      * DISABLED - Đã vô hiệu hóa
      * EXPIRED - Hết hạn (nếu có expiry)
      */
+    @Builder.Default
     @Column(name = "status", nullable = false, length = 20)
     private String status = "PENDING";
 

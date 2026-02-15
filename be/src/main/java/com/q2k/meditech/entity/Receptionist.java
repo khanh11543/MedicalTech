@@ -26,6 +26,7 @@ public class Receptionist extends BaseEntity {
     @Column(length = 20)
     private String shift; // MORNING/AFTERNOON/EVENING/NIGHT
 
+    @Builder.Default
     @Column(name = "is_active")
     private Boolean isActive = true;
 }

@@ -26,9 +26,11 @@ public class Role extends BaseEntity {
     private String description;
 
     // Relationships
+    @Builder.Default
     @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Set<UserRole> userRoles = new HashSet<>();
 
+    @Builder.Default
     @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private Set<RolePermission> rolePermissions = new HashSet<>();
 

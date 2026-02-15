@@ -84,12 +84,14 @@ public class AuthService {
         emailVerificationRepository.findLatestByEmailAndStatus(
             registerDTO.getEmail(), VerificationStatus.PENDING)
             .ifPresent(verification -> {
-                // If not expired, throw exception
-                if (!verification.isExpired()) {
-                    throw new BadRequestException(
-                        "A verification code has already been sent to this email. Please check your inbox or wait for it to expire.");
-                }
                 // If expired, mark it as expired
+                if (verification.isExpired()) {
+                    verification.markAsExpired();
+                    emailVerificationRepository.save(verification);
+                    return;
+                }
+                // If not expired, expire it so user can re-register with new OTP
+                // This allows retry when previous email send failed
                 verification.markAsExpired();
                 emailVerificationRepository.save(verification);
             });
@@ -107,7 +109,13 @@ public class AuthService {
             request
         );
         
-        emailService.sendOtpEmail(registerDTO.getEmail(), otpCode);
+        // Send OTP email - don't let email failure crash registration
+        try {
+            emailService.sendOtpEmail(registerDTO.getEmail(), otpCode);
+        } catch (Exception e) {
+            log.warn("Failed to send OTP email to {}: {}. User can request resend later.", 
+                registerDTO.getEmail(), e.getMessage());
+        }
 
         // Return a temporary DTO (user not created yet)
         return UserDTO.builder()
@@ -494,11 +502,13 @@ public class AuthService {
 
         // Create user session
         String sessionKey = UUID.randomUUID().toString();
+        String safeDeviceId = deviceId != null ? deviceId.substring(0, Math.min(deviceId.length(), 500)) : "unknown";
+        String safeDeviceName = deviceName != null ? deviceName.substring(0, Math.min(deviceName.length(), 255)) : "Unknown Device";
         UserSession session = UserSession.builder()
             .user(user)
             .sessionKey(sessionKey)
-            .deviceId(deviceId != null ? deviceId : "unknown")
-            .deviceName(deviceName != null ? deviceName : "Unknown Device")
+            .deviceId(safeDeviceId)
+            .deviceName(safeDeviceName)
             .ipAddress(ipAddress)
             .userAgent(userAgent)
             .expiresAt(jwtService.calculateRefreshTokenExpiry())
@@ -618,6 +628,63 @@ public class AuthService {
             return xForwardedFor.split(",")[0].trim();
         }
         return request.getRemoteAddr();
+    }
+
+    /**
+     * Resend OTP for email verification
+     */
+    @Transactional
+    public MessageDTO resendOtp(String email, HttpServletRequest request) {
+        // Check if email is already registered (user exists and is verified)
+        userRepository.findByEmail(email).ifPresent(user -> {
+            if (user.getIsVerified()) {
+                throw new BadRequestException("This email is already verified");
+            }
+        });
+
+        // Find latest pending verification
+        EmailVerification existingVerification = emailVerificationRepository
+            .findLatestByEmailAndStatus(email, VerificationStatus.PENDING)
+            .orElse(null);
+
+        if (existingVerification != null) {
+            // Expire the old one
+            existingVerification.markAsExpired();
+            emailVerificationRepository.save(existingVerification);
+
+            // Create new verification reusing stored password hash and phone
+            String newOtpCode = emailService.generateOtp();
+            createEmailVerificationForRegistration(
+                email, newOtpCode,
+                existingVerification.getPasswordHash(),
+                existingVerification.getPhone(),
+                request
+            );
+
+            // Send new OTP
+            emailService.sendOtpEmail(email, newOtpCode);
+        } else {
+            // Try to find any expired verification with registration data
+            emailVerificationRepository.findLatestByEmail(email)
+                .filter(v -> v.getPasswordHash() != null)
+                .ifPresentOrElse(
+                    expiredVerification -> {
+                        String newOtpCode = emailService.generateOtp();
+                        createEmailVerificationForRegistration(
+                            email, newOtpCode,
+                            expiredVerification.getPasswordHash(),
+                            expiredVerification.getPhone(),
+                            request
+                        );
+                        emailService.sendOtpEmail(email, newOtpCode);
+                    },
+                    () -> {
+                        throw new BadRequestException("No registration found for this email. Please register first.");
+                    }
+                );
+        }
+
+        return MessageDTO.success("A new OTP has been sent to your email");
     }
 
     private String extractTokenFromRequest(HttpServletRequest request) {

@@ -166,7 +166,7 @@ export default function Announcements() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Target Audience
                 </label>
-                <select className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                <select title="Target Audience" className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
                   <option value="all">All Users</option>
                   <option value="patients">Patients Only</option>
                   <option value="doctors">Doctors Only</option>
@@ -178,7 +178,7 @@ export default function Announcements() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Priority
                 </label>
-                <select className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
+                <select title="Priority" className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white">
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
                   <option value="high">High</option>
@@ -191,6 +191,8 @@ export default function Announcements() {
                 </label>
                 <input
                   type="date"
+                  title="Start Date"
+                  placeholder="Select start date"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 />
               </div>
@@ -201,6 +203,8 @@ export default function Announcements() {
                 </label>
                 <input
                   type="date"
+                  title="End Date"
+                  placeholder="Select end date"
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 />
               </div>

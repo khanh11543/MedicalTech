@@ -47,4 +47,10 @@ public interface EmailVerificationRepository extends JpaRepository<EmailVerifica
      * Delete expired verifications
      */
     void deleteByExpiresAtBeforeAndStatus(LocalDateTime expiryDate, VerificationStatus status);
+
+    /**
+     * Find latest verification by email (any status)
+     */
+    @Query("SELECT ev FROM EmailVerification ev WHERE ev.email = :email ORDER BY ev.createdAt DESC")
+    Optional<EmailVerification> findLatestByEmail(@Param("email") String email);
 }

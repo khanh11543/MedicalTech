@@ -39,10 +39,10 @@ public class UserSession {
     @Column(name = "session_key", nullable = false, unique = true, length = 100)
     private String sessionKey;
 
-    @Column(name = "device_id", length = 100)
+    @Column(name = "device_id", length = 500)
     private String deviceId;
 
-    @Column(name = "device_name", length = 100)
+    @Column(name = "device_name", length = 255)
     private String deviceName;
 
     @Column(name = "ip_address", length = 45)

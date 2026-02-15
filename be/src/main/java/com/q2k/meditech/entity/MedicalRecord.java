@@ -76,6 +76,7 @@ public class MedicalRecord extends BaseEntity {
     @Column(name="attachments", columnDefinition = "json")
     private Object attachments;
 
+    @Builder.Default
     @Column(name="is_confidential")
     private Boolean isConfidential = false;
 }

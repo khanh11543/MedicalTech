@@ -44,16 +44,18 @@ public class EmailService {
     /**
      * Send OTP email
      */
+    /**
+     * Send OTP email
+     */
     public void sendOtpEmail(String email, String otpCode) {
         try {
             String subject = "OTP Verification Code - MedicalTech";
             String htmlContent = buildOtpEmailTemplate(otpCode);
-
             sendHtmlEmail(email, subject, htmlContent);
-            log.info("✅ OTP email sent successfully to: {}", email);
+            log.info("OTP email queued for: {}", email);
         } catch (Exception e) {
             log.error("❌ Failed to send OTP email to: {}", email, e);
-            throw new RuntimeException("Failed to send email", e);
+            throw new RuntimeException("Failed to send OTP email. Please try again.", e);
         }
     }
 
@@ -280,11 +282,13 @@ public class EmailService {
     }
 
     /**
-     * Send HTML email with attachment (async)
+     * Send HTML email
      */
     @Async
     public void sendHtmlEmail(String to, String subject, String htmlContent) {
         try {
+            log.info("Attempting to send email to: {}", to);
+            
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
@@ -294,9 +298,9 @@ public class EmailService {
             helper.setText(htmlContent, true); // true = HTML
 
             mailSender.send(message);
-            log.info("HTML email sent to: {}, subject: {}", to, subject);
+            log.info("HTML email sent successfully to: {}, subject: {}", to, subject);
 
-        } catch (MessagingException | UnsupportedEncodingException e) {
+        } catch (Exception e) {
             log.error("Failed to send HTML email to: {}", to, e);
         }
     }
