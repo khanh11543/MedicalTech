@@ -32,8 +32,16 @@ public class DataSeeder implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
 
     @Override
+    public void run(String... args) {
+        try {
+            seedData();
+        } catch (Exception e) {
+            log.error("Data seeding failed (non-fatal): {}", e.getMessage());
+        }
+    }
+
     @Transactional
-    public void run(String... args) throws Exception {
+    public void seedData() {
         log.info("Starting data seeding...");
         
         // Create roles if not exist

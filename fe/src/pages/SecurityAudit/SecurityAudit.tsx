@@ -1,257 +1,314 @@
+import { useEffect, useState } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import ComponentCard from "../../components/common/ComponentCard";
 import PageMeta from "../../components/common/PageMeta";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "../../components/ui/table";
-import Badge from "../../components/ui/badge/Badge";
-
-interface AuditLog {
-  id: number;
-  userAvatar: string;
-  userName: string;
-  action: string;
-  resource: string;
-  ipAddress: string;
-  timestamp: string;
-  status: "Success" | "Failed" | "Warning";
-}
-
-const auditLogsData: AuditLog[] = [
-  {
-    id: 1,
-    userAvatar: "/images/user/user-17.jpg",
-    userName: "Admin User",
-    action: "Login",
-    resource: "Authentication",
-    ipAddress: "192.168.1.100",
-    timestamp: "Feb 14, 2026 09:30:00",
-    status: "Success",
-  },
-  {
-    id: 2,
-    userAvatar: "/images/user/user-18.jpg",
-    userName: "Dr. Nguyen Van A",
-    action: "Update",
-    resource: "Patient Record #1234",
-    ipAddress: "192.168.1.105",
-    timestamp: "Feb 14, 2026 09:25:00",
-    status: "Success",
-  },
-  {
-    id: 3,
-    userAvatar: "/images/user/user-19.jpg",
-    userName: "Unknown",
-    action: "Login Attempt",
-    resource: "Authentication",
-    ipAddress: "45.33.32.156",
-    timestamp: "Feb 14, 2026 09:20:00",
-    status: "Failed",
-  },
-  {
-    id: 4,
-    userAvatar: "/images/user/user-20.jpg",
-    userName: "Receptionist",
-    action: "Create",
-    resource: "Appointment #5678",
-    ipAddress: "192.168.1.110",
-    timestamp: "Feb 14, 2026 09:15:00",
-    status: "Success",
-  },
-  {
-    id: 5,
-    userAvatar: "/images/user/user-21.jpg",
-    userName: "System",
-    action: "Password Reset",
-    resource: "User Account",
-    ipAddress: "192.168.1.1",
-    timestamp: "Feb 14, 2026 09:10:00",
-    status: "Warning",
-  },
-];
+import { securityAuditAPI, SecurityAuditDashboard } from "../../services/complianceService";
 
 export default function SecurityAudit() {
+  const [dashboard, setDashboard] = useState<SecurityAuditDashboard | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"overview" | "events" | "logs">("overview");
+
+  useEffect(() => {
+    loadDashboard();
+  }, []);
+
+  const loadDashboard = async () => {
+    try {
+      setLoading(true);
+      const response = await securityAuditAPI.getDashboard();
+      setDashboard(response.data);
+    } catch (error) {
+      console.error("Failed to load security audit dashboard:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString();
+  };
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case "HIGH":
+        return "text-red-600 bg-red-100 dark:bg-red-900/20 dark:text-red-400";
+      case "WARN":
+        return "text-yellow-600 bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-400";
+      default:
+        return "text-blue-600 bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400";
+    }
+  };
+
+  if (loading) {
+    return (
+      <>
+        <PageMeta
+          title="Security & Audit | MediTech Admin"
+          description="Monitor security and audit logs in the MediTech system"
+        />
+        <PageBreadcrumb pageTitle="Security & Audit" />
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-white"></div>
+        </div>
+      </>
+    );
+  }
+
+  if (!dashboard) {
+    return (
+      <>
+        <PageMeta
+          title="Security & Audit | MediTech Admin"
+          description="Monitor security and audit logs in the MediTech system"
+        />
+        <PageBreadcrumb pageTitle="Security & Audit" />
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400">Failed to load security audit data.</p>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <PageMeta
-        title="Security & Audit | MedicalTech Dashboard"
-        description="Security settings and audit logs in the MedicalTech system"
+        title="Security & Audit | MediTech Admin"
+        description="Monitor security and audit logs in the MediTech system"
       />
       <PageBreadcrumb pageTitle="Security & Audit" />
-      <div className="space-y-6">
-        <ComponentCard title="Security Settings">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-800 dark:text-white/90">Two-Factor Authentication</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Require 2FA for all admin accounts</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" defaultChecked />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
 
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-800 dark:text-white/90">Session Timeout (minutes)</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Auto logout after inactivity</p>
-              </div>
-              <select className="px-4 py-2 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-800 dark:text-white">
-                <option value="15">15 minutes</option>
-                <option value="30" selected>30 minutes</option>
-                <option value="60">60 minutes</option>
-                <option value="120">120 minutes</option>
-              </select>
-            </div>
-
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-800 dark:text-white/90">Password Expiry (days)</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Force password change after specified days</p>
-              </div>
-              <input
-                type="number"
-                defaultValue="90"
-                className="px-4 py-2 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-800 dark:text-white w-24"
-              />
-            </div>
-
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-800 dark:text-white/90">Max Login Attempts</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Lock account after failed login attempts</p>
-              </div>
-              <input
-                type="number"
-                defaultValue="5"
-                className="px-4 py-2 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-800 dark:text-white w-24"
-              />
-            </div>
-
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-800 dark:text-white/90">IP Whitelist</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Only allow access from specific IP addresses</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-              </label>
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Total Security Events</p>
+            <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
+              <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
             </div>
           </div>
-        </ComponentCard>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">{dashboard.totalSecurityEvents}</p>
+        </div>
 
-        <ComponentCard title="Audit Logs">
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-            <div className="max-w-full overflow-x-auto">
-              <Table>
-                <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-                  <TableRow>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      User
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Action
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Resource
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      IP Address
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Timestamp
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Status
-                    </TableCell>
-                  </TableRow>
-                </TableHeader>
-
-                <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                  {auditLogsData.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="px-5 py-4 sm:px-6 text-start">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 overflow-hidden rounded-full">
-                            <img
-                              width={40}
-                              height={40}
-                              src={log.userAvatar}
-                              alt={log.userName}
-                            />
-                          </div>
-                          <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            {log.userName}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {log.action}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {log.resource}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400 font-mono">
-                        {log.ipAddress}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {log.timestamp}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-start">
-                        <Badge
-                          size="sm"
-                          color={
-                            log.status === "Success"
-                              ? "success"
-                              : log.status === "Failed"
-                              ? "error"
-                              : "warning"
-                          }
-                        >
-                          {log.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Failed Login Attempts</p>
+            <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
+              <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
             </div>
           </div>
-        </ComponentCard>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">{dashboard.failedLoginAttempts}</p>
+        </div>
 
-        <div className="flex justify-end gap-3">
-          <button className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
-            Export Logs
-          </button>
-          <button className="px-6 py-2.5 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors">
-            Save Security Settings
-          </button>
+        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Total Audit Logs</p>
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">{dashboard.totalAuditLogs}</p>
+          <p className="text-xs text-gray-500 mt-1">Today: {dashboard.todayAuditLogs}</p>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400">Suspicious Activities</p>
+            <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
+              <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+          </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">{dashboard.suspiciousActivities}</p>
         </div>
       </div>
+
+      {/* Tabs */}
+      <div className="mb-6 border-b border-gray-200 dark:border-gray-800">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={`${
+              activeTab === "overview"
+                ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+          >
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab("events")}
+            className={`${
+              activeTab === "events"
+                ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+          >
+            Security Events
+          </button>
+          <button
+            onClick={() => setActiveTab("logs")}
+            className={`${
+              activeTab === "logs"
+                ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+          >
+            Audit Logs
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === "overview" && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Recent Security Events */}
+          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Security Events</h3>
+            <div className="space-y-3">
+              {dashboard.recentSecurityEvents.slice(0, 5).map((event) => (
+                <div key={event.id} className="border-l-4 border-gray-300 dark:border-gray-700 pl-4 py-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium text-gray-900 dark:text-white">{event.eventType}</span>
+                    <span className={`px-2 py-1 text-xs font-medium rounded ${getSeverityColor(event.severity)}`}>
+                      {event.severity}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{event.username}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">{formatDate(event.createdAt)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Top Active Users */}
+          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Active Users</h3>
+            <div className="space-y-3">
+              {dashboard.topActiveUsers.map((user) => (
+                <div key={user.userId} className="flex items-center justify-between py-2">
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-white">{user.fullName}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">@{user.username}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-900 dark:text-white">{user.activityCount}</p>
+                    <p className="text-xs text-gray-500">activities</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "events" && (
+        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Security Events</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+              <thead>
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Event Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    User
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Severity
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    IP Address
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Time
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+                {dashboard.recentSecurityEvents.map((event) => (
+                  <tr key={event.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                      {event.eventType}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      {event.username}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-medium rounded ${getSeverityColor(event.severity)}`}>
+                        {event.severity}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      {event.ipAddress}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      {formatDate(event.createdAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "logs" && (
+        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Audit Logs</h3>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+              <thead>
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Action
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    User
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Entity
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    IP Address
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Time
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+                {dashboard.recentAuditLogs.map((log) => (
+                  <tr key={log.id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                      {log.action}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      {log.username}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      {log.entityType} #{log.entityId}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      {log.ipAddress}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
+                      {formatDate(log.createdAt)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -1,8 +1,16 @@
 import { useState } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
+
+const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api").replace(/\/$/, "");
+
+function resolveAvatarUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  return `${API_ORIGIN}${url.startsWith("/") ? "" : "/"}${url}`;
+}
 
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
@@ -23,10 +31,11 @@ export default function UserDropdown() {
     navigate("/signin");
   };
 
-  // Get display name from email
-  const displayName = user?.email?.split("@")[0] || "User";
+  // Get display name from email or fullName
+  const displayName = user?.fullName || user?.email?.split("@")[0] || "User";
   const displayEmail = user?.email || "";
   const primaryRole = user?.roles?.[0]?.replace("ROLE_", "") || "User";
+  const avatarSrc = resolveAvatarUrl(user?.avatarUrl);
 
   return (
     <div className="relative">
@@ -35,9 +44,13 @@ export default function UserDropdown() {
         className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
       >
         <span className="flex items-center justify-center mr-3 overflow-hidden rounded-full h-11 w-11 bg-brand-100 dark:bg-brand-500/20">
-          <span className="text-sm font-semibold text-brand-600 dark:text-brand-400">
-            {displayName.charAt(0).toUpperCase()}
-          </span>
+          {avatarSrc ? (
+            <img src={avatarSrc} alt={displayName} className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-sm font-semibold text-brand-600 dark:text-brand-400">
+              {displayName.charAt(0).toUpperCase()}
+            </span>
+          )}
         </span>
 
         <span className="block mr-1 font-medium text-theme-sm">{displayName}</span>
@@ -83,7 +96,7 @@ export default function UserDropdown() {
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
-              to="/profile"
+              to="/admin/edit-profile"
               className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               <svg
@@ -108,7 +121,7 @@ export default function UserDropdown() {
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
-              to="/profile"
+              to="/admin/account-settings"
               className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               <svg
@@ -133,7 +146,7 @@ export default function UserDropdown() {
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
-              to="/profile"
+              to="/admin/support"
               className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               <svg

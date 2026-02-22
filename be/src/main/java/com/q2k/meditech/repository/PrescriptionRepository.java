@@ -68,4 +68,21 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
     
     // Đếm số đơn thuốc của doctor
     Long countByDoctorId(Long doctorId);
+    
+    // Tìm tất cả prescriptions với filters (cho Admin)
+    @Query("SELECT p FROM Prescription p " +
+           "JOIN FETCH p.patient pat " +
+           "JOIN FETCH pat.user " +
+           "JOIN FETCH p.doctor doc " +
+           "JOIN FETCH doc.user " +
+           "WHERE (:doctorId IS NULL OR doc.id = :doctorId) " +
+           "AND (:patientId IS NULL OR pat.id = :patientId) " +
+           "AND (:fromDate IS NULL OR p.prescriptionDate >= :fromDate) " +
+           "AND (:toDate IS NULL OR p.prescriptionDate <= :toDate)")
+    Page<Prescription> findAllWithFilters(
+            @Param("doctorId") Long doctorId,
+            @Param("patientId") Long patientId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            Pageable pageable);
 }

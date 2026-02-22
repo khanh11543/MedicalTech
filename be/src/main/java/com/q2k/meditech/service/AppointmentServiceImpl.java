@@ -308,8 +308,16 @@ public class AppointmentServiceImpl implements AppointmentService {
         
         Pageable pageable = createPageable(filter);
         
-        Page<Appointment> appointments = appointmentRepository.findAll(
-                AppointmentSpecification.withFilter(filter),
+        // Convert status enum to string if present
+        String statusStr = filter.getStatus() != null ? filter.getStatus().name() : null;
+        
+        // Use the new admin query with JOIN FETCH to avoid lazy loading issues
+        Page<Appointment> appointments = appointmentRepository.findAllWithFiltersAdmin(
+                filter.getDoctorId(),
+                filter.getPatientId(),
+                statusStr,
+                filter.getFrom(),
+                filter.getTo(),
                 pageable
         );
         

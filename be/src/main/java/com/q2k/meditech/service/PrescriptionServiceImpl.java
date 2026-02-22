@@ -133,4 +133,18 @@ public class PrescriptionServiceImpl implements PrescriptionService {
 
         return new org.springframework.data.domain.PageImpl<>(content, pageable, prescriptions.size());
     }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public Page<PrescriptionDTO> getAllPrescriptions(Long doctorId, Long patientId, LocalDate from, LocalDate to, int pageNumber, int pageSize) {
+        log.info("Getting all prescriptions with filters - doctorId: {}, patientId: {}, from: {}, to: {}", 
+                doctorId, patientId, from, to);
+
+        Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "prescriptionDate"));
+        
+        Page<Prescription> prescriptions = prescriptionRepository.findAllWithFilters(
+                doctorId, patientId, from, to, pageable);
+
+        return prescriptions.map(prescriptionMapper::toDTO);
+    }
 }

@@ -40,10 +40,17 @@ public class AppointmentMapper {
         // Patient info
         if (appointment.getPatient() != null) {
             builder.patientId(appointment.getPatient().getId());
-            if (appointment.getPatient().getUser() != null) {
-                builder.patientName(appointment.getPatient().getUser().getFullName());
-                builder.patientEmail(appointment.getPatient().getUser().getEmail());
-                builder.patientPhone(appointment.getPatient().getUser().getPhone());
+            try {
+                if (appointment.getPatient().getUser() != null) {
+                    builder.patientName(appointment.getPatient().getUser().getFullName());
+                    builder.patientEmail(appointment.getPatient().getUser().getEmail());
+                    builder.patientPhone(appointment.getPatient().getUser().getPhone());
+                }
+            } catch (jakarta.persistence.EntityNotFoundException e) {
+                // Handle orphaned patient user reference
+                builder.patientName("Unknown Patient (Data Error)");
+                builder.patientEmail(null);
+                builder.patientPhone(null);
             }
         }
         
@@ -51,15 +58,26 @@ public class AppointmentMapper {
         if (appointment.getDoctor() != null) {
             builder.doctorId(appointment.getDoctor().getId());
             builder.doctorSpecialization(appointment.getDoctor().getSpecialization());
-            if (appointment.getDoctor().getUser() != null) {
-                builder.doctorName(appointment.getDoctor().getUser().getFullName());
-                builder.doctorEmail(appointment.getDoctor().getUser().getEmail());
+            try {
+                if (appointment.getDoctor().getUser() != null) {
+                    builder.doctorName(appointment.getDoctor().getUser().getFullName());
+                    builder.doctorEmail(appointment.getDoctor().getUser().getEmail());
+                }
+            } catch (jakarta.persistence.EntityNotFoundException e) {
+                // Handle orphaned doctor user reference
+                builder.doctorName("Unknown Doctor (Data Error)");
+                builder.doctorEmail(null);
             }
         }
         
         // Booked by user info
-        if (appointment.getBookedByUser() != null) {
-            builder.bookedByUserName(appointment.getBookedByUser().getFullName());
+        try {
+            if (appointment.getBookedByUser() != null) {
+                builder.bookedByUserName(appointment.getBookedByUser().getFullName());
+            }
+        } catch (jakarta.persistence.EntityNotFoundException e) {
+            // Handle orphaned booked by user reference
+            builder.bookedByUserName("Unknown User (Data Error)");
         }
         
         return builder.build();

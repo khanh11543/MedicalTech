@@ -160,6 +160,50 @@ public class ReviewService {
         return convertToDTO(saved);
     }
 
+    /**
+     * Get all reviews for admin panel (paginated, with optional filters)
+     */
+    public Page<ReviewDTO> getAllReviews(String keyword, Boolean isVisible, Integer rating,
+                                         int pageNumber, int pageSize) {
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+
+        Page<Review> page;
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            page = reviewRepository.searchByKeyword(keyword.trim(), pageable);
+        } else if (isVisible != null) {
+            page = reviewRepository.findByIsVisibleOrderByCreatedAtDesc(isVisible, pageable);
+        } else if (rating != null) {
+            page = reviewRepository.findByRatingOrderByCreatedAtDesc(rating, pageable);
+        } else {
+            page = reviewRepository.findAllByOrderByCreatedAtDesc(pageable);
+        }
+
+        return page.map(this::convertToDTO);
+    }
+
+    /**
+     * Get a single review by ID (admin)
+     */
+    public ReviewDTO getReviewById(Long reviewId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review", "id", reviewId));
+        return convertToDTO(review);
+    }
+
+    /**
+     * Delete a review (admin only)
+     */
+    @Transactional
+    public void deleteReview(Long reviewId) {
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review", "id", reviewId));
+
+        // Update doctor rating after deletion
+        Long doctorId = review.getDoctor().getId();
+        reviewRepository.delete(review);
+        updateDoctorRating(doctorId);
+    }
+
     private void updateDoctorRating(Long doctorId) {
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor", "id", doctorId));

@@ -14,7 +14,8 @@ import com.q2k.meditech.repository.RoleRepository;
 import com.q2k.meditech.repository.UserRepository;
 import com.q2k.meditech.repository.UserRoleRepository;
 import com.q2k.meditech.service.UserService;
-import jakarta.transaction.Transactional;
+import jakarta.persistence.criteria.JoinType;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -45,6 +46,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Override
+    @Transactional(readOnly = true)
     public Page<UserDTO> listUsers(String query, String role, Boolean isActive, Pageable pageable) {
         log.info("Listing users with query: {}, role: {}, isActive: {}", query, role, isActive);
 
@@ -54,7 +56,14 @@ public class UserServiceImpl implements UserService {
         final Boolean finalIsActive = isActive;
 
         // Build dynamic specification for filtering
-        Specification<User> spec = (root, criteriaQuery, cb) -> cb.conjunction();
+        // Always eager fetch userRoles and roles to avoid LazyInitializationException
+        Specification<User> spec = (root, criteriaQuery, cb) -> {
+            // Eager fetch userRoles and roles for all queries
+            if (criteriaQuery.getResultType() != Long.class) {
+                root.fetch("userRoles", JoinType.LEFT).fetch("role", JoinType.LEFT);
+            }
+            return cb.conjunction();
+        };
 
         // Filter by search query (email or phone)
         if (finalQuery != null && !finalQuery.trim().isEmpty()) {
@@ -78,8 +87,8 @@ public class UserServiceImpl implements UserService {
         if (finalRole != null && !finalRole.trim().isEmpty()) {
             String searchRole = finalRole.toLowerCase();
             spec = spec.and((root, criteriaQuery, cb) -> {
-                var userRoleJoin = root.join("userRoles");
-                var roleJoin = userRoleJoin.join("role");
+                var userRoleJoin = root.join("userRoles", JoinType.LEFT);
+                var roleJoin = userRoleJoin.join("role", JoinType.LEFT);
                 return cb.equal(cb.lower(roleJoin.get("name")), searchRole);
             });
         }

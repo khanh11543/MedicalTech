@@ -15,13 +15,13 @@ import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.DoctorDocumentRepository;
 import com.q2k.meditech.repository.DoctorRepository;
 import com.q2k.meditech.repository.UserRepository;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -125,6 +125,7 @@ public class DoctorDocumentServiceImpl implements DoctorDocumentService {
     // ========== ADMIN ENDPOINTS ==========
 
     @Override
+    @Transactional(readOnly = true)
     public Page<DoctorDocumentDTO> listAllDocuments(String status, String docType, Pageable pageable) {
         log.info("Admin listing documents - status: {}, type: {}", status, docType);
 

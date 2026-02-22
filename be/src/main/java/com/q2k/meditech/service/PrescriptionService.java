@@ -32,4 +32,9 @@ public interface PrescriptionService {
      * Lấy danh sách đơn thuốc của doctor
      */
     Page<PrescriptionDTO> getDoctorPrescriptions(Long doctorId, LocalDate from, LocalDate to, int pageNumber, int pageSize);
+    
+    /**
+     * Lấy tất cả đơn thuốc với filters (cho Admin)
+     */
+    Page<PrescriptionDTO> getAllPrescriptions(Long doctorId, Long patientId, LocalDate from, LocalDate to, int pageNumber, int pageSize);
 }

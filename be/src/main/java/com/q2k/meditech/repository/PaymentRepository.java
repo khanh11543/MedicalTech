@@ -87,6 +87,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     @Query("SELECT DISTINCT p FROM Payment p " +
             "LEFT JOIN FETCH p.appointment a " +
             "LEFT JOIN FETCH p.patient pat " +
+            "LEFT JOIN FETCH pat.user " +
+            "LEFT JOIN FETCH p.processedBy " +
             "WHERE (:status IS NULL OR p.paymentStatus = :status) " +
             "AND (:method IS NULL OR p.paymentMethod = :method) " +
             "AND (:patientId IS NULL OR p.patient.id = :patientId) " +

@@ -1,8 +1,11 @@
 package com.q2k.meditech.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -13,6 +16,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import java.util.Map;
 
 /**
  * Security Configuration
@@ -50,6 +55,7 @@ public class SecurityConfig {
                         // Public endpoints - no authentication required
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/public/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
 
                         // Swagger/OpenAPI endpoints
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
@@ -68,6 +74,26 @@ public class SecurityConfig {
 
                         // All other requests need authentication
                         .anyRequest().authenticated()
+                )
+
+                // Handle authentication/authorization errors properly
+                .exceptionHandling(ex -> ex
+                        // Return 401 for unauthenticated requests (e.g. expired/missing JWT)
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            new ObjectMapper().writeValue(response.getOutputStream(),
+                                    Map.of("status", 401, "error", "Unauthorized",
+                                            "message", "Authentication required. Please login again."));
+                        })
+                        // Return 403 for authenticated users lacking permissions
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            new ObjectMapper().writeValue(response.getOutputStream(),
+                                    Map.of("status", 403, "error", "Forbidden",
+                                            "message", "Access denied. Insufficient permissions."));
+                        })
                 )
 
                 // Add JWT filter before UsernamePasswordAuthenticationFilter

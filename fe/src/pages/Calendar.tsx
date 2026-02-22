@@ -163,7 +163,7 @@ const Calendar: React.FC = () => {
             <div className="mt-8">
               <div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                  <label htmlFor="event-title" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                     Event Title
                   </label>
                   <input
@@ -216,7 +216,7 @@ const Calendar: React.FC = () => {
               </div>
 
               <div className="mt-6">
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                <label htmlFor="event-start-date" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                   Enter Start Date
                 </label>
                 <div className="relative">
@@ -231,7 +231,7 @@ const Calendar: React.FC = () => {
               </div>
 
               <div className="mt-6">
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
+                <label htmlFor="event-end-date" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                   Enter End Date
                 </label>
                 <div className="relative">

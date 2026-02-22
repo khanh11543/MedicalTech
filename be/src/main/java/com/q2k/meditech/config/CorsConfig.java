@@ -36,9 +36,25 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
-        // Parse allowed origins from application.yml
+        // Parse allowed origins from application.properties
         List<String> origins = Arrays.asList(allowedOrigins.split(","));
-        configuration.setAllowedOrigins(origins);
+        
+        // Separate exact origins from wildcard patterns
+        List<String> exactOrigins = origins.stream()
+                .filter(o -> !o.contains("*"))
+                .map(String::trim)
+                .toList();
+        List<String> patternOrigins = origins.stream()
+                .filter(o -> o.contains("*"))
+                .map(String::trim)
+                .toList();
+        
+        if (!exactOrigins.isEmpty()) {
+            configuration.setAllowedOrigins(exactOrigins);
+        }
+        if (!patternOrigins.isEmpty()) {
+            configuration.setAllowedOriginPatterns(patternOrigins);
+        }
         
         // Parse allowed methods
         List<String> methods = Arrays.asList(allowedMethods.split(","));

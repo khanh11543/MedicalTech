@@ -29,13 +29,19 @@ export default function SignInForm() {
 
     setIsSubmitting(true);
     try {
-      await login({
+      const tokenData = await login({
         email,
         password,
         deviceId: navigator.userAgent,
         deviceName: `Web Browser - ${navigator.platform}`,
       });
-      navigate("/");
+      
+      // Role-based redirect
+      if (tokenData.roles?.includes("ADMIN")) {
+        navigate("/admin");
+      } else {
+        navigate("/patient");
+      }
     } catch (err: unknown) {
       const axiosError = err as {
         response?: { data?: { message?: string }; status?: number };

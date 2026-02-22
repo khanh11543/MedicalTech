@@ -3,6 +3,7 @@ import authService, {
   type LoginRequest,
   type TokenResponse,
 } from "../services/authService";
+import userService from "../services/userService";
 
 interface AuthUser {
   userId: number;
@@ -10,6 +11,8 @@ interface AuthUser {
   roles: string[];
   accessToken: string;
   refreshToken: string;
+  avatarUrl?: string | null;
+  fullName?: string | null;
 }
 
 interface AuthContextType {
@@ -19,6 +22,7 @@ interface AuthContextType {
   login: (data: LoginRequest) => Promise<TokenResponse>;
   logout: () => Promise<void>;
   setAuthFromToken: (tokenData: TokenResponse) => void;
+  updateUserProfile: (partial: { avatarUrl?: string | null; fullName?: string | null }) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,6 +53,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setIsLoading(false);
   }, []);
+
+  // Fetch profile (avatarUrl, fullName) once authenticated
+  useEffect(() => {
+    if (!user?.accessToken) return;
+    userService.getProfile().then((profile) => {
+      setUser((prev) =>
+        prev
+          ? { ...prev, avatarUrl: profile.avatarUrl, fullName: profile.fullName }
+          : prev
+      );
+    }).catch(() => {
+      // ignore — profile fetch is best-effort
+    });
+    // only run once when user becomes authenticated
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.accessToken]);
+
+  const updateUserProfile = useCallback(
+    (partial: { avatarUrl?: string | null; fullName?: string | null }) => {
+      setUser((prev) => (prev ? { ...prev, ...partial } : prev));
+    },
+    []
+  );
 
   const setAuthFromToken = useCallback((tokenData: TokenResponse) => {
     const authUser: AuthUser = {
@@ -104,6 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login,
         logout,
         setAuthFromToken,
+        updateUserProfile,
       }}
     >
       {children}

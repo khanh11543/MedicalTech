@@ -154,4 +154,27 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
      */
     @Query("SELECT COUNT(a) > 0 FROM Appointment a WHERE a.timeSlot.id = :timeSlotId AND a.status NOT IN ('CANCELLED', 'RESCHEDULED')")
     boolean existsByTimeSlotAndNotCancelled(@Param("timeSlotId") Long timeSlotId);
+
+    /**
+     * Find all appointments with filters for admin (with JOIN FETCH to avoid N+1)
+     */
+    @Query("SELECT DISTINCT a FROM Appointment a " +
+            "LEFT JOIN FETCH a.patient p " +
+            "LEFT JOIN FETCH p.user " +
+            "LEFT JOIN FETCH a.doctor d " +
+            "LEFT JOIN FETCH d.user " +
+            "WHERE (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
+            "AND (:patientId IS NULL OR a.patient.id = :patientId) " +
+            "AND (:status IS NULL OR CAST(a.status AS string) = :status) " +
+            "AND (:fromDate IS NULL OR a.appointmentDate >= :fromDate) " +
+            "AND (:toDate IS NULL OR a.appointmentDate <= :toDate) " +
+            "ORDER BY a.appointmentDate ASC, a.startTime ASC")
+    Page<Appointment> findAllWithFiltersAdmin(
+            @Param("doctorId") Long doctorId,
+            @Param("patientId") Long patientId,
+            @Param("status") String status,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            Pageable pageable
+    );
 }

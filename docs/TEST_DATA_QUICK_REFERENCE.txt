@@ -1,0 +1,167 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║               MEDICALTECH - TEST DATA QUICK REFERENCE                        ║
+║                     comprehensive_test_data.sql                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 🔐 LOGIN CREDENTIALS - Password: Test@123456 (Tất cả tài khoản)             │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ADMIN         │ admin@meditech.com                                           │
+│ DOCTOR 1      │ dr.nguyen@meditech.com  │ BS. Nguyễn Văn An - Tim mạch      │
+│ DOCTOR 2      │ dr.tran@meditech.com    │ BS. Trần Thị Bình - Nhi khoa      │
+│ DOCTOR 3      │ dr.le@meditech.com      │ BS. Lê Hoàng Cường - Da liễu      │
+│ DOCTOR 4      │ dr.pham@meditech.com    │ BS. Phạm Minh Dương - Nội khoa    │
+│ RECEPTIONIST  │ receptionist1@meditech.com │ Nguyễn Thị Hoa                 │
+│ RECEPTIONIST  │ receptionist2@meditech.com │ Trần Văn Bình                   │
+│ PATIENT 1     │ patient1@gmail.com      │ Nguyễn Thị Mai (F, A+)            │
+│ PATIENT 2     │ patient2@gmail.com      │ Trần Văn Hùng (M, B+, Cao HA)     │
+│ PATIENT 3     │ patient3@gmail.com      │ Lê Hoàng Lan (F, O+, Trẻ em)      │
+│ PATIENT 4     │ patient4@gmail.com      │ Phạm Minh Tuấn (M, AB+, DM Type2) │
+│ PATIENT 5     │ patient5@gmail.com      │ Võ Thị Ngọc (F, A-, Viêm xoang)   │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 🏥 DOCTOR SCHEDULES                                                          │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ BS. Nguyễn Văn An (Tim mạch)    │ T2,T4,T6 │ 08:00-12:00, 14:00-17:00      │
+│ BS. Trần Thị Bình (Nhi khoa)    │ T2-T6    │ 08:00-12:00, 14:00-17:00      │
+│ BS. Lê Hoàng Cường (Da liễu)    │ T3,T5,T7 │ 09:00-12:00, 14:00-18:00      │
+│ BS. Phạm Minh Dương (Nội khoa)  │ T2,T4,T6 │ 08:00-11:30, 13:30-17:00      │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 📅 APPOINTMENTS (7 total)                                                    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ID   │ Code            │ Patient          │ Doctor        │ Status          │
+├──────┼─────────────────┼──────────────────┼───────────────┼─────────────────┤
+│ 1001 │ APT-2026-001001 │ Nguyễn Thị Mai   │ BS. An (Tim)  │ CONFIRMED       │
+│ 1002 │ APT-2026-001002 │ Trần Văn Hùng    │ BS. An (Tim)  │ CONFIRMED       │
+│ 1003 │ APT-2026-001003 │ Lê Hoàng Lan     │ BS. Bình (Nhi)│ CONFIRMED       │
+│ 1004 │ APT-2026-001004 │ Phạm Minh Tuấn   │ BS. Dương (NK)│ PENDING         │
+│ 1005 │ APT-2026-001005 │ Võ Thị Ngọc      │ BS. Cường (DL)│ CONFIRMED       │
+│ 1006 │ APT-2026-001006 │ Nguyễn Thị Mai   │ BS. Bình      │ COMPLETED (7d)  │
+│ 1007 │ APT-2026-001007 │ Trần Văn Hùng    │ BS. Dương     │ COMPLETED (5d)  │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 💊 MEDICATIONS (8 total)                                                     │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Code    │ Name                   │ Price    │ Rx? │ Category               │
+├─────────┼────────────────────────┼──────────┼─────┼────────────────────────┤
+│ MED-001 │ Paracetamol 500mg      │ 2,000    │ No  │ Giảm đau - Hạ sốt      │
+│ MED-002 │ Amoxicillin 500mg      │ 5,000    │ Yes │ Kháng sinh             │
+│ MED-003 │ Vitamin C 1000mg       │ 3,500    │ No  │ Vitamin & Bổ sung      │
+│ MED-004 │ Metformin 500mg        │ 8,000    │ Yes │ Điều trị tiểu đường    │
+│ MED-005 │ Losartan 50mg          │ 12,000   │ Yes │ Hạ huyết áp            │
+│ MED-006 │ Cetirizine 10mg        │ 3,000    │ No  │ Kháng dị ứng           │
+│ MED-007 │ Omeprazole 20mg        │ 6,500    │ Yes │ Tiêu hóa               │
+│ MED-008 │ Ibuprofen 400mg        │ 4,500    │ Yes │ Chống viêm             │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 💳 PAYMENTS (4 total)                                                        │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ID   │ Code            │ Patient        │ Amount    │ Method   │ Status      │
+├──────┼─────────────────┼────────────────┼───────────┼──────────┼─────────────┤
+│ 2001 │ PAY-2026-002001 │ Nguyễn Thị Mai │ 600,000   │ CASH     │ COMPLETED   │
+│ 2002 │ PAY-2026-002002 │ Trần Văn Hùng  │ 500,000   │ BANK     │ COMPLETED   │
+│ 2003 │ PAY-2026-002003 │ Nguyễn Thị Mai │ 800,000   │ MOMO     │ PENDING     │
+│ 2004 │ PAY-2026-002004 │ Lê Hoàng Lan   │ 600,000   │ VNPAY    │ PROCESSING  │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 📋 MEDICAL RECORDS & PRESCRIPTIONS                                           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Medical Record 3001  │ Nguyễn Thị Mai  │ APT-1006 │ BS. Bình │ 7 days ago   │
+│ Medical Record 3002  │ Trần Văn Hùng   │ APT-1007 │ BS. Dương│ 5 days ago   │
+│ Prescription 4001    │ MR-3002 → Losartan 50mg + Vitamin C                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 📊 DATABASE STATISTICS                                                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ Users:                 12   │ Doctors:              4   │ Patients:         5   │
+│ Receptionists:         2    │ Appointments:         7   │ Medications:      8   │
+│ Payments:              4    │ Medical Records:      2   │ Prescriptions:    1   │
+│ Invoices:              2    │ Reviews:              2   │ Notifications:    5   │
+│ Doctor Schedules:     30+   │ Time Slots:          20+  │ Favorite Doctors: 4   │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 🚀 QUICK START COMMANDS                                                      │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ 1. BACKUP (Important!)                                                       │
+│    mysqldump -u root -p medical_appointment_system > backup.sql              │
+│                                                                              │
+│ 2. RUN SCRIPT                                                                │
+│    mysql -u root -p medical_appointment_system < comprehensive_test_data.sql │
+│                                                                              │
+│ 3. VERIFY DATA                                                               │
+│    SELECT COUNT(*) FROM users WHERE id >= 101;                               │
+│    SELECT COUNT(*) FROM appointments WHERE id >= 1001;                       │
+│                                                                              │
+│ 4. LOGIN & TEST                                                              │
+│    POST /api/auth/login                                                      │
+│    { "email": "admin@meditech.com", "password": "Test@123456" }              │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 🧪 TEST SCENARIOS                                                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ✅ Authentication (Login/Register)      │ All user roles                     │
+│ ✅ Doctor Search & Filter               │ By specialty, availability         │
+│ ✅ Appointment Booking                  │ Future dates with time slots       │
+│ ✅ Appointment Management               │ CRUD, status changes, history      │
+│ ✅ Payment Processing                   │ CASH, BANK, MOMO, VNPAY            │
+│ ✅ Medical Records                      │ View, create, update               │
+│ ✅ Prescription Management              │ Create, view, medications          │
+│ ✅ Invoice Generation                   │ From payments                      │
+│ ✅ Notifications                        │ Appointment reminders              │
+│ ✅ Reviews & Ratings                    │ Patient feedback                   │
+│ ✅ Favorite Doctors                     │ Patient preferences                │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 🗑️ CLEANUP (Delete all test data)                                           │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ -- WARNING: This will delete ALL test data!                                  │
+│                                                                              │
+│ DELETE FROM appointment_history WHERE appointment_id >= 1001;                │
+│ DELETE FROM favorite_doctors WHERE patient_id >= 108;                        │
+│ DELETE FROM reviews WHERE appointment_id >= 1001;                            │
+│ DELETE FROM invoice_items WHERE invoice_id >= 5001;                          │
+│ DELETE FROM invoices WHERE id >= 5001;                                       │
+│ DELETE FROM prescription_items WHERE prescription_id >= 4001;                │
+│ DELETE FROM prescriptions WHERE id >= 4001;                                  │
+│ DELETE FROM medical_records WHERE id >= 3001;                                │
+│ DELETE FROM payments WHERE id >= 2001;                                       │
+│ DELETE FROM notifications WHERE user_id >= 101;                              │
+│ DELETE FROM appointments WHERE id >= 1001;                                   │
+│ DELETE FROM time_slots WHERE doctor_id >= 102;                               │
+│ DELETE FROM doctor_schedules WHERE doctor_id >= 102;                         │
+│ DELETE FROM doctor_specialties WHERE doctor_id >= 102;                       │
+│ DELETE FROM doctors WHERE id >= 102;                                         │
+│ DELETE FROM receptionists WHERE id >= 106;                                   │
+│ DELETE FROM patients WHERE id >= 108;                                        │
+│ DELETE FROM notification_preferences WHERE user_id >= 101;                   │
+│ DELETE FROM user_roles WHERE user_id >= 101;                                 │
+│ DELETE FROM users WHERE id >= 101;                                           │
+│ DELETE FROM medications WHERE id >= 201;                                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ 💡 TIPS                                                                      │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ • All IDs start from 100+ to avoid production conflicts                     │
+│ • Dates are dynamic (calculated from current date)                          │
+│ • Script is idempotent (safe to run multiple times)                         │
+│ • Check TEST_DATA_GUIDE.md for detailed documentation                       │
+│ • BCrypt password hash strength: 10                                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  For detailed documentation, see: docs/TEST_DATA_GUIDE.md                    ║
+║  Script location: docs/comprehensive_test_data.sql                           ║
+╚══════════════════════════════════════════════════════════════════════════════╝

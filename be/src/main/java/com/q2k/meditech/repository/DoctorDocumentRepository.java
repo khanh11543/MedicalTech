@@ -57,6 +57,7 @@ public interface DoctorDocumentRepository extends JpaRepository<DoctorDocument, 
     @Query("SELECT dd FROM DoctorDocument dd " +
             "JOIN FETCH dd.doctor d " +
             "LEFT JOIN FETCH d.user u " +
+            "LEFT JOIN FETCH dd.reviewedBy " +
             "WHERE (:status IS NULL OR dd.status = :status) " +
             "AND (:docType IS NULL OR dd.docType = :docType) " +
             "ORDER BY dd.createdAt ASC")
