@@ -42,8 +42,17 @@ import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import AdminProtectedRoute from "./components/auth/AdminProtectedRoute";
 import DebugInfo from "./pages/Debug/DebugInfo";
+import PatientList from "./pages/PatientManagement/PatientList";
+import ReceptionistList from "./pages/ReceptionistManagement/ReceptionistList";
 import PatientLayout from "./layout/PatientLayout";
 import PatientDashboard from "./pages/Patient/PatientDashboard";
+import DoctorSearch from "./pages/Patient/DoctorSearch";
+import DoctorDetailPage from "./pages/Patient/DoctorDetailPage";
+import MyAppointments from "./pages/Patient/MyAppointments";
+import MedicalRecords from "./pages/Patient/MedicalRecords";
+import MyPrescriptions from "./pages/Patient/MyPrescriptions";
+import PaymentHistory from "./pages/Patient/PaymentHistory";
+import PatientProfile from "./pages/Patient/PatientProfile";
 
 export default function App() {
   return (
@@ -58,6 +67,12 @@ export default function App() {
 
             {/* User Management */}
             <Route path="user-list" element={<UserList />} />
+
+            {/* Patient Management */}
+            <Route path="patient-list" element={<PatientList />} />
+
+            {/* Receptionist Management */}
+            <Route path="receptionist-list" element={<ReceptionistList />} />
 
             {/* Doctor Verification */}
             <Route path="doctor-verification" element={<DoctorVerification />} />
@@ -139,10 +154,13 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="/patient" element={<PatientLayout />}>
               <Route index element={<PatientDashboard />} />
-              <Route path="appointments" element={<div className="p-6">Appointments - Coming Soon</div>} />
-              <Route path="records" element={<div className="p-6">Medical Records - Coming Soon</div>} />
-              <Route path="prescriptions" element={<div className="p-6">Prescriptions - Coming Soon</div>} />
-              <Route path="profile" element={<div className="p-6">Profile Settings - Coming Soon</div>} />
+              <Route path="appointments" element={<MyAppointments />} />
+              <Route path="doctors" element={<DoctorSearch />} />
+              <Route path="doctors/:id" element={<DoctorDetailPage />} />
+              <Route path="records" element={<MedicalRecords />} />
+              <Route path="prescriptions" element={<MyPrescriptions />} />
+              <Route path="payments" element={<PaymentHistory />} />
+              <Route path="profile" element={<PatientProfile />} />
             </Route>
           </Route>
 

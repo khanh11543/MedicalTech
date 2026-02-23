@@ -19,6 +19,8 @@ import {
   MailIcon,
   ShootingStarIcon,
   TaskIcon,
+  UserCircleIcon,
+  UserIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import SidebarWidget from "./SidebarWidget";
@@ -40,6 +42,16 @@ const navItems: NavItem[] = [
     icon: <GroupIcon />,
     name: "User Management",
     path: "/admin/user-list",
+  },
+  {
+    icon: <UserCircleIcon />,
+    name: "Patient Management",
+    path: "/admin/patient-list",
+  },
+  {
+    icon: <UserIcon />,
+    name: "Receptionist Management",
+    path: "/admin/receptionist-list",
   },
   {
     icon: <CheckCircleIcon />,

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -59,4 +60,18 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
            "LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(u.phone) LIKE LOWER(CONCAT('%', :query, '%')))")
     Page<User> searchUsers(@Param("query") String query, Pageable pageable);
+
+    /**
+     * Find users who have a specific role but do NOT have a corresponding profile in the given table.
+     * Used to sync missing Receptionist/Patient profiles.
+     */
+    @Query("SELECT u FROM User u JOIN u.userRoles ur JOIN ur.role r " +
+           "WHERE r.name = :roleName " +
+           "AND u.id NOT IN (SELECT rec.user.id FROM Receptionist rec)")
+    List<User> findUsersWithRoleMissingReceptionistProfile(@Param("roleName") String roleName);
+
+    @Query("SELECT u FROM User u JOIN u.userRoles ur JOIN ur.role r " +
+           "WHERE r.name = :roleName " +
+           "AND u.id NOT IN (SELECT p.user.id FROM Patient p)")
+    List<User> findUsersWithRoleMissingPatientProfile(@Param("roleName") String roleName);
 }

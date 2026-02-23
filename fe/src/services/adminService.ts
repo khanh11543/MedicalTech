@@ -428,6 +428,51 @@ const adminService = {
     const response = await api.patch(`/admin/support-tickets/${id}/close`);
     return response.data;
   },
+
+  // ============== PATIENT MANAGEMENT ==============
+  getPatients: async (params: AdminPatientListParams = {}): Promise<Page<AdminPatient>> => {
+    const response = await api.get("/admin/patients", { params });
+    return response.data;
+  },
+
+  getPatientDetail: async (id: number): Promise<AdminPatient> => {
+    const response = await api.get(`/admin/patients/${id}`);
+    return response.data;
+  },
+
+  updatePatient: async (id: number, data: UpdatePatientRequest): Promise<AdminPatient> => {
+    const response = await api.put(`/admin/patients/${id}`, data);
+    return response.data;
+  },
+
+  updatePatientStatus: async (id: number, isActive: boolean): Promise<void> => {
+    await api.patch(`/admin/patients/${id}/status`, { isActive });
+  },
+
+  // ============== RECEPTIONIST MANAGEMENT ==============
+  getReceptionists: async (params: AdminReceptionistListParams = {}): Promise<Page<AdminReceptionist>> => {
+    const response = await api.get("/admin/receptionists", { params });
+    return response.data;
+  },
+
+  getReceptionistDetail: async (id: number): Promise<AdminReceptionist> => {
+    const response = await api.get(`/admin/receptionists/${id}`);
+    return response.data;
+  },
+
+  createReceptionist: async (data: CreateReceptionistRequest): Promise<AdminReceptionist> => {
+    const response = await api.post("/admin/receptionists", data);
+    return response.data;
+  },
+
+  updateReceptionist: async (id: number, data: UpdateReceptionistRequest): Promise<AdminReceptionist> => {
+    const response = await api.put(`/admin/receptionists/${id}`, data);
+    return response.data;
+  },
+
+  updateReceptionistStatus: async (id: number, isActive: boolean): Promise<void> => {
+    await api.patch(`/admin/receptionists/${id}/status`, { isActive });
+  },
 };
 
 // Staff Registry Types
@@ -776,6 +821,102 @@ export interface SupportTicketStats {
   inProgressTickets: number;
   resolvedTickets: number;
   closedTickets: number;
+}
+
+// ============== ADMIN PATIENT TYPES ==============
+export interface AdminPatient {
+  patientId: number;
+  userId: number;
+  email: string;
+  fullName: string | null;
+  phone: string | null;
+  avatarUrl: string | null;
+  isActive: boolean;
+  isVerified: boolean;
+  lastLogin: string | null;
+  createdAt: string;
+  dateOfBirth: string | null;
+  gender: string | null;
+  address: string | null;
+  insuranceNumber: string | null;
+  insuranceProvider: string | null;
+  emergencyContact: string | null;
+  bloodGroup: string | null;
+  allergies: string | null;
+  medicalHistory: string | null;
+  totalAppointments: number;
+}
+
+export interface UpdatePatientRequest {
+  fullName?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  address?: string;
+  insuranceNumber?: string;
+  insuranceProvider?: string;
+  emergencyContact?: string;
+  bloodGroup?: string;
+  allergies?: string;
+  isActive?: boolean;
+}
+
+export interface AdminPatientListParams {
+  q?: string;
+  gender?: string;
+  bloodGroup?: string;
+  isActive?: boolean;
+  pageNumber?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}
+
+// ============== ADMIN RECEPTIONIST TYPES ==============
+export interface AdminReceptionist {
+  receptionistId: number;
+  userId: number;
+  email: string;
+  fullName: string;
+  phone: string | null;
+  avatarUrl: string | null;
+  employeeId: string | null;
+  department: string | null;
+  shift: string | null;
+  isActive: boolean;
+  isVerified: boolean;
+  lastLogin: string | null;
+  createdAt: string;
+}
+
+export interface CreateReceptionistRequest {
+  fullName: string;
+  email: string;
+  password: string;
+  phone?: string;
+  employeeId?: string;
+  department?: string;
+  shift?: string;
+}
+
+export interface UpdateReceptionistRequest {
+  fullName?: string;
+  phone?: string;
+  employeeId?: string;
+  department?: string;
+  shift?: string;
+  isActive?: boolean;
+}
+
+export interface AdminReceptionistListParams {
+  q?: string;
+  department?: string;
+  shift?: string;
+  isActive?: boolean;
+  pageNumber?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }
 
 export default adminService;
