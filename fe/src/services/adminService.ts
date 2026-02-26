@@ -58,7 +58,17 @@ export interface User {
   roles: string[];
 }
 
-export interface UserDetail extends User {
+export interface UserRoleDetail {
+  roleId: number;
+  roleName: string;
+  roleDescription: string;
+  assignedAt: string | null;
+  assignedBy: number | null;
+  assignedByEmail: string | null;
+}
+
+export interface UserDetail extends Omit<User, 'roles'> {
+  roles: UserRoleDetail[];
   patientProfile?: PatientProfile;
   doctorProfile?: DoctorProfile;
 }
@@ -205,8 +215,18 @@ const adminService = {
     await api.put(`/admin/users/${userId}/roles`, { roleIds });
   },
 
+  getRoles: async (): Promise<{ id: number; name: string }[]> => {
+    const response = await api.get("/admin/users/roles");
+    return response.data;
+  },
+
   resetUserPassword: async (userId: number): Promise<{ message: string }> => {
     const response = await api.post(`/admin/users/${userId}/reset-password`);
+    return response.data;
+  },
+
+  adminChangePassword: async (userId: number, newPassword: string, confirmPassword: string): Promise<{ message: string }> => {
+    const response = await api.put(`/admin/users/${userId}/change-password`, { newPassword, confirmPassword });
     return response.data;
   },
 

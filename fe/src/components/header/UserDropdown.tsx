@@ -37,6 +37,13 @@ export default function UserDropdown() {
   const primaryRole = user?.roles?.[0]?.replace("ROLE_", "") || "User";
   const avatarSrc = resolveAvatarUrl(user?.avatarUrl);
 
+  // Determine base path based on role for dropdown links
+  const basePath = user?.roles?.includes("ADMIN")
+    ? "/admin"
+    : user?.roles?.includes("DOCTOR")
+      ? "/doctor"
+      : "/patient";
+
   return (
     <div className="relative">
       <button
@@ -55,9 +62,8 @@ export default function UserDropdown() {
 
         <span className="block mr-1 font-medium text-theme-sm">{displayName}</span>
         <svg
-          className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
-          }`}
+          className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""
+            }`}
           width="18"
           height="20"
           viewBox="0 0 18 20"
@@ -96,7 +102,7 @@ export default function UserDropdown() {
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
-              to="/admin/edit-profile"
+              to={`${basePath}/edit-profile`}
               className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               <svg
@@ -121,7 +127,7 @@ export default function UserDropdown() {
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
-              to="/admin/account-settings"
+              to={`${basePath}/account-settings`}
               className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               <svg
@@ -146,7 +152,7 @@ export default function UserDropdown() {
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
-              to="/admin/support"
+              to={`${basePath}/support`}
               className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               <svg

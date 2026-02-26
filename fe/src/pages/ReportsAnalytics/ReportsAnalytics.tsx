@@ -2,6 +2,22 @@ import { useEffect, useState } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import { reportsAnalyticsAPI, ReportsAnalytics } from "../../services/complianceService";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  PointElement,
+  LineElement,
+  Filler,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Bar, Pie, Doughnut, Line } from "react-chartjs-2";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Filler, Title, Tooltip, Legend);
 
 export default function ReportsAnalyticsPage() {
   const [analytics, setAnalytics] = useState<ReportsAnalytics | null>(null);
@@ -122,41 +138,37 @@ export default function ReportsAnalyticsPage() {
         <nav className="-mb-px flex space-x-8">
           <button
             onClick={() => setActiveTab("overview")}
-            className={`${
-              activeTab === "overview"
+            className={`${activeTab === "overview"
                 ? "border-blue-500 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
             Overview
           </button>
           <button
             onClick={() => setActiveTab("appointments")}
-            className={`${
-              activeTab === "appointments"
+            className={`${activeTab === "appointments"
                 ? "border-blue-500 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
             Appointments
           </button>
           <button
             onClick={() => setActiveTab("revenue")}
-            className={`${
-              activeTab === "revenue"
+            className={`${activeTab === "revenue"
                 ? "border-blue-500 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
             Revenue
           </button>
           <button
             onClick={() => setActiveTab("doctors")}
-            className={`${
-              activeTab === "doctors"
+            className={`${activeTab === "doctors"
                 ? "border-blue-500 text-blue-600 dark:text-blue-400"
                 : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
-            } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
+              } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
           >
             Top Doctors
           </button>
@@ -166,59 +178,76 @@ export default function ReportsAnalyticsPage() {
       {/* Tab Content */}
       {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Appointments by Status */}
+          {/* Bar Chart - Appointments by Status */}
           <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Appointments by Status</h3>
-            <div className="space-y-3">
-              {Object.entries(analytics.appointmentsByStatus).map(([status, count]) => (
-                <div key={status} className="flex items-center justify-between">
-                  <span className="text-gray-700 dark:text-gray-300">{status}</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">{count}</span>
-                </div>
-              ))}
-            </div>
+            <Bar
+              data={{
+                labels: Object.keys(analytics.appointmentsByStatus),
+                datasets: [{
+                  label: "Appointments",
+                  data: Object.values(analytics.appointmentsByStatus),
+                  backgroundColor: ["rgba(234,179,8,0.7)", "rgba(34,197,94,0.7)", "rgba(239,68,68,0.7)", "rgba(59,130,246,0.7)", "rgba(168,85,247,0.7)"],
+                  borderRadius: 8,
+                }],
+              }}
+              options={{ responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }}
+            />
           </div>
 
-          {/* Revenue by Payment Method */}
+          {/* Pie Chart - Revenue by Payment Method */}
           <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Revenue by Payment Method</h3>
-            <div className="space-y-3">
-              {Object.entries(analytics.revenueByPaymentMethod).map(([method, revenue]) => (
-                <div key={method} className="flex items-center justify-between">
-                  <span className="text-gray-700 dark:text-gray-300">{method}</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">{formatCurrency(revenue)}</span>
-                </div>
-              ))}
-            </div>
+            <Pie
+              data={{
+                labels: Object.keys(analytics.revenueByPaymentMethod),
+                datasets: [{
+                  data: Object.values(analytics.revenueByPaymentMethod),
+                  backgroundColor: ["rgba(59,130,246,0.8)", "rgba(34,197,94,0.8)", "rgba(168,85,247,0.8)", "rgba(234,179,8,0.8)"],
+                  borderWidth: 2,
+                  borderColor: "#fff",
+                }],
+              }}
+              options={{ responsive: true, plugins: { legend: { position: "bottom" } } }}
+            />
           </div>
 
-          {/* Users by Role */}
+          {/* Bar Chart - Users by Role */}
           <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Users by Role</h3>
-            <div className="space-y-3">
-              {Object.entries(analytics.usersByRole).map(([role, count]) => (
-                <div key={role} className="flex items-center justify-between">
-                  <span className="text-gray-700 dark:text-gray-300">{role}</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">{count}</span>
-                </div>
-              ))}
-            </div>
+            <Bar
+              data={{
+                labels: Object.keys(analytics.usersByRole),
+                datasets: [{
+                  label: "Users",
+                  data: Object.values(analytics.usersByRole),
+                  backgroundColor: ["rgba(59,130,246,0.7)", "rgba(34,197,94,0.7)", "rgba(6,182,212,0.7)", "rgba(234,179,8,0.7)"],
+                  borderRadius: 8,
+                }],
+              }}
+              options={{ responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }}
+            />
           </div>
 
-          {/* Specialty Statistics */}
+          {/* Doughnut Chart - Top Specialties */}
           <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Top Specialties</h3>
-            <div className="space-y-3">
-              {analytics.specialtyStatistics.slice(0, 5).map((specialty) => (
-                <div key={specialty.specialtyId} className="border-l-4 border-blue-500 pl-3 py-1">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-medium text-gray-900 dark:text-white">{specialty.specialtyName}</span>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">{specialty.appointmentCount} appts</span>
-                  </div>
-                  <p className="text-xs text-gray-500">{specialty.doctorCount} doctors • {formatCurrency(specialty.totalRevenue)}</p>
-                </div>
-              ))}
-            </div>
+            {analytics.specialtyStatistics.length > 0 ? (
+              <Doughnut
+                data={{
+                  labels: analytics.specialtyStatistics.slice(0, 6).map(s => s.specialtyName),
+                  datasets: [{
+                    data: analytics.specialtyStatistics.slice(0, 6).map(s => s.appointmentCount),
+                    backgroundColor: ["rgba(59,130,246,0.8)", "rgba(34,197,94,0.8)", "rgba(234,179,8,0.8)", "rgba(168,85,247,0.8)", "rgba(239,68,68,0.8)", "rgba(6,182,212,0.8)"],
+                    borderWidth: 2,
+                    borderColor: "#fff",
+                  }],
+                }}
+                options={{ responsive: true, plugins: { legend: { position: "bottom" } } }}
+              />
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400 text-center py-8">No specialty data</p>
+            )}
           </div>
         </div>
       )}
@@ -256,33 +285,55 @@ export default function ReportsAnalyticsPage() {
       )}
 
       {activeTab === "revenue" && (
-        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Revenue Trend (Last 30 Days)</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
-              <thead>
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Revenue
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
-                {analytics.revenueTrend.slice(-10).map((item) => (
-                  <tr key={item.date}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {item.date}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-gray-900 dark:text-white">
-                      {formatCurrency(item.revenue)}
-                    </td>
+        <div className="space-y-6">
+          {/* Area/Line Chart - Revenue Trend */}
+          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Revenue Trend (Last 30 Days)</h3>
+            <Line
+              data={{
+                labels: analytics.revenueTrend.slice(-15).map(i => i.date.slice(5)),
+                datasets: [{
+                  label: "Revenue (VND)",
+                  data: analytics.revenueTrend.slice(-15).map(i => i.revenue),
+                  borderColor: "rgba(59,130,246,1)",
+                  backgroundColor: "rgba(59,130,246,0.15)",
+                  fill: true,
+                  tension: 0.4,
+                  pointRadius: 4,
+                  pointBackgroundColor: "rgba(59,130,246,1)",
+                }],
+              }}
+              options={{
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                  y: { beginAtZero: true, ticks: { callback: (v) => `${Number(v) / 1000}k` } },
+                },
+              }}
+            />
+          </div>
+
+          {/* Revenue Table */}
+          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Revenue Details</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
+                <thead>
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Revenue</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-800">
+                  {analytics.revenueTrend.slice(-10).map((item) => (
+                    <tr key={item.date}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">{item.date}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-semibold text-gray-900 dark:text-white">{formatCurrency(item.revenue)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

@@ -24,7 +24,7 @@ public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
     /**
      * Xóa tất cả roles của một user
      */
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM UserRole ur WHERE ur.user.id = :userId")
     void deleteByUserId(@Param("userId") Long userId);
 

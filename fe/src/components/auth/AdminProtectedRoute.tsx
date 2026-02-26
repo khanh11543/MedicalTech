@@ -18,10 +18,11 @@ export default function AdminProtectedRoute() {
 
   // Check if user has ADMIN role
   const hasAdminRole = user?.roles?.includes("ADMIN");
-  
+
   if (!hasAdminRole) {
-    // Redirect non-admin users to patient dashboard
-    return <Navigate to="/patient" replace />;
+    // Redirect non-admin users based on role
+    const hasDoctorRole = user?.roles?.includes("DOCTOR");
+    return <Navigate to={hasDoctorRole ? "/doctor" : "/patient"} replace />;
   }
 
   return <Outlet />;

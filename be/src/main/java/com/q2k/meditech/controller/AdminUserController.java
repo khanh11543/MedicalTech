@@ -1,7 +1,8 @@
 package com.q2k.meditech.controller;
 
-
 import com.q2k.meditech.dto.*;
+import com.q2k.meditech.entity.Role;
+import com.q2k.meditech.repository.RoleRepository;
 import com.q2k.meditech.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -17,6 +18,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import com.q2k.meditech.entity.User;
+import com.q2k.meditech.exception.ResourceNotFoundException;
+import com.q2k.meditech.repository.UserRepository;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 /**
  * Admin User Management Controller
  * Base path: /api/admin/users
@@ -29,9 +40,24 @@ import org.springframework.web.bind.annotation.*;
 @Slf4j
 @Tag(name = "Admin - User Management", description = "APIs for managing users (Admin only)")
 public class AdminUserController {
-    
+
     private final UserService userService;
-    
+    private final RoleRepository roleRepository;
+    private final UserRepository userRepository;
+
+    /**
+     * GET /api/admin/users/roles
+     * Get all available roles with their IDs
+     */
+    @GetMapping("/roles")
+    @Operation(summary = "List roles", description = "Get all available roles with their IDs")
+    public ResponseEntity<List<Map<String, Object>>> getRoles() {
+        List<Map<String, Object>> roles = roleRepository.findAll().stream()
+                .map(role -> Map.<String, Object>of("id", role.getId(), "name", role.getName()))
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(roles);
+    }
+
     /**
      * GET /api/admin/users
      * List all users with filters and pagination
@@ -39,40 +65,33 @@ public class AdminUserController {
     @GetMapping
     @Operation(summary = "List users", description = "Get paginated list of users with optional filters")
     public ResponseEntity<Page<UserDTO>> listUsers(
-            @Parameter(description = "Search query (email, phone)")
-            @RequestParam(required = false) String q,
-            
-            @Parameter(description = "Filter by role name (ADMIN, DOCTOR, PATIENT, RECEPTIONIST)")
-            @RequestParam(required = false) String role,
-            
-            @Parameter(description = "Filter by active status")
-            @RequestParam(required = false) Boolean isActive,
-            
-            @Parameter(description = "Page number (0-indexed)")
-            @RequestParam(defaultValue = "0") int pageNumber,
-            
-            @Parameter(description = "Page size")
-            @RequestParam(defaultValue = "10") int pageSize,
-            
-            @Parameter(description = "Sort by field")
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            
-            @Parameter(description = "Sort order (asc/desc)")
-            @RequestParam(defaultValue = "desc") String sortOrder) {
-        
+            @Parameter(description = "Search query (email, phone)") @RequestParam(required = false) String q,
+
+            @Parameter(description = "Filter by role name (ADMIN, DOCTOR, PATIENT, RECEPTIONIST)") @RequestParam(required = false) String role,
+
+            @Parameter(description = "Filter by active status") @RequestParam(required = false) Boolean isActive,
+
+            @Parameter(description = "Page number (0-indexed)") @RequestParam(defaultValue = "0") int pageNumber,
+
+            @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int pageSize,
+
+            @Parameter(description = "Sort by field") @RequestParam(defaultValue = "createdAt") String sortBy,
+
+            @Parameter(description = "Sort order (asc/desc)") @RequestParam(defaultValue = "desc") String sortOrder) {
+
         log.info("GET /admin/users - q: {}, role: {}, isActive: {}", q, role, isActive);
-        
+
         // Create pageable with sort
-        Sort sort = sortOrder.equalsIgnoreCase("asc") 
-                ? Sort.by(sortBy).ascending() 
+        Sort sort = sortOrder.equalsIgnoreCase("asc")
+                ? Sort.by(sortBy).ascending()
                 : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
-        
+
         Page<UserDTO> users = userService.listUsers(q, role, isActive, pageable);
-        
+
         return ResponseEntity.ok(users);
     }
-    
+
     /**
      * GET /api/admin/users/{userId}
      * Get user detail by ID
@@ -80,16 +99,15 @@ public class AdminUserController {
     @GetMapping("/{userId}")
     @Operation(summary = "Get user detail", description = "Get detailed information of a user")
     public ResponseEntity<UserDetailDTO> getUserDetail(
-            @Parameter(description = "User ID")
-            @PathVariable Long userId) {
-        
+            @Parameter(description = "User ID") @PathVariable Long userId) {
+
         log.info("GET /admin/users/{}", userId);
-        
+
         UserDetailDTO user = userService.getUserDetail(userId);
-        
+
         return ResponseEntity.ok(user);
     }
-    
+
     /**
      * POST /api/admin/users
      * Create new user (Admin only)
@@ -98,18 +116,16 @@ public class AdminUserController {
     @Operation(summary = "Create user", description = "Create a new user (Admin only)")
     public ResponseEntity<UserDTO> createUser(
             @Valid @RequestBody CreateUserDTO dto) {
-        
+
         log.info("POST /admin/users - email: {}", dto.getEmail());
-        
-        // TODO: Get current user ID from SecurityContext
-        // For now, use hardcoded admin ID (1)
-        Long currentUserId = 1L;
-        
+
+        Long currentUserId = getAuthenticatedUserId();
+
         UserDTO user = userService.createUser(dto, currentUserId);
-        
+
         return ResponseEntity.status(HttpStatus.CREATED).body(user);
     }
-    
+
     /**
      * PUT /api/admin/users/{userId}
      * Update user
@@ -117,18 +133,17 @@ public class AdminUserController {
     @PutMapping("/{userId}")
     @Operation(summary = "Update user", description = "Update user information")
     public ResponseEntity<UserDTO> updateUser(
-            @Parameter(description = "User ID")
-            @PathVariable Long userId,
-            
+            @Parameter(description = "User ID") @PathVariable Long userId,
+
             @Valid @RequestBody UpdateUserDTO dto) {
-        
+
         log.info("PUT /admin/users/{}", userId);
-        
+
         UserDTO user = userService.updateUser(userId, dto);
-        
+
         return ResponseEntity.ok(user);
     }
-    
+
     /**
      * PATCH /api/admin/users/{userId}/status
      * Enable/Disable user
@@ -136,22 +151,21 @@ public class AdminUserController {
     @PatchMapping("/{userId}/status")
     @Operation(summary = "Update user status", description = "Enable or disable a user account")
     public ResponseEntity<MessageDTO> updateUserStatus(
-            @Parameter(description = "User ID")
-            @PathVariable Long userId,
-            
+            @Parameter(description = "User ID") @PathVariable Long userId,
+
             @Valid @RequestBody StatusDTO dto) {
-        
+
         log.info("PATCH /admin/users/{}/status - isActive: {}", userId, dto.getIsActive());
-        
+
         userService.updateUserStatus(userId, dto);
-        
-        String message = dto.getIsActive() 
-                ? "User activated successfully" 
+
+        String message = dto.getIsActive()
+                ? "User activated successfully"
                 : "User deactivated successfully";
-        
+
         return ResponseEntity.ok(MessageDTO.success(message));
     }
-    
+
     /**
      * PUT /api/admin/users/{userId}/roles
      * Assign roles to user
@@ -159,21 +173,19 @@ public class AdminUserController {
     @PutMapping("/{userId}/roles")
     @Operation(summary = "Assign roles", description = "Assign roles to a user (replaces all existing roles)")
     public ResponseEntity<MessageDTO> assignRoles(
-            @Parameter(description = "User ID")
-            @PathVariable Long userId,
-            
+            @Parameter(description = "User ID") @PathVariable Long userId,
+
             @Valid @RequestBody AssignRolesDTO dto) {
-        
+
         log.info("PUT /admin/users/{}/roles - roleIds: {}", userId, dto.getRoleIds());
-        
-        // TODO: Get current user ID from SecurityContext
-        Long currentUserId = 1L;
-        
+
+        Long currentUserId = getAuthenticatedUserId();
+
         userService.assignRoles(userId, dto, currentUserId);
-        
+
         return ResponseEntity.ok(MessageDTO.success("Roles assigned successfully"));
     }
-    
+
     /**
      * POST /api/admin/users/{userId}/reset-password
      * Reset user password
@@ -181,19 +193,39 @@ public class AdminUserController {
     @PostMapping("/{userId}/reset-password")
     @Operation(summary = "Reset password", description = "Reset user password (generates new random password)")
     public ResponseEntity<MessageDTO> resetPassword(
-            @Parameter(description = "User ID")
-            @PathVariable Long userId) {
-        
+            @Parameter(description = "User ID") @PathVariable Long userId) {
+
         log.info("POST /admin/users/{}/reset-password", userId);
-        
-        String newPassword = userService.resetPassword(userId);
-        
-        // In production, send this via email
-        // For testing, we return it in the message
-        String message = String.format(
-                "Password reset successfully. New temporary password: %s (This should be sent via email in production)", 
-                newPassword);
-        
-        return ResponseEntity.ok(MessageDTO.success(message));
+
+        userService.resetPassword(userId);
+
+        return ResponseEntity.ok(MessageDTO.success("Password reset successfully. The new password has been sent to the user's email."));
+    }
+
+    /**
+     * PUT /api/admin/users/{userId}/change-password
+     * Admin change user password
+     */
+    @PutMapping("/{userId}/change-password")
+    @Operation(summary = "Change password", description = "Admin sets a new password for a user")
+    public ResponseEntity<MessageDTO> changePassword(
+            @Parameter(description = "User ID") @PathVariable Long userId,
+            @Valid @RequestBody AdminChangePasswordDTO dto) {
+
+        log.info("PUT /admin/users/{}/change-password", userId);
+
+        userService.adminChangePassword(userId, dto);
+
+        return ResponseEntity.ok(MessageDTO.success("Password changed successfully"));
+    }
+
+    // ========== Helpers ==========
+
+    private Long getAuthenticatedUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Current user not found"));
+        return user.getId();
     }
 }

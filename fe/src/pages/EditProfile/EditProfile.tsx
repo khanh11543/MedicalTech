@@ -5,6 +5,7 @@ import Button from "../../components/ui/button/Button";
 import Input from "../../components/form/input/InputField";
 import Label from "../../components/form/Label";
 import userService, { UserProfile, UpdateProfileRequest } from "../../services/userService";
+import authService, { ChangePasswordRequest } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
 
 const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api").replace(/\/$/, "");
@@ -25,6 +26,16 @@ export default function EditProfile() {
 
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Change Password state
+  const [passwordForm, setPasswordForm] = useState<ChangePasswordRequest>({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -135,6 +146,42 @@ export default function EditProfile() {
       case "PATIENT": return "Patient";
       case "RECEPTIONIST": return "Receptionist";
       default: return role;
+    }
+  };
+
+  const handlePasswordFieldChange = (field: keyof ChangePasswordRequest, value: string) => {
+    setPasswordForm((prev) => ({ ...prev, [field]: value }));
+    setPasswordError(null);
+    setPasswordSuccess(null);
+  };
+
+  const handleChangePassword = async () => {
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPasswordError("Please fill in all password fields");
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("New password and confirmation do not match");
+      return;
+    }
+
+    setPasswordSaving(true);
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    try {
+      await authService.changePassword(passwordForm);
+      setPasswordSuccess("Password changed successfully!");
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setPasswordError(e.response?.data?.message || "Failed to change password");
+    } finally {
+      setPasswordSaving(false);
     }
   };
 
@@ -366,6 +413,63 @@ export default function EditProfile() {
                     ? new Date(profile.createdAt).toLocaleString("vi-VN")
                     : "—"}
                 </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Change Password */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+            <h4 className="mb-6 text-lg font-semibold text-gray-800 dark:text-white/90">
+              Change Password
+            </h4>
+
+            {passwordError && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+                {passwordError}
+              </div>
+            )}
+            {passwordSuccess && (
+              <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400">
+                {passwordSuccess}
+              </div>
+            )}
+
+            <div className="space-y-5">
+              <div>
+                <Label htmlFor="currentPassword">Current Password</Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  placeholder="Enter current password"
+                  value={passwordForm.currentPassword}
+                  onChange={(e) => handlePasswordFieldChange("currentPassword", e.target.value)}
+                />
+              </div>
+              <div>
+                <Label htmlFor="newPassword">New Password</Label>
+                <Input
+                  id="newPassword"
+                  type="password"
+                  placeholder="Enter new password"
+                  value={passwordForm.newPassword}
+                  onChange={(e) => handlePasswordFieldChange("newPassword", e.target.value)}
+                  hint="At least 8 characters"
+                />
+              </div>
+              <div>
+                <Label htmlFor="confirmNewPassword">Confirm New Password</Label>
+                <Input
+                  id="confirmNewPassword"
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={passwordForm.confirmPassword}
+                  onChange={(e) => handlePasswordFieldChange("confirmPassword", e.target.value)}
+                />
+              </div>
+              <div className="pt-2">
+                <Button size="sm" onClick={handleChangePassword} disabled={passwordSaving}>
+                  {passwordSaving ? "Changing..." : "Change Password"}
+                </Button>
               </div>
             </div>
           </div>

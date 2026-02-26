@@ -39,6 +39,10 @@ export default function SignInForm() {
       // Role-based redirect
       if (tokenData.roles?.includes("ADMIN")) {
         navigate("/admin");
+      } else if (tokenData.roles?.includes("DOCTOR")) {
+        navigate("/doctor");
+      } else if (tokenData.roles?.includes("RECEPTIONIST")) {
+        navigate("/receptionist");
       } else {
         navigate("/patient");
       }

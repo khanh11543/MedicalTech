@@ -4,47 +4,31 @@ import SignUp from "./pages/AuthPages/SignUp";
 import VerifyOtp from "./pages/AuthPages/VerifyOtp";
 import NotFound from "./pages/OtherPage/NotFound";
 import UserProfiles from "./pages/UserProfiles";
-import Videos from "./pages/UiElements/Videos";
-import Images from "./pages/UiElements/Images";
-import Alerts from "./pages/UiElements/Alerts";
-import Badges from "./pages/UiElements/Badges";
-import Avatars from "./pages/UiElements/Avatars";
-import Buttons from "./pages/UiElements/Buttons";
-import LineChart from "./pages/Charts/LineChart";
-import BarChart from "./pages/Charts/BarChart";
 import Calendar from "./pages/Calendar";
-import BasicTables from "./pages/Tables/BasicTables";
-import FormElements from "./pages/Forms/FormElements";
 import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 import UserList from "./pages/UserManagement/UserList";
 import DoctorVerification from "./pages/DoctorVerification/DoctorVerification";
-import AppointmentList from "./pages/AppointmentManagement/AppointmentList";
-import PrescriptionList from "./pages/PrescriptionManagement/PrescriptionList";
-import PaymentList from "./pages/PaymentManagement/PaymentList";
+
 import ReviewList from "./pages/ReviewManagement/ReviewList";
 import ContentList from "./pages/ContentManagement/ContentList";
-import SystemSettings from "./pages/SystemSettings/SystemSettings";
-import SecurityAudit from "./pages/SecurityAudit/SecurityAudit";
 import ReportsAnalytics from "./pages/ReportsAnalytics/ReportsAnalytics";
-import GDPRCompliance from "./pages/GDPRCompliance/GDPRCompliance";
-import BackupMaintenance from "./pages/BackupMaintenance/BackupMaintenance";
 import Announcements from "./pages/Announcements/Announcements";
 import NotificationList from "./pages/NotificationManagement/NotificationList";
-import SystemHealth from "./pages/SystemHealth/SystemHealth";
+
 import EditProfile from "./pages/EditProfile/EditProfile";
 import AccountSettings from "./pages/AccountSettings/AccountSettings";
-import SupportList from "./pages/SupportManagement/SupportList";
+
 import UserSupport from "./pages/UserSupport/UserSupport";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import AdminProtectedRoute from "./components/auth/AdminProtectedRoute";
 import DebugInfo from "./pages/Debug/DebugInfo";
-import PatientList from "./pages/PatientManagement/PatientList";
-import ReceptionistList from "./pages/ReceptionistManagement/ReceptionistList";
+
 import PatientLayout from "./layout/PatientLayout";
+import DoctorLayout from "./layout/DoctorLayout";
 import PatientDashboard from "./pages/Patient/PatientDashboard";
 import DoctorSearch from "./pages/Patient/DoctorSearch";
 import DoctorDetailPage from "./pages/Patient/DoctorDetailPage";
@@ -53,6 +37,15 @@ import MedicalRecords from "./pages/Patient/MedicalRecords";
 import MyPrescriptions from "./pages/Patient/MyPrescriptions";
 import PaymentHistory from "./pages/Patient/PaymentHistory";
 import PatientProfile from "./pages/Patient/PatientProfile";
+import DoctorProtectedRoute from "./components/auth/DoctorProtectedRoute";
+import DoctorDashboard from "./pages/Doctor/DoctorDashboard";
+import DoctorToday from "./pages/Doctor/DoctorToday";
+import DoctorAppointments from "./pages/Doctor/DoctorAppointments";
+import DoctorSchedule from "./pages/Doctor/DoctorSchedule";
+import DoctorConsultation from "./pages/Doctor/DoctorConsultation";
+import DoctorPrescriptions from "./pages/Doctor/DoctorPrescriptions";
+import DoctorPatients from "./pages/Doctor/DoctorPatients";
+import DoctorReviews from "./pages/Doctor/DoctorReviews";
 
 export default function App() {
   return (
@@ -65,88 +58,47 @@ export default function App() {
             <Route path="/admin" element={<AppLayout />}>
               <Route index element={<Home />} />
 
-            {/* User Management */}
-            <Route path="user-list" element={<UserList />} />
+              {/* User Management */}
+              <Route path="user-list" element={<UserList />} />
 
-            {/* Patient Management */}
-            <Route path="patient-list" element={<PatientList />} />
 
-            {/* Receptionist Management */}
-            <Route path="receptionist-list" element={<ReceptionistList />} />
 
-            {/* Doctor Verification */}
-            <Route path="doctor-verification" element={<DoctorVerification />} />
+              {/* Doctor Verification */}
+              <Route path="doctor-verification" element={<DoctorVerification />} />
 
-            {/* Appointment Management */}
-            <Route path="appointment-list" element={<AppointmentList />} />
 
-            {/* Prescription Management */}
-            <Route path="prescription-list" element={<PrescriptionList />} />
 
-            {/* Payment Management */}
-            <Route path="payment-list" element={<PaymentList />} />
+              {/* Review Management */}
+              <Route path="review-list" element={<ReviewList />} />
 
-            {/* Review Management */}
-            <Route path="review-list" element={<ReviewList />} />
+              {/* Content Management */}
+              <Route path="content-list" element={<ContentList />} />
 
-            {/* Content Management */}
-            <Route path="content-list" element={<ContentList />} />
+              {/* Reports & Analytics */}
+              <Route path="reports-analytics" element={<ReportsAnalytics />} />
 
-            {/* System Settings */}
-            <Route path="system-settings" element={<SystemSettings />} />
+              {/* Announcements */}
+              <Route path="announcements" element={<Announcements />} />
 
-            {/* Security & Audit */}
-            <Route path="security-audit" element={<SecurityAudit />} />
+              {/* Notification Management */}
+              <Route path="notification-list" element={<NotificationList />} />
 
-            {/* Reports & Analytics */}
-            <Route path="reports-analytics" element={<ReportsAnalytics />} />
 
-            {/* GDPR & Compliance */}
-            <Route path="gdpr-compliance" element={<GDPRCompliance />} />
 
-            {/* Backup & Maintenance */}
-            <Route path="backup-maintenance" element={<BackupMaintenance />} />
 
-            {/* Announcements */}
-            <Route path="announcements" element={<Announcements />} />
 
-            {/* Notification Management */}
-            <Route path="notification-list" element={<NotificationList />} />
+              {/* Debug Info */}
+              <Route path="debug" element={<DebugInfo />} />
 
-            {/* System Health */}
-            <Route path="system-health" element={<SystemHealth />} />
+              {/* Others Page */}
+              <Route path="profile" element={<UserProfiles />} />
+              <Route path="edit-profile" element={<EditProfile />} />
+              <Route path="account-settings" element={<AccountSettings />} />
+              <Route path="support" element={<UserSupport />} />
+              <Route path="calendar" element={<Calendar />} />
+              <Route path="blank" element={<Blank />} />
 
-            {/* Support Tickets */}
-            <Route path="support-tickets" element={<SupportList />} />
-            
-            {/* Debug Info */}
-            <Route path="debug" element={<DebugInfo />} />
 
-            {/* Others Page */}
-            <Route path="profile" element={<UserProfiles />} />
-            <Route path="edit-profile" element={<EditProfile />} />
-            <Route path="account-settings" element={<AccountSettings />} />
-            <Route path="support" element={<UserSupport />} />
-            <Route path="calendar" element={<Calendar />} />
-            <Route path="blank" element={<Blank />} />
-
-            {/* Forms */}
-            <Route path="form-elements" element={<FormElements />} />
-
-            {/* Tables */}
-            <Route path="basic-tables" element={<BasicTables />} />
-
-            {/* Ui Elements */}
-            <Route path="alerts" element={<Alerts />} />
-            <Route path="avatars" element={<Avatars />} />
-            <Route path="badge" element={<Badges />} />
-            <Route path="buttons" element={<Buttons />} />
-            <Route path="images" element={<Images />} />
-            <Route path="videos" element={<Videos />} />
-
-            {/* Charts */}
-            <Route path="line-chart" element={<LineChart />} />
-            <Route path="bar-chart" element={<BarChart />} />
             </Route>
           </Route>
 
@@ -164,7 +116,26 @@ export default function App() {
             </Route>
           </Route>
 
-          {/* Root redirect - protected by AdminProtectedRoute, will redirect non-admins to /patient */}
+          {/* Doctor Routes - Protected with DOCTOR role check */}
+          <Route element={<DoctorProtectedRoute />}>
+            <Route path="/doctor" element={<DoctorLayout />}>
+              <Route index element={<DoctorDashboard />} />
+              <Route path="today" element={<DoctorToday />} />
+              <Route path="appointments" element={<DoctorAppointments />} />
+              <Route path="schedule" element={<DoctorSchedule />} />
+              <Route path="consultation" element={<DoctorConsultation />} />
+              <Route path="prescriptions" element={<DoctorPrescriptions />} />
+              <Route path="patients" element={<DoctorPatients />} />
+              <Route path="reviews" element={<DoctorReviews />} />
+              {/* Shared Pages */}
+              <Route path="profile" element={<UserProfiles />} />
+              <Route path="edit-profile" element={<EditProfile />} />
+              <Route path="account-settings" element={<AccountSettings />} />
+              <Route path="support" element={<UserSupport />} />
+            </Route>
+          </Route>
+
+          {/* Root redirect — checks role and redirects */}
           <Route element={<AdminProtectedRoute />}>
             <Route path="/" element={<Navigate to="/admin" replace />} />
           </Route>

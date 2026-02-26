@@ -21,6 +21,23 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Refresh token mutex — prevents concurrent refresh calls
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+function subscribeTokenRefresh(cb: (token: string) => void) {
+  refreshSubscribers.push(cb);
+}
+
+function onTokenRefreshed(newToken: string) {
+  refreshSubscribers.forEach((cb) => cb(newToken));
+  refreshSubscribers = [];
+}
+
+function onRefreshFailed() {
+  refreshSubscribers = [];
+}
+
 // Response interceptor: handle 401 and token refresh
 api.interceptors.response.use(
   (response) => response,
@@ -28,31 +45,55 @@ api.interceptors.response.use(
     const originalRequest = error.config;
     const status = error.response?.status;
 
+    // Skip refresh for auth endpoints themselves
+    if (originalRequest.url?.includes("/auth/refresh") || originalRequest.url?.includes("/auth/login")) {
+      return Promise.reject(error);
+    }
+
     // Attempt token refresh on 401 (unauthenticated / expired token)
     if ((status === 401 || status === 403) && !originalRequest._retry) {
       originalRequest._retry = true;
-      const refreshToken = localStorage.getItem("refreshToken");
 
-      if (refreshToken) {
-        try {
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-            refreshToken,
+      if (isRefreshing) {
+        // Another refresh is already in progress — wait for it
+        return new Promise((resolve) => {
+          subscribeTokenRefresh((newToken: string) => {
+            originalRequest.headers.Authorization = `Bearer ${newToken}`;
+            resolve(api(originalRequest));
           });
+        });
+      }
 
-          const { accessToken, refreshToken: newRefreshToken } = response.data;
-          localStorage.setItem("accessToken", accessToken);
-          localStorage.setItem("refreshToken", newRefreshToken);
+      const refreshToken = localStorage.getItem("refreshToken");
+      if (!refreshToken) {
+        return Promise.reject(error);
+      }
 
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          return api(originalRequest);
-        } catch {
-          // Refresh failed — clear tokens and redirect to login
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("refreshToken");
-          localStorage.removeItem("user");
-          window.location.href = "/signin";
-          return Promise.reject(error);
-        }
+      isRefreshing = true;
+
+      try {
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+          refreshToken,
+        });
+
+        const { accessToken, refreshToken: newRefreshToken } = response.data;
+        localStorage.setItem("accessToken", accessToken);
+        localStorage.setItem("refreshToken", newRefreshToken);
+
+        isRefreshing = false;
+        onTokenRefreshed(accessToken);
+
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
+      } catch {
+        isRefreshing = false;
+        onRefreshFailed();
+        // Refresh failed — clear tokens and redirect to login
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("user");
+        window.location.href = "/signin";
+        return Promise.reject(error);
       }
     }
 

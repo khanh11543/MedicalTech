@@ -10,6 +10,22 @@ import {
   DocsIcon,
   ArrowUpIcon,
 } from "../../icons";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  PointElement,
+  LineElement,
+  Filler,
+  Title,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Bar, Pie, Doughnut } from "react-chartjs-2";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, PointElement, LineElement, Filler, Title, Tooltip, Legend);
 
 // Stat Card Component
 interface StatCardProps {
@@ -81,7 +97,7 @@ export default function Home() {
       } catch (err: unknown) {
         console.error("Failed to fetch dashboard statistics:", err);
         let errorMessage = "Failed to load dashboard data. Please try again.";
-        
+
         if (err && typeof err === 'object' && 'response' in err) {
           const axiosError = err as { response?: { status: number; data?: { message?: string } } };
           // Server responded with error
@@ -103,7 +119,7 @@ export default function Home() {
           // Request made but no response
           errorMessage = "Cannot connect to server. Please check if backend is running.";
         }
-        
+
         setError(errorMessage);
       } finally {
         setLoading(false);
@@ -153,7 +169,7 @@ export default function Home() {
         title="Dashboard | MediTech Admin"
         description="MediTech Admin Dashboard - Overview of system statistics"
       />
-      
+
       <div className="space-y-6">
         {/* Page Title */}
         <div className="flex items-center justify-between">
@@ -225,6 +241,83 @@ export default function Home() {
           />
         </div>
 
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Bar Chart - Users by Role */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+            <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white">Users by Role</h3>
+            <Bar
+              data={{
+                labels: ["Admin", "Doctor", "Patient", "Receptionist"],
+                datasets: [{
+                  label: "Users",
+                  data: [
+                    stats?.totalUsers ? Math.max(1, Math.floor((stats.totalUsers - (stats.totalDoctors || 0) - (stats.totalPatients || 0) - (stats.totalReceptionists || 0)))) : 1,
+                    stats?.totalDoctors || 0,
+                    stats?.totalPatients || 0,
+                    stats?.totalReceptionists || 0,
+                  ],
+                  backgroundColor: ["rgba(59,130,246,0.7)", "rgba(34,197,94,0.7)", "rgba(6,182,212,0.7)", "rgba(234,179,8,0.7)"],
+                  borderRadius: 8,
+                }],
+              }}
+              options={{
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+              }}
+            />
+          </div>
+
+          {/* Pie Chart - Appointment Status */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+            <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white">Appointment Status</h3>
+            <Pie
+              data={{
+                labels: ["Pending", "Completed", "Cancelled"],
+                datasets: [{
+                  data: [
+                    stats?.pendingAppointments || 0,
+                    stats?.completedAppointments || 0,
+                    stats?.cancelledAppointments || 0,
+                  ],
+                  backgroundColor: ["rgba(234,179,8,0.8)", "rgba(34,197,94,0.8)", "rgba(239,68,68,0.8)"],
+                  borderWidth: 2,
+                  borderColor: "#fff",
+                }],
+              }}
+              options={{
+                responsive: true,
+                plugins: { legend: { position: "bottom" } },
+              }}
+            />
+          </div>
+
+          {/* Doughnut Chart - Document Verification */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+            <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white">Document Verification</h3>
+            <Doughnut
+              data={{
+                labels: ["Pending", "Approved", "Rejected"],
+                datasets: [{
+                  data: [
+                    stats?.pendingDocuments || 0,
+                    stats?.approvedDocuments || 0,
+                    stats?.rejectedDocuments || 0,
+                  ],
+                  backgroundColor: ["rgba(234,179,8,0.8)", "rgba(34,197,94,0.8)", "rgba(239,68,68,0.8)"],
+                  borderWidth: 2,
+                  borderColor: "#fff",
+                }],
+              }}
+              options={{
+                responsive: true,
+                plugins: { legend: { position: "bottom" } },
+              }}
+            />
+          </div>
+        </div>
+
         {/* Recent Users and Appointments */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Recent Users */}
@@ -277,12 +370,12 @@ export default function Home() {
                         <p className="text-sm text-gray-500 dark:text-gray-400">with Dr. {apt.doctorName}</p>
                       </div>
                       <div className="text-right">
-                        <Badge 
+                        <Badge
                           color={
-                            apt.status === "COMPLETED" ? "success" : 
-                            apt.status === "PENDING" ? "warning" : 
-                            apt.status === "CANCELLED" ? "error" : "info"
-                          } 
+                            apt.status === "COMPLETED" ? "success" :
+                              apt.status === "PENDING" ? "warning" :
+                                apt.status === "CANCELLED" ? "error" : "info"
+                          }
                           size="sm"
                         >
                           {apt.status}

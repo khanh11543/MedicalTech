@@ -7,16 +7,9 @@ export default function SidebarWidget() {
       <h3 className="mb-2 font-semibold text-gray-900 dark:text-white">
         MedicalTech
       </h3>
-      <p className="mb-4 text-gray-500 text-theme-sm dark:text-gray-400">
+      <p className="text-gray-500 text-theme-sm dark:text-gray-400">
         Medical Appointment Management System. Streamline healthcare operations.
       </p>
-      <a
-        href="/system-settings"
-        rel="nofollow noopener"
-        className="flex items-center justify-center p-3 font-medium text-white rounded-lg bg-brand-500 text-theme-sm hover:bg-brand-600"
-      >
-        System Settings
-      </a>
     </div>
   );
 }

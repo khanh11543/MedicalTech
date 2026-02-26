@@ -68,4 +68,12 @@ public interface UserService {
      * @return New temporary password (in real app, send via email)
      */
     String resetPassword(Long userId);
+
+    /**
+     * Admin change user password (Admin only)
+     * Set a specific new password for a user
+     * @param userId User ID
+     * @param dto AdminChangePasswordDTO with newPassword and confirmPassword
+     */
+    void adminChangePassword(Long userId, com.q2k.meditech.dto.AdminChangePasswordDTO dto);
 }

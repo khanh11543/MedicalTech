@@ -24,5 +24,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations("file:" + uploadPath.toString() + "/");
+
+        // Also serve avatars directly at /avatars/** path
+        registry.addResourceHandler("/avatars/**")
+                .addResourceLocations("file:" + uploadPath.toString() + "/avatars/");
     }
 }

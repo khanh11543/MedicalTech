@@ -1,6 +1,5 @@
 package com.q2k.meditech.service;
 
-
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.dto.mapper.UserMapper;
 import com.q2k.meditech.entity.Role;
@@ -30,6 +29,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+
 /**
  * User Service Implementation
  * Contains all business logic for user management
@@ -44,6 +44,7 @@ public class UserServiceImpl implements UserService {
     private final UserRoleRepository userRoleRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     @Override
     @Transactional(readOnly = true)
@@ -68,19 +69,14 @@ public class UserServiceImpl implements UserService {
         // Filter by search query (email or phone)
         if (finalQuery != null && !finalQuery.trim().isEmpty()) {
             String searchQuery = finalQuery.toLowerCase();
-            spec = spec.and((root, criteriaQuery, cb) ->
-                    cb.or(
-                            cb.like(cb.lower(root.get("email")), "%" + searchQuery + "%"),
-                            cb.like(cb.lower(root.get("phone")), "%" + searchQuery + "%")
-                    )
-            );
+            spec = spec.and((root, criteriaQuery, cb) -> cb.or(
+                    cb.like(cb.lower(root.get("email")), "%" + searchQuery + "%"),
+                    cb.like(cb.lower(root.get("phone")), "%" + searchQuery + "%")));
         }
 
         // Filter by active status
         if (finalIsActive != null) {
-            spec = spec.and((root, criteriaQuery, cb) ->
-                    cb.equal(root.get("isActive"), finalIsActive)
-            );
+            spec = spec.and((root, criteriaQuery, cb) -> cb.equal(root.get("isActive"), finalIsActive));
         }
 
         // Filter by role (join userRoles table)
@@ -98,6 +94,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserDetailDTO getUserDetail(Long userId) {
         log.info("Getting user detail for ID: {}", userId);
 
@@ -235,23 +232,24 @@ public class UserServiceImpl implements UserService {
     public UserDTO assignRoles(Long userId, AssignRolesDTO dto, Long currentUserId) {
         log.info("Assigning roles to user ID: {}, roles: {}", userId, dto.getRoleIds());
 
+        // Verify user exists
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException("User not found with id: " + userId);
+        }
+
+        // Delete all existing roles (clearAutomatically will clear persistence context)
+        userRoleRepository.deleteByUserId(userId);
+
+        // Reload user fresh after delete (persistence context was cleared)
         User user = userRepository.findByIdWithRoles(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
-
-        User currentUser = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + currentUserId));
-
-        // Delete all existing roles
-        userRoleRepository.deleteByUserId(userId);
-        user.getUserRoles().clear();
 
         // Assign new roles
         assignRolesToUser(user, dto.getRoleIds(), currentUserId);
 
         // Reload user with new roles
-        Long reloadUserId = user.getId();
-        user = userRepository.findByIdWithRoles(reloadUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", reloadUserId));
+        user = userRepository.findByIdWithRoles(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
         log.info("Roles assigned successfully to user: {}", userId);
         UserDTO result = userMapper.toDTO(user);
@@ -279,9 +277,50 @@ public class UserServiceImpl implements UserService {
 
         log.info("Password reset successfully for user: {}", userId);
 
-        // In real application, send this password via email
-        // For now, we return it (ONLY FOR TESTING)
+        // Send new password to user's email
+        emailService.sendHtmlEmail(
+            user.getEmail(),
+            "MediTech - Your password has been reset",
+            buildPasswordResetEmail(user.getEmail(), newPassword)
+        );
+
         return newPassword;
+    }
+
+    @Override
+    @Transactional
+    public void adminChangePassword(Long userId, com.q2k.meditech.dto.AdminChangePasswordDTO dto) {
+        log.info("Admin changing password for user ID: {}", userId);
+
+        if (!dto.getNewPassword().equals(dto.getConfirmPassword())) {
+            throw new IllegalArgumentException("New password and confirm password do not match");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        user.setPasswordHash(passwordEncoder.encode(dto.getNewPassword()));
+        user.setFailedLoginCount(0);
+        user.setLockedUntil(null);
+
+        userRepository.save(user);
+
+        log.info("Password changed successfully by admin for user: {}", userId);
+    }
+
+    private String buildPasswordResetEmail(String email, String newPassword) {
+        return "<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px'>" +
+            "<div style='background:#f8f9fa;border-radius:10px;padding:30px;text-align:center'>" +
+            "<h2 style='color:#1a73e8'>MediTech - Password Reset</h2>" +
+            "<p style='color:#333'>Hello <strong>" + email + "</strong>,</p>" +
+            "<p style='color:#333'>Your password has been reset by an administrator.</p>" +
+            "<div style='background:#fff;border:2px dashed #1a73e8;border-radius:8px;padding:15px;margin:20px 0'>" +
+            "<p style='margin:0;color:#666;font-size:14px'>Your new temporary password:</p>" +
+            "<p style='margin:8px 0 0;font-size:24px;font-weight:bold;color:#1a73e8;letter-spacing:2px'>" + newPassword + "</p>" +
+            "</div>" +
+            "<p style='color:#e53935;font-weight:bold'>Please log in and change your password in Account Settings immediately.</p>" +
+            "<p style='color:#999;font-size:12px'>If you did not request this, please contact support.</p>" +
+            "</div></body></html>";
     }
 
     // ========== HELPER METHODS ==========
@@ -289,6 +328,7 @@ public class UserServiceImpl implements UserService {
     /**
      * Helper method to assign roles to user
      */
+
     private void assignRolesToUser(User user, Set<Long> roleIds, Long assignedBy) {
         // Validate all roles exist
         List<Role> roles = roleRepository.findByIdIn(roleIds);
