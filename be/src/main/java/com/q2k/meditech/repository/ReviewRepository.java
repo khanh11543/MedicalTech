@@ -47,4 +47,14 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
            "OR LOWER(r.comment) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "ORDER BY r.createdAt DESC")
     Page<Review> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    // ==================== DOCTOR DASHBOARD QUERIES ====================
+
+    /**
+     * Count reviews for a doctor created after a given date (for recent reviews count)
+     */
+    @Query("SELECT COUNT(r) FROM Review r WHERE r.doctor.id = :doctorId AND r.createdAt >= :since")
+    Long countByDoctorIdAndCreatedAtAfter(
+            @Param("doctorId") Long doctorId,
+            @Param("since") java.time.LocalDateTime since);
 }

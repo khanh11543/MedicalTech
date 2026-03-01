@@ -155,6 +155,45 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
     @Query("SELECT COUNT(a) > 0 FROM Appointment a WHERE a.timeSlot.id = :timeSlotId AND a.status NOT IN ('CANCELLED', 'RESCHEDULED')")
     boolean existsByTimeSlotAndNotCancelled(@Param("timeSlotId") Long timeSlotId);
 
+    // ==================== DOCTOR DASHBOARD QUERIES ====================
+
+    /**
+     * Find today's appointments for doctor dashboard (with patient info for display)
+     * JOIN FETCH patient + user to avoid LazyInitializationException
+     */
+    @Query("SELECT a FROM Appointment a " +
+           "LEFT JOIN FETCH a.patient p " +
+           "LEFT JOIN FETCH p.user " +
+           "WHERE a.doctor.id = :doctorId AND a.appointmentDate = :date " +
+           "ORDER BY a.startTime")
+    List<Appointment> findByDoctorIdAndDateForDashboard(
+            @Param("doctorId") Long doctorId,
+            @Param("date") LocalDate date);
+
+    /**
+     * Count appointments by doctor in a date range (for weekly stats)
+     */
+    @Query("SELECT COUNT(a) FROM Appointment a " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.appointmentDate BETWEEN :fromDate AND :toDate")
+    Long countByDoctorIdAndDateRange(
+            @Param("doctorId") Long doctorId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    /**
+     * Count appointments by doctor, status and date range (for no-show rate)
+     */
+    @Query("SELECT COUNT(a) FROM Appointment a " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.status = :status " +
+           "AND a.appointmentDate BETWEEN :fromDate AND :toDate")
+    Long countByDoctorIdAndStatusAndDateRange(
+            @Param("doctorId") Long doctorId,
+            @Param("status") AppointmentStatus status,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
     /**
      * Find all appointments with filters for admin (with JOIN FETCH to avoid N+1)
      */

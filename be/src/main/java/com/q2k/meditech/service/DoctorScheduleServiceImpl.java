@@ -394,7 +394,7 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
                currentTime.plusMinutes(slotDuration).equals(endTime)) {
             
             TimeSlot slot = TimeSlot.builder()
-                    .doctor(doctor.getUser())
+                    .doctor(doctor)
                     .slotDate(date)
                     .startTime(currentTime)
                     .endTime(currentTime.plusMinutes(slotDuration))

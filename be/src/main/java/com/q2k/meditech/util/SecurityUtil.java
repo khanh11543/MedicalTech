@@ -36,15 +36,13 @@ public class SecurityUtil {
         Object principal = authentication.getPrincipal();
         
         if (principal instanceof org.springframework.security.core.userdetails.User) {
-            // If using Spring Security's default User, look up by username
-            // The username matches the email prefix in our test data (e.g., "patient" -> "patient@test.com")
+            // CustomUserDetailsService sets username = user.getEmail() (full email)
             String username = ((org.springframework.security.core.userdetails.User) principal).getUsername();
             log.debug("Principal is Spring User: {}", username);
             
             if (userRepository != null) {
-                // Map username to email (username@test.com)
-                String email = username + "@test.com";
-                return userRepository.findByEmail(email)
+                // username is already the full email from CustomUserDetailsService
+                return userRepository.findByEmail(username)
                         .map(com.q2k.meditech.entity.User::getId)
                         .orElse(null);
             }

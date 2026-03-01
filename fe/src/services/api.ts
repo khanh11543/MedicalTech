@@ -1,4 +1,5 @@
 import axios from "axios";
+import { authStorage } from "../utils/authStorage";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 
@@ -12,7 +13,7 @@ const api = axios.create({
 // Request interceptor: attach access token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("accessToken");
+    const token = authStorage.getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -64,7 +65,7 @@ api.interceptors.response.use(
         });
       }
 
-      const refreshToken = localStorage.getItem("refreshToken");
+      const refreshToken = authStorage.getRefreshToken();
       if (!refreshToken) {
         return Promise.reject(error);
       }
@@ -77,8 +78,7 @@ api.interceptors.response.use(
         });
 
         const { accessToken, refreshToken: newRefreshToken } = response.data;
-        localStorage.setItem("accessToken", accessToken);
-        localStorage.setItem("refreshToken", newRefreshToken);
+        authStorage.setTokens(accessToken, newRefreshToken);
 
         isRefreshing = false;
         onTokenRefreshed(accessToken);
@@ -89,9 +89,7 @@ api.interceptors.response.use(
         isRefreshing = false;
         onRefreshFailed();
         // Refresh failed — clear tokens and redirect to login
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("user");
+        authStorage.clear();
         window.location.href = "/signin";
         return Promise.reject(error);
       }

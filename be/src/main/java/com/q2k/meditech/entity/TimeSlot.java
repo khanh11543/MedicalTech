@@ -6,6 +6,7 @@ import lombok.*;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
+
 /**
  * TimeSlot Entity - Represents available time slots for doctors
  * Maps to 'time_slots' table in database
@@ -32,7 +33,7 @@ public class TimeSlot extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doctor_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_time_slots_doctor"))
-    private User doctor; // User with DOCTOR role
+    private Doctor doctor;
 
     /**
      * Ngày của slot

@@ -29,12 +29,15 @@ export default function SignInForm() {
 
     setIsSubmitting(true);
     try {
-      const tokenData = await login({
-        email,
-        password,
-        deviceId: navigator.userAgent,
-        deviceName: `Web Browser - ${navigator.platform}`,
-      });
+      const tokenData = await login(
+        {
+          email,
+          password,
+          deviceId: navigator.userAgent,
+          deviceName: `Web Browser - ${navigator.platform}`,
+        },
+        isChecked
+      );
       
       // Role-based redirect
       if (tokenData.roles?.includes("ADMIN")) {
