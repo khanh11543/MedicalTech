@@ -27,6 +27,8 @@ public class SecurityUtil {
     public static Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         
+        log.info("Authentication is authenticated: {}", authentication.isAuthenticated());
+
         if (authentication == null || !authentication.isAuthenticated()) {
             log.warn("No authenticated user in SecurityContext");
             return null;
@@ -43,7 +45,7 @@ public class SecurityUtil {
             
             if (userRepository != null) {
                 // Map username to email (username@test.com)
-                String email = username + "@test.com";
+                String email = username;
                 return userRepository.findByEmail(email)
                         .map(com.q2k.meditech.entity.User::getId)
                         .orElse(null);
