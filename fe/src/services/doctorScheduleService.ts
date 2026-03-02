@@ -163,3 +163,26 @@ export const listTimeSlots = async (startDate: string, endDate: string): Promise
   });
   return response.data;
 };
+
+// ========== BLOCK/UNBLOCK SLOTS ==========
+
+/**
+ * Block a time slot
+ * @param slotId - Time slot ID
+ * @param reason - Optional reason for blocking
+ * @returns Promise with updated time slot
+ */
+export const blockTimeSlot = async (slotId: number, reason?: string): Promise<TimeSlotDTO> => {
+  const response = await api.patch<TimeSlotDTO>(`/doctor/time-slots/${slotId}/block`, { reason: reason || "" });
+  return response.data;
+};
+
+/**
+ * Unblock a time slot
+ * @param slotId - Time slot ID
+ * @returns Promise with updated time slot
+ */
+export const unblockTimeSlot = async (slotId: number): Promise<TimeSlotDTO> => {
+  const response = await api.patch<TimeSlotDTO>(`/doctor/time-slots/${slotId}/unblock`);
+  return response.data;
+};
