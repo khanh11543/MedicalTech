@@ -41,23 +41,10 @@ import DoctorProtectedRoute from "./components/auth/DoctorProtectedRoute";
 import DoctorDashboard from "./pages/Doctor/DoctorDashboard";
 import DoctorToday from "./pages/Doctor/DoctorToday";
 import DoctorAppointments from "./pages/Doctor/DoctorAppointments";
-import DoctorAppointmentsUpcoming from "./pages/Doctor/DoctorAppointmentsUpcoming";
-import DoctorAppointmentsPending from "./pages/Doctor/DoctorAppointmentsPending";
-import DoctorAppointmentsHistory from "./pages/Doctor/DoctorAppointmentsHistory";
 import DoctorSchedule from "./pages/Doctor/DoctorSchedule";
-import DoctorScheduleWeekly from "./pages/Doctor/DoctorScheduleWeekly";
-import DoctorScheduleTimeOff from "./pages/Doctor/DoctorScheduleTimeOff";
-import DoctorScheduleTemplates from "./pages/Doctor/DoctorScheduleTemplates";
-import DoctorScheduleBlockSlots from "./pages/Doctor/DoctorScheduleBlockSlots";
 import DoctorConsultation from "./pages/Doctor/DoctorConsultation";
 import DoctorPrescriptions from "./pages/Doctor/DoctorPrescriptions";
-import DoctorPrescriptionsCreate from "./pages/Doctor/DoctorPrescriptionsCreate";
-import DoctorPrescriptionsHistory from "./pages/Doctor/DoctorPrescriptionsHistory";
-import DoctorPrescriptionsTemplates from "./pages/Doctor/DoctorPrescriptionsTemplates";
 import DoctorPatients from "./pages/Doctor/DoctorPatients";
-import DoctorPatientsMyPatients from "./pages/Doctor/DoctorPatientsMyPatients";
-import DoctorPatientsRecent from "./pages/Doctor/DoctorPatientsRecent";
-import DoctorPatientsChronic from "./pages/Doctor/DoctorPatientsChronic";
 import DoctorReviews from "./pages/Doctor/DoctorReviews";
 
 export default function App() {
@@ -134,36 +121,12 @@ export default function App() {
             <Route path="/doctor" element={<DoctorLayout />}>
               <Route index element={<DoctorDashboard />} />
               <Route path="today" element={<DoctorToday />} />
-              
-              {/* Appointments Routes */}
               <Route path="appointments" element={<DoctorAppointments />} />
-              <Route path="appointments/upcoming" element={<DoctorAppointmentsUpcoming />} />
-              <Route path="appointments/pending" element={<DoctorAppointmentsPending />} />
-              <Route path="appointments/history" element={<DoctorAppointmentsHistory />} />
-              
-              {/* Schedule Routes */}
               <Route path="schedule" element={<DoctorSchedule />} />
-              <Route path="schedule/weekly" element={<DoctorScheduleWeekly />} />
-              <Route path="schedule/time-off-breaks" element={<DoctorScheduleTimeOff />} />
-              <Route path="schedule/templates" element={<DoctorScheduleTemplates />} />
-              <Route path="schedule/block-slots" element={<DoctorScheduleBlockSlots />} />
-              
               <Route path="consultation" element={<DoctorConsultation />} />
-              
-              {/* Prescriptions Routes */}
               <Route path="prescriptions" element={<DoctorPrescriptions />} />
-              <Route path="prescriptions/create" element={<DoctorPrescriptionsCreate />} />
-              <Route path="prescriptions/history" element={<DoctorPrescriptionsHistory />} />
-              <Route path="prescriptions/templates" element={<DoctorPrescriptionsTemplates />} />
-              
-              {/* Patients Routes */}
               <Route path="patients" element={<DoctorPatients />} />
-              <Route path="patients/my-patients" element={<DoctorPatientsMyPatients />} />
-              <Route path="patients/recent" element={<DoctorPatientsRecent />} />
-              <Route path="patients/chronic-allergy-flags" element={<DoctorPatientsChronic />} />
-              
               <Route path="reviews" element={<DoctorReviews />} />
-              
               {/* Shared Pages */}
               <Route path="profile" element={<UserProfiles />} />
               <Route path="edit-profile" element={<EditProfile />} />
