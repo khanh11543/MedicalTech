@@ -27,13 +27,16 @@ export interface ScheduleExceptionDTO {
 }
 
 // Time Slot DTO (generated from schedules)
+
+export type TimeSlotStatus = "AVAILABLE" | "BOOKED" | "BLOCKED" | "COMPLETED";
+
 export interface TimeSlotDTO {
   id?: number;
   doctorId?: number;
   slotDate: string; // YYYY-MM-DD format
   startTime: string; // HH:mm format
   endTime: string; // HH:mm format
-  isAvailable: boolean;
+  status: TimeSlotStatus;
   createdAt?: string;
 }
 

@@ -29,6 +29,7 @@ export default function DoctorScheduleBlockSlots() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [blockedSlotIds, setBlockedSlotIds] = useState<Set<number>>(new Set());
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 
   // Modal state
   const [showBlockModal, setShowBlockModal] = useState(false);
@@ -67,7 +68,7 @@ export default function DoctorScheduleBlockSlots() {
         // Extract blocked slots
         const blocked = new Set<number>();
         slots.forEach((slot) => {
-          if (!slot.isAvailable) {
+          if (!slot.status || slot.status === "BLOCKED") {
             blocked.add(slot.id!);
           }
         });
@@ -161,6 +162,19 @@ export default function DoctorScheduleBlockSlots() {
     const slotDateTime = new Date(slotDate + "T" + slotTime);
 
     return slotDateTime > now;
+  };
+
+  // Toggle day expansion
+  const toggleDayExpansion = (date: string) => {
+    setExpandedDays((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(date)) {
+        newSet.delete(date);
+      } else {
+        newSet.add(date);
+      }
+      return newSet;
+    });
   };
 
   // Handle block slot
@@ -272,7 +286,10 @@ export default function DoctorScheduleBlockSlots() {
               >
                 {/* Day Header */}
                 <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
-                  <div className="flex items-center justify-between">
+                  <button
+                    onClick={() => toggleDayExpansion(day.date)}
+                    className="w-full flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors"
+                  >
                     <div className="flex items-center gap-4">
                       <div>
                         <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
@@ -288,14 +305,22 @@ export default function DoctorScheduleBlockSlots() {
                         </div>
                       </div>
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {day.timeRanges.reduce((sum, range) => sum + range.slots.length, 0)} slots
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        {day.timeRanges.reduce((sum, range) => sum + range.slots.length, 0)} slots
+                      </div>
+                      <div className={`text-xl transition-transform ${expandedDays.has(day.date) ? 'rotate-180' : ''}`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="size-6">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                        </svg>
+                      </div>
                     </div>
-                  </div>
+                  </button>
                 </div>
 
                 {/* Timeline */}
-                <div className="p-6 space-y-4">
+                {expandedDays.has(day.date) && (
+                <div className="p-6 space-y-4 animate-in fade-in duration-200">
                   {day.timeRanges.map((timeRange, idx) => (
                     <div key={idx}>
                       {/* Time Label */}
@@ -389,6 +414,7 @@ export default function DoctorScheduleBlockSlots() {
                     </div>
                   ))}
                 </div>
+                )}
               </div>
             ))}
           </div>
