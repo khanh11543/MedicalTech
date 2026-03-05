@@ -1,6 +1,7 @@
 package com.q2k.meditech.repository;
 
 import com.q2k.meditech.entity.Prescription;
+import com.q2k.meditech.entity.enums.PrescriptionStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -65,7 +66,38 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
     
     // Đếm số đơn thuốc của patient
     Long countByPatientId(Long patientId);
-    
+
     // Đếm số đơn thuốc của doctor
     Long countByDoctorId(Long doctorId);
+
+    // Tìm theo khoảng thời gian (for admin statistics)
+    List<Prescription> findByPrescriptionDateBetween(LocalDate from, LocalDate to);
+
+    // Count by status
+    long countByStatus(PrescriptionStatus status);
+
+    // Count by status within date range
+    @Query("SELECT COUNT(p) FROM Prescription p WHERE p.status = :status AND p.prescriptionDate BETWEEN :from AND :to")
+    long countByStatusAndDateRange(@Param("status") PrescriptionStatus status,
+                                   @Param("from") LocalDate from,
+                                   @Param("to") LocalDate to);
+
+    // Find by status
+    List<Prescription> findByStatus(PrescriptionStatus status);
+
+    // Count distinct patients in date range
+    @Query("SELECT COUNT(DISTINCT p.patient.id) FROM Prescription p WHERE p.prescriptionDate BETWEEN :from AND :to")
+    long countDistinctPatientsByDateRange(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    // Count distinct doctors in date range
+    @Query("SELECT COUNT(DISTINCT p.doctor.id) FROM Prescription p WHERE p.prescriptionDate BETWEEN :from AND :to")
+    long countDistinctDoctorsByDateRange(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    // Count distinct patients overall
+    @Query("SELECT COUNT(DISTINCT p.patient.id) FROM Prescription p")
+    long countDistinctPatients();
+
+    // Count distinct doctors overall
+    @Query("SELECT COUNT(DISTINCT p.doctor.id) FROM Prescription p")
+    long countDistinctDoctors();
 }

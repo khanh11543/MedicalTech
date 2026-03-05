@@ -2,11 +2,10 @@ package com.q2k.meditech.controller;
 
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.service.AppointmentService;
+import com.q2k.meditech.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -40,11 +39,13 @@ public class AppointmentController {
     @PatchMapping("/{id}/reschedule")
     public ResponseEntity<AppointmentDTO> rescheduleAppointment(
             @PathVariable Long id,
-            @Valid @RequestBody RescheduleDTO dto,
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @Valid @RequestBody RescheduleDTO dto) {
         
-        Long userId = getCurrentUserId(userDetails);
-        String userRole = getCurrentUserRole(userDetails);
+        Long userId = SecurityUtil.getCurrentUserId();
+        String userRole = SecurityUtil.hasRole("ADMIN") ? "ADMIN" 
+                : SecurityUtil.hasRole("DOCTOR") ? "DOCTOR" 
+                : SecurityUtil.hasRole("RECEPTIONIST") ? "RECEPTIONIST" 
+                : "PATIENT";
         
         AppointmentDTO result = appointmentService.rescheduleAppointment(id, dto, userId, userRole);
         return ResponseEntity.ok(result);
@@ -58,11 +59,13 @@ public class AppointmentController {
     @PatchMapping("/{id}/cancel")
     public ResponseEntity<AppointmentDTO> cancelAppointment(
             @PathVariable Long id,
-            @Valid @RequestBody CancelDTO dto,
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @Valid @RequestBody CancelDTO dto) {
         
-        Long userId = getCurrentUserId(userDetails);
-        String userRole = getCurrentUserRole(userDetails);
+        Long userId = SecurityUtil.getCurrentUserId();
+        String userRole = SecurityUtil.hasRole("ADMIN") ? "ADMIN" 
+                : SecurityUtil.hasRole("DOCTOR") ? "DOCTOR" 
+                : SecurityUtil.hasRole("RECEPTIONIST") ? "RECEPTIONIST" 
+                : "PATIENT";
         
         AppointmentDTO result = appointmentService.cancelAppointment(id, dto, userId, userRole);
         return ResponseEntity.ok(result);
@@ -76,16 +79,5 @@ public class AppointmentController {
     public ResponseEntity<List<AppointmentHistoryDTO>> getAppointmentHistory(@PathVariable Long id) {
         List<AppointmentHistoryDTO> result = appointmentService.getAppointmentHistory(id);
         return ResponseEntity.ok(result);
-    }
-    
-    // Helper methods
-    private Long getCurrentUserId(UserDetails userDetails) {
-        // TODO: Implement based on your UserDetails implementation
-        return 1L;
-    }
-    
-    private String getCurrentUserRole(UserDetails userDetails) {
-        // TODO: Implement based on your UserDetails implementation
-        return "PATIENT";
     }
 }

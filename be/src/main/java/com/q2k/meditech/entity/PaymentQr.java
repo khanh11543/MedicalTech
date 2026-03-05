@@ -25,7 +25,7 @@ public class PaymentQr {
     private String provider; // VNPAY/MOMO/VIETQR...
 
     @Lob
-    @Column(name="qr_payload", nullable = false)
+    @Column(name="qr_payload", nullable = false, columnDefinition = "TEXT")
     private String qrPayload;
 
     @Column(name="pay_url", length = 1000)

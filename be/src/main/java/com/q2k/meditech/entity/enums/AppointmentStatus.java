@@ -2,6 +2,7 @@ package com.q2k.meditech.entity.enums;
 
 public enum AppointmentStatus {
     PENDING,      // Chờ xác nhận
+    SCHEDULED,    // Đã lên lịch
     CONFIRMED,    // Đã xác nhận
     CHECKED_IN,   // Đã check-in
     IN_PROGRESS,  // Đang khám

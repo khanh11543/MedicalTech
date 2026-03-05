@@ -6,7 +6,7 @@ import com.q2k.meditech.dto.SendInvoiceResultDTO;
 import com.q2k.meditech.entity.*;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.*;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,8 +46,10 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
         Invoice invoice = invoiceRepository.findByPaymentIdWithDetails(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice not found for payment: " + paymentId));
 
-        // Get current user
-        User currentUser = userRepository.findById(currentUserId).orElse(null);
+        // Get current user (null-safe: currentUserId can be null for auto-send)
+        User currentUser = (currentUserId != null) 
+                ? userRepository.findById(currentUserId).orElse(null) 
+                : null;
 
         // Get recipient info
         String recipientEmail = dto.getEmail() != null 
@@ -69,6 +71,11 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
                 result.setEmailSent(true);
                 result.setEmailStatus("Email sent successfully to " + recipientEmail);
                 
+                // Update invoice email status
+                invoice.setEmailStatus("SENT");
+                invoice.setEmailSentAt(LocalDateTime.now());
+                invoiceRepository.save(invoice);
+                
                 // Log delivery
                 createDeliveryLog(payment, "EMAIL", recipientEmail, "SENT", 
                         "Invoice sent successfully", null, currentUser);
@@ -77,6 +84,10 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
                 log.error("Failed to send email invoice", e);
                 result.setEmailSent(false);
                 result.setEmailStatus("Failed: " + e.getMessage());
+                
+                // Update invoice email status to FAILED (invoice still exists, only email failed)
+                invoice.setEmailStatus("FAILED");
+                invoiceRepository.save(invoice);
                 
                 // Log failure
                 createDeliveryLog(payment, "EMAIL", recipientEmail, "FAILED", 
@@ -137,6 +148,7 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public byte[] generateInvoicePdf(Long invoiceId) {
         log.info("Generating PDF for invoice ID: {}", invoiceId);
 
@@ -161,11 +173,19 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
                     .setBold());
 
             // Add invoice details
+            String invoiceNumber = invoice.getInvoiceNumber() != null ? invoice.getInvoiceNumber() : "N/A";
+            String invoiceDate = invoice.getInvoiceDate() != null ? invoice.getInvoiceDate().toString() : "N/A";
+            String patientName = (invoice.getPatient() != null && invoice.getPatient().getUser() != null 
+                    && invoice.getPatient().getUser().getFullName() != null) 
+                    ? invoice.getPatient().getUser().getFullName() : "N/A";
+            String paymentCode = (invoice.getPayment() != null && invoice.getPayment().getPaymentCode() != null) 
+                    ? invoice.getPayment().getPaymentCode() : "N/A";
+
             com.itextpdf.layout.element.Paragraph details = new com.itextpdf.layout.element.Paragraph()
-                    .add("Invoice #: ").add(invoice.getInvoiceNumber()).add("\n")
-                    .add("Date: ").add(invoice.getInvoiceDate().toString()).add("\n")
-                    .add("Patient: ").add(invoice.getPatient().getUser().getFullName()).add("\n")
-                    .add("Payment Code: ").add(invoice.getPayment().getPaymentCode());
+                    .add("Invoice #: ").add(invoiceNumber).add("\n")
+                    .add("Date: ").add(invoiceDate).add("\n")
+                    .add("Patient: ").add(patientName).add("\n")
+                    .add("Payment Code: ").add(paymentCode);
             document.add(details);
 
             // Add table for line items
@@ -180,20 +200,27 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
             table.addHeaderCell("Amount");
 
             // Items (could be from invoice.items if available)
+            String amountStr = (invoice.getPayment() != null && invoice.getPayment().getAmount() != null) 
+                    ? invoice.getPayment().getAmount().toString() : "0";
             table.addCell("Consultation Fee");
-            table.addCell(invoice.getPayment().getAmount().toString());
+            table.addCell(amountStr);
             table.addCell("1");
-            table.addCell(invoice.getPayment().getAmount().toString());
+            table.addCell(amountStr);
 
             document.add(table);
 
             // Add totals
+            String subtotalStr = invoice.getSubtotal() != null ? invoice.getSubtotal().toString() : "0";
+            String discountStr = invoice.getDiscount() != null ? invoice.getDiscount().toString() : "0";
+            String taxStr = invoice.getTax() != null ? invoice.getTax().toString() : "0";
+            String totalStr = invoice.getTotal() != null ? invoice.getTotal().toString() : "0";
+
             com.itextpdf.layout.element.Paragraph totals = new com.itextpdf.layout.element.Paragraph()
                     .setMarginTop(20)
-                    .add("Subtotal: ").add(invoice.getSubtotal().toString()).add(" VND\n")
-                    .add("Discount: ").add(invoice.getDiscount().toString()).add(" VND\n")
-                    .add("Tax: ").add(invoice.getTax().toString()).add(" VND\n")
-                    .add(new com.itextpdf.layout.element.Text("Total: " + invoice.getTotal() + " VND")
+                    .add("Subtotal: ").add(subtotalStr).add(" VND\n")
+                    .add("Discount: ").add(discountStr).add(" VND\n")
+                    .add("Tax: ").add(taxStr).add(" VND\n")
+                    .add(new com.itextpdf.layout.element.Text("Total: " + totalStr + " VND")
                             .setBold());
             document.add(totals);
 
@@ -285,7 +312,7 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
         html.append("<table style='width: 100%; border-collapse: collapse; margin: 20px 0;'>");
         html.append("<tr style='background: #f5f5f5;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Mã hóa đơn</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(invoice.getInvoiceNumber()).append("</td></tr>");
         html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Mã thanh toán</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(payment.getPaymentCode()).append("</td></tr>");
-        html.append("<tr style='background: #f5f5f5;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Ngày</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(invoice.getInvoiceDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))).append("</td></tr>");
+        html.append("<tr style='background: #f5f5f5;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Ngày</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(invoice.getInvoiceDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))).append("</td></tr>");
         html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Tạm tính</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(formatCurrency(invoice.getSubtotal())).append(" VND</td></tr>");
         html.append("<tr style='background: #f5f5f5;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Giảm giá</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(formatCurrency(invoice.getDiscount())).append(" VND</td></tr>");
         html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Thuế</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(formatCurrency(invoice.getTax())).append(" VND</td></tr>");

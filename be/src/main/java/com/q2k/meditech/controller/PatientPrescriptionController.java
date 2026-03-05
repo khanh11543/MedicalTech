@@ -1,7 +1,9 @@
 package com.q2k.meditech.controller;
 
 import com.q2k.meditech.dto.PrescriptionDTO;
+import com.q2k.meditech.repository.PatientRepository;
 import com.q2k.meditech.service.PrescriptionService;
+import com.q2k.meditech.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +22,7 @@ import java.time.LocalDate;
 public class PatientPrescriptionController {
     
     private final PrescriptionService prescriptionService;
+    private final PatientRepository patientRepository;
     
     /**
      * Lấy danh sách đơn thuốc của patient
@@ -60,7 +63,9 @@ public class PatientPrescriptionController {
     
     // Helper method
     private Long getPatientIdFromUser(UserDetails userDetails) {
-        // TODO: Implement based on your UserDetails implementation
-        return 1L;
+        Long userId = SecurityUtil.getCurrentUserId();
+        return patientRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Patient profile not found for user: " + userId))
+                .getId();
     }
 }

@@ -23,7 +23,14 @@ public class PrescriptionMapper {
         
         PrescriptionDTO.PrescriptionDTOBuilder builder = PrescriptionDTO.builder()
                 .id(prescription.getId())
+                .prescriptionCode(prescription.getPrescriptionCode() != null
+                        ? prescription.getPrescriptionCode()
+                        : "PRE-" + String.format("%06d", prescription.getId()))
                 .prescriptionDate(prescription.getPrescriptionDate())
+                .expiryDate(prescription.getExpiryDate())
+                .status(prescription.getStatus() != null
+                        ? prescription.getStatus().name()
+                        : (Boolean.TRUE.equals(prescription.getIsActive()) ? "ACTIVE" : "EXPIRED"))
                 .diagnosis(prescription.getDiagnosis())
                 .notes(prescription.getNotes())
                 .followUpDate(prescription.getFollowUpDate())

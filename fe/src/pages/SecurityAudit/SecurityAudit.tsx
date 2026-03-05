@@ -1,257 +1,290 @@
+import { useState, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import dayjs from "dayjs";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import ComponentCard from "../../components/common/ComponentCard";
 import PageMeta from "../../components/common/PageMeta";
+import SecurityStatsCards from "./components/SecurityStatsCards";
+import SecurityEventFilters from "./components/SecurityEventFilters";
+import SecurityEventTable from "./components/SecurityEventTable";
+import SecurityEventDetailModal from "./components/SecurityEventDetailModal";
+import SecurityBulkActions from "./components/SecurityBulkActions";
+import IpManagement from "./components/IpManagement";
+import AuditTrail from "./components/AuditTrail";
+import ActivityLogs from "./components/ActivityLogs";
+import SessionManagement from "./components/SessionManagement";
+import InvestigationTools from "./components/InvestigationTools";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "../../components/ui/table";
-import Badge from "../../components/ui/badge/Badge";
-
-interface AuditLog {
-  id: number;
-  userAvatar: string;
-  userName: string;
-  action: string;
-  resource: string;
-  ipAddress: string;
-  timestamp: string;
-  status: "Success" | "Failed" | "Warning";
-}
-
-const auditLogsData: AuditLog[] = [
-  {
-    id: 1,
-    userAvatar: "/images/user/user-17.jpg",
-    userName: "Admin User",
-    action: "Login",
-    resource: "Authentication",
-    ipAddress: "192.168.1.100",
-    timestamp: "Feb 14, 2026 09:30:00",
-    status: "Success",
-  },
-  {
-    id: 2,
-    userAvatar: "/images/user/user-18.jpg",
-    userName: "Dr. Nguyen Van A",
-    action: "Update",
-    resource: "Patient Record #1234",
-    ipAddress: "192.168.1.105",
-    timestamp: "Feb 14, 2026 09:25:00",
-    status: "Success",
-  },
-  {
-    id: 3,
-    userAvatar: "/images/user/user-19.jpg",
-    userName: "Unknown",
-    action: "Login Attempt",
-    resource: "Authentication",
-    ipAddress: "45.33.32.156",
-    timestamp: "Feb 14, 2026 09:20:00",
-    status: "Failed",
-  },
-  {
-    id: 4,
-    userAvatar: "/images/user/user-20.jpg",
-    userName: "Receptionist",
-    action: "Create",
-    resource: "Appointment #5678",
-    ipAddress: "192.168.1.110",
-    timestamp: "Feb 14, 2026 09:15:00",
-    status: "Success",
-  },
-  {
-    id: 5,
-    userAvatar: "/images/user/user-21.jpg",
-    userName: "System",
-    action: "Password Reset",
-    resource: "User Account",
-    ipAddress: "192.168.1.1",
-    timestamp: "Feb 14, 2026 09:10:00",
-    status: "Warning",
-  },
-];
+  SecurityEventDTO,
+  SecurityEventFilter,
+  BlockIpRequest,
+  getSecurityDashboard,
+  getSecurityEvents,
+  reviewSecurityEvent,
+  resolveSecurityEvent,
+  blockIp,
+  exportSecurityEvents,
+  downloadBlob,
+} from "../../services/securityService";
 
 export default function SecurityAudit() {
+  const queryClient = useQueryClient();
+
+  // State
+  const [period, setPeriod] = useState("24h");
+  const [filter, setFilter] = useState<SecurityEventFilter>({
+    pageNumber: 0,
+    pageSize: 20,
+    sortBy: "createdAt",
+    sortDir: "DESC",
+  });
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<SecurityEventDTO | null>(null);
+
+  // Queries
+  const { data: dashboard, isLoading: isDashboardLoading } = useQuery({
+    queryKey: ["security-dashboard", period],
+    queryFn: () => getSecurityDashboard(period),
+  });
+
+  const { data: eventsData, isLoading: isEventsLoading } = useQuery({
+    queryKey: ["security-events", filter],
+    queryFn: () => getSecurityEvents(filter),
+  });
+
+  // Mutations
+  const reviewMutation = useMutation({
+    mutationFn: (id: number) => reviewSecurityEvent(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["security-events"] });
+      queryClient.invalidateQueries({ queryKey: ["security-dashboard"] });
+      if (selectedEvent) {
+        setSelectedEvent((prev) =>
+          prev ? { ...prev, status: "REVIEWED" } : null
+        );
+      }
+    },
+    onError: (error: any) => {
+      alert(error?.response?.data?.message || "Failed to review event");
+    },
+  });
+
+  const resolveMutation = useMutation({
+    mutationFn: ({ id, note }: { id: number; note: string }) =>
+      resolveSecurityEvent(id, note),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["security-events"] });
+      queryClient.invalidateQueries({ queryKey: ["security-dashboard"] });
+      if (selectedEvent) {
+        setSelectedEvent((prev) =>
+          prev ? { ...prev, status: "RESOLVED" } : null
+        );
+      }
+    },
+    onError: (error: any) => {
+      alert(error?.response?.data?.message || "Failed to resolve event");
+    },
+  });
+
+  const blockIpMutation = useMutation({
+    mutationFn: (data: BlockIpRequest) => blockIp(data),
+    onSuccess: () => {
+      alert("IP address blocked successfully");
+      queryClient.invalidateQueries({ queryKey: ["security-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["ip-management-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["blocked-ips"] });
+    },
+    onError: (error: any) => {
+      alert(error?.response?.data?.message || "Failed to block IP");
+    },
+  });
+
+  const exportMutation = useMutation({
+    mutationFn: (format: "csv" | "excel" | "pdf") =>
+      exportSecurityEvents(format, filter),
+    onSuccess: (blob, format) => {
+      const ext = format === "excel" ? "xlsx" : format;
+      downloadBlob(blob, `security_events_${dayjs().format("YYYY-MM-DD")}.${ext}`);
+    },
+    onError: (error: any) => {
+      alert(error?.response?.data?.message || "Export failed");
+    },
+  });
+
+  // Handlers
+  const handleFilterChange = useCallback((newFilter: SecurityEventFilter) => {
+    setFilter(newFilter);
+    setSelectedIds([]);
+  }, []);
+
+  const handleToggleSelect = useCallback((id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+  }, []);
+
+  const handleToggleSelectAll = useCallback(() => {
+    if (!eventsData?.content) return;
+    const allIds = eventsData.content.map((e) => e.id);
+    setSelectedIds((prev) =>
+      prev.length === allIds.length ? [] : allIds
+    );
+  }, [eventsData]);
+
+  const handleViewDetail = useCallback((event: SecurityEventDTO) => {
+    setSelectedEvent(event);
+  }, []);
+
+  const handleBlockIp = useCallback((ip: string) => {
+    if (confirm(`Quick block IP: ${ip}?\nFor advanced options, use the IP Management section below.`)) {
+      blockIpMutation.mutate({
+        ipAddress: ip,
+        reason: "Blocked from security event review",
+        blockType: "TEMPORARY",
+        blockScope: "ENTIRE_SYSTEM",
+      });
+    }
+  }, [blockIpMutation]);
+
+  const handleReviewSelected = useCallback(async () => {
+    for (const id of selectedIds) {
+      await reviewSecurityEvent(id);
+    }
+    queryClient.invalidateQueries({ queryKey: ["security-events"] });
+    queryClient.invalidateQueries({ queryKey: ["security-dashboard"] });
+    setSelectedIds([]);
+  }, [selectedIds, queryClient]);
+
+  const handleExportSelected = useCallback(() => {
+    exportMutation.mutate("csv");
+  }, [exportMutation]);
+
   return (
     <>
       <PageMeta
         title="Security & Audit | MedicalTech Dashboard"
-        description="Security settings and audit logs in the MedicalTech system"
+        description="Security event monitoring and audit logs"
       />
       <PageBreadcrumb pageTitle="Security & Audit" />
+
       <div className="space-y-6">
-        <ComponentCard title="Security Settings">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-800 dark:text-white/90">Two-Factor Authentication</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Require 2FA for all admin accounts</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" defaultChecked />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
+        {/* Dashboard Stats */}
+        <SecurityStatsCards
+          dashboard={dashboard}
+          isLoading={isDashboardLoading}
+          period={period}
+          onPeriodChange={setPeriod}
+        />
 
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-800 dark:text-white/90">Session Timeout (minutes)</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Auto logout after inactivity</p>
-              </div>
-              <select className="px-4 py-2 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-800 dark:text-white">
-                <option value="15">15 minutes</option>
-                <option value="30" selected>30 minutes</option>
-                <option value="60">60 minutes</option>
-                <option value="120">120 minutes</option>
-              </select>
+        {/* Events Section */}
+        <ComponentCard
+          title="Security Events"
+          desc="Monitor and manage security events across the system"
+        >
+          {/* Export Buttons */}
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {eventsData
+                ? `${eventsData.totalElements} events found`
+                : "Loading..."}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => exportMutation.mutate("csv")}
+                disabled={exportMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                CSV
+              </button>
+              <button
+                onClick={() => exportMutation.mutate("excel")}
+                disabled={exportMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Excel
+              </button>
+              <button
+                onClick={() => exportMutation.mutate("pdf")}
+                disabled={exportMutation.isPending}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                PDF
+              </button>
             </div>
+          </div>
 
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-800 dark:text-white/90">Password Expiry (days)</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Force password change after specified days</p>
-              </div>
-              <input
-                type="number"
-                defaultValue="90"
-                className="px-4 py-2 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-800 dark:text-white w-24"
-              />
-            </div>
+          {/* Filters */}
+          <SecurityEventFilters
+            filter={filter}
+            onFilterChange={handleFilterChange}
+          />
 
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-800 dark:text-white/90">Max Login Attempts</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Lock account after failed login attempts</p>
-              </div>
-              <input
-                type="number"
-                defaultValue="5"
-                className="px-4 py-2 border border-gray-300 rounded-lg dark:border-gray-600 dark:bg-gray-800 dark:text-white w-24"
-              />
-            </div>
+          {/* Bulk Actions */}
+          <div className="mt-4">
+            <SecurityBulkActions
+              selectedCount={selectedIds.length}
+              onReviewSelected={handleReviewSelected}
+              onClearSelection={() => setSelectedIds([])}
+              onExportSelected={handleExportSelected}
+              isReviewing={reviewMutation.isPending}
+            />
+          </div>
 
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-white/[0.03] rounded-lg">
-              <div>
-                <h4 className="font-medium text-gray-800 dark:text-white/90">IP Whitelist</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Only allow access from specific IP addresses</p>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
+          {/* Events Table */}
+          <div className="mt-4">
+            <SecurityEventTable
+              data={eventsData}
+              isLoading={isEventsLoading}
+              filter={filter}
+              onFilterChange={handleFilterChange}
+              onViewDetail={handleViewDetail}
+              onBlockIp={handleBlockIp}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+              onToggleSelectAll={handleToggleSelectAll}
+            />
           </div>
         </ComponentCard>
 
-        <ComponentCard title="Audit Logs">
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-            <div className="max-w-full overflow-x-auto">
-              <Table>
-                <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-                  <TableRow>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      User
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Action
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Resource
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      IP Address
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Timestamp
-                    </TableCell>
-                    <TableCell
-                      isHeader
-                      className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-                    >
-                      Status
-                    </TableCell>
-                  </TableRow>
-                </TableHeader>
+        {/* IP Management Section */}
+        <IpManagement />
 
-                <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                  {auditLogsData.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell className="px-5 py-4 sm:px-6 text-start">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 overflow-hidden rounded-full">
-                            <img
-                              width={40}
-                              height={40}
-                              src={log.userAvatar}
-                              alt={log.userName}
-                            />
-                          </div>
-                          <span className="font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                            {log.userName}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {log.action}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {log.resource}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400 font-mono">
-                        {log.ipAddress}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                        {log.timestamp}
-                      </TableCell>
-                      <TableCell className="px-4 py-3 text-start">
-                        <Badge
-                          size="sm"
-                          color={
-                            log.status === "Success"
-                              ? "success"
-                              : log.status === "Failed"
-                              ? "error"
-                              : "warning"
-                          }
-                        >
-                          {log.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        </ComponentCard>
+        {/* Audit Trail Section */}
+        <AuditTrail />
 
-        <div className="flex justify-end gap-3">
-          <button className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
-            Export Logs
-          </button>
-          <button className="px-6 py-2.5 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 transition-colors">
-            Save Security Settings
-          </button>
-        </div>
+        {/* Activity Logs Section */}
+        <ActivityLogs />
+
+        {/* Session Management Section */}
+        <SessionManagement />
+
+        {/* Investigation Tools Section */}
+        <InvestigationTools />
       </div>
+
+      {/* Event Detail Modal */}
+      {selectedEvent && (
+        <SecurityEventDetailModal
+          event={selectedEvent}
+          isOpen={!!selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onReview={(id) => reviewMutation.mutate(id)}
+          onResolve={(id, note) => resolveMutation.mutate({ id, note })}
+          onBlockIp={handleBlockIp}
+          isReviewing={reviewMutation.isPending}
+          isResolving={resolveMutation.isPending}
+        />
+      )}
+
     </>
   );
 }

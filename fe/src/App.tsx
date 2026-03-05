@@ -3,38 +3,79 @@ import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import VerifyOtp from "./pages/AuthPages/VerifyOtp";
 import NotFound from "./pages/OtherPage/NotFound";
-import UserProfiles from "./pages/UserProfiles";
-import Videos from "./pages/UiElements/Videos";
-import Images from "./pages/UiElements/Images";
-import Alerts from "./pages/UiElements/Alerts";
-import Badges from "./pages/UiElements/Badges";
-import Avatars from "./pages/UiElements/Avatars";
-import Buttons from "./pages/UiElements/Buttons";
-import LineChart from "./pages/Charts/LineChart";
-import BarChart from "./pages/Charts/BarChart";
-import Calendar from "./pages/Calendar";
-import BasicTables from "./pages/Tables/BasicTables";
-import FormElements from "./pages/Forms/FormElements";
-import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 import UserList from "./pages/UserManagement/UserList";
 import DoctorVerification from "./pages/DoctorVerification/DoctorVerification";
 import AppointmentList from "./pages/AppointmentManagement/AppointmentList";
+import AppointmentDetail from "./pages/AppointmentManagement/AppointmentDetail";
+import AppointmentStatistics from "./pages/AppointmentManagement/AppointmentStatistics";
 import PrescriptionList from "./pages/PrescriptionManagement/PrescriptionList";
+import PrescriptionDetail from "./pages/PrescriptionManagement/PrescriptionDetail";
+import PrescriptionTemplates from "./pages/PrescriptionManagement/PrescriptionTemplates";
 import PaymentList from "./pages/PaymentManagement/PaymentList";
+import PaymentDetail from "./pages/PaymentManagement/PaymentDetail";
+import RefundList from "./pages/PaymentManagement/RefundList";
+import RefundDetail from "./pages/PaymentManagement/RefundDetail";
 import ReviewList from "./pages/ReviewManagement/ReviewList";
 import ContentList from "./pages/ContentManagement/ContentList";
-import SystemSettings from "./pages/SystemSettings/SystemSettings";
 import SecurityAudit from "./pages/SecurityAudit/SecurityAudit";
 import ReportsAnalytics from "./pages/ReportsAnalytics/ReportsAnalytics";
+import RevenueReports from "./pages/RevenueReports/RevenueReports";
 import GDPRCompliance from "./pages/GDPRCompliance/GDPRCompliance";
 import BackupMaintenance from "./pages/BackupMaintenance/BackupMaintenance";
-import Announcements from "./pages/Announcements/Announcements";
-import SystemHealth from "./pages/SystemHealth/SystemHealth";
+import BackupDashboard from "./pages/BackupMaintenance/BackupDashboard";
+import BackupHistory from "./pages/BackupMaintenance/BackupHistory";
+import ManualBackup from "./pages/BackupMaintenance/ManualBackup";
+import RestoreBackup from "./pages/BackupMaintenance/RestoreBackup";
+import ScheduledMaintenance from "./pages/BackupMaintenance/ScheduledMaintenance";
+import SystemOptimization from "./pages/BackupMaintenance/SystemOptimization";
+import NotificationCenter from "./pages/Notifications/NotificationCenter";
+import TimeSlotCalendar from "./pages/TimeSlotManagement/TimeSlotCalendar";
+import TimeSlotList from "./pages/TimeSlotManagement/TimeSlotList";
+import TimeSlotBulkCreate from "./pages/TimeSlotManagement/TimeSlotBulkCreate";
+import TimeSlotTemplates from "./pages/TimeSlotManagement/TimeSlotTemplates";
+import TimeSlotRules from "./pages/TimeSlotManagement/TimeSlotRules";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import RoleProtectedRoute from "./components/auth/RoleProtectedRoute";
+
+// Receptionist Pages
+import ReceptionistDashboard from "./pages/Receptionist/ReceptionistDashboard";
+import ReceptionistAppointments from "./pages/Receptionist/ReceptionistAppointments";
+import ReceptionistAppointmentDetail from "./pages/Receptionist/Appointments/AppointmentDetail";
+import ReceptionistPatients from "./pages/Receptionist/ReceptionistPatients";
+import ReceptionistQueue from "./pages/Receptionist/ReceptionistQueue";
+import ReceptionistPayments from "./pages/Receptionist/ReceptionistPayments";
+import ReceptionistReports from "./pages/Receptionist/ReceptionistReports";
+import ReceptionistNotifications from "./pages/Receptionist/ReceptionistNotifications";
+import ReceptionistSettings from "./pages/Receptionist/ReceptionistSettings";
+import AdminSettings from "./pages/AdminSettings/AdminSettings";
+
+// Landing Pages (Public)
+import LandingLayout from "./pages/Landing/LandingLayout";
+import HomePage from "./pages/Landing/HomePage";
+import AboutPage from "./pages/Landing/AboutPage";
+import DepartmentsPage from "./pages/Landing/DepartmentsPage";
+import DepartmentDetailPage from "./pages/Landing/DepartmentDetailPage";
+import ServicesPage from "./pages/Landing/ServicesPage";
+import DoctorsPage from "./pages/Landing/DoctorsPage";
+import AppointmentPage from "./pages/Landing/AppointmentPage";
+import ContactPage from "./pages/Landing/ContactPage";
+import TestimonialsPage from "./pages/Landing/TestimonialsPage";
+import FAQPage from "./pages/Landing/FAQPage";
+import GalleryPage from "./pages/Landing/GalleryPage";
+import TermsPage from "./pages/Landing/TermsPage";
+import PrivacyPage from "./pages/Landing/PrivacyPage";
+import ServiceDetailPage from "./pages/Landing/ServiceDetailPage";
+
+// Patient Portal Pages
+import PatientAccount from "./pages/Landing/PatientAccount";
+import PatientProfile from "./pages/Landing/PatientProfile";
+import PatientAppointments from "./pages/Landing/PatientAppointments";
+import PatientPayments from "./pages/Landing/PatientPayments";
+import { PatientPortal } from "./pages/Landing/components/PatientNav";
 
 export default function App() {
   return (
@@ -42,21 +83,38 @@ export default function App() {
       <Router>
         <ScrollToTop />
         <Routes>
+          {/* Public Landing Pages */}
+          <Route element={<LandingLayout />}>
+            <Route path="/home" element={<HomePage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/departments" element={<DepartmentsPage />} />
+            <Route path="/departments/:slug" element={<DepartmentDetailPage />} />
+            <Route path="/services" element={<ServicesPage />} />
+            <Route path="/services/:slug" element={<ServiceDetailPage />} />
+            <Route path="/doctors" element={<DoctorsPage />} />
+            <Route path="/appointment" element={<AppointmentPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route path="/testimonials" element={<TestimonialsPage />} />
+            <Route path="/faq" element={<FAQPage />} />
+            <Route path="/gallery" element={<GalleryPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+
+            {/* Patient Portal */}
+            <Route element={<PatientPortal />}>
+              <Route path="/patient/appointments" element={<PatientAppointments />} />
+              <Route path="/patient/payments" element={<PatientPayments />} />
+              <Route path="/patient/profile" element={<PatientProfile />} />
+              <Route path="/patient/account" element={<PatientAccount />} />
+            </Route>
+          </Route>
+
           {/* Protected Dashboard Layout */}
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
               <Route index path="/" element={<Home />} />
 
-            {/* Others Page */}
-            <Route path="/profile" element={<UserProfiles />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="/blank" element={<Blank />} />
 
-            {/* Forms */}
-            <Route path="/form-elements" element={<FormElements />} />
-
-            {/* Tables */}
-            <Route path="/basic-tables" element={<BasicTables />} />
 
             {/* User Management */}
             <Route path="/user-list" element={<UserList />} />
@@ -66,12 +124,28 @@ export default function App() {
 
             {/* Appointment Management */}
             <Route path="/appointment-list" element={<AppointmentList />} />
+            <Route path="/appointment-detail/:id" element={<AppointmentDetail />} />
+            <Route path="/appointment-statistics" element={<AppointmentStatistics />} />
+
+            {/* Time Slot Management */}
+            <Route path="/timeslot-calendar" element={<TimeSlotCalendar />} />
+            <Route path="/timeslot-list" element={<TimeSlotList />} />
+            <Route path="/timeslot-bulk-create" element={<TimeSlotBulkCreate />} />
+            <Route path="/timeslot-templates" element={<TimeSlotTemplates />} />
+            <Route path="/timeslot-rules" element={<TimeSlotRules />} />
 
             {/* Prescription Management */}
             <Route path="/prescription-list" element={<PrescriptionList />} />
+            <Route path="/prescription-list/:id" element={<PrescriptionDetail />} />
+            <Route path="/prescription-templates" element={<PrescriptionTemplates />} />
 
             {/* Payment Management */}
             <Route path="/payment-list" element={<PaymentList />} />
+            <Route path="/payment-list/:id" element={<PaymentDetail />} />
+
+            {/* Refund Management */}
+            <Route path="/refund-list" element={<RefundList />} />
+            <Route path="/refund-list/:id" element={<RefundDetail />} />
 
             {/* Review Management */}
             <Route path="/review-list" element={<ReviewList />} />
@@ -79,8 +153,8 @@ export default function App() {
             {/* Content Management */}
             <Route path="/content-list" element={<ContentList />} />
 
-            {/* System Settings */}
-            <Route path="/system-settings" element={<SystemSettings />} />
+            {/* Admin Personal Settings */}
+            <Route path="/admin/settings" element={<AdminSettings />} />
 
             {/* Security & Audit */}
             <Route path="/security-audit" element={<SecurityAudit />} />
@@ -88,29 +162,42 @@ export default function App() {
             {/* Reports & Analytics */}
             <Route path="/reports-analytics" element={<ReportsAnalytics />} />
 
+            {/* Revenue Reports */}
+            <Route path="/revenue-reports" element={<RevenueReports />} />
+
             {/* GDPR & Compliance */}
             <Route path="/gdpr-compliance" element={<GDPRCompliance />} />
 
             {/* Backup & Maintenance */}
             <Route path="/backup-maintenance" element={<BackupMaintenance />} />
+            <Route path="/backup-dashboard" element={<BackupDashboard />} />
+            <Route path="/backup-history" element={<BackupHistory />} />
+            <Route path="/manual-backup" element={<ManualBackup />} />
+            <Route path="/restore-backup" element={<RestoreBackup />} />
+            <Route path="/scheduled-maintenance" element={<ScheduledMaintenance />} />
+            <Route path="/system-optimization" element={<SystemOptimization />} />
 
-            {/* Announcements */}
-            <Route path="/announcements" element={<Announcements />} />
+            {/* Notifications */}
+            <Route path="/notifications" element={<NotificationCenter />} />
 
-            {/* System Health */}
-            <Route path="/system-health" element={<SystemHealth />} />
 
-            {/* Ui Elements */}
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/avatars" element={<Avatars />} />
-            <Route path="/badge" element={<Badges />} />
-            <Route path="/buttons" element={<Buttons />} />
-            <Route path="/images" element={<Images />} />
-            <Route path="/videos" element={<Videos />} />
+            </Route>
+          </Route>
 
-            {/* Charts */}
-            <Route path="/line-chart" element={<LineChart />} />
-            <Route path="/bar-chart" element={<BarChart />} />
+          {/* Receptionist Routes - Role Protected */}
+          <Route element={<ProtectedRoute />}>
+            <Route element={<AppLayout />}>
+              <Route element={<RoleProtectedRoute allowedRoles={["RECEPTIONIST"]} />}>
+                <Route path="/receptionist/dashboard" element={<ReceptionistDashboard />} />
+                <Route path="/receptionist/appointments" element={<ReceptionistAppointments />} />
+                <Route path="/receptionist/appointments/:id" element={<ReceptionistAppointmentDetail />} />
+                <Route path="/receptionist/patients" element={<ReceptionistPatients />} />
+                <Route path="/receptionist/queue" element={<ReceptionistQueue />} />
+                <Route path="/receptionist/payments" element={<ReceptionistPayments />} />
+                <Route path="/receptionist/reports" element={<ReceptionistReports />} />
+                <Route path="/receptionist/notifications" element={<NotificationCenter />} />
+                <Route path="/receptionist/settings" element={<ReceptionistSettings />} />
+              </Route>
             </Route>
           </Route>
 

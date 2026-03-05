@@ -260,7 +260,28 @@ public class GlobalExceptionHandler {
         
         return new ResponseEntity<>(error, HttpStatus.BAD_REQUEST);
     }
-    
+
+    /**
+     * Handle missing static resources (404) — e.g. deleted avatar files
+     */
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResourceFound(
+            org.springframework.web.servlet.resource.NoResourceFoundException ex,
+            WebRequest request) {
+
+        log.debug("Static resource not found: {}", ex.getMessage());
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(getCurrentTimestamp())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error(HttpStatus.NOT_FOUND.getReasonPhrase())
+                .message("Resource not found")
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
+
     /**
      * Handle all other exceptions (500)
      */

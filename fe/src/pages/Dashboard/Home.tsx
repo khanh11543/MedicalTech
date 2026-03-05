@@ -5,8 +5,18 @@ import MonthlyTarget from "../../components/ecommerce/MonthlyTarget";
 import RecentOrders from "../../components/ecommerce/RecentOrders";
 import DemographicCard from "../../components/ecommerce/DemographicCard";
 import PageMeta from "../../components/common/PageMeta";
+import { Navigate } from "react-router";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Home() {
+  const { user } = useAuth();
+  const userRoles = user?.roles || [];
+
+  // Redirect RECEPTIONIST users to their dedicated dashboard
+  if (userRoles.includes("RECEPTIONIST") && !userRoles.includes("ADMIN")) {
+    return <Navigate to="/receptionist/dashboard" replace />;
+  }
+
   return (
     <>
       <PageMeta

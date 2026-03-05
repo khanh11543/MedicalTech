@@ -1,8 +1,11 @@
 package com.q2k.meditech.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -13,6 +16,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+import java.util.Map;
 
 /**
  * Security Configuration
@@ -25,6 +30,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final MaintenanceFilter maintenanceFilter;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -51,8 +57,23 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/public/**").permitAll()
 
+                        // Static files (avatars, uploads)
+                        .requestMatchers("/uploads/**").permitAll()
+
+                        // WebSocket endpoint
+                        .requestMatchers("/ws/**").permitAll()
+
                         // Swagger/OpenAPI endpoints
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+
+                        // Payment Management - accessible by ADMIN and RECEPTIONIST
+                        .requestMatchers("/admin/payments/**").hasAnyRole("ADMIN", "RECEPTIONIST")
+
+                        // Backup & Maintenance - ADMIN only
+                        .requestMatchers("/admin/backups/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/restore/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/maintenance/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/optimization/**").hasRole("ADMIN")
 
                         // Admin endpoints - require ADMIN role
                         .requestMatchers("/admin/**").hasRole("ADMIN")
@@ -70,11 +91,31 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
 
+                // Handle authentication/authorization errors with proper CORS headers
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            new ObjectMapper().writeValue(response.getOutputStream(),
+                                    Map.of("status", 401, "message", "Unauthorized: " + authException.getMessage()));
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            new ObjectMapper().writeValue(response.getOutputStream(),
+                                    Map.of("status", 403, "message", "Access Denied: " + accessDeniedException.getMessage()));
+                        })
+                )
+
                 // Add JWT filter before UsernamePasswordAuthenticationFilter
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+
+                // Add Maintenance filter after JWT (so we can check roles)
+                .addFilterAfter(maintenanceFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }
+
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {

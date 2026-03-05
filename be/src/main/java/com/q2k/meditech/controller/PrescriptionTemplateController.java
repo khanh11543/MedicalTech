@@ -3,6 +3,7 @@ package com.q2k.meditech.controller;
 import com.q2k.meditech.dto.MessageDTO;
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.service.PrescriptionTemplateService;
+import com.q2k.meditech.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -111,7 +112,6 @@ public class PrescriptionTemplateController {
     
     // Helper method
     private Long getCurrentUserId(UserDetails userDetails) {
-        // TODO: Implement based on your UserDetails implementation
-        return 1L;
+        return SecurityUtil.getCurrentUserId();
     }
 }

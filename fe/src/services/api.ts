@@ -21,13 +21,28 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor: handle 401 and token refresh
+// Response interceptor: handle 401, Network Errors, and token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Skip interceptor for auth endpoints (login, register, etc.) — let errors propagate directly
+    const requestUrl = originalRequest?.url || "";
+    const isAuthEndpoint =
+      requestUrl.startsWith("/auth/") ||
+      requestUrl === "/auth";
+
+    if (isAuthEndpoint) {
+      return Promise.reject(error);
+    }
+
+    // Detect auth failure: either explicit 401 or "Network Error" (CORS-blocked 401/403)
+    const isAuthError =
+      error.response?.status === 401 ||
+      (!error.response && error.message === "Network Error" && localStorage.getItem("accessToken"));
+
+    if (isAuthError && !originalRequest._retry) {
       originalRequest._retry = true;
       const refreshToken = localStorage.getItem("refreshToken");
 
@@ -51,6 +66,12 @@ api.interceptors.response.use(
           window.location.href = "/signin";
           return Promise.reject(error);
         }
+      } else {
+        // No refresh token available — redirect to login
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("user");
+        window.location.href = "/signin";
+        return Promise.reject(error);
       }
     }
 

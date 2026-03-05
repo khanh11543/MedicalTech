@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -59,4 +61,12 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
            "LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(u.phone) LIKE LOWER(CONCAT('%', :query, '%')))")
     Page<User> searchUsers(@Param("query") String query, Pageable pageable);
+
+    /**
+     * Find users who have any of the specified role names (via UserRole join table).
+     * Example: findByRoles_NameIn(List.of("RECEPTIONIST", "ADMIN"))
+     */
+    @Query("SELECT DISTINCT u FROM User u JOIN u.userRoles ur JOIN ur.role r " +
+           "WHERE r.name IN :roleNames AND u.isActive = true")
+    List<User> findByRoles_NameIn(@Param("roleNames") Collection<String> roleNames);
 }

@@ -1,0 +1,41 @@
+package com.q2k.meditech.entity.enums;
+
+public enum ActivityType {
+    // Auth
+    LOGIN,
+    LOGOUT,
+    PASSWORD_CHANGE,
+
+    // User Management
+    CREATED_USER,
+    UPDATED_USER,
+    DISABLED_USER,
+    ASSIGNED_ROLE,
+    RESET_PASSWORD,
+    PROFILE_UPDATE,
+
+    // Appointments
+    CREATED_APPOINTMENT,
+    CONFIRMED_APPOINTMENT,
+    CHECKED_IN_PATIENT,
+    CANCELLED_APPOINTMENT,
+    RESCHEDULED_APPOINTMENT,
+
+    // Prescriptions
+    CREATED_PRESCRIPTION,
+    APPLIED_TEMPLATE,
+
+    // Payments
+    PROCESSED_PAYMENT,
+    ISSUED_REFUND,
+
+    // System
+    CHANGED_SETTINGS,
+    CREATED_BACKUP,
+    ENABLED_MAINTENANCE,
+
+    // Content
+    UPDATED_PAGE,
+    ADDED_SPECIALIZATION,
+    MODIFIED_TEMPLATE
+}

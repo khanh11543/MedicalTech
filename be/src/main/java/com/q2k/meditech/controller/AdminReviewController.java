@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/admin/reviews")
+@RequestMapping("/admin/reviews")
 public class AdminReviewController {
 
     @Autowired

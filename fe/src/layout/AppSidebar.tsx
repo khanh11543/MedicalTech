@@ -5,7 +5,6 @@ import { Link, useLocation } from "react-router";
 import {
   ArrowUpIcon,
   BoltIcon,
-  BoxCubeIcon,
   CalenderIcon,
   CheckCircleIcon,
   ChevronDownIcon,
@@ -17,42 +16,83 @@ import {
   GroupIcon,
   HorizontaLDots,
   InfoIcon,
-  ListIcon,
   LockIcon,
   MailIcon,
-  PageIcon,
-  PieChartIcon,
-  PlugInIcon,
   ShootingStarIcon,
-  TableIcon,
   TaskIcon,
+  TimeIcon,
   UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
+import { useAuth } from "../context/AuthContext";
 import SidebarWidget from "./SidebarWidget";
 
 type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
+  roles?: string[]; // If undefined, visible to all roles
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
+// Receptionist navigation items
+const receptionistNavItems: NavItem[] = [
+  {
+    icon: <GridIcon />,
+    name: "Dashboard",
+    path: "/receptionist/dashboard",
+    roles: ["RECEPTIONIST"],
+  },
+  {
+    icon: <CalenderIcon />,
+    name: "Appointments",
+    path: "/receptionist/appointments",
+    roles: ["RECEPTIONIST"],
+  },
+  {
+    icon: <GroupIcon />,
+    name: "Patients",
+    path: "/receptionist/patients",
+    roles: ["RECEPTIONIST"],
+  },
+  {
+    icon: <TimeIcon />,
+    name: "Queue Management",
+    path: "/receptionist/queue",
+    roles: ["RECEPTIONIST"],
+  },
+  {
+    icon: <DollarLineIcon />,
+    name: "Payments",
+    path: "/receptionist/payments",
+    roles: ["RECEPTIONIST"],
+  },
+  {
+    icon: <DocsIcon />,
+    name: "Reports",
+    path: "/receptionist/reports",
+    roles: ["RECEPTIONIST"],
+  },
+  {
+    icon: <MailIcon />,
+    name: "Notifications",
+    path: "/receptionist/notifications",
+    roles: ["RECEPTIONIST"],
+  },
+  {
+    icon: <BoltIcon />,
+    name: "Settings",
+    path: "/receptionist/settings",
+    roles: ["RECEPTIONIST"],
+  },
+];
+
+// Admin/default navigation items
 const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
     subItems: [{ name: "Ecommerce", path: "/", pro: false }],
-  },
-  {
-    icon: <CalenderIcon />,
-    name: "Calendar",
-    path: "/calendar",
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
   },
   {
     icon: <GroupIcon />,
@@ -67,17 +107,38 @@ const navItems: NavItem[] = [
   {
     icon: <TaskIcon />,
     name: "Appointment Management",
-    subItems: [{ name: "Appointment List", path: "/appointment-list", pro: false }],
+    subItems: [
+      { name: "Appointment List", path: "/appointment-list", pro: false },
+      { name: "Appointment Statistics", path: "/appointment-statistics", pro: false },
+    ],
+  },
+  {
+    icon: <TimeIcon />,
+    name: "Time Slot Management",
+    subItems: [
+      { name: "Calendar View", path: "/timeslot-calendar", pro: false },
+      { name: "Slot List", path: "/timeslot-list", pro: false },
+      { name: "Bulk Create", path: "/timeslot-bulk-create", pro: false },
+      { name: "Templates", path: "/timeslot-templates", pro: false },
+      { name: "Rules & Holidays", path: "/timeslot-rules", pro: false },
+    ],
   },
   {
     icon: <DocsIcon />,
     name: "Prescription Management",
-    subItems: [{ name: "Prescription List", path: "/prescription-list", pro: false }],
+    subItems: [
+      { name: "All Prescriptions", path: "/prescription-list", pro: false },
+      { name: "Templates Overview", path: "/prescription-templates", pro: false },
+    ],
   },
   {
     icon: <DollarLineIcon />,
     name: "Payment Management",
-    subItems: [{ name: "Payment List", path: "/payment-list", pro: false }],
+    subItems: [
+      { name: "Payment List", path: "/payment-list", pro: false },
+      { name: "Refund Management", path: "/refund-list", pro: false },
+      { name: "Revenue Reports", path: "/revenue-reports", pro: false },
+    ],
   },
   {
     icon: <ShootingStarIcon />,
@@ -90,9 +151,9 @@ const navItems: NavItem[] = [
     subItems: [{ name: "Content List", path: "/content-list", pro: false }],
   },
   {
-    icon: <BoltIcon />,
-    name: "System Settings",
-    path: "/system-settings",
+    icon: <UserCircleIcon />,
+    name: "Settings",
+    path: "/admin/settings",
   },
   {
     icon: <LockIcon />,
@@ -112,74 +173,39 @@ const navItems: NavItem[] = [
   {
     icon: <DownloadIcon />,
     name: "Backup & Maintenance",
-    path: "/backup-maintenance",
+    subItems: [
+      { name: "Dashboard", path: "/backup-dashboard", pro: false },
+      { name: "History", path: "/backup-history", pro: false },
+      { name: "Manual Backup", path: "/manual-backup", pro: false },
+      { name: "Restore", path: "/restore-backup", pro: false },
+      { name: "Maintenance", path: "/scheduled-maintenance", pro: false },
+      { name: "Optimization", path: "/system-optimization", pro: false },
+    ],
   },
   {
     icon: <MailIcon />,
-    name: "Announcements",
-    path: "/announcements",
-  },
-  {
-    icon: <GridIcon />,
-    name: "System Health",
-    path: "/system-health",
-  },
-  {    name: "Forms",
-    icon: <ListIcon />,
-    subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
-  },
-  {
-    name: "Tables",
-    icon: <TableIcon />,
-    subItems: [{ name: "Basic Tables", path: "/basic-tables", pro: false }],
-  },
-  {
-    name: "Pages",
-    icon: <PageIcon />,
-    subItems: [
-      { name: "Blank Page", path: "/blank", pro: false },
-      { name: "404 Error", path: "/error-404", pro: false },
-    ],
+    name: "Notifications",
+    path: "/notifications",
   },
 ];
 
-const othersItems: NavItem[] = [
-  {
-    icon: <PieChartIcon />,
-    name: "Charts",
-    subItems: [
-      { name: "Line Chart", path: "/line-chart", pro: false },
-      { name: "Bar Chart", path: "/bar-chart", pro: false },
-    ],
-  },
-  {
-    icon: <BoxCubeIcon />,
-    name: "UI Elements",
-    subItems: [
-      { name: "Alerts", path: "/alerts", pro: false },
-      { name: "Avatar", path: "/avatars", pro: false },
-      { name: "Badge", path: "/badge", pro: false },
-      { name: "Buttons", path: "/buttons", pro: false },
-      { name: "Images", path: "/images", pro: false },
-      { name: "Videos", path: "/videos", pro: false },
-    ],
-  },
-  {
-    icon: <PlugInIcon />,
-    name: "Authentication",
-    subItems: [
-      { name: "Sign In", path: "/signin", pro: false },
-      { name: "Sign Up", path: "/signup", pro: false },
-    ],
-  },
-];
+
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
+  const { user } = useAuth();
+
+  // Determine which nav items to show based on user roles
+  const userRoles = user?.roles || [];
+  const isReceptionist = userRoles.includes("RECEPTIONIST") && !userRoles.includes("ADMIN");
+
+  // If user is RECEPTIONIST (and not ADMIN), show receptionist menu; otherwise show admin/default menu
+  const activeNavItems = isReceptionist ? receptionistNavItems : navItems;
+
 
   const [openSubmenu, setOpenSubmenu] = useState<{
-    type: "main" | "others";
+    type: "main";
     index: number;
   } | null>(null);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
@@ -195,21 +221,18 @@ const AppSidebar: React.FC = () => {
 
   useEffect(() => {
     let submenuMatched = false;
-    ["main", "others"].forEach((menuType) => {
-      const items = menuType === "main" ? navItems : othersItems;
-      items.forEach((nav, index) => {
-        if (nav.subItems) {
-          nav.subItems.forEach((subItem) => {
-            if (isActive(subItem.path)) {
-              setOpenSubmenu({
-                type: menuType as "main" | "others",
-                index,
-              });
-              submenuMatched = true;
-            }
-          });
-        }
-      });
+    activeNavItems.forEach((nav, index) => {
+      if (nav.subItems) {
+        nav.subItems.forEach((subItem) => {
+          if (isActive(subItem.path)) {
+            setOpenSubmenu({
+              type: "main",
+              index,
+            });
+            submenuMatched = true;
+          }
+        });
+      }
     });
 
     if (!submenuMatched) {
@@ -229,7 +252,7 @@ const AppSidebar: React.FC = () => {
     }
   }, [openSubmenu]);
 
-  const handleSubmenuToggle = (index: number, menuType: "main" | "others") => {
+  const handleSubmenuToggle = (index: number, menuType: "main") => {
     setOpenSubmenu((prevOpenSubmenu) => {
       if (
         prevOpenSubmenu &&
@@ -242,7 +265,7 @@ const AppSidebar: React.FC = () => {
     });
   };
 
-  const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
+  const renderMenuItems = (items: NavItem[], menuType: "main") => (
     <ul className="flex flex-col gap-4">
       {items.map((nav, index) => (
         <li key={nav.name}>
@@ -385,7 +408,7 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-        <Link to="/">
+        <Link to={isReceptionist ? "/receptionist/dashboard" : "/"}>
           {isExpanded || isHovered || isMobileOpen ? (
             <>
               <img
@@ -425,29 +448,14 @@ const AppSidebar: React.FC = () => {
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu"
+                  isReceptionist ? "Receptionist" : "Menu"
                 ) : (
                   <HorizontaLDots className="size-6" />
                 )}
               </h2>
-              {renderMenuItems(navItems, "main")}
+              {renderMenuItems(activeNavItems, "main")}
             </div>
-            <div className="">
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${
-                  !isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Others"
-                ) : (
-                  <HorizontaLDots />
-                )}
-              </h2>
-              {renderMenuItems(othersItems, "others")}
-            </div>
+
           </div>
         </nav>
         {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null}
