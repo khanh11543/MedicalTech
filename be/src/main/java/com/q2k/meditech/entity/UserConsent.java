@@ -1,72 +1,62 @@
 package com.q2k.meditech.entity;
 
+import com.q2k.meditech.entity.enums.ConsentStatus;
+import com.q2k.meditech.entity.enums.ConsentType;
 import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 @Entity
-@Table(
-        name = "user_consents",
-        indexes = {
-                @Index(name = "idx_user_consents_user", columnList = "user_id"),
-                @Index(name = "idx_user_consents_type", columnList = "consent_type"),
-                @Index(name = "idx_user_consents_status", columnList = "consent_given")
-        }
-)
-public class UserConsent {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+@Table(name = "user_consents", indexes = {
+        @Index(name = "idx_user_consent_user", columnList = "user_id"),
+        @Index(name = "idx_user_consent_type", columnList = "consent_type"),
+        @Index(name = "idx_user_consent_status", columnList = "status"),
+        @Index(name = "idx_user_consent_date", columnList = "consent_date")
+})
+@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+public class UserConsent extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "consent_type", nullable = false, length = 50)
-    private String consentType; // DATA_PROCESSING, MARKETING, ANALYTICS, THIRD_PARTY_SHARING
+    private ConsentType consentType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
-    @Column(name = "consent_given")
-    private Boolean consentGiven = false;
+    private ConsentStatus status = ConsentStatus.ACCEPTED;
 
-    @Lob
-    @Column(name = "consent_text")
-    private String consentText;
+    @Column(name = "consent_date", nullable = false)
+    private LocalDateTime consentDate;
+
+    @Column(name = "version", length = 20)
+    private String version;
 
     @Column(name = "ip_address", length = 45)
     private String ipAddress;
 
-    @Lob
-    @Column(name = "user_agent")
+    @Column(name = "user_agent", length = 500)
     private String userAgent;
 
-    @Column(name = "granted_at")
-    private LocalDateTime grantedAt;
+    // Revocation fields
+    @Column(name = "revoked_date")
+    private LocalDateTime revokedDate;
 
-    @Column(name = "revoked_at")
-    private LocalDateTime revokedAt;
+    @Column(name = "revoked_by")
+    private Long revokedBy;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    @Column(name = "revocation_reason", columnDefinition = "TEXT")
+    private String revocationReason;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    // Notification tracking
+    @Column(name = "notification_sent", columnDefinition = "TINYINT(1) DEFAULT 0")
+    @Builder.Default
+    private Boolean notificationSent = false;
 
-    @PrePersist
-    void prePersist() {
-        if (createdAt == null) createdAt = LocalDateTime.now();
-        if (updatedAt == null) updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    void preUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
+    @Column(name = "notification_sent_date")
+    private LocalDateTime notificationSentDate;
 }

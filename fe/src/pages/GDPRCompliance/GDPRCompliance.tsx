@@ -1,168 +1,77 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
-import {
-  gdprComplianceAPI,
-  GDPRComplianceDashboard,
-  DataRequest,
-  UserConsent,
-  DataProcessingActivity,
-} from "../../services/complianceService";
+import DataExportRequests from "./DataExportRequests";
+import DataDeletionRequests from "./DataDeletionRequests";
+import ConsentManagement from "./ConsentManagement";
+
+type Tab = "export" | "deletion" | "consent";
+
+const TABS: { key: Tab; label: string; icon: JSX.Element }[] = [
+  {
+    key: "export",
+    label: "Data Export Requests",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+  },
+  {
+    key: "deletion",
+    label: "Data Deletion Requests",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+      </svg>
+    ),
+  },
+  {
+    key: "consent",
+    label: "Consent Management",
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+    ),
+  },
+];
 
 export default function GDPRCompliance() {
-  const [dashboard, setDashboard] = useState<GDPRComplianceDashboard | null>(null);
-  const [dataRequests, setDataRequests] = useState<DataRequest[]>([]);
-  const [consents, setConsents] = useState<UserConsent[]>([]);
-  const [activities, setActivities] = useState<DataProcessingActivity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "requests" | "consents" | "activities">("overview");
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      const [dashboardRes, requestsRes, consentsRes, activitiesRes] = await Promise.all([
-        gdprComplianceAPI.getDashboard(),
-        gdprComplianceAPI.getAllDataRequests(),
-        gdprComplianceAPI.getAllUserConsents(),
-        gdprComplianceAPI.getAllProcessingActivities(),
-      ]);
-      setDashboard(dashboardRes.data);
-      setDataRequests(requestsRes.data);
-      setConsents(consentsRes.data);
-      setActivities(activitiesRes.data);
-    } catch (error) {
-      console.error("Failed to load GDPR data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateRequestStatus = async (requestId: number, status: string) => {
-    try {
-      await gdprComplianceAPI.updateDataRequestStatus(requestId, status, "", null);
-      await loadData();
-    } catch (error) {
-      console.error("Failed to update request status:", error);
-    }
-  };
-
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400";
-      case "in_progress":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400";
-      case "completed":
-        return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400";
-      case "rejected":
-        return "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400";
-    }
-  };
-
-  if (loading) {
-    return (
-      <>
-        <PageMeta
-          title="GDPR & Compliance | MediTech Admin"
-          description="Manage GDPR compliance and data privacy in the MediTech system"
-        />
-        <PageBreadcrumb pageTitle="GDPR & Compliance" />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-white"></div>
-        </div>
-      </>
-    );
-  }
-
-  if (!dashboard) {
-    return (
-      <>
-        <PageMeta
-          title="GDPR & Compliance | MediTech Admin"
-          description="Manage GDPR compliance and data privacy in the MediTech system"
-        />
-        <PageBreadcrumb pageTitle="GDPR & Compliance" />
-        <div className="text-center py-12">
-          <p className="text-gray-500 dark:text-gray-400">Failed to load GDPR data.</p>
-        </div>
-      </>
-    );
-  }
+  const [activeTab, setActiveTab] = useState<Tab>("export");
 
   return (
     <>
       <PageMeta
-        title="GDPR & Compliance | MediTech Admin"
-        description="Manage GDPR compliance and data privacy in the MediTech system"
+        title="GDPR & Compliance | MedicalTech Dashboard"
+        description="GDPR compliance and data protection management"
       />
       <PageBreadcrumb pageTitle="GDPR & Compliance" />
-
-      {/* Dashboard Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Total Requests</p>
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white">{dashboard.totalDataRequests}</p>
+      <div className="space-y-6">
+        {/* Tab Navigation */}
+        <div className="border-b border-gray-200 dark:border-gray-700">
+          <nav className="flex gap-0 -mb-px" aria-label="GDPR tabs">
+            {TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab.key
+                    ? "border-blue-500 text-blue-600 dark:text-blue-400"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300"
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
+            ))}
+          </nav>
         </div>
 
-        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Pending Requests</p>
-            <div className="p-2 bg-yellow-100 dark:bg-yellow-900/20 rounded-lg">
-              <svg className="w-5 h-5 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white">{dashboard.pendingRequests}</p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Overdue Requests</p>
-            <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
-              <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white">{dashboard.overdueRequests}</p>
-        </div>
-
-        <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Active Consents</p>
-            <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-              <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-          </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white">{dashboard.activeConsents}</p>
-        </div>
+        {/* Tab Content */}
+        {activeTab === "export" && <DataExportRequests />}
+        {activeTab === "deletion" && <DataDeletionRequests />}
+        {activeTab === "consent" && <ConsentManagement />}
       </div>
 
       {/* Tabs */}

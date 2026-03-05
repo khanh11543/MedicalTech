@@ -1,5 +1,6 @@
 package com.q2k.meditech.entity;
 
+import com.q2k.meditech.entity.enums.DoctorQueueStatus;
 import com.q2k.meditech.entity.enums.VerificationStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -86,6 +87,15 @@ public class Doctor {
     @Builder.Default
     @Column(name="is_available", nullable = false)
     private Boolean isAvailable = true;
+
+    // ===== Queue Management =====
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "queue_status", length = 20)
+    private DoctorQueueStatus queueStatus = DoctorQueueStatus.OFFLINE;
+
+    @Column(name = "current_room", length = 20)
+    private String currentRoom;
 
     @Column(name="hospital_affiliation", length = 255)
     private String hospitalAffiliation;

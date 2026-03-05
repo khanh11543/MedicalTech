@@ -64,6 +64,24 @@ public class NotificationPreferenceService {
         if (dto.getReminderHoursBefore() != null) {
             preference.setReminderHoursBefore(dto.getReminderHoursBefore());
         }
+        if (dto.getDesktopEnabled() != null) {
+            preference.setDesktopEnabled(dto.getDesktopEnabled());
+        }
+        if (dto.getSoundEnabled() != null) {
+            preference.setSoundEnabled(dto.getSoundEnabled());
+        }
+        if (dto.getDndEnabled() != null) {
+            preference.setDndEnabled(dto.getDndEnabled());
+        }
+        if (dto.getDndStartTime() != null) {
+            preference.setDndStartTime(dto.getDndStartTime());
+        }
+        if (dto.getDndEndTime() != null) {
+            preference.setDndEndTime(dto.getDndEndTime());
+        }
+        if (dto.getUrgentOnly() != null) {
+            preference.setUrgentOnly(dto.getUrgentOnly());
+        }
 
         NotificationPreference saved = preferenceRepository.save(preference);
         return convertToDTO(saved);
@@ -95,6 +113,12 @@ public class NotificationPreferenceService {
         dto.setAppointmentReminders(preference.getAppointmentReminders());
         dto.setPromotionalEmails(preference.getPromotionalEmails());
         dto.setReminderHoursBefore(preference.getReminderHoursBefore());
+        dto.setDesktopEnabled(preference.getDesktopEnabled());
+        dto.setSoundEnabled(preference.getSoundEnabled());
+        dto.setDndEnabled(preference.getDndEnabled());
+        dto.setDndStartTime(preference.getDndStartTime());
+        dto.setDndEndTime(preference.getDndEndTime());
+        dto.setUrgentOnly(preference.getUrgentOnly());
         dto.setCreatedAt(preference.getCreatedAt());
         dto.setUpdatedAt(preference.getUpdatedAt());
         return dto;

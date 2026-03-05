@@ -5,6 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 @Data
 @NoArgsConstructor
@@ -19,6 +20,12 @@ public class NotificationPreferenceDTO {
     private Boolean appointmentReminders;
     private Boolean promotionalEmails;
     private Integer reminderHoursBefore;
+    private Boolean desktopEnabled;
+    private Boolean soundEnabled;
+    private Boolean dndEnabled;
+    private LocalTime dndStartTime;
+    private LocalTime dndEndTime;
+    private Boolean urgentOnly;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

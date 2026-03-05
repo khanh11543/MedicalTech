@@ -3,6 +3,7 @@ package com.q2k.meditech.service;
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.dto.mapper.DoctorScheduleMapper;
 import com.q2k.meditech.entity.*;
+import com.q2k.meditech.entity.enums.TimeSlotStatus;
 import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.*;
@@ -326,11 +327,11 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
         }
 
         // Can only block AVAILABLE slots
-        if (!"AVAILABLE".equals(slot.getStatus())) {
+        if (slot.getStatus() != TimeSlotStatus.AVAILABLE) {
             throw new BadRequestException("Can only block AVAILABLE slots. Current status: " + slot.getStatus());
         }
 
-        slot.setStatus("BLOCKED");
+        slot.setStatus(TimeSlotStatus.BLOCKED);
         slot = timeSlotRepository.save(slot);
 
         log.info("Slot blocked successfully: {}", slotId);
@@ -351,11 +352,11 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
         }
 
         // Can only unblock BLOCKED slots
-        if (!"BLOCKED".equals(slot.getStatus())) {
+        if (slot.getStatus() != TimeSlotStatus.BLOCKED) {
             throw new BadRequestException("Can only unblock BLOCKED slots. Current status: " + slot.getStatus());
         }
 
-        slot.setStatus("AVAILABLE");
+        slot.setStatus(TimeSlotStatus.AVAILABLE);
         slot = timeSlotRepository.save(slot);
 
         log.info("Slot unblocked successfully: {}", slotId);
@@ -398,7 +399,7 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
                     .slotDate(date)
                     .startTime(currentTime)
                     .endTime(currentTime.plusMinutes(slotDuration))
-                    .status("AVAILABLE")
+                    .status(TimeSlotStatus.AVAILABLE)
                     .build();
             
             slots.add(slot);

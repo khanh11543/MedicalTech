@@ -1,6 +1,6 @@
 package com.q2k.meditech.dto;
 
-import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
@@ -20,13 +20,13 @@ public class BookAppointmentDTO {
     private Long doctorId;
 
     @NotNull(message = "Appointment date is required")
-    @Future(message = "Appointment date must be in the future")
+    @FutureOrPresent(message = "Appointment date must be today or in the future")
     private LocalDate appointmentDate;
 
-    @NotNull(message = "Start time is required")
+    private Long timeSlotId;
+
     private LocalTime startTime;
 
-    @NotNull(message = "End time is required")
     private LocalTime endTime;
 
     private String reasonForVisit;

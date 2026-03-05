@@ -32,11 +32,35 @@ public class AppointmentException extends AppException {
     }
     
     public static class AppointmentNotReschedulableException extends AppointmentException {
-        public AppointmentNotReschedulableException() {
-            super("This appointment cannot be rescheduled.", HttpStatus.FORBIDDEN);
+        public AppointmentNotReschedulableException(String reason) {
+            super(reason, HttpStatus.BAD_REQUEST);
         }
     }
-    
+
+    public static class PatientTimeConflictException extends AppointmentException {
+        public PatientTimeConflictException() {
+            super("Patient already has another appointment at the requested time.");
+        }
+    }
+
+    public static class TimeSlotNotAvailableException extends AppointmentException {
+        public TimeSlotNotAvailableException() {
+            super("The selected time slot is not available (BLOCKED or already BOOKED).");
+        }
+    }
+
+    public static class AppointmentAlreadyPassedException extends AppointmentException {
+        public AppointmentAlreadyPassedException() {
+            super("Cannot reschedule: the appointment time has already passed.");
+        }
+    }
+
+    public static class RescheduleTooLateException extends AppointmentException {
+        public RescheduleTooLateException(int hours) {
+            super(String.format("Patients must reschedule at least %d hours before the appointment.", hours));
+        }
+    }
+
     public static class UnauthorizedAccessException extends AppointmentException {
         public UnauthorizedAccessException() {
             super("You are not authorized to access this appointment.", HttpStatus.FORBIDDEN);

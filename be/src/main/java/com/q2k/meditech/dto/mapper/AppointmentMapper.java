@@ -4,25 +4,49 @@ import com.q2k.meditech.dto.AppointmentDTO;
 import com.q2k.meditech.dto.AppointmentHistoryDTO;
 import com.q2k.meditech.entity.Appointment;
 import com.q2k.meditech.entity.AppointmentHistory;
+import com.q2k.meditech.entity.Payment;
 import com.q2k.meditech.entity.User;
+import com.q2k.meditech.repository.PaymentRepository;
 import com.q2k.meditech.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AppointmentMapper {
     
     private final UserRepository userRepository;
+    private final PaymentRepository paymentRepository;
+
+    /**
+     * Safely initialize a Hibernate proxy and return the real entity,
+     * or null if the referenced row no longer exists.
+     */
+    private <T> T safeGet(T proxy) {
+        if (proxy == null) return null;
+        try {
+            Hibernate.initialize(proxy);
+            return proxy;
+        } catch (EntityNotFoundException e) {
+            log.warn("Referenced entity not found, treating as null: {}", e.getMessage());
+            return null;
+        }
+    }
     
     public AppointmentDTO toDTO(Appointment appointment) {
         if (appointment == null) return null;
         
         AppointmentDTO.AppointmentDTOBuilder builder = AppointmentDTO.builder()
                 .id(appointment.getId())
+                .appointmentCode(appointment.getAppointmentCode())
                 .appointmentDate(appointment.getAppointmentDate())
                 .startTime(appointment.getStartTime())
                 .endTime(appointment.getEndTime())
@@ -40,17 +64,11 @@ public class AppointmentMapper {
         // Patient info
         if (appointment.getPatient() != null) {
             builder.patientId(appointment.getPatient().getId());
-            try {
-                if (appointment.getPatient().getUser() != null) {
-                    builder.patientName(appointment.getPatient().getUser().getFullName());
-                    builder.patientEmail(appointment.getPatient().getUser().getEmail());
-                    builder.patientPhone(appointment.getPatient().getUser().getPhone());
-                }
-            } catch (jakarta.persistence.EntityNotFoundException e) {
-                // Handle orphaned patient user reference
-                builder.patientName("Unknown Patient (Data Error)");
-                builder.patientEmail(null);
-                builder.patientPhone(null);
+            User patientUser = safeGet(appointment.getPatient().getUser());
+            if (patientUser != null) {
+                builder.patientName(patientUser.getFullName());
+                builder.patientEmail(patientUser.getEmail());
+                builder.patientPhone(patientUser.getPhone());
             }
         }
         
@@ -58,26 +76,28 @@ public class AppointmentMapper {
         if (appointment.getDoctor() != null) {
             builder.doctorId(appointment.getDoctor().getId());
             builder.doctorSpecialization(appointment.getDoctor().getSpecialization());
-            try {
-                if (appointment.getDoctor().getUser() != null) {
-                    builder.doctorName(appointment.getDoctor().getUser().getFullName());
-                    builder.doctorEmail(appointment.getDoctor().getUser().getEmail());
-                }
-            } catch (jakarta.persistence.EntityNotFoundException e) {
-                // Handle orphaned doctor user reference
-                builder.doctorName("Unknown Doctor (Data Error)");
-                builder.doctorEmail(null);
+            User doctorUser = safeGet(appointment.getDoctor().getUser());
+            if (doctorUser != null) {
+                builder.doctorName(doctorUser.getFullName());
+                builder.doctorEmail(doctorUser.getEmail());
             }
         }
         
         // Booked by user info
+        User bookedByUser = safeGet(appointment.getBookedByUser());
+        if (bookedByUser != null) {
+            builder.bookedByUserName(bookedByUser.getFullName());
+        }
+        
+        // Appointment type
+        builder.appointmentType(appointment.getAppointmentType());
+        
+        // Payment status (from payments table)
         try {
-            if (appointment.getBookedByUser() != null) {
-                builder.bookedByUserName(appointment.getBookedByUser().getFullName());
-            }
-        } catch (jakarta.persistence.EntityNotFoundException e) {
-            // Handle orphaned booked by user reference
-            builder.bookedByUserName("Unknown User (Data Error)");
+            Optional<Payment> payment = paymentRepository.findByAppointmentIdWithDetails(appointment.getId());
+            builder.paymentStatus(payment.map(Payment::getPaymentStatus).orElse(null));
+        } catch (Exception e) {
+            log.debug("Could not fetch payment status for appointment {}: {}", appointment.getId(), e.getMessage());
         }
         
         return builder.build();

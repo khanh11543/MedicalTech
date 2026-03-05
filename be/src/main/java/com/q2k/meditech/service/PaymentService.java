@@ -1,6 +1,10 @@
 package com.q2k.meditech.service;
 
 import com.q2k.meditech.dto.*;
+import com.q2k.meditech.dto.receptionist.EndOfDayReportDTO;
+import com.q2k.meditech.dto.receptionist.HourlyRevenueDTO;
+import com.q2k.meditech.dto.receptionist.PendingPaymentDTO;
+import com.q2k.meditech.dto.receptionist.SendPaymentLinkDTO;
 
 /**
  * Payment Service Interface
@@ -173,4 +177,164 @@ public interface PaymentService {
      * @return Updated payment
      */
     PaymentDTO reconcileMomoStatus(Long paymentId, Long currentUserId);
+
+    // ========== ADVANCED ADMIN METHODS ==========
+
+    /**
+     * List all payments with advanced filters (admin)
+     * @param search Search by transaction code, patient name, appointment code
+     * @param status Filter by status (optional)
+     * @param method Filter by payment method (optional)
+     * @param doctorId Filter by doctor ID (optional)
+     * @param patientId Filter by patient ID (optional)
+     * @param minAmount Minimum amount filter (optional)
+     * @param maxAmount Maximum amount filter (optional)
+     * @param from From date (optional, yyyy-MM-dd)
+     * @param to To date (optional, yyyy-MM-dd)
+     * @param pageNumber Page number (0-based)
+     * @param pageSize Page size
+     * @param sortBy Sort field (default: paymentDate)
+     * @param sortDir Sort direction (default: DESC)
+     * @return Page of payments
+     */
+    org.springframework.data.domain.Page<PaymentDTO> getAllPaymentsAdvanced(
+            String search,
+            String status,
+            String method,
+            Long doctorId,
+            Long patientId,
+            java.math.BigDecimal minAmount,
+            java.math.BigDecimal maxAmount,
+            String from,
+            String to,
+            int pageNumber,
+            int pageSize,
+            String sortBy,
+            String sortDir
+    );
+
+    /**
+     * Get payment statistics for dashboard
+     * @param from From date (optional, yyyy-MM-dd)
+     * @param to To date (optional, yyyy-MM-dd)
+     * @return Payment statistics
+     */
+    PaymentStatsDTO getPaymentStatistics(String from, String to);
+
+    /**
+     * Bulk mark payments as paid
+     * @param dto Bulk mark paid data
+     * @param currentUserId User processing
+     * @return Bulk action result
+     */
+    PaymentBulkResultDTO bulkMarkAsPaid(BulkMarkPaidDTO dto, Long currentUserId);
+
+    /**
+     * Export payments to file
+     * @param search Search filter
+     * @param status Status filter
+     * @param method Payment method filter
+     * @param doctorId Doctor ID filter
+     * @param patientId Patient ID filter
+     * @param minAmount Minimum amount filter
+     * @param maxAmount Maximum amount filter
+     * @param from From date filter
+     * @param to To date filter
+     * @param format Export format (EXCEL, CSV, PDF)
+     * @return File bytes
+     */
+    byte[] exportPayments(
+            String search,
+            String status,
+            String method,
+            Long doctorId,
+            Long patientId,
+            java.math.BigDecimal minAmount,
+            java.math.BigDecimal maxAmount,
+            String from,
+            String to,
+            String format
+    );
+
+    // ========== PAYMENT DETAIL & ACTIONS APIs ==========
+
+    /**
+     * Get comprehensive payment details (admin)
+     * @param paymentId Payment ID
+     * @return Payment detail with all related info
+     */
+    PaymentDetailDTO getPaymentDetail(Long paymentId);
+
+    /**
+     * Mark payment as paid manually (for cash/offline payments)
+     * @param paymentId Payment ID
+     * @param dto Mark paid data
+     * @param currentUserId User processing
+     * @return Updated payment
+     */
+    PaymentDTO markAsPaid(Long paymentId, MarkPaidDTO dto, Long currentUserId);
+
+    /**
+     * Retry payment - resend payment link to patient
+     * @param paymentId Payment ID
+     * @param dto Retry data containing send method
+     * @param currentUserId User initiating retry
+     * @return Message result
+     */
+    MessageDTO retryPayment(Long paymentId, RetryPaymentDTO dto, Long currentUserId);
+
+    /**
+     * Send payment receipt to email
+     * @param paymentId Payment ID
+     * @param dto Send receipt data
+     * @param currentUserId User sending receipt
+     * @return Message result
+     */
+    MessageDTO sendReceipt(Long paymentId, SendReceiptDTO dto, Long currentUserId);
+
+    /**
+     * Generate and get receipt PDF as bytes
+     * @param paymentId Payment ID
+     * @return PDF bytes
+     */
+    byte[] downloadReceipt(Long paymentId);
+
+    /**
+     * Get payment history/timeline
+     * @param paymentId Payment ID
+     * @return Payment history with events
+     */
+    PaymentHistoryDTO getPaymentHistory(Long paymentId);
+
+    // ========== RECEPTIONIST TAB 5 — NEW METHODS ==========
+
+    /**
+     * Get pending payments list (appointment COMPLETED + payment PENDING)
+     * Tab 5.3 — Công nợ
+     */
+    org.springframework.data.domain.Page<PendingPaymentDTO> getPendingPayments(
+            String search, int pageNumber, int pageSize, String sortBy, String sortDir);
+
+    /**
+     * Send MoMo payment link to patient via SMS/email
+     * Tab 5.3 — Pending actions
+     */
+    MessageDTO sendPaymentLink(Long paymentId, SendPaymentLinkDTO dto, Long currentUserId);
+
+    /**
+     * Get hourly revenue data for today (for chart)
+     * Tab 5.4 — Today's Revenue
+     */
+    HourlyRevenueDTO getHourlyRevenue(String date);
+
+    /**
+     * Generate end-of-day report
+     * Tab 5.4 — Today's Revenue
+     */
+    EndOfDayReportDTO generateEndOfDayReport(String date, Long currentUserId);
+
+    /**
+     * Export end-of-day report as PDF or Excel bytes
+     */
+    byte[] exportEndOfDayReport(String date, String format, Long currentUserId);
 }

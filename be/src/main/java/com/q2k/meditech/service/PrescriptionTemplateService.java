@@ -1,43 +1,46 @@
 package com.q2k.meditech.service;
 
 import com.q2k.meditech.dto.*;
-import com.q2k.meditech.dto.mapper.PrescriptionMapper;
 
+import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * Service for Prescription Template Analytics and Statistics
+ */
 public interface PrescriptionTemplateService {
-    
+
     /**
-     * Tạo template mới
-     * @param dto thông tin template
-     * @param doctorUserId ID user của doctor
+     * Get overall template usage statistics
      */
+    TemplateStatsDTO getTemplateStatistics(LocalDate from, LocalDate to);
+
+    /**
+     * Get template usage breakdown by doctor
+     */
+    List<DoctorTemplateStatsDTO> getTemplatesByDoctor(LocalDate from, LocalDate to, int top);
+
+    /**
+     * Get most commonly prescribed medications
+     */
+    List<CommonMedicationDTO> getCommonMedications(LocalDate from, LocalDate to, int top, String groupBy);
+
+    /**
+     * Get template usage trends over time
+     */
+    TemplateUsageTrendsDTO getUsageTrends(LocalDate from, LocalDate to, String groupBy, Long doctorId);
+
+    // ==================== DOCTOR TEMPLATE CRUD ====================
+
     TemplateDTO createTemplate(TemplateCreateDTO dto, Long doctorUserId);
-    
-    /**
-     * Lấy danh sách template của doctor
-     * @param doctorUserId ID user của doctor
-     * @param activeOnly chỉ lấy template active
-     */
-    List<TemplateDTO> getDoctorTemplates(Long doctorUserId, boolean activeOnly);
-    
-    /**
-     * Lấy template theo ID
-     */
+
+    List<TemplateDTO> getDoctorTemplates(Long doctorUserId, Boolean activeOnly);
+
     TemplateDTO getTemplateById(Long id, Long doctorUserId);
-    
-    /**
-     * Cập nhật template
-     */
+
     TemplateDTO updateTemplate(Long id, TemplateUpdateDTO dto, Long doctorUserId);
-    
-    /**
-     * Xóa template (soft delete - set isActive = false)
-     */
+
     void deleteTemplate(Long id, Long doctorUserId);
-    
-    /**
-     * Apply template để tạo đơn thuốc nhanh
-     */
-    PrescriptionDTO applyTemplate(Long templateId, ApplyTemplateDTO dto, Long doctorUserId);
+
+    PrescriptionDTO applyTemplate(Long id, ApplyTemplateDTO dto, Long doctorUserId);
 }

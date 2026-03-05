@@ -1,6 +1,10 @@
 package com.q2k.meditech.controller;
 
 import com.q2k.meditech.dto.*;
+import com.q2k.meditech.dto.receptionist.EndOfDayReportDTO;
+import com.q2k.meditech.dto.receptionist.HourlyRevenueDTO;
+import com.q2k.meditech.dto.receptionist.PendingPaymentDTO;
+import com.q2k.meditech.dto.receptionist.SendPaymentLinkDTO;
 import com.q2k.meditech.service.InvoiceDeliveryService;
 import com.q2k.meditech.service.InvoiceService;
 import com.q2k.meditech.service.PaymentService;
@@ -11,10 +15,12 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -28,6 +34,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/receptionist/payments")
 @RequiredArgsConstructor
 @Slf4j
+@PreAuthorize("hasRole('RECEPTIONIST')")
 @Tag(name = "Receptionist - Payments", description = "APIs for receptionists to manage payments")
 public class ReceptionistPaymentController {
 
@@ -234,5 +241,227 @@ public class ReceptionistPaymentController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=invoice-" + invoiceId + ".pdf")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdfBytes);
+    }
+
+    // ==================== PAYMENT LIST ====================
+
+    /**
+     * GET /api/receptionist/payments
+     * List all payments with filters (for Payment History tab)
+     */
+    @GetMapping
+    @Operation(
+        summary = "List payments",
+        description = "List and filter payments for receptionist payment history tab"
+    )
+    public ResponseEntity<Page<PaymentDTO>> listPayments(
+            @Parameter(description = "Search by transaction code, patient name, or appointment code")
+            @RequestParam(required = false) String search,
+            @Parameter(description = "Filter by status (PENDING/COMPLETED/FAILED/REFUNDED/CANCELLED)")
+            @RequestParam(required = false) String status,
+            @Parameter(description = "Filter by payment method")
+            @RequestParam(required = false, name = "paymentMethod") String method,
+            @Parameter(description = "From date (yyyy-MM-dd)")
+            @RequestParam(required = false) String from,
+            @Parameter(description = "To date (yyyy-MM-dd)")
+            @RequestParam(required = false) String to,
+            @Parameter(description = "Page number (0-based)")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size")
+            @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Sort field")
+            @RequestParam(defaultValue = "paymentDate") String sortBy,
+            @Parameter(description = "Sort direction: ASC or DESC")
+            @RequestParam(defaultValue = "DESC") String sortDir) {
+
+        log.info("GET /receptionist/payments - search: {}, status: {}, page: {}, size: {}", search, status, page, size);
+
+        Page<PaymentDTO> payments = paymentService.getAllPaymentsAdvanced(
+                search, status, method, null, null,
+                null, null, from, to,
+                page, size, sortBy, sortDir);
+
+        return ResponseEntity.ok(payments);
+    }
+
+    // ==================== STATISTICS (#16) ====================
+
+    /**
+     * #16 - Get payment statistics for receptionist dashboard
+     * GET /api/receptionist/payments/statistics
+     * 
+     * Reuses PaymentStatsDTO (no PII in stats).
+     * Same service method as AdminPaymentController.
+     */
+    @GetMapping("/statistics")
+    @Operation(
+        summary = "Get payment statistics",
+        description = "Dashboard statistics: today's revenue, monthly revenue, payment method distribution, pending payments, refund stats"
+    )
+    public ResponseEntity<PaymentStatsDTO> getPaymentStatistics(
+            @Parameter(description = "From date (yyyy-MM-dd)") @RequestParam(required = false) String from,
+            @Parameter(description = "To date (yyyy-MM-dd)") @RequestParam(required = false) String to) {
+
+        log.info("GET /receptionist/payments/statistics - from: {}, to: {}", from, to);
+
+        PaymentStatsDTO stats = paymentService.getPaymentStatistics(from, to);
+        return ResponseEntity.ok(stats);
+    }
+
+    // ==================== TAB 5.3 — PENDING PAYMENTS (CÔNG NỢ) ====================
+
+    /**
+     * GET /api/receptionist/payments/pending
+     * List pending payments (completed appointments but not yet paid)
+     */
+    @GetMapping("/pending")
+    @Operation(
+        summary = "Get pending payments",
+        description = "List payments that are PENDING for appointments that have been COMPLETED. Supports searching by patient name, phone, or payment code."
+    )
+    public ResponseEntity<Page<PendingPaymentDTO>> getPendingPayments(
+            @Parameter(description = "Search by patient name, phone, or payment code")
+            @RequestParam(required = false) String search,
+            @Parameter(description = "Page number (0-based)")
+            @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size")
+            @RequestParam(defaultValue = "20") int size,
+            @Parameter(description = "Sort by field")
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @Parameter(description = "Sort direction: ASC or DESC")
+            @RequestParam(defaultValue = "ASC") String sortDir) {
+
+        log.info("GET /receptionist/payments/pending - search: {}, page: {}, size: {}", search, page, size);
+
+        Page<PendingPaymentDTO> result = paymentService.getPendingPayments(search, page, size, sortBy, sortDir);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * POST /api/receptionist/payments/{id}/send-payment-link
+     * Send payment link to patient via email/SMS
+     */
+    @PostMapping("/{id}/send-payment-link")
+    @Operation(
+        summary = "Send payment link",
+        description = "Send a payment link to the patient via email, SMS, or both"
+    )
+    public ResponseEntity<MessageDTO> sendPaymentLink(
+            @Parameter(description = "Payment ID") @PathVariable Long id,
+            @Valid @RequestBody SendPaymentLinkDTO dto) {
+
+        log.info("POST /receptionist/payments/{}/send-payment-link - via: {}", id, dto.getSendVia());
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        MessageDTO result = paymentService.sendPaymentLink(id, dto, currentUserId);
+        return ResponseEntity.ok(result);
+    }
+
+    // ==================== TAB 5.4 — TODAY'S REVENUE (DOANH THU TRONG NGÀY) ====================
+
+    /**
+     * GET /api/receptionist/payments/revenue/hourly
+     * Hourly revenue breakdown for a specific date (chart data)
+     */
+    @GetMapping("/revenue/hourly")
+    @Operation(
+        summary = "Get hourly revenue",
+        description = "Get hourly revenue breakdown for a specific date. Used for real-time chart on Today's Revenue tab."
+    )
+    public ResponseEntity<HourlyRevenueDTO> getHourlyRevenue(
+            @Parameter(description = "Date (yyyy-MM-dd), defaults to today")
+            @RequestParam(required = false) String date) {
+
+        log.info("GET /receptionist/payments/revenue/hourly - date: {}", date);
+
+        HourlyRevenueDTO result = paymentService.getHourlyRevenue(date);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * GET /api/receptionist/payments/report/end-of-day
+     * Generate end-of-day report (JSON)
+     */
+    @GetMapping("/report/end-of-day")
+    @Operation(
+        summary = "Generate end-of-day report",
+        description = "Generate summary report for end of business day with total revenue, transaction breakdown, and pending amounts."
+    )
+    public ResponseEntity<EndOfDayReportDTO> getEndOfDayReport(
+            @Parameter(description = "Date (yyyy-MM-dd), defaults to today")
+            @RequestParam(required = false) String date) {
+
+        log.info("GET /receptionist/payments/report/end-of-day - date: {}", date);
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        EndOfDayReportDTO report = paymentService.generateEndOfDayReport(date, currentUserId);
+        return ResponseEntity.ok(report);
+    }
+
+    /**
+     * GET /api/receptionist/payments/report/end-of-day/export
+     * Export end-of-day report as Excel or text
+     */
+    @GetMapping("/report/end-of-day/export")
+    @Operation(
+        summary = "Export end-of-day report",
+        description = "Export end-of-day report as Excel (.xlsx) or plain text (.txt) file"
+    )
+    public ResponseEntity<byte[]> exportEndOfDayReport(
+            @Parameter(description = "Date (yyyy-MM-dd), defaults to today")
+            @RequestParam(required = false) String date,
+            @Parameter(description = "Export format: EXCEL or TEXT")
+            @RequestParam(defaultValue = "EXCEL") String format) {
+
+        log.info("GET /receptionist/payments/report/end-of-day/export - date: {}, format: {}", date, format);
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        byte[] data = paymentService.exportEndOfDayReport(date, format, currentUserId);
+
+        String filename;
+        MediaType mediaType;
+        if ("EXCEL".equalsIgnoreCase(format)) {
+            filename = "end-of-day-report-" + (date != null ? date : java.time.LocalDate.now().toString()) + ".xlsx";
+            mediaType = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        } else {
+            filename = "end-of-day-report-" + (date != null ? date : java.time.LocalDate.now().toString()) + ".txt";
+            mediaType = MediaType.TEXT_PLAIN;
+        }
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename)
+                .contentType(mediaType)
+                .body(data);
+    }
+
+    // ==================== SEND INVOICE ====================
+
+    /**
+     * POST /api/receptionist/payments/{id}/send-invoice
+     * Send invoice/receipt to patient via email (and optionally SMS)
+     */
+    @PostMapping("/{id}/send-invoice")
+    @Operation(
+        summary = "Send invoice to patient",
+        description = "Send invoice/receipt to patient via email and/or SMS after successful payment"
+    )
+    public ResponseEntity<SendInvoiceResultDTO> sendInvoice(
+            @Parameter(description = "Payment ID") @PathVariable Long id,
+            @Valid @RequestBody(required = false) SendInvoiceDTO dto) {
+
+        log.info("POST /receptionist/payments/{}/send-invoice", id);
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+
+        // Default: send email if no DTO provided
+        if (dto == null) {
+            dto = SendInvoiceDTO.builder()
+                    .sendEmail(true)
+                    .sendSms(false)
+                    .build();
+        }
+
+        SendInvoiceResultDTO result = invoiceDeliveryService.sendInvoice(id, dto, currentUserId);
+        return ResponseEntity.ok(result);
     }
 }

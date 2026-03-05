@@ -12,9 +12,11 @@ public interface SystemSettingRepository extends JpaRepository<SystemSetting, Lo
 
     Optional<SystemSetting> findBySettingKey(String settingKey);
 
-    List<SystemSetting> findBySettingGroupOrderBySettingKeyAsc(String settingGroup);
-
-    List<SystemSetting> findAllByOrderBySettingGroupAscSettingKeyAsc();
+    List<SystemSetting> findBySettingGroup(String settingGroup);
 
     boolean existsBySettingKey(String settingKey);
+
+    void deleteBySettingKey(String settingKey);
+
+    void deleteBySettingGroup(String settingGroup);
 }

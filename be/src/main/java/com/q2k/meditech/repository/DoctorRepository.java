@@ -1,6 +1,7 @@
 package com.q2k.meditech.repository;
 
 import com.q2k.meditech.entity.Doctor;
+import com.q2k.meditech.entity.enums.DoctorQueueStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -69,4 +70,28 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long>, JpaSpecif
      * Check if doctor exists by license number
      */
     boolean existsByLicenseNumber(String licenseNumber);
+
+    // ==================== QUEUE MANAGEMENT ====================
+
+    /**
+     * Find doctors who have appointments today (for queue management).
+     * Eagerly fetches user for name display.
+     */
+    @Query("SELECT DISTINCT d FROM Doctor d " +
+           "JOIN FETCH d.user u " +
+           "JOIN Appointment a ON a.doctor = d " +
+           "WHERE a.appointmentDate = :date " +
+           "ORDER BY d.fullName")
+    List<Doctor> findDoctorsWithAppointmentsOnDate(@Param("date") java.time.LocalDate date);
+
+    /**
+     * Find doctors by queue status.
+     */
+    List<Doctor> findByQueueStatusIn(List<DoctorQueueStatus> statuses);
+
+    /**
+     * Find doctors by room number.
+     */
+    @Query("SELECT d FROM Doctor d JOIN FETCH d.user WHERE d.currentRoom = :room")
+    List<Doctor> findByCurrentRoom(@Param("room") String room);
 }

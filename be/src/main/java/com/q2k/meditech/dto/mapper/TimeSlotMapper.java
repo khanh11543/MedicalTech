@@ -22,7 +22,8 @@ public class TimeSlotMapper {
                 .slotDate(entity.getSlotDate())
                 .startTime(entity.getStartTime())
                 .endTime(entity.getEndTime())
-                .status(entity.getStatus())
+                .status(entity.getStatus() != null ? entity.getStatus().name() : null)
+                .isAvailable(entity.isAvailable())
                 .build();
     }
 

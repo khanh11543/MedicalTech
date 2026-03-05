@@ -20,6 +20,9 @@ public class Patient extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
+    @Column(name = "full_name", nullable = false, length = 255)
+    private String fullName;
+
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 

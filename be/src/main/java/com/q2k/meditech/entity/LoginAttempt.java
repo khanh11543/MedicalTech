@@ -50,6 +50,9 @@ public class LoginAttempt extends BaseEntity {
     @Column(name = "attempted_at", nullable = false)
     private LocalDateTime attemptedAt;
 
+    @Column(name = "geo_country", length = 100)
+    private String geoCountry;
+
     @PrePersist
     void prePersist() {
         if (attemptedAt == null) {

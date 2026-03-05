@@ -1,0 +1,74 @@
+=== MEDITECH DATA EXPORT ===
+
+Generated: 2026-03-05 13:57:45
+
+--- EXPORTINFO ---
+  requestedDate: 2026-03-05
+  generatedAt: 2026-03-05T13:57:44.266172500
+  requestId: 6
+  exportFormat: PDF
+
+--- PROFILE ---
+  id: 125
+  email: minhtrang.18809@gmail.com
+  fullName: Do Ngoc Vinh
+  phone: 0876768259
+  avatarUrl: null
+  isActive: true
+  isVerified: false
+  twoFactorEnabled: false
+  lastLogin: null
+  createdAt: 2026-02-27T07:07:54.800393
+  dateOfBirth: 2022-02-09
+  gender: MALE
+  address: fbgdhđ
+  insuranceNumber: null
+  insuranceProvider: null
+  emergencyContact: null
+  bloodGroup: null
+  allergies: null
+  medicalHistory: null
+
+--- APPOINTMENTS ---
+  [1]
+    id: 1003
+    appointmentDate: 2026-02-27
+    status: NO_SHOW
+    reason: null
+    notes: hgjb
+    createdAt: 2026-02-27T07:08:15.924172
+  [2]
+    id: 1005
+    appointmentDate: 2026-02-28
+    status: NO_SHOW
+    reason: null
+    notes: null
+    createdAt: 2026-02-28T13:07:38.054309
+  [3]
+    id: 1006
+    appointmentDate: 2026-03-03
+    status: CANCELLED
+    reason: null
+    notes: null
+    createdAt: 2026-02-19T23:30:27
+
+--- PAYMENTS ---
+  [1]
+    id: 7
+    amount: 480000.00
+    status: INITIATED
+    paymentMethod: MOMO
+    createdAt: 2026-03-01T13:16:25.412987
+  [2]
+    id: 6
+    amount: 480000.00
+    status: PAID
+    paymentMethod: MOMO
+    createdAt: 2026-02-28T14:28:15.822060
+  [3]
+    id: 5
+    amount: 500000.00
+    status: PAID
+    paymentMethod: CASH
+    createdAt: 2026-02-27T08:17:51.411467
+

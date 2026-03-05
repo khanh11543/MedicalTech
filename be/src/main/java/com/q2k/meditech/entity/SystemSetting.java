@@ -3,15 +3,16 @@ package com.q2k.meditech.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+@Entity
+@Table(name = "system_settings", indexes = {
+        @Index(name = "idx_system_settings_group", columnList = "setting_group"),
+        @Index(name = "idx_system_settings_key", columnList = "setting_key", unique = true)
+})
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Entity
-@Table(name = "system_settings", uniqueConstraints = {
-    @UniqueConstraint(columnNames = "setting_key")
-})
 public class SystemSetting extends BaseEntity {
 
     @Column(name = "setting_key", nullable = false, unique = true, length = 100)
@@ -23,13 +24,6 @@ public class SystemSetting extends BaseEntity {
     @Column(name = "setting_group", nullable = false, length = 50)
     private String settingGroup;
 
-    @Column(name = "display_name", length = 100)
-    private String displayName;
-
-    @Column(length = 255)
+    @Column(name = "description", length = 500)
     private String description;
-
-    @Column(name = "value_type", length = 20)
-    @Builder.Default
-    private String valueType = "STRING"; // STRING, NUMBER, BOOLEAN, JSON
 }

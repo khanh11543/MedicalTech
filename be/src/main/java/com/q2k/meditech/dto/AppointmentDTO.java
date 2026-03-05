@@ -49,6 +49,9 @@ public class AppointmentDTO {
     private String notes;
     private String cancellationReason;
 
+    private String appointmentType;
+    private String paymentStatus;
+
     private LocalDateTime checkedInAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
