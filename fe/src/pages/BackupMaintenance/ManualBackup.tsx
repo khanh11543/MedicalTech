@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import ComponentCard from '../../components/common/ComponentCard';
 import PageMeta from '../../components/common/PageMeta';
+import Toast from '../../components/common/Toast';
+import { useToast } from '../../hooks/useToast';
 import Badge from '../../components/ui/badge/Badge';
 import * as backupService from '../../services/backupService';
 import type {
@@ -18,6 +20,7 @@ type Step = 'configure' | 'progress' | 'completed';
 
 const ManualBackup: React.FC = () => {
   const navigate = useNavigate();
+  const { toast, showToast, dismissToast } = useToast();
   const queryClient = useQueryClient();
 
   const [step, setStep] = useState<Step>('configure');
@@ -72,7 +75,7 @@ const ManualBackup: React.FC = () => {
       setStep('progress');
     },
     onError: (err: any) => {
-      alert(err?.response?.data?.message || 'Failed to start backup');
+      showToast(err?.response?.data?.message || 'Failed to start backup', 'error');
     },
   });
 
@@ -85,7 +88,7 @@ const ManualBackup: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['backup-dashboard'] });
     },
     onError: (err: any) => {
-      alert(err?.response?.data?.message || 'Failed to cancel backup');
+      showToast(err?.response?.data?.message || 'Failed to cancel backup', 'error');
     },
   });
 
@@ -101,11 +104,11 @@ const ManualBackup: React.FC = () => {
 
   const handleSubmit = () => {
     if (!form.backupName.trim()) {
-      alert('Please enter a backup name');
+      showToast('Please enter a backup name', 'error');
       return;
     }
     if (!form.includes || form.includes.length === 0) {
-      alert('Please select at least one item to backup');
+      showToast('Please select at least one item to backup', 'error');
       return;
     }
     runBackupMutation.mutate(form);
@@ -118,7 +121,7 @@ const ManualBackup: React.FC = () => {
       const blob = await backupService.downloadBackup(completedRecord.id);
       backupService.downloadFile(blob, `${completedRecord.backupName}.zip`);
     } catch {
-      alert('Download failed');
+      showToast('Download failed', 'error');
     } finally {
       setDownloading(false);
     }
@@ -624,6 +627,7 @@ const ManualBackup: React.FC = () => {
         {step === 'progress' && renderProgress()}
         {step === 'completed' && renderCompleted()}
       </div>
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 };

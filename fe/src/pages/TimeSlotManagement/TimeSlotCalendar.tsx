@@ -7,6 +7,8 @@ import { DateClickArg } from "@fullcalendar/interaction";
 import { EventInput } from "@fullcalendar/core";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
 import ComponentCard from "../../components/common/ComponentCard";
 import Badge from "../../components/ui/badge/Badge";
 import { Modal } from "../../components/ui/modal";
@@ -104,6 +106,7 @@ const ChartIcon = () => (
 
 // =========== MAIN COMPONENT ===========
 export default function TimeSlotCalendar() {
+  const { toast, showToast, dismissToast } = useToast();
   // Calendar state
   const [, setCalendarData] = useState<CalendarDayDTO[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<EventInput[]>([]);
@@ -263,8 +266,10 @@ export default function TimeSlotCalendar() {
         const res = await timeSlotService.getAllTimeSlots(filter);
         setDaySlots(res.content);
       }
+      showToast("Slot blocked", "success");
     } catch (e) {
       console.error("Block failed:", e);
+      showToast("Block failed", "error");
     }
   };
 
@@ -279,8 +284,10 @@ export default function TimeSlotCalendar() {
         const res = await timeSlotService.getAllTimeSlots(filter);
         setDaySlots(res.content);
       }
+      showToast("Slot unblocked", "success");
     } catch (e) {
       console.error("Unblock failed:", e);
+      showToast("Unblock failed", "error");
     }
   };
 
@@ -296,8 +303,10 @@ export default function TimeSlotCalendar() {
         const res = await timeSlotService.getAllTimeSlots(filter);
         setDaySlots(res.content);
       }
+      showToast("Slot deleted", "success");
     } catch (e) {
       console.error("Delete failed:", e);
+      showToast("Delete failed", "error");
     }
   };
 
@@ -678,6 +687,7 @@ export default function TimeSlotCalendar() {
           </div>
         </div>
       </Modal>
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

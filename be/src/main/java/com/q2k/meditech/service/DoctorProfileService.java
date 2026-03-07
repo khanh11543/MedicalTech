@@ -72,8 +72,8 @@ public class DoctorProfileService {
         Doctor doctor = Doctor.builder()
                 .user(user)
                 .fullName(fullName)
-                .verificationStatus(VerificationStatus.APPROVED)
-                .isAvailable(true)
+                .verificationStatus(VerificationStatus.AWAITING_DOCUMENTS)
+                .isAvailable(false)
                 .build();
 
         doctor = doctorRepository.save(doctor);

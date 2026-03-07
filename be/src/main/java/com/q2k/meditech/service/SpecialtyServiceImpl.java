@@ -6,6 +6,7 @@ import com.q2k.meditech.entity.Specialty;
 import com.q2k.meditech.repository.SpecialtyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ public class SpecialtyServiceImpl implements SpecialtyService {
     }
 
     @Override
+    @Cacheable(value = "activeSpecialties")
     public List<SpecialtyDTO> getAllActiveSpecialties() {
         log.debug("Getting all active specialties");
         
@@ -40,6 +42,7 @@ public class SpecialtyServiceImpl implements SpecialtyService {
     }
 
     @Override
+    @Cacheable(value = "specialty", key = "#id")
     public SpecialtyDTO getSpecialtyById(Integer id) {
         log.debug("Getting specialty by id: {}", id);
         

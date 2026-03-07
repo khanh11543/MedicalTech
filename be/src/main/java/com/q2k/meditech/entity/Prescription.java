@@ -61,6 +61,7 @@ public class Prescription extends BaseEntity {
     private Boolean isActive = true;
 
     @OneToMany(mappedBy = "prescription", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 10)
     @Builder.Default
     private List<PrescriptionItem> items = new ArrayList<>();
 

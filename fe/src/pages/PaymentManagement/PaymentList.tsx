@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import ComponentCard from "../../components/common/ComponentCard";
 import PaymentTable from './components/PaymentTable';
 import PaymentFilters from './components/PaymentFilters';
 import PaymentStats from './components/PaymentStats';
@@ -32,6 +33,14 @@ const PaymentList: React.FC = () => {
   const [bulkMarkPaidIds, setBulkMarkPaidIds] = useState<number[]>([]);
   const [bulkPaymentMethod, setBulkPaymentMethod] = useState<string>('CASH');
   const [bulkNotes, setBulkNotes] = useState<string>('');
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundPaymentId, setRefundPaymentId] = useState<number | null>(null);
+  const [refundForm, setRefundForm] = useState({
+    amount: 0,
+    reason: '',
+    refundMethod: 'ORIGINAL',
+    sendNotification: true,
+  });
   const [filters, setFilters] = useState<Filters>({
     search: '',
     status: [],
@@ -111,6 +120,28 @@ const PaymentList: React.FC = () => {
     },
     onError: (error: any) => {
       alert(error?.response?.data?.message || 'Failed to mark payments as paid');
+    },
+  });
+
+  const refundMutation = useMutation({
+    mutationFn: async ({ paymentId, data }: { paymentId: number; data: typeof refundForm }) => {
+      const refundData: paymentService.RefundDTO = {
+        refundAmount: data.amount,
+        refundReason: data.reason,
+        notes: `Refund method: ${data.refundMethod}${data.sendNotification ? ' | Notification sent' : ''}`,
+      };
+      return await paymentService.refundPayment(paymentId, refundData);
+    },
+    onSuccess: () => {
+      alert('Refund processed successfully');
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
+      queryClient.invalidateQueries({ queryKey: ['payment-stats'] });
+      setShowRefundModal(false);
+      setRefundPaymentId(null);
+      setRefundForm({ amount: 0, reason: '', refundMethod: 'ORIGINAL', sendNotification: true });
+    },
+    onError: (error: any) => {
+      alert(error?.response?.data?.message || 'Failed to process refund');
     },
   });
 
@@ -324,10 +355,18 @@ const PaymentList: React.FC = () => {
                 selectedPayments={selectedPayments}
                 onSelectPayment={handleSelectPayment}
                 onViewPayment={(paymentId) => {
-                  navigate(`/payment-list/${paymentId}`);
+                  navigate(`/admin/payment-list/${paymentId}`);
                 }}
                 onRefundPayment={(paymentId) => {
-                  navigate(`/payment-list/${paymentId}`);
+                  const payment = paymentsData?.content?.find((p: any) => p.id === paymentId);
+                  setRefundPaymentId(paymentId);
+                  setRefundForm({
+                    amount: payment?.amount || 0,
+                    reason: '',
+                    refundMethod: 'ORIGINAL',
+                    sendNotification: true,
+                  });
+                  setShowRefundModal(true);
                 }}
                 onPrintReceipt={async (paymentId) => {
                   try {
@@ -381,6 +420,102 @@ const PaymentList: React.FC = () => {
           filters={filters}
         />
       </div>
+
+      {/* Refund Modal */}
+      {showRefundModal && refundPaymentId && (() => {
+        const payment = paymentsData?.content?.find((p: any) => p.id === refundPaymentId);
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-white">Process Refund</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Refund Amount *
+                  </label>
+                  <input
+                    type="number"
+                    value={refundForm.amount}
+                    onChange={(e) => setRefundForm(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                    max={payment?.amount || 0}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Max: {(payment?.amount || 0).toLocaleString()} {payment?.currency || 'VND'}
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Refund Reason *
+                  </label>
+                  <textarea
+                    value={refundForm.reason}
+                    onChange={(e) => setRefundForm(prev => ({ ...prev, reason: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    rows={3}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Refund Method
+                  </label>
+                  <select
+                    value={refundForm.refundMethod}
+                    onChange={(e) => setRefundForm(prev => ({ ...prev, refundMethod: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  >
+                    <option value="ORIGINAL">Original Payment Method</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                    <option value="CASH">Cash</option>
+                  </select>
+                </div>
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="refundNotification"
+                    checked={refundForm.sendNotification}
+                    onChange={(e) => setRefundForm(prev => ({ ...prev, sendNotification: e.target.checked }))}
+                    className="mr-2"
+                  />
+                  <label htmlFor="refundNotification" className="text-sm text-gray-700 dark:text-gray-300">
+                    Send notification to patient
+                  </label>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 mt-6">
+                <button
+                  onClick={() => {
+                    setShowRefundModal(false);
+                    setRefundPaymentId(null);
+                    setRefundForm({ amount: 0, reason: '', refundMethod: 'ORIGINAL', sendNotification: true });
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-600"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (!refundForm.reason || refundForm.amount <= 0) {
+                      alert('Please fill in refund amount and reason');
+                      return;
+                    }
+                    if (refundForm.amount > (payment?.amount || 0)) {
+                      alert('Refund amount cannot exceed payment amount');
+                      return;
+                    }
+                    refundMutation.mutate({ paymentId: refundPaymentId, data: refundForm });
+                  }}
+                  disabled={refundMutation.isPending}
+                  className="px-4 py-2 text-sm font-medium text-white bg-orange-600 border border-transparent rounded-md hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {refundMutation.isPending ? 'Processing...' : 'Process Refund'}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Bulk Mark Paid Modal */}
       {showBulkMarkPaidModal && (

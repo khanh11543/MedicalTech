@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Link, useLocation } from "react-router";
 
 import {
@@ -11,7 +11,9 @@ import {
     ShootingStarIcon,
     HorizontaLDots,
 } from "../icons";
+import { Cog6ToothIcon } from "@heroicons/react/24/outline";
 import { useSidebar } from "../context/SidebarContext";
+import { useDoctorVerificationContext } from "../context/DoctorVerificationContext";
 import SidebarWidget from "./SidebarWidget";
 
 type NavItem = {
@@ -20,7 +22,8 @@ type NavItem = {
     path: string;
 };
 
-const navItems: NavItem[] = [
+// Full clinical menu — only for VERIFIED / APPROVED doctors
+const clinicalNavItems: NavItem[] = [
     {
         icon: <GridIcon />,
         name: "Dashboard",
@@ -61,11 +64,43 @@ const navItems: NavItem[] = [
         name: "Reviews & Stats",
         path: "/doctor/reviews",
     },
+    {
+        icon: <Cog6ToothIcon className="w-6 h-6" />,
+        name: "Settings",
+        path: "/doctor/settings",
+    },
+];
+
+// Items for non-verified doctors
+const verificationNavItems: NavItem[] = [
+    {
+        icon: <GridIcon />,
+        name: "Verification Center",
+        path: "/doctor/verification-center",
+    },
+    {
+        icon: <DocsIcon />,
+        name: "Profile Setup",
+        path: "/doctor/profile-setup",
+    },
 ];
 
 const DoctorSidebar: React.FC = () => {
     const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+    const { isVerified, verificationStatus } = useDoctorVerificationContext();
     const location = useLocation();
+
+    const navItems = useMemo(() => {
+        if (isVerified) return clinicalNavItems;
+
+        // SUSPENDED or REVOKED — only verification center
+        if (verificationStatus === "SUSPENDED" || verificationStatus === "REVOKED") {
+            return [verificationNavItems[0]]; // only Verification Center
+        }
+
+        // AWAITING_DOCUMENTS, PENDING, REJECTED — verification center + profile setup
+        return verificationNavItems;
+    }, [isVerified, verificationStatus]);
 
     const isActive = useCallback(
         (path: string) => location.pathname === path,

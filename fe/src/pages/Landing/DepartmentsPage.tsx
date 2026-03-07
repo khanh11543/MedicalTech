@@ -198,7 +198,7 @@ export default function DepartmentsPage() {
     <>
       <PageTitle
         title="Departments"
-        description="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo."
+        description="Our medical departments provide specialized healthcare services delivered by experienced physicians and supported by advanced medical technology. Each department is dedicated to providing accurate diagnosis, effective treatment, and compassionate patient care."
         breadcrumbs={[
           { label: "Home", to: "/home" },
           { label: "Category", to: "/home" },

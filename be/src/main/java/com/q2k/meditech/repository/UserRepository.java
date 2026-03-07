@@ -69,4 +69,20 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     @Query("SELECT DISTINCT u FROM User u JOIN u.userRoles ur JOIN ur.role r " +
            "WHERE r.name IN :roleNames AND u.isActive = true")
     List<User> findByRoles_NameIn(@Param("roleNames") Collection<String> roleNames);
+
+    /**
+     * Find recent users with roles pre-fetched (avoids N+1)
+     */
+    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.userRoles ur LEFT JOIN FETCH ur.role ORDER BY u.createdAt DESC")
+    List<User> findRecentWithRoles(Pageable pageable);
+
+    @Query("SELECT u FROM User u JOIN u.userRoles ur JOIN ur.role r " +
+           "WHERE r.name = :roleName " +
+           "AND u.id NOT IN (SELECT p.user.id FROM Patient p)")
+    List<User> findUsersWithRoleMissingPatientProfile(@Param("roleName") String roleName);
+
+    @Query("SELECT u FROM User u JOIN u.userRoles ur JOIN ur.role r " +
+           "WHERE r.name = :roleName " +
+           "AND u.id NOT IN (SELECT rec.user.id FROM Receptionist rec)")
+    List<User> findUsersWithRoleMissingReceptionistProfile(@Param("roleName") String roleName);
 }

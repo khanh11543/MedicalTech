@@ -21,6 +21,15 @@ public interface DoctorSpecialtyRepository extends JpaRepository<DoctorSpecialty
     List<DoctorSpecialty> findByDoctorIdWithSpecialty(@Param("doctorId") Long doctorId);
 
     /**
+     * Batch find specialties for multiple doctors (avoids N+1)
+     */
+    @Query("SELECT ds FROM DoctorSpecialty ds " +
+            "JOIN FETCH ds.specialty s " +
+            "WHERE ds.doctor.id IN :doctorIds " +
+            "ORDER BY ds.isPrimary DESC, s.name ASC")
+    List<DoctorSpecialty> findByDoctorIdInWithSpecialty(@Param("doctorIds") List<Long> doctorIds);
+
+    /**
      * Find primary specialty for a doctor
      */
     @Query("SELECT ds FROM DoctorSpecialty ds " +

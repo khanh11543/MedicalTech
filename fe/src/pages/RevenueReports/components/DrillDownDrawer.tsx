@@ -1,6 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
+import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import Badge from '../../../components/ui/badge/Badge';
 import {
   Table,
@@ -75,7 +76,7 @@ const DrillDownDrawer: React.FC<DrillDownDrawerProps> = ({ config, onClose }) =>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">🔍 {config.title}</h3>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white inline-flex items-center gap-2"><MagnifyingGlassIcon className="h-5 w-5" /> {config.title}</h3>
             <p className="text-sm text-gray-500 mt-0.5">
               {config.startDate && config.endDate
                 ? `${dayjs(config.startDate).format('DD/MM/YYYY')} — ${dayjs(config.endDate).format('DD/MM/YYYY')}`
@@ -89,7 +90,7 @@ const DrillDownDrawer: React.FC<DrillDownDrawerProps> = ({ config, onClose }) =>
             onClick={onClose}
             className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700"
           >
-            ✕
+            <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
 

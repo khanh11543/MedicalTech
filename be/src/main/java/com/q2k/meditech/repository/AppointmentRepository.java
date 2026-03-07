@@ -170,6 +170,23 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
      */
     Long countByPatientIdAndDoctorId(Long patientId, Long doctorId);
     
+    /**
+     * Count appointments by status (global)
+     */
+    @Query("SELECT COUNT(a) FROM Appointment a WHERE a.status = :status")
+    Long countByStatus(@Param("status") AppointmentStatus status);
+
+    /**
+     * Find recent appointments with all relationships fetched (avoids N+1)
+     */
+    @Query("SELECT a FROM Appointment a " +
+           "JOIN FETCH a.patient p " +
+           "JOIN FETCH p.user pu " +
+           "JOIN FETCH a.doctor d " +
+           "JOIN FETCH d.user du " +
+           "ORDER BY a.createdAt DESC")
+    List<Appointment> findRecentWithDetails(Pageable pageable);
+
     // ==================== STATISTICS QUERIES ====================
     
     /**
@@ -478,6 +495,14 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
             @Param("date") LocalDate date,
             @Param("doctorId") Long doctorId);
 
+    /**
+     * Aggregate all status counts for a date in a single query (avoids 12 sequential COUNT queries)
+     */
+    @Query("SELECT a.status, COUNT(a) FROM Appointment a " +
+           "WHERE a.appointmentDate = :date " +
+           "GROUP BY a.status")
+    List<Object[]> countAllStatusesOnDate(@Param("date") LocalDate date);
+
     // ==================== TIME SLOT INTEGRATION ====================
 
     @Query("SELECT a FROM Appointment a WHERE a.timeSlot.id = :timeSlotId")
@@ -496,4 +521,68 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
             @Param("slotDate") LocalDate slotDate,
             @Param("startTime") LocalTime startTime,
             @Param("endTime") LocalTime endTime);
+
+    // ==================== DOCTOR DASHBOARD ====================
+
+    @Query("SELECT a FROM Appointment a " +
+           "JOIN FETCH a.patient p " +
+           "JOIN FETCH p.user pu " +
+           "JOIN FETCH a.doctor d " +
+           "JOIN FETCH d.user du " +
+           "WHERE d.id = :doctorId AND a.appointmentDate = :date " +
+           "ORDER BY a.startTime")
+    List<Appointment> findByDoctorIdAndDateForDashboard(
+            @Param("doctorId") Long doctorId,
+            @Param("date") LocalDate date);
+
+    @Query("SELECT COUNT(a) FROM Appointment a " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.appointmentDate BETWEEN :fromDate AND :toDate")
+    Long countByDoctorIdAndDateRange(
+            @Param("doctorId") Long doctorId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    @Query("SELECT COUNT(a) FROM Appointment a " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.status = :status " +
+           "AND a.appointmentDate BETWEEN :fromDate AND :toDate")
+    Long countByDoctorIdAndStatusAndDateRange(
+            @Param("doctorId") Long doctorId,
+            @Param("status") AppointmentStatus status,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    // ==================== ADMIN FILTERED LIST ====================
+
+    @Query("SELECT a FROM Appointment a " +
+           "JOIN FETCH a.patient p " +
+           "JOIN FETCH p.user pu " +
+           "JOIN FETCH a.doctor d " +
+           "JOIN FETCH d.user du " +
+           "LEFT JOIN Payment pay ON pay.appointment = a " +
+           "WHERE (:doctorId IS NULL OR d.id = :doctorId) " +
+           "AND (:patientId IS NULL OR p.id = :patientId) " +
+           "AND (:status IS NULL OR CAST(a.status AS string) = :status) " +
+           "AND (:statuses IS NULL OR a.status IN :statuses) " +
+           "AND (:fromDate IS NULL OR a.appointmentDate >= :fromDate) " +
+           "AND (:toDate IS NULL OR a.appointmentDate <= :toDate) " +
+           "AND (:appointmentType IS NULL OR a.appointmentType = :appointmentType) " +
+           "AND (:paymentStatus IS NULL OR pay.paymentStatus = :paymentStatus) " +
+           "AND (:search IS NULL OR :search = '' " +
+           "    OR LOWER(a.appointmentCode) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "    OR LOWER(pu.fullName) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "    OR LOWER(pu.email) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "    OR LOWER(du.fullName) LIKE LOWER(CONCAT('%', :search, '%')))")
+    Page<Appointment> findAllWithFiltersAdmin(
+            @Param("doctorId") Long doctorId,
+            @Param("patientId") Long patientId,
+            @Param("status") String status,
+            @Param("statuses") List<AppointmentStatus> statuses,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate,
+            @Param("appointmentType") String appointmentType,
+            @Param("paymentStatus") String paymentStatus,
+            @Param("search") String search,
+            Pageable pageable);
 }

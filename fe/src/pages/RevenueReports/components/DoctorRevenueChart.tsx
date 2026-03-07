@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import Chart from 'react-apexcharts';
 import { ApexOptions } from 'apexcharts';
+import { LightBulbIcon } from '@heroicons/react/24/outline';
 import {
   DoctorRevenueDTO,
   formatCurrency,
@@ -161,7 +162,7 @@ const DoctorRevenueChart: React.FC<DoctorRevenueChartProps> = ({ data, isLoading
 
       {onDoctorClick && (
         <p className="text-xs text-gray-400 text-center">
-          💡 Click a doctor row or bar to view their transactions
+          <LightBulbIcon className="h-4 w-4 inline text-yellow-400" /> Click a doctor row or bar to view their transactions
         </p>
       )}
     </div>

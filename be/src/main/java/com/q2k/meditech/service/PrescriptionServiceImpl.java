@@ -7,6 +7,7 @@ import com.q2k.meditech.exception.AppException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.dto.mapper.PrescriptionMapper;
 import com.q2k.meditech.repository.*;
+import com.q2k.meditech.util.ExportUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.ByteArrayResource;
@@ -411,15 +412,23 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 ));
             });
         } else {
-            // Excel format (simplified - recommend using Apache POI for real implementation)
-            content.append("Prescription Export Report\n\n");
-            content.append("Total Prescriptions: ").append(prescriptions.getTotalElements()).append("\n\n");
-            prescriptions.getContent().forEach(p -> {
-                String status = (p.getIsActive() != null && p.getIsActive()) ? "ACTIVE" : "EXPIRED";
-                content.append(String.format("ID: %d | Patient: %s | Doctor: %s | Date: %s | Status: %s\n",
-                        p.getId(), p.getPatientName(), p.getDoctorName(),
-                        p.getPrescriptionDate(), status));
-            });
+            // Excel format using Apache POI via ExportUtil
+            try {
+                List<ExportUtil.ExportColumn<PrescriptionDTO>> columns = List.of(
+                        ExportUtil.ExportColumn.of("ID", p -> String.valueOf(p.getId())),
+                        ExportUtil.ExportColumn.of("Prescription Code", p -> "PRE-" + p.getId()),
+                        ExportUtil.ExportColumn.of("Patient Name", PrescriptionDTO::getPatientName),
+                        ExportUtil.ExportColumn.of("Doctor Name", PrescriptionDTO::getDoctorName),
+                        ExportUtil.ExportColumn.of("Date", p -> p.getPrescriptionDate() != null ? p.getPrescriptionDate().toString() : ""),
+                        ExportUtil.ExportColumn.of("Status", p -> (p.getIsActive() != null && p.getIsActive()) ? "ACTIVE" : "EXPIRED"),
+                        ExportUtil.ExportColumn.of("Diagnosis", p -> p.getDiagnosis() != null ? p.getDiagnosis() : "")
+                );
+                byte[] data = ExportUtil.toExcel(columns, prescriptions.getContent(), "Prescriptions");
+                return new ByteArrayResource(data);
+            } catch (Exception e) {
+                log.error("Error generating Excel export", e);
+                throw new AppException("Failed to generate Excel export", HttpStatus.INTERNAL_SERVER_ERROR);
+            }
         }
 
         byte[] data = content.toString().getBytes();
@@ -433,31 +442,48 @@ public class PrescriptionServiceImpl implements PrescriptionService {
 
         PrescriptionDetailDTO detail = getPrescriptionDetailForAdmin(id);
 
-        // Generate PDF content (simplified - recommend using iText or similar library)
-        StringBuilder pdfContent = new StringBuilder();
-        pdfContent.append("PRESCRIPTION\n\n");
-        pdfContent.append("Prescription Code: ").append(detail.getPrescriptionCode()).append("\n");
-        pdfContent.append("Date: ").append(detail.getPrescribedDate()).append("\n\n");
-        pdfContent.append("Patient: ").append(detail.getPatientName()).append("\n");
-        pdfContent.append("Age: ").append(detail.getPatientAge()).append(" | Gender: ").append(detail.getPatientGender()).append("\n\n");
-        pdfContent.append("Doctor: ").append(detail.getDoctorName()).append("\n");
-        pdfContent.append("Specialization: ").append(detail.getDoctorSpecialization()).append("\n\n");
-        pdfContent.append("Diagnosis: ").append(detail.getDiagnosis()).append("\n\n");
-        pdfContent.append("MEDICATIONS:\n");
+        try {
+            // Build rows: prescription info + each medication as a row
+            List<String[]> rows = new ArrayList<>();
+            rows.add(new String[]{"Prescription Code", detail.getPrescriptionCode() != null ? detail.getPrescriptionCode() : ""});
+            rows.add(new String[]{"Date", detail.getPrescribedDate() != null ? detail.getPrescribedDate().toString() : ""});
+            rows.add(new String[]{"Patient", detail.getPatientName() != null ? detail.getPatientName() : ""});
+            rows.add(new String[]{"Age", detail.getPatientAge() != null ? String.valueOf(detail.getPatientAge()) : ""});
+            rows.add(new String[]{"Gender", detail.getPatientGender() != null ? detail.getPatientGender() : ""});
+            rows.add(new String[]{"Doctor", detail.getDoctorName() != null ? detail.getDoctorName() : ""});
+            rows.add(new String[]{"Specialization", detail.getDoctorSpecialization() != null ? detail.getDoctorSpecialization() : ""});
+            rows.add(new String[]{"Diagnosis", detail.getDiagnosis() != null ? detail.getDiagnosis() : ""});
+            rows.add(new String[]{"", ""}); // separator
+            rows.add(new String[]{"MEDICATIONS", ""});
 
-        detail.getMedications().forEach(med -> {
-            pdfContent.append(String.format("%d. %s\n", med.getItemOrder(), med.getMedicineName()));
-            pdfContent.append(String.format("   Dosage: %s | Frequency: %s | Duration: %s\n", med.getDosage(), med.getFrequency(), med.getDuration()));
-            pdfContent.append(String.format("   Quantity: %d %s | Instructions: %s\n\n",
-                    med.getQuantity() != null ? med.getQuantity() : 0,
-                    med.getUnit() != null ? med.getUnit() : "",
-                    med.getInstructions()));
-        });
+            if (detail.getMedications() != null) {
+                for (var med : detail.getMedications()) {
+                    rows.add(new String[]{
+                            med.getItemOrder() + ". " + (med.getMedicineName() != null ? med.getMedicineName() : ""),
+                            String.format("Dosage: %s | Freq: %s | Duration: %s | Qty: %d %s",
+                                    med.getDosage() != null ? med.getDosage() : "",
+                                    med.getFrequency() != null ? med.getFrequency() : "",
+                                    med.getDuration() != null ? med.getDuration() : "",
+                                    med.getQuantity() != null ? med.getQuantity() : 0,
+                                    med.getUnit() != null ? med.getUnit() : "")
+                    });
+                }
+            }
 
-        pdfContent.append("\nNotes: ").append(detail.getNotes()).append("\n");
+            rows.add(new String[]{"", ""}); // separator
+            rows.add(new String[]{"Notes", detail.getNotes() != null ? detail.getNotes() : ""});
 
-        byte[] data = pdfContent.toString().getBytes();
-        return new ByteArrayResource(data);
+            List<ExportUtil.ExportColumn<String[]>> columns = List.of(
+                    ExportUtil.ExportColumn.of("Field", r -> r[0]),
+                    ExportUtil.ExportColumn.of("Value", r -> r[1])
+            );
+
+            byte[] data = ExportUtil.toPdf(columns, rows, "Prescription - " + (detail.getPrescriptionCode() != null ? detail.getPrescriptionCode() : String.valueOf(id)));
+            return new ByteArrayResource(data);
+        } catch (Exception e) {
+            log.error("Error generating prescription PDF", e);
+            throw new AppException("Failed to generate prescription PDF", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     @Override

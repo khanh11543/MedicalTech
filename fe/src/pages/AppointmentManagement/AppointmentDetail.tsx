@@ -2,9 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
 import { Modal } from "../../components/ui/modal";
 import Badge from "../../components/ui/badge/Badge";
 import Label from "../../components/form/Label";
+import { useWorkstation } from "../../context/WorkstationContext";
+import { maskPhone, maskEmail } from "../../utils/privacyMask";
 import appointmentService, {
   AppointmentDetailDTO,
   AppointmentStatus,
@@ -258,8 +262,10 @@ const TimelineItem: React.FC<TimelineItemProps> = ({ item, isLast }) => (
 
 // =========== MAIN COMPONENT ===========
 export default function AppointmentDetail() {
+  const { toast, showToast, dismissToast } = useToast();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { settings: wsSettings } = useWorkstation();
   const appointmentId = parseInt(id || "0");
 
   // Data states
@@ -375,10 +381,11 @@ export default function AppointmentDetail() {
       setRescheduleData({ newDate: "", newStartTime: "", newEndTime: "", reason: "" });
       fetchAppointmentDetail();
       fetchHistory();
+      showToast("Appointment rescheduled", "success");
     } catch (error: any) {
       console.error("Failed to reschedule:", error);
       const errorMsg = error?.response?.data?.message || "Failed to reschedule appointment";
-      alert(errorMsg);
+      showToast(errorMsg, "error");
     }
   };
 
@@ -389,10 +396,11 @@ export default function AppointmentDetail() {
       setCancelReason("");
       fetchAppointmentDetail();
       fetchHistory();
+      showToast("Appointment cancelled", "success");
     } catch (error: any) {
       console.error("Failed to cancel:", error);
       const errorMsg = error?.response?.data?.message || "Failed to cancel appointment";
-      alert(errorMsg);
+      showToast(errorMsg, "error");
     }
   };
 
@@ -424,10 +432,11 @@ export default function AppointmentDetail() {
       await appointmentService.checkInPatient(appointmentId);
       fetchAppointmentDetail();
       fetchHistory();
+      showToast("Patient checked in", "success");
     } catch (error: any) {
       console.error("Failed to check in:", error);
       const errorMsg = error?.response?.data?.message || "Failed to check in patient";
-      alert(errorMsg);
+      showToast(errorMsg, "error");
     }
   };
 
@@ -438,20 +447,21 @@ export default function AppointmentDetail() {
       setNoShowReason("");
       fetchAppointmentDetail();
       fetchHistory();
+      showToast("Marked as no-show", "success");
     } catch (error: any) {
       console.error("Failed to mark as no-show:", error);
       const errorMsg = error?.response?.data?.message || "Failed to mark as no-show";
-      alert(errorMsg);
+      showToast(errorMsg, "error");
     }
   };
 
   const handleSendReminder = async () => {
     try {
       await appointmentService.sendReminder([appointmentId]);
-      alert("Reminder sent successfully");
+      showToast("Reminder sent successfully", "success");
     } catch (error) {
       console.error("Failed to send reminder:", error);
-      alert("Failed to send reminder");
+      showToast("Failed to send reminder", "error");
     }
   };
 
@@ -464,11 +474,11 @@ export default function AppointmentDetail() {
       setSendMessageModalOpen(false);
       setCustomMessage("");
       fetchCommunications();
-      alert(result?.message || "Message sent successfully");
+      showToast(result?.message || "Message sent successfully", "success");
     } catch (error: any) {
       console.error("Failed to send message:", error);
       const errorMsg = error?.response?.data?.message || "Failed to send message";
-      alert(errorMsg);
+      showToast(errorMsg, "error");
     }
   };
 
@@ -476,9 +486,10 @@ export default function AppointmentDetail() {
     try {
       await appointmentService.resendCommunication(appointmentId, commId);
       fetchCommunications();
+      showToast("Communication resent", "success");
     } catch (error) {
       console.error("Failed to resend:", error);
-      alert("Failed to resend communication");
+      showToast("Failed to resend communication", "error");
     }
   };
 
@@ -493,7 +504,7 @@ export default function AppointmentDetail() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Failed to export:", error);
-      alert("Export feature requires backend implementation");
+      showToast("Export feature requires backend implementation", "error");
     }
   };
 
@@ -662,8 +673,8 @@ export default function AppointmentDetail() {
               </div>
             </div>
             <div className="space-y-1">
-              <InfoRow label="Email" value={appointment.patientEmail} />
-              <InfoRow label="Phone" value={appointment.patientPhone} />
+              <InfoRow label="Email" value={wsSettings.hideEmail ? maskEmail(appointment.patientEmail) : appointment.patientEmail} />
+              <InfoRow label="Phone" value={wsSettings.hidePhoneNumber ? maskPhone(appointment.patientPhone) : appointment.patientPhone} />
               {appointment.patientDob && <InfoRow label="Date of Birth" value={formatDate(appointment.patientDob)} />}
               {appointment.patientGender && <InfoRow label="Gender" value={appointment.patientGender} />}
             </div>
@@ -694,8 +705,8 @@ export default function AppointmentDetail() {
               </div>
             </div>
             <div className="space-y-1">
-              <InfoRow label="Email" value={appointment.doctorEmail} />
-              {appointment.doctorPhone && <InfoRow label="Phone" value={appointment.doctorPhone} />}
+              <InfoRow label="Email" value={wsSettings.hideEmail ? maskEmail(appointment.doctorEmail) : appointment.doctorEmail} />
+              {appointment.doctorPhone && <InfoRow label="Phone" value={wsSettings.hidePhoneNumber ? maskPhone(appointment.doctorPhone) : appointment.doctorPhone} />}
               {appointment.doctorExperience && <InfoRow label="Experience" value={`${appointment.doctorExperience} years`} />}
               <InfoRow label="Consultation Fee" value={formatCurrency(appointment.doctorConsultationFee)} />
             </div>
@@ -1218,6 +1229,7 @@ export default function AppointmentDetail() {
           </div>
         </div>
       </Modal>
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

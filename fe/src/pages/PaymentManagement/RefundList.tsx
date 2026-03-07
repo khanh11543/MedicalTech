@@ -205,7 +205,7 @@ const RefundList: React.FC = () => {
           </div>
           <div className="flex space-x-2">
             <button
-              onClick={() => navigate('/payment-list')}
+              onClick={() => navigate('/admin/payment-list')}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
             >
               ← Back to Payments
@@ -237,7 +237,7 @@ const RefundList: React.FC = () => {
               <RefundTable
                 refunds={refundsData?.content || []}
                 loading={isLoading}
-                onViewRefund={(refundId) => navigate(`/refund-list/${refundId}`)}
+                onViewRefund={(refundId) => navigate(`/admin/refund-list/${refundId}`)}
                 onApproveRefund={(refund) => setApproveModal({ open: true, refund })}
                 onRejectRefund={(refund) => setRejectModal({ open: true, refund })}
                 onProcessRefund={(refund) => setProcessModal({ open: true, refund })}

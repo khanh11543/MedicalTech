@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
 import Badge from "../../components/ui/badge/Badge";
+import { DashboardSkeleton } from "../../components/ui/skeleton/Skeleton";
 import {
   DoctorTodayData,
   CurrentPatient,
@@ -58,6 +61,7 @@ export default function DoctorToday() {
   const [skipModal, setSkipModal] = useState<number | null>(null);
   const [skipReason, setSkipReason] = useState("");
   const refreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { toast, showToast, dismissToast } = useToast();
 
   // ---- Fetch ----
   const fetchData = useCallback(async () => {
@@ -93,11 +97,12 @@ export default function DoctorToday() {
     try {
       await fn();
       await fetchData();
+      showToast("Action completed successfully", "success");
     } catch (err: unknown) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const axiosMsg = (err as any)?.response?.data?.message;
       const msg = axiosMsg || (err instanceof Error ? err.message : "Action failed");
-      alert(msg);
+      showToast(msg, "error");
     } finally {
       setActionLoading(null);
     }
@@ -109,9 +114,7 @@ export default function DoctorToday() {
       <>
         <PageMeta title="Today | Doctor Panel" />
         <PageBreadcrumb pageTitle="Today" />
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin h-8 w-8 border-4 border-brand-500 border-t-transparent rounded-full" />
-        </div>
+        <DashboardSkeleton />
       </>
     );
   }
@@ -255,6 +258,7 @@ export default function DoctorToday() {
           setReason={setSkipReason}
         />
       )}
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

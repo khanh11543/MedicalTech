@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import ComponentCard from "../../components/common/ComponentCard";
 import {
   Table,
   TableBody,

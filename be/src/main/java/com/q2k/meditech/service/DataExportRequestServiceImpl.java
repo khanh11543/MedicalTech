@@ -100,7 +100,7 @@ public class DataExportRequestServiceImpl implements DataExportRequestService {
         }
 
         Page<DataExportRequest> page = exportRequestRepository.findAll(spec, pageable);
-        return page.map(exportRequestMapper::toDTO);
+        return exportRequestMapper.toDTOPage(page);
     }
 
     // ==================== PROCESS EXPORT REQUEST ====================

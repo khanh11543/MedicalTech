@@ -66,6 +66,39 @@ export default function LandingLayout() {
     setDropdownOpen(false);
   }, [location.pathname]);
 
+  // Set browser tab title based on current route
+  useEffect(() => {
+    const titleMap: Record<string, string> = {
+      "/home": "Home | MediTech",
+      "/about": "About | MediTech",
+      "/departments": "Departments | MediTech",
+      "/services": "Services | MediTech",
+      "/doctors": "Our Doctors | MediTech",
+      "/appointment": "Book Appointment | MediTech",
+      "/contact": "Contact Us | MediTech",
+      "/testimonials": "Testimonials | MediTech",
+      "/faq": "FAQ | MediTech",
+      "/gallery": "Gallery | MediTech",
+      "/terms": "Terms of Service | MediTech",
+      "/privacy": "Privacy Policy | MediTech",
+      "/patient/appointments": "My Appointments | MediTech",
+      "/patient/payments": "Payment History | MediTech",
+      "/patient/profile": "My Profile | MediTech",
+      "/patient/account": "Account Settings | MediTech",
+    };
+    const path = location.pathname;
+    // exact match first, then check dynamic routes
+    if (titleMap[path]) {
+      document.title = titleMap[path];
+    } else if (path.startsWith("/departments/")) {
+      document.title = "Department Details | MediTech";
+    } else if (path.startsWith("/services/")) {
+      document.title = "Service Details | MediTech";
+    } else {
+      document.title = "MediTech";
+    }
+  }, [location.pathname]);
+
   const isActive = (path: string) => location.pathname === path;
   const isMoreActive = morePages.some((p) => isActive(p.path));
 

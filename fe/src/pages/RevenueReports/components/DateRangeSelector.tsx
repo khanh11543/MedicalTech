@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import dayjs from 'dayjs';
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import * as revenueService from '../../../services/revenueService';
 
 interface DateRangeSelectorProps {
@@ -115,7 +116,7 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ dateRange, onChan
       {/* Heavy Report Warning */}
       {warning && (
         <div className="mt-3 flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg">
-          <span className="text-amber-500 text-lg">⚠️</span>
+          <ExclamationTriangleIcon className="h-5 w-5 text-amber-500" />
           <div>
             <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
               Report may be heavy — range exceeds 12 months

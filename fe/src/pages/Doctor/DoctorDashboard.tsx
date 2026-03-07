@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import Badge from "../../components/ui/badge/Badge";
+import { DashboardSkeleton } from "../../components/ui/skeleton/Skeleton";
 import {
   getDoctorDashboard,
   DoctorDashboard as DoctorDashboardData,
@@ -98,12 +99,7 @@ export default function DoctorDashboard() {
     return (
       <>
         <PageMeta title="Dashboard | Doctor" description="Workday overview" />
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="flex flex-col items-center gap-3">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-200 border-t-brand-500" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Loading data...</p>
-          </div>
-        </div>
+        <DashboardSkeleton />
       </>
     );
   }

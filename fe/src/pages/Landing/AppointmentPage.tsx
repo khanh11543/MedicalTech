@@ -91,7 +91,7 @@ export default function AppointmentPage() {
     <>
       <PageTitle
         title="Appointment"
-        description="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo."
+        description="Schedule your medical appointment quickly and easily with our experienced healthcare professionals. Choose your preferred doctor, department, and time to receive personalized medical care."
         breadcrumbs={[
           { label: "Home", to: "/" },
           { label: "Category" },

@@ -38,9 +38,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
      * Search reviews by doctor name, patient user name/email
      */
     @Query("SELECT r FROM Review r " +
-           "LEFT JOIN r.doctor d " +
-           "LEFT JOIN r.patient p " +
-           "LEFT JOIN p.user pu " +
+           "LEFT JOIN FETCH r.doctor d " +
+           "LEFT JOIN FETCH r.patient p " +
+           "LEFT JOIN FETCH p.user pu " +
            "WHERE LOWER(d.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(pu.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(pu.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

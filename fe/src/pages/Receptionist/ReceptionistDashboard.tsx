@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import PageMeta from "../../components/common/PageMeta";
+import { DashboardSkeleton } from "../../components/ui/skeleton/Skeleton";
 import receptionistService from "../../services/receptionistService";
 import type {
   ReceptionistDashboardStatsDTO,
@@ -128,11 +129,7 @@ export default function ReceptionistDashboard() {
   };
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   return (

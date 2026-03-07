@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
 import ComponentCard from "../../components/common/ComponentCard";
 import {
   Table,
@@ -37,6 +39,7 @@ const fmtDate = (d: string) => {
 
 // =========== MAIN COMPONENT ===========
 export default function TimeSlotList() {
+  const { toast, showToast, dismissToast } = useToast();
   // Data
   const [slots, setSlots] = useState<TimeSlotDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,8 +137,10 @@ export default function TimeSlotList() {
       setCreateModalOpen(false);
       setCreateForm({ doctorId: 0, slotDate: "", startTime: "", endTime: "" });
       fetchSlots();
+      showToast("Time slot created", "success");
     } catch (e) {
       console.error("Create failed:", e);
+      showToast("Create failed", "error");
     }
   };
 
@@ -148,8 +153,10 @@ export default function TimeSlotList() {
       setSelectedIds([]);
       setSelectAll(false);
       fetchSlots();
+      showToast(`${selectedIds.length} slot(s) blocked`, "success");
     } catch (e) {
       console.error("Bulk block failed:", e);
+      showToast("Bulk block failed", "error");
     }
   };
 
@@ -161,8 +168,10 @@ export default function TimeSlotList() {
       setSelectedIds([]);
       setSelectAll(false);
       fetchSlots();
+      showToast(`${selectedIds.length} slot(s) unblocked`, "success");
     } catch (e) {
       console.error("Bulk unblock failed:", e);
+      showToast("Bulk unblock failed", "error");
     }
   };
 
@@ -477,6 +486,7 @@ export default function TimeSlotList() {
           </div>
         </div>
       </Modal>
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

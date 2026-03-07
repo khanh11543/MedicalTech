@@ -1,87 +1,136 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
-import SignIn from "./pages/AuthPages/SignIn";
-import SignUp from "./pages/AuthPages/SignUp";
-import VerifyOtp from "./pages/AuthPages/VerifyOtp";
-import NotFound from "./pages/OtherPage/NotFound";
-import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
-import Home from "./pages/Dashboard/Home";
-import UserList from "./pages/UserManagement/UserList";
-import DoctorVerification from "./pages/DoctorVerification/DoctorVerification";
-import AppointmentList from "./pages/AppointmentManagement/AppointmentList";
-import AppointmentDetail from "./pages/AppointmentManagement/AppointmentDetail";
-import AppointmentStatistics from "./pages/AppointmentManagement/AppointmentStatistics";
-import PrescriptionList from "./pages/PrescriptionManagement/PrescriptionList";
-import PrescriptionDetail from "./pages/PrescriptionManagement/PrescriptionDetail";
-import PrescriptionTemplates from "./pages/PrescriptionManagement/PrescriptionTemplates";
-import PaymentList from "./pages/PaymentManagement/PaymentList";
-import PaymentDetail from "./pages/PaymentManagement/PaymentDetail";
-import RefundList from "./pages/PaymentManagement/RefundList";
-import RefundDetail from "./pages/PaymentManagement/RefundDetail";
-import ReviewList from "./pages/ReviewManagement/ReviewList";
-import ContentList from "./pages/ContentManagement/ContentList";
-import SecurityAudit from "./pages/SecurityAudit/SecurityAudit";
-import ReportsAnalytics from "./pages/ReportsAnalytics/ReportsAnalytics";
-import RevenueReports from "./pages/RevenueReports/RevenueReports";
-import GDPRCompliance from "./pages/GDPRCompliance/GDPRCompliance";
-import BackupMaintenance from "./pages/BackupMaintenance/BackupMaintenance";
-import BackupDashboard from "./pages/BackupMaintenance/BackupDashboard";
-import BackupHistory from "./pages/BackupMaintenance/BackupHistory";
-import ManualBackup from "./pages/BackupMaintenance/ManualBackup";
-import RestoreBackup from "./pages/BackupMaintenance/RestoreBackup";
-import ScheduledMaintenance from "./pages/BackupMaintenance/ScheduledMaintenance";
-import SystemOptimization from "./pages/BackupMaintenance/SystemOptimization";
-import NotificationCenter from "./pages/Notifications/NotificationCenter";
-import TimeSlotCalendar from "./pages/TimeSlotManagement/TimeSlotCalendar";
-import TimeSlotList from "./pages/TimeSlotManagement/TimeSlotList";
-import TimeSlotBulkCreate from "./pages/TimeSlotManagement/TimeSlotBulkCreate";
-import TimeSlotTemplates from "./pages/TimeSlotManagement/TimeSlotTemplates";
-import TimeSlotRules from "./pages/TimeSlotManagement/TimeSlotRules";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import RoleProtectedRoute from "./components/auth/RoleProtectedRoute";
 
+// Layouts — keep eager (needed immediately on auth)
+import AppLayout from "./layout/AppLayout";
+import LandingLayout from "./pages/Landing/LandingLayout";
+
+// Route-level lazy loading — each page is a separate chunk
+const SignIn = lazy(() => import("./pages/AuthPages/SignIn"));
+const SignUp = lazy(() => import("./pages/AuthPages/SignUp"));
+const VerifyOtp = lazy(() => import("./pages/AuthPages/VerifyOtp"));
+const VerifyAccount = lazy(() => import("./pages/AuthPages/VerifyAccount"));
+const NotFound = lazy(() => import("./pages/OtherPage/NotFound"));
+
+// Admin Pages
+const Home = lazy(() => import("./pages/Dashboard/Home"));
+const UserList = lazy(() => import("./pages/UserManagement/UserList"));
+const CreateUser = lazy(() => import("./pages/UserManagement/CreateUser"));
+const DoctorVerification = lazy(() => import("./pages/DoctorVerification/DoctorVerification"));
+const VerificationDetail = lazy(() => import("./pages/DoctorVerification/VerificationDetail"));
+const AppointmentList = lazy(() => import("./pages/AppointmentManagement/AppointmentList"));
+const AppointmentDetail = lazy(() => import("./pages/AppointmentManagement/AppointmentDetail"));
+const AppointmentStatistics = lazy(() => import("./pages/AppointmentManagement/AppointmentStatistics"));
+const PrescriptionList = lazy(() => import("./pages/PrescriptionManagement/PrescriptionList"));
+const PrescriptionDetail = lazy(() => import("./pages/PrescriptionManagement/PrescriptionDetail"));
+const PrescriptionTemplates = lazy(() => import("./pages/PrescriptionManagement/PrescriptionTemplates"));
+const PaymentList = lazy(() => import("./pages/PaymentManagement/PaymentList"));
+const PaymentDetail = lazy(() => import("./pages/PaymentManagement/PaymentDetail"));
+const RefundList = lazy(() => import("./pages/PaymentManagement/RefundList"));
+const RefundDetail = lazy(() => import("./pages/PaymentManagement/RefundDetail"));
+const ReviewList = lazy(() => import("./pages/ReviewManagement/ReviewList"));
+const ContentList = lazy(() => import("./pages/ContentManagement/ContentList"));
+const SecurityAudit = lazy(() => import("./pages/SecurityAudit/SecurityAudit"));
+const ReportsAnalytics = lazy(() => import("./pages/ReportsAnalytics/ReportsAnalytics"));
+const RevenueReports = lazy(() => import("./pages/RevenueReports/RevenueReports"));
+const GDPRCompliance = lazy(() => import("./pages/GDPRCompliance/GDPRCompliance"));
+const BackupMaintenance = lazy(() => import("./pages/BackupMaintenance/BackupMaintenance"));
+const BackupDashboard = lazy(() => import("./pages/BackupMaintenance/BackupDashboard"));
+const BackupHistory = lazy(() => import("./pages/BackupMaintenance/BackupHistory"));
+const ManualBackup = lazy(() => import("./pages/BackupMaintenance/ManualBackup"));
+const RestoreBackup = lazy(() => import("./pages/BackupMaintenance/RestoreBackup"));
+const ScheduledMaintenance = lazy(() => import("./pages/BackupMaintenance/ScheduledMaintenance"));
+const SystemOptimization = lazy(() => import("./pages/BackupMaintenance/SystemOptimization"));
+const NotificationCenter = lazy(() => import("./pages/Notifications/NotificationCenter"));
+const TimeSlotCalendar = lazy(() => import("./pages/TimeSlotManagement/TimeSlotCalendar"));
+const TimeSlotList = lazy(() => import("./pages/TimeSlotManagement/TimeSlotList"));
+const TimeSlotBulkCreate = lazy(() => import("./pages/TimeSlotManagement/TimeSlotBulkCreate"));
+const TimeSlotTemplates = lazy(() => import("./pages/TimeSlotManagement/TimeSlotTemplates"));
+const TimeSlotRules = lazy(() => import("./pages/TimeSlotManagement/TimeSlotRules"));
+const AdminSettings = lazy(() => import("./pages/AdminSettings/AdminSettings"));
+
 // Receptionist Pages
-import ReceptionistDashboard from "./pages/Receptionist/ReceptionistDashboard";
-import ReceptionistAppointments from "./pages/Receptionist/ReceptionistAppointments";
-import ReceptionistAppointmentDetail from "./pages/Receptionist/Appointments/AppointmentDetail";
-import ReceptionistPatients from "./pages/Receptionist/ReceptionistPatients";
-import ReceptionistQueue from "./pages/Receptionist/ReceptionistQueue";
-import ReceptionistPayments from "./pages/Receptionist/ReceptionistPayments";
-import ReceptionistReports from "./pages/Receptionist/ReceptionistReports";
-import ReceptionistNotifications from "./pages/Receptionist/ReceptionistNotifications";
-import ReceptionistSettings from "./pages/Receptionist/ReceptionistSettings";
-import AdminSettings from "./pages/AdminSettings/AdminSettings";
+const ReceptionistDashboard = lazy(() => import("./pages/Receptionist/ReceptionistDashboard"));
+const ReceptionistAppointments = lazy(() => import("./pages/Receptionist/ReceptionistAppointments"));
+const ReceptionistAppointmentDetail = lazy(() => import("./pages/Receptionist/Appointments/AppointmentDetail"));
+const ReceptionistPatients = lazy(() => import("./pages/Receptionist/ReceptionistPatients"));
+const ReceptionistQueue = lazy(() => import("./pages/Receptionist/ReceptionistQueue"));
+const ReceptionistPayments = lazy(() => import("./pages/Receptionist/ReceptionistPayments"));
+const ReceptionistReports = lazy(() => import("./pages/Receptionist/ReceptionistReports"));
+const ReceptionistSettings = lazy(() => import("./pages/Receptionist/ReceptionistSettings"));
 
 // Landing Pages (Public)
-import LandingLayout from "./pages/Landing/LandingLayout";
-import HomePage from "./pages/Landing/HomePage";
-import AboutPage from "./pages/Landing/AboutPage";
-import DepartmentsPage from "./pages/Landing/DepartmentsPage";
-import DepartmentDetailPage from "./pages/Landing/DepartmentDetailPage";
-import ServicesPage from "./pages/Landing/ServicesPage";
-import DoctorsPage from "./pages/Landing/DoctorsPage";
-import AppointmentPage from "./pages/Landing/AppointmentPage";
-import ContactPage from "./pages/Landing/ContactPage";
-import TestimonialsPage from "./pages/Landing/TestimonialsPage";
-import FAQPage from "./pages/Landing/FAQPage";
-import GalleryPage from "./pages/Landing/GalleryPage";
-import TermsPage from "./pages/Landing/TermsPage";
-import PrivacyPage from "./pages/Landing/PrivacyPage";
-import ServiceDetailPage from "./pages/Landing/ServiceDetailPage";
+const HomePage = lazy(() => import("./pages/Landing/HomePage"));
+const AboutPage = lazy(() => import("./pages/Landing/AboutPage"));
+const DepartmentsPage = lazy(() => import("./pages/Landing/DepartmentsPage"));
+const DepartmentDetailPage = lazy(() => import("./pages/Landing/DepartmentDetailPage"));
+const ServicesPage = lazy(() => import("./pages/Landing/ServicesPage"));
+const DoctorsPage = lazy(() => import("./pages/Landing/DoctorsPage"));
+const AppointmentPage = lazy(() => import("./pages/Landing/AppointmentPage"));
+const ContactPage = lazy(() => import("./pages/Landing/ContactPage"));
+const TestimonialsPage = lazy(() => import("./pages/Landing/TestimonialsPage"));
+const FAQPage = lazy(() => import("./pages/Landing/FAQPage"));
+const GalleryPage = lazy(() => import("./pages/Landing/GalleryPage"));
+const TermsPage = lazy(() => import("./pages/Landing/TermsPage"));
+const PrivacyPage = lazy(() => import("./pages/Landing/PrivacyPage"));
+const ServiceDetailPage = lazy(() => import("./pages/Landing/ServiceDetailPage"));
 
 // Patient Portal Pages
-import PatientAccount from "./pages/Landing/PatientAccount";
-import PatientProfile from "./pages/Landing/PatientProfile";
-import PatientAppointments from "./pages/Landing/PatientAppointments";
-import PatientPayments from "./pages/Landing/PatientPayments";
+const PatientAccount = lazy(() => import("./pages/Landing/PatientAccount"));
+const PatientProfile = lazy(() => import("./pages/Landing/PatientProfile"));
+const PatientAppointments = lazy(() => import("./pages/Landing/PatientAppointments"));
+const PatientPayments = lazy(() => import("./pages/Landing/PatientPayments"));
 import { PatientPortal } from "./pages/Landing/components/PatientNav";
+
+// Patient Pages
+import PatientLayout from "./pages/Patient/PatientLayout";
+const PatientDashboard = lazy(() => import("./pages/Patient/PatientDashboard"));
+const MyAppointments = lazy(() => import("./pages/Patient/MyAppointments"));
+const DoctorSearch = lazy(() => import("./pages/Patient/DoctorSearch"));
+const DoctorDetailPage = lazy(() => import("./pages/Patient/DoctorDetailPage"));
+const MedicalRecords = lazy(() => import("./pages/Patient/MedicalRecords"));
+const MyPrescriptions = lazy(() => import("./pages/Patient/MyPrescriptions"));
+const PaymentHistory = lazy(() => import("./pages/Patient/PaymentHistory"));
+
+// Doctor Pages
+import DoctorLayout from "./layout/DoctorLayout";
+const DoctorDashboard = lazy(() => import("./pages/Doctor/DoctorDashboard"));
+const DoctorToday = lazy(() => import("./pages/Doctor/DoctorToday"));
+const DoctorAppointments = lazy(() => import("./pages/Doctor/DoctorAppointments"));
+const DoctorSchedule = lazy(() => import("./pages/Doctor/DoctorSchedule"));
+const DoctorConsultation = lazy(() => import("./pages/Doctor/DoctorConsultation"));
+const DoctorPrescriptions = lazy(() => import("./pages/Doctor/DoctorPrescriptions"));
+const DoctorPatients = lazy(() => import("./pages/Doctor/DoctorPatients"));
+const DoctorReviews = lazy(() => import("./pages/Doctor/DoctorReviews"));
+const DoctorProfileSetup = lazy(() => import("./pages/Doctor/DoctorProfileSetup"));
+const DoctorVerificationCenter = lazy(() => import("./pages/Doctor/DoctorVerificationCenter"));
+const DoctorSettings = lazy(() => import("./pages/Doctor/DoctorSettings"));
+import DoctorProtectedRoute from "./components/auth/DoctorProtectedRoute";
+
+// Shared Pages
+const EditProfile = lazy(() => import("./pages/EditProfile/EditProfile"));
+const AccountSettings = lazy(() => import("./pages/AccountSettings/AccountSettings"));
+const UserSupport = lazy(() => import("./pages/UserSupport/UserSupport"));
+
+// Suspense fallback for lazy-loaded pages
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-brand-500" />
+    </div>
+  );
+}
 
 export default function App() {
   return (
     <AuthProvider>
       <Router>
         <ScrollToTop />
+        <Suspense fallback={<PageLoader />}>
         <Routes>
           {/* Public Landing Pages */}
           <Route element={<LandingLayout />}>
@@ -109,70 +158,76 @@ export default function App() {
             </Route>
           </Route>
 
-          {/* Protected Dashboard Layout */}
+          {/* Protected Dashboard Layout - Admin */}
           <Route element={<ProtectedRoute />}>
             <Route element={<AppLayout />}>
-              <Route index path="/" element={<Home />} />
+              <Route path="/admin" element={<Home />} />
 
-
+              {/* User Management */}
+              <Route path="/admin/user-list" element={<UserList />} />
+              <Route path="/admin/create-user" element={<CreateUser />} />
 
               {/* Doctor Verification */}
-              <Route path="doctor-verification" element={<DoctorVerification />} />
-
+              <Route path="/admin/doctor-verification" element={<DoctorVerification />} />
+              <Route path="/admin/doctor-verification/:doctorId" element={<VerificationDetail />} />
 
             {/* Appointment Management */}
-            <Route path="/appointment-list" element={<AppointmentList />} />
-            <Route path="/appointment-detail/:id" element={<AppointmentDetail />} />
-            <Route path="/appointment-statistics" element={<AppointmentStatistics />} />
+            <Route path="/admin/appointment-list" element={<AppointmentList />} />
+            <Route path="/admin/appointment-detail/:id" element={<AppointmentDetail />} />
+            <Route path="/admin/appointment-statistics" element={<AppointmentStatistics />} />
 
             {/* Time Slot Management */}
-            <Route path="/timeslot-calendar" element={<TimeSlotCalendar />} />
-            <Route path="/timeslot-list" element={<TimeSlotList />} />
-            <Route path="/timeslot-bulk-create" element={<TimeSlotBulkCreate />} />
-            <Route path="/timeslot-templates" element={<TimeSlotTemplates />} />
-            <Route path="/timeslot-rules" element={<TimeSlotRules />} />
+            <Route path="/admin/timeslot-calendar" element={<TimeSlotCalendar />} />
+            <Route path="/admin/timeslot-list" element={<TimeSlotList />} />
+            <Route path="/admin/timeslot-bulk-create" element={<TimeSlotBulkCreate />} />
+            <Route path="/admin/timeslot-templates" element={<TimeSlotTemplates />} />
+            <Route path="/admin/timeslot-rules" element={<TimeSlotRules />} />
 
             {/* Prescription Management */}
-            <Route path="/prescription-list" element={<PrescriptionList />} />
-            <Route path="/prescription-list/:id" element={<PrescriptionDetail />} />
-            <Route path="/prescription-templates" element={<PrescriptionTemplates />} />
+            <Route path="/admin/prescription-list" element={<PrescriptionList />} />
+            <Route path="/admin/prescription-list/:id" element={<PrescriptionDetail />} />
+            <Route path="/admin/prescription-templates" element={<PrescriptionTemplates />} />
 
             {/* Payment Management */}
-            <Route path="/payment-list" element={<PaymentList />} />
-            <Route path="/payment-list/:id" element={<PaymentDetail />} />
+            <Route path="/admin/payment-list" element={<PaymentList />} />
+            <Route path="/admin/payment-list/:id" element={<PaymentDetail />} />
 
             {/* Refund Management */}
-            <Route path="/refund-list" element={<RefundList />} />
-            <Route path="/refund-list/:id" element={<RefundDetail />} />
+            <Route path="/admin/refund-list" element={<RefundList />} />
+            <Route path="/admin/refund-list/:id" element={<RefundDetail />} />
+
+              {/* Review Management */}
+              <Route path="/admin/review-list" element={<ReviewList />} />
+
+              {/* Content Management */}
+              <Route path="/admin/content-list" element={<ContentList />} />
 
               {/* Reports & Analytics */}
-              <Route path="reports-analytics" element={<ReportsAnalytics />} />
-
-              {/* Announcements */}
-              <Route path="announcements" element={<Announcements />} />
+              <Route path="/admin/reports-analytics" element={<ReportsAnalytics />} />
 
             {/* Admin Personal Settings */}
             <Route path="/admin/settings" element={<AdminSettings />} />
 
-
+              {/* Security & Audit */}
+              <Route path="/admin/security-audit" element={<SecurityAudit />} />
 
             {/* Revenue Reports */}
-            <Route path="/revenue-reports" element={<RevenueReports />} />
+            <Route path="/admin/revenue-reports" element={<RevenueReports />} />
 
             {/* GDPR & Compliance */}
-            <Route path="/gdpr-compliance" element={<GDPRCompliance />} />
+            <Route path="/admin/gdpr-compliance" element={<GDPRCompliance />} />
 
             {/* Backup & Maintenance */}
-            <Route path="/backup-maintenance" element={<BackupMaintenance />} />
-            <Route path="/backup-dashboard" element={<BackupDashboard />} />
-            <Route path="/backup-history" element={<BackupHistory />} />
-            <Route path="/manual-backup" element={<ManualBackup />} />
-            <Route path="/restore-backup" element={<RestoreBackup />} />
-            <Route path="/scheduled-maintenance" element={<ScheduledMaintenance />} />
-            <Route path="/system-optimization" element={<SystemOptimization />} />
+            <Route path="/admin/backup-maintenance" element={<BackupMaintenance />} />
+            <Route path="/admin/backup-dashboard" element={<BackupDashboard />} />
+            <Route path="/admin/backup-history" element={<BackupHistory />} />
+            <Route path="/admin/manual-backup" element={<ManualBackup />} />
+            <Route path="/admin/restore-backup" element={<RestoreBackup />} />
+            <Route path="/admin/scheduled-maintenance" element={<ScheduledMaintenance />} />
+            <Route path="/admin/system-optimization" element={<SystemOptimization />} />
 
             {/* Notifications */}
-            <Route path="/notifications" element={<NotificationCenter />} />
+            <Route path="/admin/notifications" element={<NotificationCenter />} />
 
 
             </Route>
@@ -220,27 +275,30 @@ export default function App() {
               <Route path="prescriptions" element={<DoctorPrescriptions />} />
               <Route path="patients" element={<DoctorPatients />} />
               <Route path="reviews" element={<DoctorReviews />} />
+              <Route path="profile-setup" element={<DoctorProfileSetup />} />
+              <Route path="verification-center" element={<DoctorVerificationCenter />} />
+              <Route path="settings" element={<DoctorSettings />} />
               {/* Shared Pages */}
-              <Route path="profile" element={<UserProfiles />} />
+              <Route path="profile" element={<EditProfile />} />
               <Route path="edit-profile" element={<EditProfile />} />
               <Route path="account-settings" element={<AccountSettings />} />
               <Route path="support" element={<UserSupport />} />
             </Route>
           </Route>
 
-          {/* Root redirect — checks role and redirects */}
-          <Route element={<AdminProtectedRoute />}>
-            <Route path="/" element={<Navigate to="/admin" replace />} />
-          </Route>
+          {/* Root redirect */}
+          <Route path="/" element={<Navigate to="/home" replace />} />
 
           {/* Auth Layout */}
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/verify-otp" element={<VerifyOtp />} />
+          <Route path="/verify-account" element={<VerifyAccount />} />
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </Router>
     </AuthProvider>
   );

@@ -62,6 +62,7 @@ public class Invoice {
 
     @Builder.Default
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 10)
     private List<InvoiceItem> items = new ArrayList<>();
 
     @Lob

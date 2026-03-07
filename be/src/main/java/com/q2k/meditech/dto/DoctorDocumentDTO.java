@@ -50,11 +50,11 @@ public class DoctorDocumentDTO {
     public static String getDocTypeDescription(String docType) {
         if (docType == null) return null;
         return switch (docType) {
-            case "LICENSE" -> "Chứng chỉ hành nghề";
-            case "ID" -> "CCCD/CMND";
-            case "DEGREE" -> "Bằng cấp";
-            case "EXPERIENCE" -> "Giấy tờ kinh nghiệm";
-            case "AFFILIATION_PROOF" -> "Giấy xác nhận công tác";
+            case "LICENSE" -> "Practice License";
+            case "ID" -> "ID Card (CCCD/CMND)";
+            case "DEGREE" -> "Degree/Diploma";
+            case "EXPERIENCE" -> "Experience Certificate";
+            case "AFFILIATION_PROOF" -> "Employment Confirmation";
             default -> docType;
         };
     }

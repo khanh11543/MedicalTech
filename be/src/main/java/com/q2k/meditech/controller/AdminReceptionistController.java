@@ -51,7 +51,7 @@ public class AdminReceptionistController {
      * GET /api/admin/receptionists - List all receptionists
      */
     @GetMapping
-    @Transactional
+    @Transactional(readOnly = true)
     @Operation(summary = "List receptionists", description = "Get paginated list of receptionists with optional filters")
     public ResponseEntity<Page<AdminReceptionistDTO>> listReceptionists(
             @Parameter(description = "Search by name, email, or employee ID")
@@ -79,9 +79,6 @@ public class AdminReceptionistController {
             @RequestParam(defaultValue = "desc") String sortOrder) {
 
         log.info("GET /admin/receptionists - q: {}, department: {}, shift: {}, isActive: {}", q, department, shift, isActive);
-
-        // Auto-sync: create Receptionist profiles for users with RECEPTIONIST role who are missing one
-        syncMissingReceptionistProfiles();
 
         Sort sort = sortOrder.equalsIgnoreCase("asc")
                 ? Sort.by(sortBy).ascending()
@@ -228,9 +225,12 @@ public class AdminReceptionistController {
         return ResponseEntity.ok(MessageDTO.success(message));
     }
 
-    // ===== Sync helper =====
+    // ===== Sync endpoint =====
 
-    private void syncMissingReceptionistProfiles() {
+    @PostMapping("/sync")
+    @Transactional
+    @Operation(summary = "Sync missing receptionist profiles", description = "Create Receptionist profiles for users with RECEPTIONIST role who are missing one")
+    public ResponseEntity<MessageDTO> syncReceptionistProfiles() {
         List<User> usersWithoutProfile = userRepository.findUsersWithRoleMissingReceptionistProfile("RECEPTIONIST");
         if (!usersWithoutProfile.isEmpty()) {
             log.info("Syncing {} users with RECEPTIONIST role missing receptionist profile", usersWithoutProfile.size());
@@ -241,9 +241,9 @@ public class AdminReceptionistController {
                         .isActive(user.getIsActive() != null ? user.getIsActive() : true)
                         .build();
                 receptionistRepository.save(receptionist);
-                log.info("Created receptionist profile for user: {} (ID: {})", user.getEmail(), user.getId());
             }
         }
+        return ResponseEntity.ok(MessageDTO.success("Synced " + usersWithoutProfile.size() + " receptionist profiles"));
     }
 
     // ===== Mapper helper =====

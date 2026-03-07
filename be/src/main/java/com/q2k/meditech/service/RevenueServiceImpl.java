@@ -7,6 +7,7 @@ import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.repository.DoctorRepository;
 import com.q2k.meditech.repository.PaymentRepository;
 import com.q2k.meditech.repository.RefundRepository;
+import com.q2k.meditech.util.ExportUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -789,122 +790,71 @@ public class RevenueServiceImpl implements RevenueService {
 
     private byte[] generateExcelReport(RevenueSummaryDTO summary, List<DoctorRevenueDTO> doctors,
                                         PaymentMethodRevenueDTO methods, AppointmentTypeRevenueDTO types) {
-        StringBuilder sb = new StringBuilder();
-        
-        // Header
-        sb.append("REVENUE REPORT\n");
-        sb.append("Period: ").append(summary.getFromDate()).append(" to ").append(summary.getToDate()).append("\n\n");
-        
-        // Summary Section
-        sb.append("=== SUMMARY ===\n");
-        sb.append("Total Revenue,").append(summary.getTotalRevenue()).append("\n");
-        sb.append("Total Transactions,").append(summary.getTotalTransactions()).append("\n");
-        sb.append("Average Transaction,").append(summary.getAverageTransactionValue()).append("\n");
-        sb.append("Net Revenue,").append(summary.getNetRevenue()).append("\n");
-        sb.append("Total Refunds,").append(summary.getTotalRefunds()).append("\n");
-        sb.append("Daily Average,").append(summary.getDailyAverageRevenue()).append("\n\n");
-        
-        // Doctor Revenue Section
-        sb.append("=== REVENUE BY DOCTOR ===\n");
-        sb.append("Rank,Doctor Name,Specialization,Total Revenue,Transaction Count,Average Fee\n");
-        for (DoctorRevenueDTO doc : doctors) {
-            sb.append(doc.getRank()).append(",");
-            sb.append(doc.getDoctorName()).append(",");
-            sb.append(doc.getSpecialization()).append(",");
-            sb.append(doc.getTotalRevenue()).append(",");
-            sb.append(doc.getTransactionCount()).append(",");
-            sb.append(doc.getAverageFee()).append("\n");
+        try {
+            List<String[]> rows = buildRevenueReportRows(summary, doctors, methods, types);
+            List<ExportUtil.ExportColumn<String[]>> columns = List.of(
+                    ExportUtil.ExportColumn.of("Category", r -> r[0]),
+                    ExportUtil.ExportColumn.of("Value", r -> r[1])
+            );
+            return ExportUtil.toExcel(columns, rows, "Revenue Report");
+        } catch (Exception e) {
+            log.error("Error generating Excel revenue report", e);
+            throw new RuntimeException("Failed to generate Excel report", e);
         }
-        sb.append("\n");
-        
-        // Payment Method Section
-        sb.append("=== REVENUE BY PAYMENT METHOD ===\n");
-        sb.append("Method,Revenue,Transactions,Percentage,Success Rate\n");
-        for (PaymentMethodRevenueDTO.MethodBreakdown method : methods.getMethods()) {
-            sb.append(method.getDisplayName()).append(",");
-            sb.append(method.getRevenue()).append(",");
-            sb.append(method.getTransactionCount()).append(",");
-            sb.append(String.format("%.2f%%", method.getPercentage())).append(",");
-            sb.append(String.format("%.2f%%", method.getSuccessRate())).append("\n");
-        }
-        sb.append("\n");
-        
-        // Appointment Type Section
-        sb.append("=== REVENUE BY APPOINTMENT TYPE ===\n");
-        sb.append("Type,Revenue,Count,Percentage,Completion Rate\n");
-        for (AppointmentTypeRevenueDTO.TypeBreakdown type : types.getTypes()) {
-            sb.append(type.getDisplayName()).append(",");
-            sb.append(type.getRevenue()).append(",");
-            sb.append(type.getAppointmentCount()).append(",");
-            sb.append(String.format("%.2f%%", type.getPercentage())).append(",");
-            sb.append(String.format("%.2f%%", type.getCompletionRate())).append("\n");
-        }
-        
-        return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private byte[] generatePdfReport(RevenueSummaryDTO summary, List<DoctorRevenueDTO> doctors,
                                       PaymentMethodRevenueDTO methods, AppointmentTypeRevenueDTO types,
                                       Boolean includeCharts) {
-        StringBuilder sb = new StringBuilder();
-        
-        sb.append("=".repeat(60)).append("\n");
-        sb.append("                    REVENUE REPORT\n");
-        sb.append("=".repeat(60)).append("\n\n");
-        
-        sb.append("Report Period: ").append(summary.getFromDate()).append(" to ").append(summary.getToDate()).append("\n");
-        sb.append("Generated: ").append(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).append("\n\n");
-        
-        // Summary
-        sb.append("-".repeat(60)).append("\n");
-        sb.append("REVENUE SUMMARY\n");
-        sb.append("-".repeat(60)).append("\n");
-        sb.append(String.format("%-30s %,20.0f VND\n", "Total Revenue:", summary.getTotalRevenue().doubleValue()));
-        sb.append(String.format("%-30s %,20d\n", "Total Transactions:", summary.getTotalTransactions()));
-        sb.append(String.format("%-30s %,20.0f VND\n", "Average Transaction:", summary.getAverageTransactionValue().doubleValue()));
-        sb.append(String.format("%-30s %,20.0f VND\n", "Net Revenue:", summary.getNetRevenue().doubleValue()));
-        sb.append(String.format("%-30s %,20.0f VND\n", "Total Refunds:", summary.getTotalRefunds().doubleValue()));
-        sb.append(String.format("%-30s %,20.0f VND\n", "Daily Average:", summary.getDailyAverageRevenue().doubleValue()));
-        
-        if (summary.getRevenueGrowthPercent() != null) {
-            sb.append(String.format("%-30s %19.2f%%\n", "Growth vs Previous Period:", summary.getRevenueGrowthPercent()));
+        try {
+            List<String[]> rows = buildRevenueReportRows(summary, doctors, methods, types);
+            List<ExportUtil.ExportColumn<String[]>> columns = List.of(
+                    ExportUtil.ExportColumn.of("Category", r -> r[0]),
+                    ExportUtil.ExportColumn.of("Value", r -> r[1])
+            );
+            return ExportUtil.toPdf(columns, rows, "Revenue Report — " + summary.getFromDate() + " to " + summary.getToDate());
+        } catch (Exception e) {
+            log.error("Error generating PDF revenue report", e);
+            throw new RuntimeException("Failed to generate PDF report", e);
         }
-        sb.append("\n");
-        
-        // Top Doctors
-        sb.append("-".repeat(60)).append("\n");
-        sb.append("TOP PERFORMING DOCTORS\n");
-        sb.append("-".repeat(60)).append("\n");
+    }
+
+    private List<String[]> buildRevenueReportRows(RevenueSummaryDTO summary, List<DoctorRevenueDTO> doctors,
+                                                   PaymentMethodRevenueDTO methods, AppointmentTypeRevenueDTO types) {
+        List<String[]> rows = new ArrayList<>();
+        rows.add(new String[]{"REVENUE SUMMARY", ""});
+        rows.add(new String[]{"Total Revenue", formatAmount(summary.getTotalRevenue())});
+        rows.add(new String[]{"Total Transactions", String.valueOf(summary.getTotalTransactions())});
+        rows.add(new String[]{"Average Transaction", formatAmount(summary.getAverageTransactionValue())});
+        rows.add(new String[]{"Net Revenue", formatAmount(summary.getNetRevenue())});
+        rows.add(new String[]{"Total Refunds", formatAmount(summary.getTotalRefunds())});
+        rows.add(new String[]{"Daily Average", formatAmount(summary.getDailyAverageRevenue())});
+        if (summary.getRevenueGrowthPercent() != null) {
+            rows.add(new String[]{"Growth vs Previous", String.format("%.2f%%", summary.getRevenueGrowthPercent())});
+        }
+        rows.add(new String[]{"", ""});
+        rows.add(new String[]{"TOP PERFORMING DOCTORS", ""});
         for (int i = 0; i < Math.min(10, doctors.size()); i++) {
             DoctorRevenueDTO doc = doctors.get(i);
-            sb.append(String.format("%d. %-25s %,15.0f VND (%d transactions)\n",
-                    doc.getRank(), doc.getDoctorName(), doc.getTotalRevenue().doubleValue(), doc.getTransactionCount()));
+            rows.add(new String[]{doc.getRank() + ". " + doc.getDoctorName(),
+                    formatAmount(doc.getTotalRevenue()) + " (" + doc.getTransactionCount() + " transactions)"});
         }
-        sb.append("\n");
-        
-        // Payment Methods
-        sb.append("-".repeat(60)).append("\n");
-        sb.append("REVENUE BY PAYMENT METHOD\n");
-        sb.append("-".repeat(60)).append("\n");
+        rows.add(new String[]{"", ""});
+        rows.add(new String[]{"REVENUE BY PAYMENT METHOD", ""});
         for (PaymentMethodRevenueDTO.MethodBreakdown method : methods.getMethods()) {
-            sb.append(String.format("%-15s %,15.0f VND (%5.1f%%)\n",
-                    method.getDisplayName(), method.getRevenue().doubleValue(), method.getPercentage()));
+            rows.add(new String[]{method.getDisplayName(),
+                    formatAmount(method.getRevenue()) + " (" + String.format("%.1f%%", method.getPercentage()) + ")"});
         }
-        sb.append("\n");
-        
-        // Appointment Types
-        sb.append("-".repeat(60)).append("\n");
-        sb.append("REVENUE BY APPOINTMENT TYPE\n");
-        sb.append("-".repeat(60)).append("\n");
+        rows.add(new String[]{"", ""});
+        rows.add(new String[]{"REVENUE BY APPOINTMENT TYPE", ""});
         for (AppointmentTypeRevenueDTO.TypeBreakdown type : types.getTypes()) {
-            sb.append(String.format("%-20s %,15.0f VND (%5.1f%%)\n",
-                    type.getDisplayName(), type.getRevenue().doubleValue(), type.getPercentage()));
+            rows.add(new String[]{type.getDisplayName(),
+                    formatAmount(type.getRevenue()) + " (" + String.format("%.1f%%", type.getPercentage()) + ")"});
         }
-        
-        sb.append("\n").append("=".repeat(60)).append("\n");
-        sb.append("                    END OF REPORT\n");
-        sb.append("=".repeat(60)).append("\n");
-        
-        return sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return rows;
+    }
+
+    private String formatAmount(BigDecimal amount) {
+        return amount != null ? String.format("%,.0f VND", amount) : "0 VND";
     }
 }

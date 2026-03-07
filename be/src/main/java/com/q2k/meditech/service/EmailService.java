@@ -92,6 +92,20 @@ public class EmailService {
     }
 
     /**
+     * Send doctor credentials email with login information
+     */
+    public void sendDoctorCredentialsEmail(String email, String name, String tempPassword, String verifyUrl) {
+        try {
+            String subject = "Your MedicalTech Doctor Account Has Been Created";
+            String htmlContent = buildDoctorCredentialsEmailTemplate(name, email, tempPassword, verifyUrl);
+            sendHtmlEmail(email, subject, htmlContent);
+            log.info("Doctor credentials email sent to: {}", email);
+        } catch (Exception e) {
+            log.error("Failed to send doctor credentials email to: {}", email, e);
+        }
+    }
+
+    /**
      * Send account locked notification
      */
     public void sendAccountLockedEmail(String email) {
@@ -222,6 +236,58 @@ public class EmailService {
                 "        </div>\n" +
                 "        <div class='footer'>\n" +
                 "            <p>© 2026 MedicalTech. All rights reserved.</p>\n" +
+                "        </div>\n" +
+                "    </div>\n" +
+                "</body>\n" +
+                "</html>";
+    }
+
+    /**
+     * Build Doctor Credentials email HTML template
+     */
+    private String buildDoctorCredentialsEmailTemplate(String name, String email, String tempPassword, String verifyUrl) {
+        return "<!DOCTYPE html>\n" +
+                "<html>\n" +
+                "<head>\n" +
+                "    <meta charset='UTF-8'>\n" +
+                "    <style>\n" +
+                "        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n" +
+                "        .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n" +
+                "        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }\n" +
+                "        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }\n" +
+                "        .credentials-box { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }\n" +
+                "        .credentials-box p { margin: 8px 0; }\n" +
+                "        .footer { text-align: center; margin-top: 20px; color: #777; font-size: 12px; }\n" +
+                "        .warning { color: #e74c3c; font-size: 14px; margin-top: 15px; }\n" +
+                "    </style>\n" +
+                "</head>\n" +
+                "<body>\n" +
+                "    <div class='container'>\n" +
+                "        <div class='header'>\n" +
+                "            <h1>\uD83C\uDFE5 MedicalTech</h1>\n" +
+                "        </div>\n" +
+                "        <div class='content'>\n" +
+                "            <h2>Chào mừng bạn đến với MedicalTech!</h2>\n" +
+                "            <p>Xin chào <strong>" + name + "</strong>,</p>\n" +
+                "            <p>Tài khoản bác sĩ của bạn đã được tạo thành công. Dưới đây là thông tin đăng nhập:</p>\n" +
+                "            <div class='credentials-box'>\n" +
+                "                <p><strong>Email đăng nhập:</strong> " + email + "</p>\n" +
+                "                <p><strong>Mật khẩu:</strong> " + tempPassword + "</p>\n" +
+                "            </div>\n" +
+                "            <div style='text-align: center; margin: 25px 0;'>\n" +
+                "                <a href='" + verifyUrl + "' style='display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;'>Xác thực tài khoản</a>\n" +
+                "            </div>\n" +
+                "            <p style='text-align: center; color: #888; font-size: 12px;'>Hoặc copy link: <br/>" + verifyUrl + "</p>\n" +
+                "            <p class='warning'>⚠️ <strong>Lưu ý quan trọng:</strong></p>\n" +
+                "            <ul>\n" +
+                "                <li>Vui lòng đổi mật khẩu ngay sau khi đăng nhập lần đầu</li>\n" +
+                "                <li>Không chia sẻ thông tin đăng nhập với bất kỳ ai</li>\n" +
+                "                <li>Nhấn nút \"Xác thực tài khoản\" ở trên để kích hoạt tài khoản</li>\n" +
+                "            </ul>\n" +
+                "        </div>\n" +
+                "        <div class='footer'>\n" +
+                "            <p>© 2026 MedicalTech. All rights reserved.</p>\n" +
+                "            <p>Email này được gửi tự động, vui lòng không trả lời.</p>\n" +
                 "        </div>\n" +
                 "    </div>\n" +
                 "</body>\n" +

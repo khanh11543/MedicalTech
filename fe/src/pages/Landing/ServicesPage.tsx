@@ -198,7 +198,7 @@ export default function ServicesPage() {
     <>
       <PageTitle
         title="Services"
-        description="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo."
+        description="Our healthcare services are designed to provide comprehensive, patient-centered care using modern medical technology and experienced healthcare professionals. From preventive checkups to specialized treatments, we are committed to supporting your health at every stage of life."
         breadcrumbs={[
           { label: "Home", to: "/home" },
           { label: "Category" },
@@ -250,9 +250,7 @@ export default function ServicesPage() {
                 Ready to Schedule Your Appointment?
               </h3>
               <p className="svc-cta-desc">
-                Duis aute irure dolor in reprehenderit in voluptate velit esse
-                cillum dolore eu fugiat nulla pariatur excepteur sint occaecat
-                cupidatat non proident.
+                Book an appointment with our experienced medical professionals and receive personalized care tailored to your health needs. Our team is here to support your health and well-being every step of the way.
               </p>
               <div className="svc-cta-buttons">
                 <Link to="/appointment" className="svc-btn-book">

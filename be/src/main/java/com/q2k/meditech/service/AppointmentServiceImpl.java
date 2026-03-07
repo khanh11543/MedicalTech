@@ -12,6 +12,7 @@ import com.q2k.meditech.exception.AppointmentException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.dto.mapper.AppointmentMapper;
 import com.q2k.meditech.repository.*;
+import com.q2k.meditech.util.ExportUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -1069,13 +1070,23 @@ public class AppointmentServiceImpl implements AppointmentService {
         // Convert status enum to string if present
         String statusStr = filter.getStatus() != null ? filter.getStatus().name() : null;
         
+        // Build statuses list for multi-status filter
+        List<AppointmentStatus> statusesList = null;
+        if (filter.getStatuses() != null && !filter.getStatuses().isEmpty()) {
+            statusesList = filter.getStatuses();
+        }
+        
         // Use the new admin query with JOIN FETCH to avoid lazy loading issues
         Page<Appointment> appointments = appointmentRepository.findAllWithFiltersAdmin(
                 filter.getDoctorId(),
                 filter.getPatientId(),
                 statusStr,
+                statusesList,
                 filter.getFrom(),
                 filter.getTo(),
+                filter.getAppointmentType(),
+                filter.getPaymentStatus(),
+                filter.getSearch(),
                 pageable
         );
         
@@ -1464,15 +1475,68 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
     
     private byte[] exportToExcel(List<Appointment> appointments, List<String> columns) {
-        // For simplicity, return CSV format with .xlsx content type
-        // In production, use Apache POI for proper Excel export
-        return exportToCsv(appointments, columns);
+        try {
+            return ExportUtil.toExcel(buildAppointmentColumns(columns), appointments, "Appointments");
+        } catch (Exception e) {
+            log.error("Error exporting to Excel", e);
+            throw new RuntimeException("Failed to export appointments to Excel", e);
+        }
     }
     
     private byte[] exportToPdf(List<Appointment> appointments, List<String> columns) {
-        // For simplicity, return CSV format
-        // In production, use iText or Apache PDFBox for proper PDF export
-        return exportToCsv(appointments, columns);
+        try {
+            return ExportUtil.toPdf(buildAppointmentColumns(columns), appointments, "Appointments Report");
+        } catch (Exception e) {
+            log.error("Error exporting to PDF", e);
+            throw new RuntimeException("Failed to export appointments to PDF", e);
+        }
+    }
+
+    private List<ExportUtil.ExportColumn<Appointment>> buildAppointmentColumns(List<String> columns) {
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+        List<ExportUtil.ExportColumn<Appointment>> exportColumns = new ArrayList<>();
+        for (String col : columns) {
+            exportColumns.add(ExportUtil.ExportColumn.of(col, apt -> {
+                try {
+                    return switch (col) {
+                        case "appointmentCode" -> apt.getAppointmentCode() != null ? apt.getAppointmentCode() : "";
+                        case "patientName" -> apt.getPatient() != null && apt.getPatient().getUser() != null
+                                ? apt.getPatient().getUser().getFullName() : "";
+                        case "patientPhone" -> apt.getPatient() != null && apt.getPatient().getUser() != null
+                                && apt.getPatient().getUser().getPhone() != null
+                                ? apt.getPatient().getUser().getPhone() : "";
+                        case "patientEmail" -> apt.getPatient() != null && apt.getPatient().getUser() != null
+                                && apt.getPatient().getUser().getEmail() != null
+                                ? apt.getPatient().getUser().getEmail() : "";
+                        case "doctorName" -> apt.getDoctor() != null && apt.getDoctor().getUser() != null
+                                ? apt.getDoctor().getUser().getFullName() : "";
+                        case "specialty" -> apt.getDoctor() != null && apt.getDoctor().getSpecialization() != null
+                                ? apt.getDoctor().getSpecialization() : "";
+                        case "appointmentDate" -> apt.getAppointmentDate() != null
+                                ? apt.getAppointmentDate().format(dateFormatter) : "";
+                        case "startTime" -> apt.getStartTime() != null
+                                ? apt.getStartTime().format(timeFormatter) : "";
+                        case "endTime" -> apt.getEndTime() != null
+                                ? apt.getEndTime().format(timeFormatter) : "";
+                        case "status" -> apt.getStatus() != null ? apt.getStatus().name() : "";
+                        case "reasonForVisit" -> apt.getReasonForVisit() != null ? apt.getReasonForVisit() : "";
+                        case "symptoms" -> apt.getSymptoms() != null ? apt.getSymptoms() : "";
+                        case "notes" -> apt.getNotes() != null ? apt.getNotes() : "";
+                        case "queueNumber" -> apt.getQueueNumber() != null ? apt.getQueueNumber().toString() : "";
+                        case "bookedBy" -> apt.getBookedBy() != null ? apt.getBookedBy().name() : "";
+                        case "createdAt" -> apt.getCreatedAt() != null
+                                ? apt.getCreatedAt().format(dateTimeFormatter) : "";
+                        default -> "";
+                    };
+                } catch (Exception e) {
+                    return "";
+                }
+            }));
+        }
+        return exportColumns;
     }
     
     // ==================== HELPER METHODS ====================
@@ -2056,42 +2120,25 @@ public class AppointmentServiceImpl implements AppointmentService {
         Appointment appointment = getAppointmentEntity(appointmentId);
         List<AppointmentHistory> histories = historyRepository.findByAppointmentIdOrderByChangedAtDesc(appointmentId);
         
-        // For simplicity, return a text-based representation
-        // In production, use iText or Apache PDFBox
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             PrintWriter writer = new PrintWriter(new OutputStreamWriter(baos, StandardCharsets.UTF_8))) {
-            
-            writer.println("APPOINTMENT HISTORY REPORT");
-            writer.println("========================");
-            writer.println();
-            writer.printf("Appointment Code: %s%n", appointment.getAppointmentCode());
-            writer.printf("Patient: %s%n", appointment.getPatient().getUser().getFullName());
-            writer.printf("Doctor: %s%n", appointment.getDoctor().getUser().getFullName());
-            writer.printf("Date: %s%n", appointment.getAppointmentDate());
-            writer.printf("Time: %s - %s%n", appointment.getStartTime(), appointment.getEndTime());
-            writer.printf("Current Status: %s%n", appointment.getStatus());
-            writer.println();
-            writer.println("HISTORY TIMELINE");
-            writer.println("----------------");
-            
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            for (AppointmentHistory h : histories) {
-                writer.printf("[%s] %s%n", 
-                        h.getChangedAt() != null ? h.getChangedAt().format(formatter) : "N/A",
-                        h.getAction());
-                if (h.getOldStatus() != null && h.getNewStatus() != null) {
-                    writer.printf("   Status: %s -> %s%n", h.getOldStatus(), h.getNewStatus());
-                }
-                if (h.getReason() != null) {
-                    writer.printf("   Reason: %s%n", h.getReason());
-                }
-                writer.printf("   By: %s (%s)%n", h.getChangedByRole(), h.getChangedByUserId());
-                writer.println();
-            }
-            
-            writer.flush();
-            return baos.toByteArray();
-            
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        List<ExportUtil.ExportColumn<AppointmentHistory>> columns = List.of(
+                ExportUtil.ExportColumn.of("Time", h -> h.getChangedAt() != null ? h.getChangedAt().format(formatter) : ""),
+                ExportUtil.ExportColumn.of("Action", h -> h.getAction() != null ? h.getAction() : ""),
+                ExportUtil.ExportColumn.of("Old Status", h -> h.getOldStatus() != null ? h.getOldStatus().name() : ""),
+                ExportUtil.ExportColumn.of("New Status", h -> h.getNewStatus() != null ? h.getNewStatus().name() : ""),
+                ExportUtil.ExportColumn.of("Reason", h -> h.getReason() != null ? h.getReason() : ""),
+                ExportUtil.ExportColumn.of("Changed By", h -> (h.getChangedByRole() != null ? h.getChangedByRole() : "") + " (" + h.getChangedByUserId() + ")")
+        );
+
+        String title = String.format("Appointment History — %s | Patient: %s | Doctor: %s | Date: %s",
+                appointment.getAppointmentCode(),
+                appointment.getPatient().getUser().getFullName(),
+                appointment.getDoctor().getUser().getFullName(),
+                appointment.getAppointmentDate());
+
+        try {
+            return ExportUtil.toPdf(columns, histories, title);
         } catch (Exception e) {
             log.error("Error exporting history to PDF", e);
             throw new RuntimeException("Failed to export appointment history", e);
@@ -2852,58 +2899,43 @@ public class AppointmentServiceImpl implements AppointmentService {
         
         AppointmentSummaryStatsDTO summary = getSummaryStatistics(from, to, doctorId);
         StatusDistributionDTO statusDist = getStatusDistribution(from, to, doctorId);
-        
-        try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             PrintWriter writer = new PrintWriter(new OutputStreamWriter(baos, StandardCharsets.UTF_8))) {
-            
-            writer.println("APPOINTMENT STATISTICS REPORT");
-            writer.println("=============================");
-            writer.println();
-            writer.printf("Period: %s to %s%n", from, to);
-            if (doctorId != null) {
-                writer.printf("Doctor ID: %d%n", doctorId);
-            }
-            writer.println();
-            
-            writer.println("SUMMARY");
-            writer.println("-------");
-            writer.printf("Total Appointments: %d%n", summary.getTotalAppointments());
-            writer.printf("Completed: %d%n", summary.getCompletedAppointments());
-            writer.printf("Cancelled: %d%n", summary.getCancelledAppointments());
-            writer.printf("No-Show: %d%n", summary.getNoShowAppointments());
-            writer.println();
-            
-            writer.println("RATES");
-            writer.println("-----");
-            writer.printf("Completion Rate: %.2f%%%n", summary.getCompletionRate());
-            writer.printf("Cancellation Rate: %.2f%%%n", summary.getCancellationRate());
-            writer.printf("No-Show Rate: %.2f%%%n", summary.getNoShowRate());
-            writer.println();
-            
-            writer.println("COMPARISON WITH PREVIOUS PERIOD");
-            writer.println("-------------------------------");
-            writer.printf("Previous Period Total: %d%n", summary.getPreviousPeriodTotal());
-            writer.printf("Change: %.2f%%%n", summary.getChangePercentage());
-            writer.println();
-            
-            writer.println("AVERAGES");
-            writer.println("--------");
-            writer.printf("Per Day: %.2f%n", summary.getAverageAppointmentsPerDay());
-            writer.printf("Per Doctor: %.2f%n", summary.getAverageAppointmentsPerDoctor());
-            writer.println();
-            
-            writer.println("STATUS DISTRIBUTION");
-            writer.println("-------------------");
-            for (StatusDistributionDTO.StatusCount sc : statusDist.getDistribution()) {
-                writer.printf("%s: %d (%.2f%%)%n", sc.getStatusDisplayName(), sc.getCount(), sc.getPercentage());
-            }
-            
-            writer.println();
-            writer.printf("Generated: %s%n", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-            
-            writer.flush();
-            return baos.toByteArray();
-            
+
+        // Build a flat list of key-value rows for the PDF table
+        List<String[]> rows = new ArrayList<>();
+        rows.add(new String[]{"Period", from + " to " + to});
+        if (doctorId != null) rows.add(new String[]{"Doctor ID", doctorId.toString()});
+        rows.add(new String[]{"", ""});
+        rows.add(new String[]{"SUMMARY", ""});
+        rows.add(new String[]{"Total Appointments", String.valueOf(summary.getTotalAppointments())});
+        rows.add(new String[]{"Completed", String.valueOf(summary.getCompletedAppointments())});
+        rows.add(new String[]{"Cancelled", String.valueOf(summary.getCancelledAppointments())});
+        rows.add(new String[]{"No-Show", String.valueOf(summary.getNoShowAppointments())});
+        rows.add(new String[]{"", ""});
+        rows.add(new String[]{"RATES", ""});
+        rows.add(new String[]{"Completion Rate", String.format("%.2f%%", summary.getCompletionRate())});
+        rows.add(new String[]{"Cancellation Rate", String.format("%.2f%%", summary.getCancellationRate())});
+        rows.add(new String[]{"No-Show Rate", String.format("%.2f%%", summary.getNoShowRate())});
+        rows.add(new String[]{"", ""});
+        rows.add(new String[]{"COMPARISON", ""});
+        rows.add(new String[]{"Previous Period Total", String.valueOf(summary.getPreviousPeriodTotal())});
+        rows.add(new String[]{"Change", String.format("%.2f%%", summary.getChangePercentage())});
+        rows.add(new String[]{"", ""});
+        rows.add(new String[]{"AVERAGES", ""});
+        rows.add(new String[]{"Per Day", String.format("%.2f", summary.getAverageAppointmentsPerDay())});
+        rows.add(new String[]{"Per Doctor", String.format("%.2f", summary.getAverageAppointmentsPerDoctor())});
+        rows.add(new String[]{"", ""});
+        rows.add(new String[]{"STATUS DISTRIBUTION", ""});
+        for (StatusDistributionDTO.StatusCount sc : statusDist.getDistribution()) {
+            rows.add(new String[]{sc.getStatusDisplayName(), sc.getCount() + " (" + String.format("%.2f%%", sc.getPercentage()) + ")"});
+        }
+
+        List<ExportUtil.ExportColumn<String[]>> columns = List.of(
+                ExportUtil.ExportColumn.of("Metric", r -> r[0]),
+                ExportUtil.ExportColumn.of("Value", r -> r[1])
+        );
+
+        try {
+            return ExportUtil.toPdf(columns, rows, "Appointment Statistics Report");
         } catch (Exception e) {
             log.error("Error exporting statistics to PDF", e);
             throw new RuntimeException("Failed to export statistics", e);

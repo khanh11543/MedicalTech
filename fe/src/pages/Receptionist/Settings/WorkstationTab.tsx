@@ -109,8 +109,17 @@ export default function WorkstationTab() {
     }
   };
 
-  const update = (field: keyof WorkstationSettings, value: any) => {
-    setSettings({ ...settings, [field]: value });
+  const update = async (field: keyof WorkstationSettings, value: any) => {
+    const newSettings = { ...settings, [field]: value };
+    setSettings(newSettings);
+    try {
+      const { hasPinSet, ...toSave } = newSettings;
+      const data = await userSettingsService.updateWorkstationSettings(toSave);
+      setSettings(data);
+      window.dispatchEvent(new Event("workstation-settings-updated"));
+    } catch {
+      setSettings(settings); // revert on error
+    }
   };
 
   if (loading) {

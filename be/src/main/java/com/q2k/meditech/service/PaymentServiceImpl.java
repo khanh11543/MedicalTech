@@ -10,6 +10,7 @@ import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.exception.DuplicateResourceException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.*;
+import com.q2k.meditech.util.ExportUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -1687,47 +1688,33 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private byte[] generateExcelExport(List<PaymentDTO> payments) {
-        // Simple tab-separated values that Excel can open
-        StringBuilder excel = new StringBuilder();
-        
-        // Header
-        excel.append("Payment Code\tPatient Name\tAmount\tPayment Method\tStatus\tPayment Date\tCreated At\n");
-        
-        // Data rows
-        for (PaymentDTO p : payments) {
-            excel.append(String.format("%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-                    p.getPaymentCode(),
-                    p.getPatientName(),
-                    p.getTotalAmount(),
-                    p.getPaymentMethod() != null ? p.getPaymentMethod() : "",
-                    p.getPaymentStatus(),
-                    p.getPaidAt() != null ? p.getPaidAt().toString() : "",
-                    p.getCreatedAt() != null ? p.getCreatedAt().toString() : ""));
+        try {
+            return ExportUtil.toExcel(paymentExportColumns(), payments, "Payments");
+        } catch (Exception e) {
+            log.error("Error generating Excel export", e);
+            throw new RuntimeException("Failed to generate Excel export", e);
         }
-        
-        return excel.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
     }
 
     private byte[] generatePdfExport(List<PaymentDTO> payments) {
-        // Simple text-based PDF content
-        StringBuilder pdf = new StringBuilder();
-        pdf.append("PAYMENT EXPORT REPORT\n");
-        pdf.append("=====================\n\n");
-        pdf.append(String.format("Generated: %s\n", LocalDateTime.now()));
-        pdf.append(String.format("Total Records: %d\n\n", payments.size()));
-        
-        for (PaymentDTO p : payments) {
-            pdf.append(String.format("---\nCode: %s\nPatient: %s\nAmount: %s %s\nMethod: %s\nStatus: %s\nDate: %s\n",
-                    p.getPaymentCode(),
-                    p.getPatientName(),
-                    p.getTotalAmount(),
-                    p.getCurrency(),
-                    p.getPaymentMethod() != null ? p.getPaymentMethod() : "N/A",
-                    p.getPaymentStatus(),
-                    p.getPaidAt() != null ? p.getPaidAt().toString() : "Not paid"));
+        try {
+            return ExportUtil.toPdf(paymentExportColumns(), payments, "Payment Export Report");
+        } catch (Exception e) {
+            log.error("Error generating PDF export", e);
+            throw new RuntimeException("Failed to generate PDF export", e);
         }
-        
-        return pdf.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    private List<ExportUtil.ExportColumn<PaymentDTO>> paymentExportColumns() {
+        return List.of(
+                ExportUtil.ExportColumn.of("Payment Code", PaymentDTO::getPaymentCode),
+                ExportUtil.ExportColumn.of("Patient Name", PaymentDTO::getPatientName),
+                ExportUtil.ExportColumn.of("Amount", p -> p.getTotalAmount() != null ? p.getTotalAmount().toPlainString() : ""),
+                ExportUtil.ExportColumn.of("Payment Method", p -> p.getPaymentMethod() != null ? p.getPaymentMethod() : ""),
+                ExportUtil.ExportColumn.of("Status", p -> p.getPaymentStatus() != null ? p.getPaymentStatus() : ""),
+                ExportUtil.ExportColumn.of("Payment Date", p -> p.getPaidAt() != null ? p.getPaidAt().toString() : ""),
+                ExportUtil.ExportColumn.of("Created At", p -> p.getCreatedAt() != null ? p.getCreatedAt().toString() : "")
+        );
     }
 
     private String escapeCSV(String value) {

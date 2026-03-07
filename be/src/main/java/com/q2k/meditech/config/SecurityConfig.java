@@ -31,6 +31,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final MaintenanceFilter maintenanceFilter;
+    private final DoctorVerificationFilter doctorVerificationFilter;
 
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -90,6 +91,9 @@ public class SecurityConfig {
                                                 // Receptionist endpoints - require RECEPTIONIST role
                                                 .requestMatchers("/receptionist/**").hasRole("RECEPTIONIST")
 
+                                                // Doctor endpoints - require DOCTOR role
+                                                .requestMatchers("/doctor/**").hasRole("DOCTOR")
+
                                                 // All other requests need authentication
                                                 .anyRequest().authenticated())
 
@@ -134,7 +138,10 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
 
                 // Add Maintenance filter after JWT (so we can check roles)
-                .addFilterAfter(maintenanceFilter, JwtAuthenticationFilter.class);
+                .addFilterAfter(maintenanceFilter, JwtAuthenticationFilter.class)
+
+                // Add Doctor verification filter after Maintenance filter
+                .addFilterAfter(doctorVerificationFilter, MaintenanceFilter.class);
 
                 return http.build();
         }

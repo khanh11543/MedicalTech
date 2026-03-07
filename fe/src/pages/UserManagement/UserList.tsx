@@ -1,6 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
+import { useDebounce } from "../../hooks/useDebounce";
+import { TableSkeleton } from "../../components/ui/skeleton/Skeleton";
 import {
   Table,
   TableBody,
@@ -9,6 +14,8 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import Badge from "../../components/ui/badge/Badge";
+import { useWorkstation } from "../../context/WorkstationContext";
+import { maskPhone, maskEmail } from "../../utils/privacyMask";
 import adminService, { User, UserDetail, UserRoleDetail, Page } from "../../services/adminService";
 
 const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api").replace(/\/$/, "");
@@ -27,6 +34,9 @@ interface Filters {
 }
 
 export default function UserList() {
+  const navigate = useNavigate();
+  const { settings: wsSettings } = useWorkstation();
+  const { toast, showToast, dismissToast } = useToast();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<UserDetail | null>(null);
@@ -46,6 +56,7 @@ export default function UserList() {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [roleMap, setRoleMap] = useState<Record<string, number>>({});
+  const debouncedSearch = useDebounce(filters.search, 400);
 
   // Fetch available roles from backend on mount
   useEffect(() => {
@@ -66,7 +77,7 @@ export default function UserList() {
         sortOrder: "desc",
       };
 
-      if (filters.search) params.q = filters.search;
+      if (debouncedSearch) params.q = debouncedSearch;
       if (filters.role) params.role = filters.role;
       if (filters.isActive !== "") params.isActive = filters.isActive === "true";
 
@@ -102,17 +113,16 @@ export default function UserList() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, filters]);
+  }, [page, pageSize, debouncedSearch, filters.role, filters.isActive]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  // Reset page when debounced search changes
+  useEffect(() => {
     setPage(0);
-    fetchUsers();
-  };
+  }, [debouncedSearch]);
 
   const handleFilterChange = (key: keyof Filters, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -125,12 +135,15 @@ export default function UserList() {
   };
 
   const handleStatusToggle = async (userId: number, currentStatus: boolean) => {
+    const prev = users;
+    setUsers(u => u.map(x => x.id === userId ? { ...x, isActive: !currentStatus } : x));
     try {
       await adminService.updateUserStatus(userId, !currentStatus);
-      fetchUsers();
+      showToast(`User ${!currentStatus ? "activated" : "deactivated"} successfully`, "success");
     } catch (err) {
       console.error("Failed to update user status:", err);
-      alert("Failed to update user status");
+      setUsers(prev);
+      showToast("Failed to update user status", "error");
     }
   };
 
@@ -139,15 +152,13 @@ export default function UserList() {
     try {
       setResetPasswordLoading(userId);
       await adminService.resetUserPassword(userId);
-      alert(`Password reset successfully! New password has been sent to ${userEmail}.`);
+      showToast(`Password reset sent to ${userEmail}`, "success");
     } catch (err: unknown) {
       console.error("Failed to reset password:", err);
-      if (err && typeof err === 'object' && 'response' in err) {
-        const axiosError = err as { response?: { data?: { message?: string } } };
-        alert(axiosError.response?.data?.message || "Failed to reset password");
-      } else {
-        alert("Failed to reset password");
-      }
+      const msg = (err && typeof err === 'object' && 'response' in err)
+        ? (err as { response?: { data?: { message?: string } } }).response?.data?.message || "Failed to reset password"
+        : "Failed to reset password";
+      showToast(msg, "error");
     } finally {
       setResetPasswordLoading(null);
     }
@@ -157,16 +168,19 @@ export default function UserList() {
     if (currentRoles.includes(newRole)) return;
     const roleId = roleMap[newRole];
     if (!roleId) {
-      alert(`Role ID not found for ${newRole}. Please reload the page.`);
+      showToast(`Role ID not found for ${newRole}. Please reload the page.`, "error");
       return;
     }
     if (!confirm(`Change this user's role to ${newRole}?`)) return;
+    const prev = users;
+    setUsers(u => u.map(x => x.id === userId ? { ...x, roles: [newRole] } : x));
     try {
       await adminService.assignRoles(userId, [roleId]);
-      fetchUsers();
+      showToast(`Role changed to ${newRole}`, "success");
     } catch (err) {
       console.error("Failed to change role:", err);
-      alert("Failed to change role");
+      setUsers(prev);
+      showToast("Failed to change role", "error");
     }
   };
 
@@ -178,7 +192,7 @@ export default function UserList() {
       setSelectedUser(detail);
     } catch (err) {
       console.error("Failed to fetch user detail:", err);
-      alert("Failed to load user details");
+      showToast("Failed to load user details", "error");
       setShowViewModal(false);
     } finally {
       setViewLoading(false);
@@ -254,6 +268,13 @@ export default function UserList() {
                 Total: {totalElements} users
               </span>
               <button
+                onClick={() => navigate('/admin/create-user')}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 flex items-center gap-1.5 transition"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                Create New User
+              </button>
+              <button
                 onClick={() => setShowFilters(!showFilters)}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 dark:text-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600"
               >
@@ -265,7 +286,7 @@ export default function UserList() {
           {/* Filters */}
           {showFilters && (
             <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
-              <form onSubmit={handleSearch} className="flex flex-wrap items-end gap-4">
+              <div className="flex flex-wrap items-end gap-4">
                 <div className="flex-1 min-w-[200px]">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Search
@@ -312,12 +333,6 @@ export default function UserList() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    type="submit"
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600"
-                  >
-                    Search
-                  </button>
-                  <button
                     type="button"
                     onClick={clearFilters}
                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 dark:text-gray-300 dark:bg-gray-600 dark:hover:bg-gray-500"
@@ -325,18 +340,15 @@ export default function UserList() {
                     Clear
                   </button>
                 </div>
-              </form>
+              </div>
             </div>
           )}
 
           {/* Table */}
           <div className="overflow-hidden">
             <div className="max-w-full overflow-x-auto">
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                  <span className="ml-3 text-gray-500 dark:text-gray-400">Loading users...</span>
-                </div>
+              {loading && !users.length ? (
+                <TableSkeleton rows={pageSize > 10 ? 10 : pageSize} cols={7} />
               ) : error ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-center">
@@ -406,13 +418,13 @@ export default function UserList() {
                                 #{user.id}
                               </span>
                               {user.phone && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400">{user.phone}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">{wsSettings.hidePhoneNumber ? maskPhone(user.phone) : user.phone}</p>
                               )}
                             </div>
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                          {user.email}
+                          {wsSettings.hideEmail ? maskEmail(user.email) : user.email}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-start">
                           <select
@@ -579,7 +591,7 @@ export default function UserList() {
                           ? `${selectedUser.doctorProfile.firstName} ${selectedUser.doctorProfile.lastName}`
                           : `User #${selectedUser.id}`}
                     </h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{selectedUser.email}</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{wsSettings.hideEmail ? maskEmail(selectedUser.email) : selectedUser.email}</p>
                     <div className="flex flex-wrap gap-2 mt-2">
                       {selectedUser.roles.map((role: UserRoleDetail) => (
                         <Badge key={role.roleName} size="sm" color={getRoleBadgeColor(role.roleName) as "primary" | "success" | "info" | "warning" | "light"}>
@@ -605,8 +617,8 @@ export default function UserList() {
                   <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-3">Account Information</h4>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                     <InfoRow label="User ID" value={`#${selectedUser.id}`} />
-                    <InfoRow label="Email" value={selectedUser.email} />
-                    <InfoRow label="Phone" value={selectedUser.phone || "N/A"} />
+                    <InfoRow label="Email" value={wsSettings.hideEmail ? maskEmail(selectedUser.email) : selectedUser.email} />
+                    <InfoRow label="Phone" value={wsSettings.hidePhoneNumber ? maskPhone(selectedUser.phone) : (selectedUser.phone || "N/A")} />
                     <InfoRow label="2FA Enabled" value={selectedUser.twoFactorEnabled ? "Yes" : "No"} />
                     <InfoRow label="Failed Logins" value={String(selectedUser.failedLoginCount)} />
                     <InfoRow label="Locked Until" value={selectedUser.lockedUntil ? formatDateTime(selectedUser.lockedUntil) : "Not locked"} />
@@ -629,7 +641,7 @@ export default function UserList() {
                       <InfoRow label="District" value={selectedUser.patientProfile.district || "N/A"} />
                       <InfoRow label="Ward" value={selectedUser.patientProfile.ward || "N/A"} />
                       <InfoRow label="Emergency Contact" value={selectedUser.patientProfile.emergencyContactName || "N/A"} />
-                      <InfoRow label="Emergency Phone" value={selectedUser.patientProfile.emergencyContactPhone || "N/A"} />
+                      <InfoRow label="Emergency Phone" value={wsSettings.hidePhoneNumber ? maskPhone(selectedUser.patientProfile.emergencyContactPhone) : (selectedUser.patientProfile.emergencyContactPhone || "N/A")} />
                     </div>
                   </div>
                 )}
@@ -678,6 +690,7 @@ export default function UserList() {
           to { opacity: 1; transform: scale(1); }
         }
       `}</style>
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

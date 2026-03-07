@@ -23,7 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Implementation of PublicDoctorService
@@ -64,9 +67,22 @@ public class PublicDoctorServiceImpl implements PublicDoctorService {
                 query, specialtyId, city, minFee, maxFee, pageable
         );
 
-        // Convert to DTOs with specialties
+        // Batch load specialties for all doctors in this page (avoids N+1)
+        List<Long> doctorIds = doctors.getContent().stream()
+                .map(Doctor::getId)
+                .collect(Collectors.toList());
+
+        Map<Long, List<DoctorSpecialty>> specialtiesMap = Collections.emptyMap();
+        if (!doctorIds.isEmpty()) {
+            specialtiesMap = doctorSpecialtyRepository.findByDoctorIdInWithSpecialty(doctorIds)
+                    .stream()
+                    .collect(Collectors.groupingBy(ds -> ds.getDoctor().getId()));
+        }
+
+        Map<Long, List<DoctorSpecialty>> finalSpecialtiesMap = specialtiesMap;
+        // Convert to DTOs with pre-loaded specialties
         return doctors.map(doctor -> {
-            List<DoctorSpecialty> specialties = doctorSpecialtyRepository.findByDoctorIdWithSpecialty(doctor.getId());
+            List<DoctorSpecialty> specialties = finalSpecialtiesMap.getOrDefault(doctor.getId(), List.of());
             return doctorMapper.toCardDTO(doctor, specialties);
         });
     }

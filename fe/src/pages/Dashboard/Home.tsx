@@ -2,10 +2,80 @@ import { useEffect, useState } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import { Navigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
+import adminService, {
+  DashboardStatistics,
+  RecentUser,
+  RecentAppointment,
+} from "../../services/adminService";
+import Badge from "../../components/ui/badge/Badge";
+import { useWorkstation } from "../../context/WorkstationContext";
+import { maskEmail } from "../../utils/privacyMask";
+import {
+  GroupIcon,
+  CheckCircleIcon,
+  CalenderIcon,
+  DocsIcon,
+  TaskIcon,
+  ArrowUpIcon,
+} from "../../icons";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  ArcElement,
+  Tooltip,
+  Legend,
+} from "chart.js";
+import { Bar, Pie, Doughnut } from "react-chartjs-2";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
+
+const StatCard = ({
+  title,
+  value,
+  icon,
+  color,
+  subtitle,
+}: {
+  title: string;
+  value: string | number;
+  icon: React.ReactNode;
+  color: string;
+  subtitle?: string;
+}) => {
+  const colorMap: Record<string, string> = {
+    primary: "bg-blue-500",
+    success: "bg-green-500",
+    info: "bg-cyan-500",
+    warning: "bg-yellow-500",
+    error: "bg-red-500",
+  };
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
+          <h3 className="mt-1 text-2xl font-bold text-gray-800 dark:text-white/90">{value}</h3>
+          {subtitle && <p className="mt-1 text-xs text-gray-400">{subtitle}</p>}
+        </div>
+        <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${colorMap[color] || "bg-blue-500"} text-white`}>
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function Home() {
   const { user } = useAuth();
+  const { settings: wsSettings } = useWorkstation();
   const userRoles = user?.roles || [];
+  const [stats, setStats] = useState<DashboardStatistics | null>(null);
+
+  useEffect(() => {
+    adminService.getDashboardStatistics().then(setStats).catch(console.error);
+  }, []);
 
   // Redirect RECEPTIONIST users to their dedicated dashboard
   if (userRoles.includes("RECEPTIONIST") && !userRoles.includes("ADMIN")) {
@@ -189,7 +259,7 @@ export default function Home() {
                           <p className="font-medium text-gray-800 dark:text-white">
                             {user.fullName || user.email}
                           </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{wsSettings.hideEmail ? maskEmail(user.email) : user.email}</p>
                         </div>
                       </div>
                       <Badge color={user.role === "ADMIN" ? "primary" : user.role === "DOCTOR" ? "success" : "info"} size="sm">

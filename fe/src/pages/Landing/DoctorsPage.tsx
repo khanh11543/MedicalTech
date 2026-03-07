@@ -114,7 +114,7 @@ export default function DoctorsPage() {
     <>
       <PageTitle
         title="Doctors"
-        description="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo."
+        description="Meet our team of highly qualified physicians and healthcare specialists dedicated to providing exceptional medical care. With years of clinical experience and a patient-centered approach, our doctors are committed to improving your health and well-being."
         breadcrumbs={[
           { label: "Home", to: "/home" },
           { label: "Category" },

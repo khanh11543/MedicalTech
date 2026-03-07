@@ -34,6 +34,9 @@ public class CreateUserDTO {
     )
     private String password;
     
+    @Size(max = 255, message = "Full name must not exceed 255 characters")
+    private String fullName;
+
     @Pattern(regexp = "^[0-9]{10,11}$", message = "Phone must be 10-11 digits")
     private String phone;
     
@@ -47,4 +50,15 @@ public class CreateUserDTO {
     
     // Role IDs để assign cho user ngay khi tạo
     private Set<Long> roleIds;
+
+    // Doctor-specific fields (only used when role is DOCTOR)
+    private String specialization;
+    private String subSpecialization;
+    private String yearsOfExperience;
+    private String qualification;
+    private String notes;
+
+    // Whether to create staff invite and send email
+    @Builder.Default
+    private Boolean sendInvite = false;
 }

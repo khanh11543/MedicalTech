@@ -11,6 +11,7 @@ import com.q2k.meditech.repository.UserConsentRepository;
 import com.q2k.meditech.repository.UserRepository;
 import com.q2k.meditech.service.ConsentManagementService;
 import com.q2k.meditech.service.EmailService;
+import com.q2k.meditech.util.ExportUtil;
 import com.q2k.meditech.util.SecurityUtil;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -375,7 +376,7 @@ public class ConsentManagementServiceImpl implements ConsentManagementService {
                     record.getVersion() != null ? escapeCsv(record.getVersion()) : "",
                     record.getIpAddress() != null ? escapeCsv(record.getIpAddress()) : "",
                     record.getRevokedDate() != null ? record.getRevokedDate().toString() : "",
-                    record.getRevokedBy() != null ? record.getRevokedBy() : "",
+                    record.getRevokedBy() != null ? String.valueOf(record.getRevokedBy()) : "",
                     record.getRevocationReason() != null ? escapeCsv(record.getRevocationReason()) : ""
             );
         }
@@ -385,34 +386,25 @@ public class ConsentManagementServiceImpl implements ConsentManagementService {
     }
 
     private byte[] generateExcelExport(List<UserConsent> records) {
-        // Simplified: generate CSV with .xlsx extension (real XSLX would need Apache POI)
-        // For now, produce a tab-separated format compatible with Excel
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        PrintWriter writer = new PrintWriter(baos, true, StandardCharsets.UTF_8);
-
-        writer.print('\uFEFF');
-        writer.println("ID\tUser ID\tUser Name\tUser Email\tConsent Type\tStatus\tConsent Date\tVersion\tIP Address\tRevoked Date\tRevoked By\tRevocation Reason");
-
-        for (UserConsent record : records) {
-            User user = record.getUser();
-            writer.printf("%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s%n",
-                    record.getId(),
-                    user != null ? user.getId() : 0,
-                    user != null ? user.getFullName() : "",
-                    user != null ? user.getEmail() : "",
-                    record.getConsentType(),
-                    record.getStatus(),
-                    record.getConsentDate() != null ? record.getConsentDate().toString() : "",
-                    record.getVersion() != null ? record.getVersion() : "",
-                    record.getIpAddress() != null ? record.getIpAddress() : "",
-                    record.getRevokedDate() != null ? record.getRevokedDate().toString() : "",
-                    record.getRevokedBy() != null ? record.getRevokedBy() : "",
-                    record.getRevocationReason() != null ? record.getRevocationReason() : ""
+        try {
+            List<ExportUtil.ExportColumn<UserConsent>> columns = List.of(
+                    ExportUtil.ExportColumn.of("ID", r -> String.valueOf(r.getId())),
+                    ExportUtil.ExportColumn.of("User ID", r -> r.getUser() != null ? String.valueOf(r.getUser().getId()) : "0"),
+                    ExportUtil.ExportColumn.of("User Name", r -> r.getUser() != null ? r.getUser().getFullName() : ""),
+                    ExportUtil.ExportColumn.of("User Email", r -> r.getUser() != null ? r.getUser().getEmail() : ""),
+                    ExportUtil.ExportColumn.of("Consent Type", r -> r.getConsentType() != null ? r.getConsentType().toString() : ""),
+                    ExportUtil.ExportColumn.of("Status", r -> r.getStatus() != null ? r.getStatus().toString() : ""),
+                    ExportUtil.ExportColumn.of("Consent Date", r -> r.getConsentDate() != null ? r.getConsentDate().toString() : ""),
+                    ExportUtil.ExportColumn.of("Version", r -> r.getVersion() != null ? r.getVersion() : ""),
+                    ExportUtil.ExportColumn.of("IP Address", r -> r.getIpAddress() != null ? r.getIpAddress() : ""),
+                    ExportUtil.ExportColumn.of("Revoked Date", r -> r.getRevokedDate() != null ? r.getRevokedDate().toString() : ""),
+                    ExportUtil.ExportColumn.of("Revoked By", r -> r.getRevokedBy() != null ? String.valueOf(r.getRevokedBy()) : ""),
+                    ExportUtil.ExportColumn.of("Revocation Reason", r -> r.getRevocationReason() != null ? r.getRevocationReason() : "")
             );
+            return ExportUtil.toExcel(columns, records, "Consent Records");
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate Excel export", e);
         }
-
-        writer.flush();
-        return baos.toByteArray();
     }
 
     private String escapeCsv(String value) {

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import ComponentCard from "../../components/common/ComponentCard";
 import SecurityStatsCards from "./components/SecurityStatsCards";
 import SecurityEventFilters from "./components/SecurityEventFilters";
 import SecurityEventTable from "./components/SecurityEventTable";
@@ -252,8 +253,8 @@ export default function SecurityAudit() {
               onToggleSelectAll={handleToggleSelectAll}
             />
           </div>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white">{dashboard.totalSecurityEvents}</p>
-        </div>
+          <p className="text-3xl font-bold text-gray-900 dark:text-white">{dashboard?.totalSecurityEvents}</p>
+        </ComponentCard>
 
         {/* IP Management Section */}
         <IpManagement />

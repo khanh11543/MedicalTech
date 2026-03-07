@@ -58,7 +58,7 @@ export default function ContactPage() {
     <>
       <PageTitle
         title="Contact Us"
-        description="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo."
+        description="If you have any questions about our medical services, need assistance scheduling an appointment, or require support from our healthcare team, please feel free to contact us. We are here to help and ensure you receive the care you need."
         breadcrumbs={[
           { label: "Home", to: "/" },
           { label: "Pages" },

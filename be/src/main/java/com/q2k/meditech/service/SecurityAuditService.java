@@ -6,6 +6,8 @@ import com.q2k.meditech.dto.SecurityEventDTO;
 import com.q2k.meditech.entity.AuditLog;
 import com.q2k.meditech.entity.SecurityEvent;
 import com.q2k.meditech.entity.User;
+import com.q2k.meditech.entity.enums.SecurityEventType;
+import com.q2k.meditech.entity.enums.SecuritySeverity;
 import com.q2k.meditech.repository.AuditLogRepository;
 import com.q2k.meditech.repository.SecurityEventRepository;
 import lombok.RequiredArgsConstructor;
@@ -136,11 +138,11 @@ public class SecurityAuditService {
     // Helper methods
 
     private long countEventsByType(String eventType) {
-        return securityEventRepository.findByEventTypeOrderByCreatedAtDesc(eventType).size();
+        return securityEventRepository.findByEventTypeOrderByCreatedAtDesc(SecurityEventType.valueOf(eventType)).size();
     }
 
     private long countEventsBySeverity(String severity) {
-        return securityEventRepository.findBySeverityOrderByCreatedAtDesc(severity).size();
+        return securityEventRepository.findBySeverityOrderByCreatedAtDesc(SecuritySeverity.valueOf(severity)).size();
     }
 
     private List<SecurityEventDTO> getRecentSecurityEvents(int limit) {
@@ -160,7 +162,7 @@ public class SecurityAuditService {
     }
 
     private List<SecurityEventDTO> getEventsBySeverity(String severity, int limit) {
-        return securityEventRepository.findBySeverityOrderByCreatedAtDesc(severity)
+        return securityEventRepository.findBySeverityOrderByCreatedAtDesc(SecuritySeverity.valueOf(severity))
                 .stream()
                 .limit(limit)
                 .map(this::convertToSecurityEventDTO)
@@ -195,8 +197,8 @@ public class SecurityAuditService {
                 .id(event.getId())
                 .userId(event.getUser() != null ? event.getUser().getId() : null)
                 .username(event.getUser() != null ? event.getUser().getEmail() : "System")
-                .eventType(event.getEventType())
-                .severity(event.getSeverity())
+                .eventType(event.getEventType() != null ? event.getEventType().name() : null)
+                .severity(event.getSeverity() != null ? event.getSeverity().name() : null)
                 .ipAddress(event.getIpAddress())
                 .userAgent(event.getUserAgent())
                 .metadata(event.getMetadata())

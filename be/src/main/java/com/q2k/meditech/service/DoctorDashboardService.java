@@ -335,7 +335,7 @@ public class DoctorDashboardService {
                         .id(n.getId())
                         .title(n.getTitle())
                         .message(n.getMessage())
-                        .type(n.getType())
+                        .type(n.getType() != null ? n.getType().name() : null)
                         .referenceType(n.getReferenceType())
                         .referenceId(n.getReferenceId())
                         .isRead(n.getIsRead())

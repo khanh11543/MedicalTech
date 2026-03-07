@@ -267,7 +267,7 @@ const PaymentDetail: React.FC = () => {
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => navigate('/payment-list')}
+              onClick={() => navigate('/admin/payment-list')}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
             >
               ← Back to List
@@ -650,7 +650,7 @@ const PaymentDetail: React.FC = () => {
 
       {/* Mark as Paid Modal */}
       {showMarkPaidModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-medium mb-4">Mark Payment as Paid</h3>
             <div className="space-y-4">
@@ -703,7 +703,7 @@ const PaymentDetail: React.FC = () => {
 
       {/* Refund Modal */}
       {showRefundModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-medium mb-4">Process Refund</h3>
             <div className="space-y-4">
@@ -782,7 +782,7 @@ const PaymentDetail: React.FC = () => {
 
       {/* Cancel Modal */}
       {showCancelModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-medium mb-4">Cancel Payment</h3>
             <div className="space-y-4">
@@ -835,7 +835,7 @@ const PaymentDetail: React.FC = () => {
 
       {/* Retry Modal */}
       {showRetryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-medium mb-4">Retry Payment</h3>
             <div className="space-y-4">
@@ -874,7 +874,7 @@ const PaymentDetail: React.FC = () => {
 
       {/* Send Receipt Modal */}
       {showSendReceiptModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[99999]">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-medium mb-4">Send Receipt</h3>
             <div className="space-y-4">

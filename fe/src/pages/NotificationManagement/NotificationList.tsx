@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
 import adminService, {
@@ -69,6 +71,7 @@ export default function NotificationList() {
   const [userIdsInput, setUserIdsInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<NotificationItem | null>(null);
+  const { toast, showToast, dismissToast } = useToast();
 
   // Fetch notifications
   const fetchNotifications = useCallback(async () => {
@@ -130,6 +133,7 @@ export default function NotificationList() {
       setUserIdsInput("");
       fetchNotifications();
       fetchStats();
+      showToast("Notification sent successfully", "success");
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || "Failed to create notification");
@@ -155,6 +159,7 @@ export default function NotificationList() {
       setBroadcastRole("");
       fetchNotifications();
       fetchStats();
+      showToast("Broadcast sent successfully", "success");
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
       setError(error.response?.data?.message || "Failed to broadcast notification");
@@ -167,7 +172,12 @@ export default function NotificationList() {
     if (!window.confirm("Are you sure you want to delete this notification?")) return;
     try {
       await adminService.deleteNotification(id);
-      fetchNotifications();
+      setNotifications(prev => ({
+        ...prev,
+        content: prev.content.filter(n => n.id !== id),
+        totalElements: prev.totalElements - 1,
+      }));
+      showToast("Notification deleted", "success");
       fetchStats();
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } };
@@ -673,6 +683,7 @@ export default function NotificationList() {
           </div>
         </Modal>
       )}
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

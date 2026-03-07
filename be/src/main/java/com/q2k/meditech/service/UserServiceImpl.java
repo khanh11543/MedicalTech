@@ -2,18 +2,16 @@ package com.q2k.meditech.service;
 
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.dto.mapper.UserMapper;
-import com.q2k.meditech.entity.Role;
-import com.q2k.meditech.entity.User;
-import com.q2k.meditech.entity.UserRole;
+import com.q2k.meditech.entity.*;
+import com.q2k.meditech.entity.enums.VerificationStatus;
 import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.exception.DuplicateResourceException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 
-import com.q2k.meditech.repository.RoleRepository;
-import com.q2k.meditech.repository.UserRepository;
-import com.q2k.meditech.repository.UserRoleRepository;
+import com.q2k.meditech.repository.*;
 import com.q2k.meditech.service.UserService;
 import jakarta.persistence.criteria.JoinType;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,9 +40,15 @@ public class UserServiceImpl implements UserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
+    private final DoctorRepository doctorRepository;
+    private final StaffRegistryRepository staffRegistryRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final JwtService jwtService;
+
+    @Value("${frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     @Override
     @Transactional(readOnly = true)
@@ -108,7 +112,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional
-    public UserDTO createUser(CreateUserDTO dto, Long currentUserId) {
+    public CreateUserResponseDTO createUser(CreateUserDTO dto, Long currentUserId) {
         log.info("Creating new user with email: {}", dto.getEmail());
 
         // Check if email already exists
@@ -155,9 +159,128 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         log.info("User created successfully with ID: {}", user.getId());
-        UserDTO result = userMapper.toDTO(user);
-        result.setRoles(userMapper.mapRolesToStrings(user.getUserRoles()));
-        return result;
+
+        // Build response
+        CreateUserResponseDTO response = CreateUserResponseDTO.builder()
+                .userId(user.getId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .phone(user.getPhone())
+                .isActive(user.getIsActive())
+                .roles(userMapper.mapRolesToStrings(user.getUserRoles()))
+                .inviteStatus("not_sent")
+                .build();
+
+        // Check if user has DOCTOR role
+        boolean isDoctorRole = user.getUserRoles().stream()
+                .anyMatch(ur -> "DOCTOR".equalsIgnoreCase(ur.getRole().getName()));
+
+        if (isDoctorRole) {
+            // Create Doctor profile
+            Doctor doctor = Doctor.builder()
+                    .user(user)
+                    .fullName(dto.getFullName() != null ? dto.getFullName() : user.getEmail())
+                    .specialization(dto.getSpecialization())
+                    .experienceYears(parseExperienceYears(dto.getYearsOfExperience()))
+                    .bio(buildDoctorBio(dto))
+                    .verificationStatus(VerificationStatus.AWAITING_DOCUMENTS)
+                    .isAvailable(false)
+                    .build();
+
+            doctor = doctorRepository.save(doctor);
+            log.info("Doctor profile created with ID: {} for user: {}", doctor.getId(), user.getId());
+
+            response.setDoctorId(doctor.getId());
+            response.setSpecialization(doctor.getSpecialization());
+            response.setVerificationStatus(doctor.getVerificationStatus().name());
+
+            // Create staff invite if requested
+            if (Boolean.TRUE.equals(dto.getSendInvite())) {
+                try {
+                    StaffRegistry staffRegistry = StaffRegistry.builder()
+                            .email(user.getEmail())
+                            .phone(user.getPhone())
+                            .fullName(dto.getFullName() != null ? dto.getFullName() : user.getEmail())
+                            .expectedRole("DOCTOR")
+                            .department(dto.getSpecialization())
+                            .status("REGISTERED")
+                            .staffCode(generateStaffCode())
+                            .invitationToken(UUID.randomUUID().toString())
+                            .invitedAt(LocalDateTime.now())
+                            .registeredUser(user)
+                            .registeredAt(LocalDateTime.now())
+                            .notes(dto.getNotes())
+                            .build();
+
+                    // Set invitedBy
+                    User admin = userRepository.findById(currentUserId).orElse(null);
+                    staffRegistry.setInvitedBy(admin);
+
+                    // Check if email already in staff registry
+                    if (!staffRegistryRepository.existsByEmail(user.getEmail())) {
+                        staffRegistry = staffRegistryRepository.save(staffRegistry);
+                        doctor.setStaffRegistry(staffRegistry);
+                        doctorRepository.save(doctor);
+                        log.info("Staff registry created with ID: {} for doctor: {}", staffRegistry.getId(), doctor.getId());
+                    }
+
+                    // Send credential email with login info and verify link
+                    try {
+                        String verifyToken = jwtService.generateVerificationToken(user.getEmail());
+                        String verifyUrl = frontendUrl + "/verify-account?token=" + verifyToken;
+                        emailService.sendDoctorCredentialsEmail(
+                            user.getEmail(),
+                            dto.getFullName() != null ? dto.getFullName() : "Doctor",
+                            dto.getPassword(),
+                            verifyUrl
+                        );
+                        response.setInviteStatus("sent");
+                        response.setInviteMessage("Invitation email sent successfully");
+                    } catch (Exception emailEx) {
+                        log.warn("Failed to send invite email to {}: {}", user.getEmail(), emailEx.getMessage());
+                        response.setInviteStatus("failed");
+                        response.setInviteMessage("User and doctor profile created, but email sending failed");
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to create staff registry for {}: {}", user.getEmail(), e.getMessage());
+                    response.setInviteStatus("failed");
+                    response.setInviteMessage("Doctor profile created, but staff registry failed: " + e.getMessage());
+                }
+            }
+        }
+
+        return response;
+    }
+
+    private Integer parseExperienceYears(String yearsStr) {
+        if (yearsStr == null || yearsStr.trim().isEmpty()) return 0;
+        try {
+            return Integer.parseInt(yearsStr.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private String buildDoctorBio(CreateUserDTO dto) {
+        StringBuilder bio = new StringBuilder();
+        if (dto.getQualification() != null && !dto.getQualification().isEmpty()) {
+            bio.append("Qualification: ").append(dto.getQualification());
+        }
+        if (dto.getSubSpecialization() != null && !dto.getSubSpecialization().isEmpty()) {
+            if (bio.length() > 0) bio.append("\n");
+            bio.append("Sub-specialization: ").append(dto.getSubSpecialization());
+        }
+        if (dto.getNotes() != null && !dto.getNotes().isEmpty()) {
+            if (bio.length() > 0) bio.append("\n");
+            bio.append(dto.getNotes());
+        }
+        return bio.length() > 0 ? bio.toString() : null;
+    }
+
+    private String generateStaffCode() {
+        String datePart = LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String randomPart = String.format("%05d", new java.security.SecureRandom().nextInt(100000));
+        return "STAFF-" + datePart + "-" + randomPart;
     }
 
     @Override

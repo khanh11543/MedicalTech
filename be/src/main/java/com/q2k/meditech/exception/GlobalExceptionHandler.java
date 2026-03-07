@@ -56,12 +56,15 @@ public class GlobalExceptionHandler {
                                 .path(request.getDescription(false).replace("uri=", ""))
                                 .build();
 
+                return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+        }
+
     /**
      * Handle MethodArgumentTypeMismatchException (400)
      * This happens when path variable cannot be converted (e.g., {id} instead of a number)
      */
     @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ApiErrorResponse> handleMethodArgumentTypeMismatchException(
+    public ResponseEntity<ApiErrorResponse> handleMethodArgumentTypeMismatchException (
             org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex,
             WebRequest request) {
         

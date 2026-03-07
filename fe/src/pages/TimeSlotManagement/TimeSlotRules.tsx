@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
 import ComponentCard from "../../components/common/ComponentCard";
 import Badge from "../../components/ui/badge/Badge";
 import { Modal } from "../../components/ui/modal";
@@ -13,6 +15,7 @@ import timeSlotService, {
 const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export default function TimeSlotRules() {
+  const { toast, showToast, dismissToast } = useToast();
   const [activeTab, setActiveTab] = useState<"hours" | "holidays">("hours");
 
   // Working Hours
@@ -96,9 +99,10 @@ export default function TimeSlotRules() {
       });
       setHourModalOpen(false);
       fetchWorkingHours();
+      showToast("Working hours saved", "success");
     } catch (e) {
       console.error("Save working hours failed:", e);
-      alert("Save failed.");
+      showToast("Save failed.", "error");
     } finally {
       setHourSaving(false);
     }
@@ -109,6 +113,7 @@ export default function TimeSlotRules() {
     try {
       await timeSlotService.deleteWorkingHours(id);
       fetchWorkingHours();
+      showToast("Working hours reset", "success");
     } catch (e) {
       console.error("Delete failed:", e);
     }
@@ -162,9 +167,10 @@ export default function TimeSlotRules() {
       } else {
         fetchHolidays();
       }
+      showToast(editHoliday ? "Holiday updated" : "Holiday created", "success");
     } catch (e) {
       console.error("Save holiday failed:", e);
-      alert("Save failed.");
+      showToast("Save failed.", "error");
     } finally {
       setHolidaySaving(false);
     }
@@ -175,6 +181,7 @@ export default function TimeSlotRules() {
     try {
       await timeSlotService.deleteHoliday(id);
       fetchHolidays();
+      showToast("Holiday deleted", "success");
     } catch (e) {
       console.error("Delete holiday failed:", e);
     }
@@ -417,6 +424,7 @@ export default function TimeSlotRules() {
           </div>
         </div>
       </Modal>
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

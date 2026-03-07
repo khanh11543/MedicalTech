@@ -799,7 +799,7 @@ export default function SlotDetailDrawer({
                     className="flex w-full items-center justify-center gap-2 rounded-lg border border-blue-300 px-4 py-2.5 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20"
                     onClick={() => {
                       onClose();
-                      navigate(`/appointment-detail/${slot.appointmentId}`);
+                      navigate(`/admin/appointment-detail/${slot.appointmentId}`);
                     }}
                   >
                     <svg

@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import ComponentCard from '../../components/common/ComponentCard';
 import PageMeta from '../../components/common/PageMeta';
+import Toast from '../../components/common/Toast';
+import { useToast } from '../../hooks/useToast';
 import Badge from '../../components/ui/badge/Badge';
 import {
   Table,
@@ -25,6 +27,7 @@ type Tab = 'database' | 'cache' | 'cleanup' | 'filesystem' | 'history';
 
 const SystemOptimization: React.FC = () => {
   const queryClient = useQueryClient();
+  const { toast, showToast, dismissToast } = useToast();
   const [activeTab, setActiveTab] = useState<Tab>('database');
   const [historyPage, setHistoryPage] = useState(0);
 
@@ -74,71 +77,71 @@ const SystemOptimization: React.FC = () => {
   const defragMutation = useMutation({
     mutationFn: maintService.defragmentDatabase,
     onSuccess: (data) => {
-      alert(`Defragmentation complete! ${data.message || 'Success'}`);
+      showToast(`Defragmentation complete! ${data.message || 'Success'}`, 'success');
       queryClient.invalidateQueries({ queryKey: ['db-health'] });
     },
-    onError: (err: any) => alert(err?.response?.data?.message || 'Defragmentation failed'),
+    onError: (err: any) => showToast(err?.response?.data?.message || 'Defragmentation failed', 'error'),
   });
 
   const rebuildIdxMutation = useMutation({
     mutationFn: maintService.rebuildIndexes,
     onSuccess: (data) => {
-      alert(`Index rebuild complete! ${data.message || 'Success'}`);
+      showToast(`Index rebuild complete! ${data.message || 'Success'}`, 'success');
       queryClient.invalidateQueries({ queryKey: ['db-health'] });
     },
-    onError: (err: any) => alert(err?.response?.data?.message || 'Failed to rebuild indexes'),
+    onError: (err: any) => showToast(err?.response?.data?.message || 'Failed to rebuild indexes', 'error'),
   });
 
   const cleanOrphansMutation = useMutation({
     mutationFn: maintService.cleanOrphans,
     onSuccess: (data) => {
-      alert(`Orphaned records cleaned! ${data.message || 'Success'}`);
+      showToast(`Orphaned records cleaned! ${data.message || 'Success'}`, 'success');
       queryClient.invalidateQueries({ queryKey: ['db-health'] });
     },
-    onError: (err: any) => alert(err?.response?.data?.message || 'Failed to clean orphans'),
+    onError: (err: any) => showToast(err?.response?.data?.message || 'Failed to clean orphans', 'error'),
   });
 
   const vacuumMutation = useMutation({
     mutationFn: maintService.vacuumDatabase,
     onSuccess: (data) => {
-      alert(`Vacuum complete! ${data.message || 'Success'}`);
+      showToast(`Vacuum complete! ${data.message || 'Success'}`, 'success');
       queryClient.invalidateQueries({ queryKey: ['db-health'] });
     },
-    onError: (err: any) => alert(err?.response?.data?.message || 'Vacuum failed'),
+    onError: (err: any) => showToast(err?.response?.data?.message || 'Vacuum failed', 'error'),
   });
 
   const clearCacheMutation = useMutation({
     mutationFn: (cacheType?: string) => maintService.clearCache(cacheType),
     onSuccess: () => {
-      alert('Cache cleared successfully!');
+      showToast('Cache cleared successfully!', 'success');
       refetchCache();
     },
-    onError: (err: any) => alert(err?.response?.data?.message || 'Failed to clear cache'),
+    onError: (err: any) => showToast(err?.response?.data?.message || 'Failed to clear cache', 'error'),
   });
 
   const previewMutation = useMutation({
     mutationFn: () =>
       maintService.previewCleanup({ dataTypes: cleanupTypes, beforeDate: cleanupBefore || undefined }),
     onSuccess: (data) => setCleanupPreview(data),
-    onError: (err: any) => alert(err?.response?.data?.message || 'Preview failed'),
+    onError: (err: any) => showToast(err?.response?.data?.message || 'Preview failed', 'error'),
   });
 
   const executeCleanupMutation = useMutation({
     mutationFn: () =>
       maintService.executeCleanup({ dataTypes: cleanupTypes, beforeDate: cleanupBefore || undefined }),
     onSuccess: (data) => {
-      alert(`Cleanup complete! ${data.message || 'Success'}`);
+      showToast(`Cleanup complete! ${data.message || 'Success'}`, 'success');
       setCleanupPreview(null);
     },
-    onError: (err: any) => alert(err?.response?.data?.message || 'Cleanup failed'),
+    onError: (err: any) => showToast(err?.response?.data?.message || 'Cleanup failed', 'error'),
   });
 
   const archiveLogsMutation = useMutation({
     mutationFn: maintService.archiveLogs,
     onSuccess: (data) => {
-      alert(`Logs archived! ${data.message || 'Success'}`);
+      showToast(`Logs archived! ${data.message || 'Success'}`, 'success');
     },
-    onError: (err: any) => alert(err?.response?.data?.message || 'Failed to archive logs'),
+    onError: (err: any) => showToast(err?.response?.data?.message || 'Failed to archive logs', 'error'),
   });
 
   const isAnyDbRunning =
@@ -515,7 +518,7 @@ const SystemOptimization: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                if (cleanupTypes.length === 0) return alert('Select at least one data type');
+                if (cleanupTypes.length === 0) return showToast('Select at least one data type', 'error');
                 previewMutation.mutate();
               }}
               disabled={previewMutation.isPending || cleanupTypes.length === 0}
@@ -860,6 +863,7 @@ const SystemOptimization: React.FC = () => {
         {activeTab === 'filesystem' && renderFilesystem()}
         {activeTab === 'history' && renderHistory()}
       </div>
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 };

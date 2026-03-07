@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import receptionistService from "../../../services/receptionistService";
 import type { ReceptionistAppointmentListDTO } from "../../../services/receptionistService";
-import { StatusBadge, PaymentBadge, Spinner, EmptyState, Pagination, QueueBadge, Toast } from "./SharedComponents";
+import { StatusBadge, PaymentBadge, EmptyState, Pagination, QueueBadge, Toast } from "./SharedComponents";
+import { TableSkeleton } from "../../../components/ui/skeleton/Skeleton";
 import ActionMenu from "./ActionMenu";
 import { ConfirmAppointmentModal, RescheduleModal, CancelAppointmentModal } from "./PendingActionModals";
 import { CheckInModal, SendReminderModal } from "./ConfirmedActionModals";
@@ -230,8 +231,8 @@ export default function TodayAppointments({ onViewDetail, onCreateNew, onRebook 
 
       {/* Timeline table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {loading ? (
-          <Spinner />
+        {loading && !appointments.length ? (
+          <TableSkeleton rows={10} cols={7} />
         ) : appointments.length === 0 ? (
           <EmptyState message="No appointments for today" />
         ) : (

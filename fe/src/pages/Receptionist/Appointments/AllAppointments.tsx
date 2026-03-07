@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import receptionistService from "../../../services/receptionistService";
 import type { ReceptionistAppointmentListDTO } from "../../../services/receptionistService";
 import type { RebookData } from "./CreateAppointment";
-import { StatusBadge, PaymentBadge, Spinner, EmptyState, Pagination, QueueBadge, ConfirmDialog, Toast } from "./SharedComponents";
+import { StatusBadge, PaymentBadge, EmptyState, Pagination, QueueBadge, ConfirmDialog, Toast } from "./SharedComponents";
+import { TableSkeleton } from "../../../components/ui/skeleton/Skeleton";
+import { useDebounce } from "../../../hooks/useDebounce";
 import ActionMenu from "./ActionMenu";
 import { ALL_STATUSES } from "./constants";
 import { ConfirmAppointmentModal, RescheduleModal, CancelAppointmentModal } from "./PendingActionModals";
@@ -29,6 +31,7 @@ export default function AllAppointments({ onViewDetail, onCreateNew, onRebook }:
 
   // Filters
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 400);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -77,7 +80,7 @@ export default function AllAppointments({ onViewDetail, onCreateNew, onRebook }:
     try {
       setLoading(true);
       const data = await receptionistService.getAppointments({
-        search: search || undefined,
+        search: debouncedSearch || undefined,
         statuses: statusFilter.length > 0 ? statusFilter : undefined,
         from: dateFrom || undefined,
         to: dateTo || undefined,
@@ -95,7 +98,7 @@ export default function AllAppointments({ onViewDetail, onCreateNew, onRebook }:
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, dateFrom, dateTo, sortBy, sortDir, page, pageSize]);
+  }, [debouncedSearch, statusFilter, dateFrom, dateTo, sortBy, sortDir, page, pageSize]);
 
   useEffect(() => {
     fetchAppointments();
@@ -224,8 +227,8 @@ export default function AllAppointments({ onViewDetail, onCreateNew, onRebook }:
           setLoading(true);
           const result = await receptionistService.bulkConfirm(ids);
           setToast({ message: `${result.successCount} confirmed, ${result.failCount} failed`, type: result.failCount > 0 ? "info" : "success" });
+          setAppointments(prev => prev.map(a => ids.includes(a.id) ? { ...a, status: "CONFIRMED" } : a));
           setSelected(new Set());
-          fetchAppointments();
         } catch {
           setToast({ message: "Bulk confirm failed", type: "error" });
         }
@@ -261,10 +264,10 @@ export default function AllAppointments({ onViewDetail, onCreateNew, onRebook }:
       setLoading(true);
       const result = await receptionistService.bulkCancel(cancelDialog.ids, cancelReason);
       setToast({ message: `${result.successCount} cancelled`, type: "success" });
+      setAppointments(prev => prev.map(a => cancelDialog.ids.includes(a.id) ? { ...a, status: "CANCELLED" } : a));
       setCancelDialog({ ids: [], open: false });
       setCancelReason("");
       setSelected(new Set());
-      fetchAppointments();
     } catch {
       setToast({ message: "Cancellation failed", type: "error" });
     } finally {
@@ -414,8 +417,8 @@ export default function AllAppointments({ onViewDetail, onCreateNew, onRebook }:
 
       {/* Table */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {loading ? (
-          <Spinner />
+        {loading && !appointments.length ? (
+          <TableSkeleton rows={pageSize} cols={8} />
         ) : appointments.length === 0 ? (
           <EmptyState />
         ) : (
@@ -603,7 +606,11 @@ export default function AllAppointments({ onViewDetail, onCreateNew, onRebook }:
         onClose={() => setCollectPaymentModal({ open: false, appointment: null })}
         onSuccess={(msg) => { setToast({ message: msg, type: "success" }); }}
         onError={(msg) => setToast({ message: msg, type: "error" })}
-        onRefresh={fetchAppointments}
+        onRefresh={() => {
+          setAppointments(prev => prev.map(a =>
+            a.id === collectPaymentModal.appointment?.id ? { ...a, paymentStatus: "PAID" } : a
+          ));
+        }}
       />
       <ReceiptActionsModal
         isOpen={receiptModal.open}
@@ -638,7 +645,7 @@ export default function AllAppointments({ onViewDetail, onCreateNew, onRebook }:
         isOpen={noShowModal.open}
         appointment={noShowModal.appointment}
         onClose={() => setNoShowModal({ open: false, appointment: null })}
-        onSuccess={(msg) => { setToast({ message: msg, type: "success" }); fetchAppointments(); }}
+        onSuccess={(msg) => { setToast({ message: msg, type: "success" }); setAppointments(prev => prev.map(a => a.id === noShowModal.appointment?.id ? { ...a, status: "NO_SHOW" } : a)); }}
         onError={(msg) => setToast({ message: msg, type: "error" })}
       />
 
@@ -647,7 +654,7 @@ export default function AllAppointments({ onViewDetail, onCreateNew, onRebook }:
         isOpen={checkInModal.open}
         appointment={checkInModal.appointment}
         onClose={() => setCheckInModal({ open: false, appointment: null })}
-        onSuccess={(msg) => { setToast({ message: msg, type: "success" }); fetchAppointments(); }}
+        onSuccess={(msg) => { setToast({ message: msg, type: "success" }); setAppointments(prev => prev.map(a => a.id === checkInModal.appointment?.id ? { ...a, status: "CHECKED_IN" } : a)); }}
         onError={(msg) => setToast({ message: msg, type: "error" })}
       />
       <SendReminderModal
@@ -663,21 +670,21 @@ export default function AllAppointments({ onViewDetail, onCreateNew, onRebook }:
         isOpen={confirmModal.open}
         appointment={confirmModal.appointment}
         onClose={() => setConfirmModal({ open: false, appointment: null })}
-        onSuccess={(msg) => { setToast({ message: msg, type: "success" }); fetchAppointments(); }}
+        onSuccess={(msg) => { setToast({ message: msg, type: "success" }); setAppointments(prev => prev.map(a => a.id === confirmModal.appointment?.id ? { ...a, status: "CONFIRMED" } : a)); }}
         onError={(msg) => setToast({ message: msg, type: "error" })}
       />
       <RescheduleModal
         isOpen={rescheduleModal.open}
         appointment={rescheduleModal.appointment}
         onClose={() => setRescheduleModal({ open: false, appointment: null })}
-        onSuccess={(msg) => { setToast({ message: msg, type: "success" }); fetchAppointments(); }}
+        onSuccess={(msg) => { setToast({ message: msg, type: "success" }); setAppointments(prev => prev.map(a => a.id === rescheduleModal.appointment?.id ? { ...a, status: "RESCHEDULED" } : a)); }}
         onError={(msg) => setToast({ message: msg, type: "error" })}
       />
       <CancelAppointmentModal
         isOpen={cancelModal.open}
         appointment={cancelModal.appointment}
         onClose={() => setCancelModal({ open: false, appointment: null })}
-        onSuccess={(msg) => { setToast({ message: msg, type: "success" }); fetchAppointments(); }}
+        onSuccess={(msg) => { setToast({ message: msg, type: "success" }); setAppointments(prev => prev.map(a => a.id === cancelModal.appointment?.id ? { ...a, status: "CANCELLED" } : a)); }}
         onError={(msg) => setToast({ message: msg, type: "error" })}
       />
     </div>

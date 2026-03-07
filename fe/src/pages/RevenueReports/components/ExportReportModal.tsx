@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import dayjs from 'dayjs';
+import { ArrowUpTrayIcon, TableCellsIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import Badge from '../../../components/ui/badge/Badge';
 import * as revenueService from '../../../services/revenueService';
 
@@ -99,8 +100,8 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
           {/* Header */}
           <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">📤 Export & Schedule Reports</h3>
-            <button onClick={onClose} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">✕</button>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white inline-flex items-center gap-2"><ArrowUpTrayIcon className="h-5 w-5" /> Export & Schedule Reports</h3>
+            <button onClick={onClose} className="p-2 rounded-lg text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"><XMarkIcon className="h-5 w-5" /></button>
           </div>
 
           {/* Tabs */}
@@ -168,7 +169,7 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
                         className="text-blue-600"
                       />
                       <div>
-                        <span className="font-medium">📊 Excel</span>
+                        <span className="font-medium inline-flex items-center gap-1"><TableCellsIcon className="h-4 w-4" /> Excel</span>
                         <p className="text-xs text-gray-500">Data-only, multi-sheet workbook</p>
                       </div>
                     </label>

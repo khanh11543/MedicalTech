@@ -142,7 +142,7 @@ public class PaymentWebhookController {
         log.info("GET /payments/return/momo - orderId: {}, resultCode: {}", orderId, resultCode);
 
         // Build redirect URL to frontend
-        String frontendUrl = "http://localhost:3000"; // TODO: Get from config
+        String frontendUrl = "http://localhost:5173"; // TODO: Get from config
         String redirectUrl = frontendUrl + "/payment/result?orderId=" + orderId 
                 + "&resultCode=" + resultCode
                 + (message != null ? "&message=" + message : "");

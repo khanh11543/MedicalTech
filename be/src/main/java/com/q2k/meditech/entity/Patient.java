@@ -51,6 +51,7 @@ public class Patient extends BaseEntity {
     private String medicalHistory;
 
     @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @org.hibernate.annotations.BatchSize(size = 10)
     @Builder.Default
     private List<Appointment> appointments = new ArrayList<>();
 }

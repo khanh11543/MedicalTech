@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import { useDebounce } from "../../hooks/useDebounce";
+import { TableSkeleton } from "../../components/ui/skeleton/Skeleton";
 import adminService, { Review, ReviewListParams, ModerateReviewRequest, Page } from "../../services/adminService";
 
 export default function ReviewList() {
@@ -8,6 +10,10 @@ export default function ReviewList() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Search with debounce
+  const [keyword, setKeyword] = useState("");
+  const debouncedKeyword = useDebounce(keyword, 400);
 
   // Filters
   const [filters, setFilters] = useState<ReviewListParams>({
@@ -33,13 +39,13 @@ export default function ReviewList() {
 
   useEffect(() => {
     fetchReviews();
-  }, [filters]);
+  }, [filters, debouncedKeyword]);
 
   const fetchReviews = async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await adminService.getReviews(filters);
+      const data = await adminService.getReviews({ ...filters, keyword: debouncedKeyword || undefined });
       setReviews(data);
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to load reviews");
@@ -134,8 +140,8 @@ export default function ReviewList() {
             <input
               type="text"
               placeholder="Doctor name, patient, comment..."
-              value={filters.keyword || ""}
-              onChange={(e) => handleFilterChange("keyword", e.target.value || undefined)}
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
               className="w-full rounded border border-gray-300 dark:border-white/[0.1] bg-white dark:bg-gray-900 px-4 py-2.5 text-gray-900 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 focus-visible:outline-none"
             />
           </div>
@@ -181,7 +187,7 @@ export default function ReviewList() {
 
           <div className="flex items-end">
             <button
-              onClick={() => setFilters({ pageNumber: 0, pageSize: 10 })}
+              onClick={() => { setFilters({ pageNumber: 0, pageSize: 10 }); setKeyword(""); }}
               className="w-full rounded bg-teal-500 px-4 py-2.5 font-medium text-white hover:bg-teal-600 transition-colors"
             >
               Reset Filters
@@ -202,14 +208,12 @@ export default function ReviewList() {
         )}
 
         {/* Loading */}
-        {loading && (
-          <div className="flex justify-center py-10">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-solid border-teal-500 border-t-transparent"></div>
-          </div>
-        )}
+        {loading && !reviews ? (
+          <TableSkeleton rows={10} cols={8} />
+        ) : null}
 
         {/* Table */}
-        {!loading && reviews && (
+        {!loading || reviews ? (
           <>
             <div className="max-w-full overflow-x-auto">
               <table className="w-full table-auto">

@@ -4,6 +4,8 @@ import { ApexOptions } from "apexcharts";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import Label from "../../components/form/Label";
+import { useWorkstation } from "../../context/WorkstationContext";
+import { maskEmail } from "../../utils/privacyMask";
 import appointmentService, {
   StatisticsFilterDTO,
   AppointmentOverTimeDTO,
@@ -151,12 +153,16 @@ const ChartCard: React.FC<ChartCardProps> = ({ title, subtitle, children, action
 
 // =========== MAIN COMPONENT ===========
 export default function AppointmentStatistics() {
-  // Filter states
-  const [filter, setFilter] = useState<StatisticsFilterDTO>({
+  const { settings: wsSettings } = useWorkstation();
+  // Filter states - user edits this directly
+  const defaultFilter: StatisticsFilterDTO = {
     from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     to: new Date().toISOString().split("T")[0],
     period: "DAILY",
-  });
+  };
+  const [filter, setFilter] = useState<StatisticsFilterDTO>(defaultFilter);
+  // Applied filter - only updated when user clicks Apply/Refresh
+  const [appliedFilter, setAppliedFilter] = useState<StatisticsFilterDTO>(defaultFilter);
   const [doctors, setDoctors] = useState<{ id: number; name: string }[]>([]);
 
   // Data states
@@ -187,54 +193,48 @@ export default function AppointmentStatistics() {
     fetchDoctors();
   }, []);
 
-  // Fetch all statistics
-  const fetchStatistics = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [
-        summaryData,
-        overTimeData,
-        byStatusData,
-        byDoctorData,
-        peakHoursData,
-        cancellationData,
-        noShowData,
-        waitTimeData,
-      ] = await Promise.all([
-        appointmentService.getSummaryStatistics(filter),
-        appointmentService.getAppointmentsOverTime(filter),
-        appointmentService.getAppointmentsByStatus(filter),
-        appointmentService.getAppointmentsByDoctor(filter),
-        appointmentService.getPeakHoursAnalysis(filter),
-        appointmentService.getCancellationAnalysis(filter),
-        appointmentService.getNoShowAnalysis(filter),
-        appointmentService.getAverageWaitTime(filter),
-      ]);
-
-      setSummary(summaryData);
-      setAppointmentsOverTime(overTimeData);
-      setAppointmentsByStatus(byStatusData);
-      setAppointmentsByDoctor(byDoctorData);
-      setPeakHours(peakHoursData);
-      setCancellationAnalysis(cancellationData);
-      setNoShowAnalysis(noShowData);
-      setWaitTimeAnalysis(waitTimeData);
-    } catch (error) {
-      console.error("Failed to fetch statistics:", error);
-      // Clear all data on error
-      setSummary(null);
-      setAppointmentsOverTime([]);
-      setAppointmentsByStatus([]);
-      setAppointmentsByDoctor([]);
-      setPeakHours([]);
-      setCancellationAnalysis(null);
-      setNoShowAnalysis(null);
-      setWaitTimeAnalysis(null);
-    } finally {
-      setLoading(false);
-    }
+  // Apply filters and fetch
+  const handleApplyFilters = useCallback(() => {
+    if (!filter.from || !filter.to) return; // Don't fetch with invalid dates
+    setAppliedFilter({ ...filter });
   }, [filter]);
 
+  // Fetch all statistics using appliedFilter
+  const fetchStatistics = useCallback(async () => {
+    if (!appliedFilter.from || !appliedFilter.to) return;
+    setLoading(true);
+
+    const results = await Promise.allSettled([
+      appointmentService.getSummaryStatistics(appliedFilter),
+      appointmentService.getAppointmentsOverTime(appliedFilter),
+      appointmentService.getAppointmentsByStatus(appliedFilter),
+      appointmentService.getAppointmentsByDoctor(appliedFilter),
+      appointmentService.getPeakHoursAnalysis(appliedFilter),
+      appointmentService.getCancellationAnalysis(appliedFilter),
+      appointmentService.getNoShowAnalysis(appliedFilter),
+      appointmentService.getAverageWaitTime(appliedFilter),
+    ]);
+
+    setSummary(results[0].status === "fulfilled" ? results[0].value : null);
+    setAppointmentsOverTime(results[1].status === "fulfilled" ? results[1].value : []);
+    setAppointmentsByStatus(results[2].status === "fulfilled" ? results[2].value : []);
+    setAppointmentsByDoctor(results[3].status === "fulfilled" ? results[3].value : []);
+    setPeakHours(results[4].status === "fulfilled" ? results[4].value : []);
+    setCancellationAnalysis(results[5].status === "fulfilled" ? results[5].value : null);
+    setNoShowAnalysis(results[6].status === "fulfilled" ? results[6].value : null);
+    setWaitTimeAnalysis(results[7].status === "fulfilled" ? results[7].value : null);
+
+    // Log any individual failures
+    results.forEach((r, i) => {
+      if (r.status === "rejected") {
+        console.error(`Statistics API call ${i} failed:`, r.reason);
+      }
+    });
+
+    setLoading(false);
+  }, [appliedFilter]);
+
+  // Fetch when appliedFilter changes
   useEffect(() => {
     fetchStatistics();
   }, [fetchStatistics]);
@@ -243,11 +243,11 @@ export default function AppointmentStatistics() {
   const handleExportPDF = async () => {
     setExporting(true);
     try {
-      const blob = await appointmentService.exportStatisticsToPDF(filter);
+      const blob = await appointmentService.exportStatisticsToPDF(appliedFilter);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `appointment_statistics_${filter.from}_${filter.to}.pdf`;
+      a.download = `appointment_statistics_${appliedFilter.from}_${appliedFilter.to}.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (error) {
@@ -540,11 +540,11 @@ export default function AppointmentStatistics() {
             </select>
           </div>
           <button
-            onClick={fetchStatistics}
+            onClick={handleApplyFilters}
             className="flex h-10 items-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600"
           >
             <RefreshIcon />
-            Refresh
+            Apply Filters
           </button>
           <button
             onClick={handleExportPDF}
@@ -756,7 +756,7 @@ export default function AppointmentStatistics() {
                     <div key={p.patientId} className="flex items-center justify-between rounded-lg border border-gray-200 p-3 dark:border-gray-700">
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white">{p.patientName}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{p.patientEmail}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{wsSettings.hideEmail ? maskEmail(p.patientEmail) : p.patientEmail}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-lg font-bold text-red-500">{p.noShowCount}</p>

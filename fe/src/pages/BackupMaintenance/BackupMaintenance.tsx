@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
 import {
   Table,
   TableBody,
@@ -16,6 +18,7 @@ import * as maintService from '../../services/maintenanceService';
 export default function BackupMaintenance() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { toast, showToast, dismissToast } = useToast();
 
   // --- Fetch backup dashboard data (last backup, health, storage) ---
   const { data: dashboard, isLoading: dashLoading } = useQuery({
@@ -59,10 +62,10 @@ export default function BackupMaintenance() {
   const clearCacheMutation = useMutation({
     mutationFn: () => maintService.clearCache(),
     onSuccess: () => {
-      alert('Cache cleared successfully!');
+      showToast('Cache cleared successfully!', 'success');
       queryClient.invalidateQueries({ queryKey: ['db-health'] });
     },
-    onError: (err: any) => alert(err?.response?.data?.message || 'Failed to clear cache'),
+    onError: (err: any) => showToast(err?.response?.data?.message || 'Failed to clear cache', 'error'),
   });
 
   const deleteMutation = useMutation({
@@ -70,9 +73,9 @@ export default function BackupMaintenance() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['backup-history-overview'] });
       queryClient.invalidateQueries({ queryKey: ['backup-dashboard'] });
-      alert('Backup deleted');
+      showToast('Backup deleted', 'success');
     },
-    onError: (err: any) => alert(err?.response?.data?.message || 'Delete failed'),
+    onError: (err: any) => showToast(err?.response?.data?.message || 'Delete failed', 'error'),
   });
 
   const handleDownload = async (record: backupService.BackupRecord) => {
@@ -80,7 +83,7 @@ export default function BackupMaintenance() {
       const blob = await backupService.downloadBackup(record.id);
       backupService.downloadFile(blob, `${record.backupName}.sql.gz`);
     } catch {
-      alert('Download failed');
+      showToast('Download failed', 'error');
     }
   };
 
@@ -494,6 +497,7 @@ export default function BackupMaintenance() {
           </div>
         </ComponentCard>
       </div>
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

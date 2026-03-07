@@ -58,15 +58,24 @@ public class ReceptionistDashboardServiceImpl implements ReceptionistDashboardSe
         LocalDate targetDate = date != null ? date : LocalDate.now();
         log.info("Getting dashboard stats for date: {}", targetDate);
 
-        // Appointment counts by status for the target date
-        Long todayTotal = appointmentRepository.countInRange(targetDate, targetDate, null);
-        Long pending = appointmentRepository.countByStatusInRange(targetDate, targetDate, null, AppointmentStatus.PENDING);
-        Long confirmed = appointmentRepository.countByStatusInRange(targetDate, targetDate, null, AppointmentStatus.CONFIRMED);
-        Long checkedIn = appointmentRepository.countByStatusInRange(targetDate, targetDate, null, AppointmentStatus.CHECKED_IN);
-        Long inProgress = appointmentRepository.countByStatusInRange(targetDate, targetDate, null, AppointmentStatus.IN_PROGRESS);
-        Long completed = appointmentRepository.countByStatusInRange(targetDate, targetDate, null, AppointmentStatus.COMPLETED);
-        Long cancelled = appointmentRepository.countByStatusInRange(targetDate, targetDate, null, AppointmentStatus.CANCELLED);
-        Long noShow = appointmentRepository.countByStatusInRange(targetDate, targetDate, null, AppointmentStatus.NO_SHOW);
+        // Single aggregate query for all status counts (replaces 12 individual COUNT queries)
+        List<Object[]> statusCounts = appointmentRepository.countAllStatusesOnDate(targetDate);
+        Map<AppointmentStatus, Long> countMap = new EnumMap<>(AppointmentStatus.class);
+        long todayTotal = 0;
+        for (Object[] row : statusCounts) {
+            AppointmentStatus status = (AppointmentStatus) row[0];
+            Long count = (Long) row[1];
+            countMap.put(status, count);
+            todayTotal += count;
+        }
+
+        Long pending = countMap.getOrDefault(AppointmentStatus.PENDING, 0L);
+        Long confirmed = countMap.getOrDefault(AppointmentStatus.CONFIRMED, 0L);
+        Long checkedIn = countMap.getOrDefault(AppointmentStatus.CHECKED_IN, 0L);
+        Long inProgress = countMap.getOrDefault(AppointmentStatus.IN_PROGRESS, 0L);
+        Long completed = countMap.getOrDefault(AppointmentStatus.COMPLETED, 0L);
+        Long cancelled = countMap.getOrDefault(AppointmentStatus.CANCELLED, 0L);
+        Long noShow = countMap.getOrDefault(AppointmentStatus.NO_SHOW, 0L);
 
         // Awaiting check-in = CONFIRMED appointments (not yet checked in)
         Long awaitingCheckIn = confirmed;
@@ -217,13 +226,11 @@ public class ReceptionistDashboardServiceImpl implements ReceptionistDashboardSe
         LocalTime now = LocalTime.now();
         log.info("Getting upcoming appointments - limit: {}", limit);
 
-        // Get confirmed appointments for today with start time >= now
-        List<Appointment> todayAppointments = appointmentRepository.findByDateRange(today, today);
+        // Use targeted query: only CONFIRMED for today, with startTime after now
+        List<Appointment> todayAppointments = appointmentRepository.findConfirmedAppointmentsByDate(today);
 
         return todayAppointments.stream()
-                .filter(a -> a.getStatus() == AppointmentStatus.CONFIRMED
-                        && a.getStartTime() != null
-                        && a.getStartTime().isAfter(now))
+                .filter(a -> a.getStartTime() != null && a.getStartTime().isAfter(now))
                 .sorted(Comparator.comparing(Appointment::getStartTime))
                 .limit(limit)
                 .map(a -> UpcomingAppointmentDTO.builder()

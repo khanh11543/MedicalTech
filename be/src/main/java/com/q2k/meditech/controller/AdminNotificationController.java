@@ -98,7 +98,7 @@ public class AdminNotificationController {
     public ResponseEntity<MessageDTO> createNotification(
             @Valid @RequestBody CreateNotificationDTO dto) {
         
-        log.info("POST /admin/notifications - title: {}, userIds count: {}", dto.getTitle(), dto.getUserIds().size());
+        log.info("POST /admin/notifications - title: {}, userId: {}", dto.getTitle(), dto.getUserId());
         
         int count = notificationService.createNotifications(dto);
         

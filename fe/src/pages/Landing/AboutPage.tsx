@@ -7,7 +7,7 @@ export default function AboutPage() {
     <>
       <PageTitle
         title="About"
-        description="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo."
+        description="MediTrust Medical Center is committed to delivering high-quality healthcare through advanced medical technology, experienced physicians, and compassionate patient care. Our mission is to improve the health and well-being of every patient we serve."
         breadcrumbs={[
           { label: "Home", to: "/home" },
           { label: "Category", to: "/home" },
@@ -25,15 +25,11 @@ export default function AboutPage() {
               <h2 className="text-[28px] lg:text-[32px] font-bold text-[#18444c] mb-5 leading-tight">
                 Committed to Excellence in Healthcare
               </h2>
-              <p className="text-[15px] text-[#444] leading-[1.8] mb-4">
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor
-                incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
-                nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+              <p className="text-[15px] text-[#444] leading-[1.8] mb-6 text-justify">
+                At MediTrust Medical Center, we believe that exceptional healthcare begins with trust, expertise, and compassion. Our team of experienced physicians, nurses, and healthcare professionals works together to provide personalized medical care tailored to the needs of every patient.
               </p>
-              <p className="text-[15px] text-[#444] leading-[1.8] mb-6">
-                Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat
-                nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui
-                officia deserunt mollit anim id est laborum sed ut perspiciatis.
+              <p className="text-[15px] text-[#444] leading-[1.8] mb-6 text-justify">
+                Using modern medical technology and evidence-based treatment methods, we deliver comprehensive healthcare services ranging from preventive care and diagnostics to specialized treatments and emergency services. Our commitment is to ensure every patient receives safe, effective, and compassionate care.
               </p>
 
               {/* Stats */}

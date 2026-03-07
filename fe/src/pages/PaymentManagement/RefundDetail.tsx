@@ -196,7 +196,7 @@ const RefundDetail: React.FC = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div className="flex items-center space-x-4">
             <button
-              onClick={() => navigate('/refund-list')}
+              onClick={() => navigate('/admin/refund-list')}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
             >
               ← Back to Refunds
@@ -257,7 +257,7 @@ const RefundDetail: React.FC = () => {
             )}
 
             <button
-              onClick={() => navigate(`/payment-list/${refundDetail.paymentId}`)}
+              onClick={() => navigate(`/admin/payment-list/${refundDetail.paymentId}`)}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
             >
               View Original Payment
@@ -578,7 +578,7 @@ const RefundDetail: React.FC = () => {
               )}
               <div className="mt-3">
                 <button
-                  onClick={() => navigate(`/payment-list/${refundDetail.paymentId}`)}
+                  onClick={() => navigate(`/admin/payment-list/${refundDetail.paymentId}`)}
                   className="px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-200 rounded-md hover:bg-blue-100"
                 >
                   View Payment Detail →

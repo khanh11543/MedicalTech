@@ -269,7 +269,7 @@ export default function DepartmentDetailPage() {
     <>
       <PageTitle
         title="Department Details"
-        description="Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+        description="Discover our specialized medical departments dedicated to providing advanced diagnosis, effective treatment, and compassionate patient care through experienced medical professionals and modern healthcare technology."
         breadcrumbs={[
           { label: "Home", to: "/home" },
           { label: "Category", to: "/departments" },

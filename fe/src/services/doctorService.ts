@@ -214,3 +214,113 @@ export const markNoShow = async (appointmentId: number): Promise<void> => {
 export const changeDoctorStatus = async (status: string): Promise<void> => {
   await api.post("/doctor/today/status", { status });
 };
+
+// ============== PROFILE SETUP TYPES ==============
+
+export interface DoctorProfile {
+  id: number;
+  fullName: string;
+  email: string | null;
+  avatarUrl: string | null;
+  specialization: string | null;
+  licenseNumber: string | null;
+  experienceYears: number;
+  education: string | null;
+  bio: string | null;
+  hospitalAffiliation: string | null;
+  officeAddress: string | null;
+  verificationStatus: string;
+  rejectionReason: string | null;
+  submittedAt: string | null;
+  verifiedAt: string | null;
+  createdAt: string;
+  profileComplete: boolean;
+  documentsComplete: boolean;
+  canSubmitVerification: boolean;
+}
+
+export interface UpdateDoctorProfile {
+  specialization?: string;
+  licenseNumber?: string;
+  experienceYears?: number;
+  education?: string;
+  bio?: string;
+  hospitalAffiliation?: string;
+  officeAddress?: string;
+}
+
+export interface DoctorDocumentDTO {
+  id: number;
+  doctorId: number;
+  doctorName: string;
+  doctorEmail: string;
+  docType: string;
+  docTypeDescription: string;
+  fileUrl: string;
+  fileHash: string | null;
+  status: string;
+  reviewedById: number | null;
+  reviewedByEmail: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  createdAt: string;
+}
+
+export interface DocumentVerificationSummary {
+  totalDocuments: number;
+  approvedCount: number;
+  pendingCount: number;
+  rejectedCount: number;
+  hasLicense: boolean;
+  hasId: boolean;
+  hasDegree: boolean;
+  isComplete: boolean;
+}
+
+// ============== PROFILE SETUP API CALLS ==============
+
+/** GET /api/doctor/profile */
+export const getDoctorProfile = async (): Promise<DoctorProfile> => {
+  const response = await api.get<DoctorProfile>("/doctor/profile");
+  return response.data;
+};
+
+/** PUT /api/doctor/profile */
+export const updateDoctorProfile = async (data: UpdateDoctorProfile): Promise<DoctorProfile> => {
+  const response = await api.put<DoctorProfile>("/doctor/profile", data);
+  return response.data;
+};
+
+/** POST /api/doctor/profile/upload-document */
+export const uploadDoctorDocument = async (file: File, docType: string): Promise<DoctorDocumentDTO> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("docType", docType);
+  const response = await api.post<DoctorDocumentDTO>("/doctor/profile/upload-document", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+  return response.data;
+};
+
+/** GET /api/doctor/documents */
+export const getDoctorDocuments = async (): Promise<DoctorDocumentDTO[]> => {
+  const response = await api.get<DoctorDocumentDTO[]>("/doctor/documents");
+  return response.data;
+};
+
+/** DELETE /api/doctor/documents/:id */
+export const deleteDoctorDocument = async (documentId: number): Promise<void> => {
+  await api.delete(`/doctor/documents/${documentId}`);
+};
+
+/** GET /api/doctor/documents/verification-summary */
+export const getDocumentVerificationSummary = async (): Promise<DocumentVerificationSummary> => {
+  const response = await api.get<DocumentVerificationSummary>("/doctor/documents/verification-summary");
+  return response.data;
+};
+
+/** POST /api/doctor/profile/submit-verification */
+export const submitDoctorVerification = async (): Promise<DoctorProfile> => {
+  const response = await api.post<DoctorProfile>("/doctor/profile/submit-verification");
+  return response.data;
+};

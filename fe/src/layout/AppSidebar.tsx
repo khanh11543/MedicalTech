@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 // Icons
@@ -7,6 +7,9 @@ import {
   BoltIcon,
   CalenderIcon,
   CheckCircleIcon,
+  DocsIcon,
+  DollarLineIcon,
+  DownloadIcon,
   FileIcon,
   GridIcon,
   GroupIcon,
@@ -88,7 +91,7 @@ const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
-    subItems: [{ name: "Ecommerce", path: "/", pro: false }],
+    subItems: [{ name: "Overview", path: "/admin", pro: false }],
   },
   {
     icon: <GroupIcon />,
@@ -99,42 +102,42 @@ const navItems: NavItem[] = [
   {
     icon: <CheckCircleIcon />,
     name: "Doctor Verification",
-    path: "/doctor-verification",
+    path: "/admin/doctor-verification",
   },
   {
     icon: <TaskIcon />,
     name: "Appointment Management",
     subItems: [
-      { name: "Appointment List", path: "/appointment-list", pro: false },
-      { name: "Appointment Statistics", path: "/appointment-statistics", pro: false },
+      { name: "Appointment List", path: "/admin/appointment-list", pro: false },
+      { name: "Appointment Statistics", path: "/admin/appointment-statistics", pro: false },
     ],
   },
   {
     icon: <TimeIcon />,
     name: "Time Slot Management",
     subItems: [
-      { name: "Calendar View", path: "/timeslot-calendar", pro: false },
-      { name: "Slot List", path: "/timeslot-list", pro: false },
-      { name: "Bulk Create", path: "/timeslot-bulk-create", pro: false },
-      { name: "Templates", path: "/timeslot-templates", pro: false },
-      { name: "Rules & Holidays", path: "/timeslot-rules", pro: false },
+      { name: "Calendar View", path: "/admin/timeslot-calendar", pro: false },
+      { name: "Slot List", path: "/admin/timeslot-list", pro: false },
+      { name: "Bulk Create", path: "/admin/timeslot-bulk-create", pro: false },
+      { name: "Templates", path: "/admin/timeslot-templates", pro: false },
+      { name: "Rules & Holidays", path: "/admin/timeslot-rules", pro: false },
     ],
   },
   {
     icon: <DocsIcon />,
     name: "Prescription Management",
     subItems: [
-      { name: "All Prescriptions", path: "/prescription-list", pro: false },
-      { name: "Templates Overview", path: "/prescription-templates", pro: false },
+      { name: "All Prescriptions", path: "/admin/prescription-list", pro: false },
+      { name: "Templates Overview", path: "/admin/prescription-templates", pro: false },
     ],
   },
   {
     icon: <DollarLineIcon />,
     name: "Payment Management",
     subItems: [
-      { name: "Payment List", path: "/payment-list", pro: false },
-      { name: "Refund Management", path: "/refund-list", pro: false },
-      { name: "Revenue Reports", path: "/revenue-reports", pro: false },
+      { name: "Payment List", path: "/admin/payment-list", pro: false },
+      { name: "Refund Management", path: "/admin/refund-list", pro: false },
+      { name: "Revenue Reports", path: "/admin/revenue-reports", pro: false },
     ],
   },
   {
@@ -145,7 +148,7 @@ const navItems: NavItem[] = [
   {
     icon: <FileIcon />,
     name: "Content Management",
-    subItems: [{ name: "Content List", path: "/content-list", pro: false }],
+    subItems: [{ name: "Content List", path: "/admin/content-list", pro: false }],
   },
   {
     icon: <UserCircleIcon />,
@@ -155,34 +158,34 @@ const navItems: NavItem[] = [
   {
     icon: <LockIcon />,
     name: "Security & Audit",
-    path: "/security-audit",
+    path: "/admin/security-audit",
   },
   {
     icon: <ArrowUpIcon />,
     name: "Reports & Analytics",
-    path: "/reports-analytics",
+    path: "/admin/reports-analytics",
   },
   {
     icon: <InfoIcon />,
     name: "GDPR & Compliance",
-    path: "/gdpr-compliance",
+    path: "/admin/gdpr-compliance",
   },
   {
     icon: <DownloadIcon />,
     name: "Backup & Maintenance",
     subItems: [
-      { name: "Dashboard", path: "/backup-dashboard", pro: false },
-      { name: "History", path: "/backup-history", pro: false },
-      { name: "Manual Backup", path: "/manual-backup", pro: false },
-      { name: "Restore", path: "/restore-backup", pro: false },
-      { name: "Maintenance", path: "/scheduled-maintenance", pro: false },
-      { name: "Optimization", path: "/system-optimization", pro: false },
+      { name: "Dashboard", path: "/admin/backup-dashboard", pro: false },
+      { name: "History", path: "/admin/backup-history", pro: false },
+      { name: "Manual Backup", path: "/admin/manual-backup", pro: false },
+      { name: "Restore", path: "/admin/restore-backup", pro: false },
+      { name: "Maintenance", path: "/admin/scheduled-maintenance", pro: false },
+      { name: "Optimization", path: "/admin/system-optimization", pro: false },
     ],
   },
   {
     icon: <MailIcon />,
     name: "Notifications",
-    path: "/notifications",
+    path: "/admin/notifications",
   },
 ];
 
@@ -264,27 +267,123 @@ const AppSidebar: React.FC = () => {
 
   const renderMenuItems = (items: NavItem[], menuType: "main") => (
     <ul className="flex flex-col gap-4">
-      {items.map((nav) => (
-        <li key={nav.name}>
-          <Link
-            to={nav.path}
-            className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
-              }`}
-          >
-            <span
-              className={`menu-item-icon-size ${isActive(nav.path)
-                ? "menu-item-icon-active"
-                : "menu-item-icon-inactive"
+      {items.map((nav, index) => {
+        // Check if any sub-item is active
+        const hasSubItems = nav.subItems && nav.subItems.length > 0;
+        const isSubmenuOpen =
+          openSubmenu?.type === menuType && openSubmenu?.index === index;
+        const isSubItemActive = hasSubItems
+          ? nav.subItems!.some((sub) => isActive(sub.path))
+          : false;
+
+        if (hasSubItems) {
+          return (
+            <li key={nav.name}>
+              <button
+                onClick={() => handleSubmenuToggle(index, menuType)}
+                className={`menu-item group w-full ${
+                  isSubItemActive ? "menu-item-active" : "menu-item-inactive"
                 }`}
+              >
+                <span
+                  className={`menu-item-icon-size shrink-0 ${
+                    isSubItemActive
+                      ? "menu-item-icon-active"
+                      : "menu-item-icon-inactive"
+                  }`}
+                >
+                  {nav.icon}
+                </span>
+                {(isExpanded || isHovered || isMobileOpen) && (
+                  <>
+                    <span className="menu-item-text flex-1 min-w-0 text-left whitespace-nowrap">
+                      {nav.name}
+                    </span>
+                    <svg
+                      className={`shrink-0 h-5 w-5 transition-transform duration-200 ${
+                        isSubmenuOpen ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </>
+                )}
+              </button>
+              {(isExpanded || isHovered || isMobileOpen) && (
+                <div
+                  ref={(el) => {
+                    subMenuRefs.current[`${menuType}-${index}`] = el;
+                  }}
+                  className="overflow-hidden transition-all duration-300"
+                  style={{
+                    height: isSubmenuOpen
+                      ? `${subMenuHeight[`${menuType}-${index}`] || "auto"}px`
+                      : "0px",
+                  }}
+                >
+                  <ul className="mt-2 space-y-1 ml-9">
+                    {nav.subItems!.map((sub) => (
+                      <li key={sub.name}>
+                        <Link
+                          to={sub.path}
+                          className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                            isActive(sub.path)
+                              ? "text-brand-500 bg-brand-50 dark:bg-brand-500/10 font-medium"
+                              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5"
+                          }`}
+                        >
+                          {sub.name}
+                          {sub.new && (
+                            <span className="ml-2 inline-block rounded bg-brand-500 px-1.5 py-0.5 text-[10px] text-white">
+                              new
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </li>
+          );
+        }
+
+        return (
+          <li key={nav.name}>
+            <Link
+              to={nav.path ?? "#"}
+              className={`menu-item group ${
+                nav.path && isActive(nav.path)
+                  ? "menu-item-active"
+                  : "menu-item-inactive"
+              }`}
             >
-              {nav.icon}
-            </span>
-            {(isExpanded || isHovered || isMobileOpen) && (
-              <span className="menu-item-text whitespace-nowrap">{nav.name}</span>
-            )}
-          </Link>
-        </li>
-      ))}
+              <span
+                className={`menu-item-icon-size shrink-0 ${
+                  nav.path && isActive(nav.path)
+                    ? "menu-item-icon-active"
+                    : "menu-item-icon-inactive"
+                }`}
+              >
+                {nav.icon}
+              </span>
+              {(isExpanded || isHovered || isMobileOpen) && (
+                <span className="menu-item-text flex-1 min-w-0 text-left whitespace-nowrap">
+                  {nav.name}
+                </span>
+              )}
+            </Link>
+          </li>
+        );
+      })}
     </ul>
   );
 

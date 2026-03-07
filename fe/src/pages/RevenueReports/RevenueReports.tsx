@@ -1,6 +1,16 @@
 import React, { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import dayjs from 'dayjs';
+import {
+  ChartBarSquareIcon,
+  ArrowTrendingUpIcon,
+  CreditCardIcon,
+  UserGroupIcon,
+  ClipboardDocumentListIcon,
+  ArrowPathIcon,
+  ArrowUpTrayIcon,
+  BookOpenIcon,
+} from '@heroicons/react/24/outline';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import PageMeta from '../../components/common/PageMeta';
 import ComponentCard from '../../components/common/ComponentCard';
@@ -129,13 +139,22 @@ const RevenueReports: React.FC = () => {
   );
 
   // ===== Section nav items =====
+  const sectionIcons: Record<string, React.ReactNode> = {
+    overview: <ChartBarSquareIcon className="h-4 w-4" />,
+    daily: <ArrowTrendingUpIcon className="h-4 w-4" />,
+    methods: <CreditCardIcon className="h-4 w-4" />,
+    doctors: <UserGroupIcon className="h-4 w-4" />,
+    appointments: <ClipboardDocumentListIcon className="h-4 w-4" />,
+    refunds: <ArrowPathIcon className="h-4 w-4" />,
+  };
+
   const sections = [
-    { id: 'overview', label: '📊 Overview', desc: 'All charts' },
-    { id: 'daily', label: '📈 Daily Revenue', desc: 'Line chart' },
-    { id: 'methods', label: '💳 Payment Methods', desc: 'Pie + table' },
-    { id: 'doctors', label: '👨‍⚕️ By Doctor', desc: 'Bar + table' },
-    { id: 'appointments', label: '📋 Appointment Types', desc: 'Breakdown' },
-    { id: 'refunds', label: '🔄 Refund Analysis', desc: 'Impact' },
+    { id: 'overview', label: 'Overview', desc: 'All charts' },
+    { id: 'daily', label: 'Daily Revenue', desc: 'Line chart' },
+    { id: 'methods', label: 'Payment Methods', desc: 'Pie + table' },
+    { id: 'doctors', label: 'By Doctor', desc: 'Bar + table' },
+    { id: 'appointments', label: 'Appointment Types', desc: 'Breakdown' },
+    { id: 'refunds', label: 'Refund Analysis', desc: 'Impact' },
   ];
 
   return (
@@ -162,7 +181,10 @@ const RevenueReports: React.FC = () => {
                 }`}
                 title={sec.desc}
               >
-                {sec.label}
+                <span className="inline-flex items-center gap-1.5">
+                  {sectionIcons[sec.id]}
+                  {sec.label}
+                </span>
               </button>
             ))}
           </div>
@@ -170,9 +192,10 @@ const RevenueReports: React.FC = () => {
           {/* Export */}
           <button
             onClick={() => setExportModalOpen(true)}
-            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 whitespace-nowrap"
+            className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 whitespace-nowrap inline-flex items-center gap-1.5"
           >
-            📤 Export / Schedule
+            <ArrowUpTrayIcon className="h-4 w-4" />
+            Export / Schedule
           </button>
         </div>
 
@@ -181,7 +204,7 @@ const RevenueReports: React.FC = () => {
 
         {/* ===== OVERVIEW shows all ===== */}
         {(activeSection === 'overview' || activeSection === 'daily') && (
-          <ComponentCard title="📈 Daily Revenue Trend">
+          <ComponentCard title="Daily Revenue Trend">
             <div className="mb-2">
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -198,19 +221,19 @@ const RevenueReports: React.FC = () => {
         )}
 
         {(activeSection === 'overview' || activeSection === 'methods') && (
-          <ComponentCard title="💳 Revenue by Payment Method">
+          <ComponentCard title="Revenue by Payment Method">
             <MethodPieChart data={methodData} isLoading={loadingMethods} onMethodClick={handleMethodDrillDown} />
           </ComponentCard>
         )}
 
         {(activeSection === 'overview' || activeSection === 'doctors') && (
-          <ComponentCard title="👨‍⚕️ Revenue by Doctor">
+          <ComponentCard title="Revenue by Doctor">
             <DoctorRevenueChart data={doctorData} isLoading={loadingDoctors} onDoctorClick={handleDoctorDrillDown} />
           </ComponentCard>
         )}
 
         {(activeSection === 'overview' || activeSection === 'appointments') && (
-          <ComponentCard title="📋 Revenue by Appointment Type">
+          <ComponentCard title="Revenue by Appointment Type">
             <AppointmentTypeChart
               data={apptTypeData}
               isLoading={loadingApptTypes}
@@ -222,14 +245,14 @@ const RevenueReports: React.FC = () => {
         )}
 
         {(activeSection === 'overview' || activeSection === 'refunds') && (
-          <ComponentCard title="🔄 Refund Impact Analysis">
+          <ComponentCard title="Refund Impact Analysis">
             <RefundAnalysis data={refundData} isLoading={loadingRefunds} />
           </ComponentCard>
         )}
 
         {/* Revenue Definition Note */}
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl text-sm text-blue-700 dark:text-blue-300">
-          <strong>📖 Revenue Definitions:</strong>
+          <strong className="inline-flex items-center gap-1.5"><BookOpenIcon className="h-4 w-4" /> Revenue Definitions:</strong>
           <ul className="mt-2 list-disc list-inside space-y-1 text-xs">
             <li><strong>Gross Revenue</strong> = Total amount from COMPLETED payments in the period</li>
             <li><strong>Refunded Amount</strong> = Total from COMPLETED refunds in the period</li>

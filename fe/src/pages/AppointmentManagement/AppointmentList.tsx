@@ -2,6 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
+import { useDebounce } from "../../hooks/useDebounce";
+import { TableSkeleton } from "../../components/ui/skeleton/Skeleton";
+import ComponentCard from "../../components/common/ComponentCard";
 import {
   Table,
   TableBody,
@@ -12,6 +17,8 @@ import {
 import Badge from "../../components/ui/badge/Badge";
 import { Modal } from "../../components/ui/modal";
 import Label from "../../components/form/Label";
+import { useWorkstation } from "../../context/WorkstationContext";
+import { maskPhone, maskEmail } from "../../utils/privacyMask";
 import DatePicker from "../../components/form/date-picker";
 import appointmentService, {
   AppointmentDTO,
@@ -183,6 +190,8 @@ const BellIcon = () => (
 // =========== MAIN COMPONENT ===========
 export default function AppointmentList() {
   const navigate = useNavigate();
+  const { settings: wsSettings } = useWorkstation();
+  const { toast, showToast, dismissToast } = useToast();
   
   // State
   const [appointments, setAppointments] = useState<AppointmentDTO[]>([]);
@@ -194,6 +203,7 @@ export default function AppointmentList() {
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 400);
   const [selectedStatuses, setSelectedStatuses] = useState<AppointmentStatus[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<number | null>(null);
   const [selectedPatient, setSelectedPatient] = useState<number | null>(null);
@@ -238,12 +248,17 @@ export default function AppointmentList() {
     noShowRate: 0,
   });
 
+  // Reset page when debounced search changes
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [debouncedSearch]);
+
   // =========== FETCH DATA ===========
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
     try {
       const filter: AppointmentFilterDTO = {
-        search: searchQuery || undefined,
+        search: debouncedSearch || undefined,
         doctorId: selectedDoctor,
         patientId: selectedPatient,
         status: selectedStatuses.length === 1 ? selectedStatuses[0] : undefined,
@@ -268,7 +283,7 @@ export default function AppointmentList() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, selectedStatuses, selectedDoctor, selectedPatient, selectedType, selectedPaymentStatus, dateFrom, dateTo, currentPage, pageSize]);
+  }, [debouncedSearch, selectedStatuses, selectedDoctor, selectedPatient, selectedType, selectedPaymentStatus, dateFrom, dateTo, currentPage, pageSize]);
 
   const fetchDropdownOptions = useCallback(async () => {
     try {
@@ -391,7 +406,7 @@ export default function AppointmentList() {
   };
 
   const handleViewDetail = (appointmentId: number) => {
-    navigate(`/appointment-detail/${appointmentId}`);
+    navigate(`/admin/appointment-detail/${appointmentId}`);
   };
 
   const handleRescheduleClick = (appointment: AppointmentDTO) => {
@@ -415,11 +430,16 @@ export default function AppointmentList() {
     if (!selectedAppointment) return;
     try {
       await appointmentService.rescheduleAppointment(selectedAppointment.id, rescheduleData);
+      setAppointments(prev => prev.map(a =>
+        a.id === selectedAppointment.id
+          ? { ...a, status: AppointmentStatus.RESCHEDULED, appointmentDate: rescheduleData.newDate, startTime: rescheduleData.newStartTime, endTime: rescheduleData.newEndTime }
+          : a
+      ));
       setRescheduleModalOpen(false);
-      fetchAppointments();
+      showToast("Appointment rescheduled successfully", "success");
     } catch (error) {
       console.error("Failed to reschedule:", error);
-      alert("Failed to reschedule appointment");
+      showToast("Failed to reschedule appointment", "error");
     }
   };
 
@@ -427,24 +447,30 @@ export default function AppointmentList() {
     if (!selectedAppointment) return;
     try {
       await appointmentService.cancelAppointment(selectedAppointment.id, { reason: cancelReason });
+      setAppointments(prev => prev.map(a =>
+        a.id === selectedAppointment.id ? { ...a, status: AppointmentStatus.CANCELLED } : a
+      ));
       setCancelModalOpen(false);
-      fetchAppointments();
+      showToast("Appointment cancelled", "success");
     } catch (error) {
       console.error("Failed to cancel:", error);
-      alert("Failed to cancel appointment");
+      showToast("Failed to cancel appointment", "error");
     }
   };
 
   const handleBulkCancel = async () => {
     try {
       await appointmentService.bulkCancel(selectedIds, cancelReason);
+      setAppointments(prev => prev.map(a =>
+        selectedIds.includes(a.id) ? { ...a, status: AppointmentStatus.CANCELLED } : a
+      ));
       setBulkCancelModalOpen(false);
+      showToast(`${selectedIds.length} appointment(s) cancelled`, "success");
       setSelectedIds([]);
       setSelectAll(false);
-      fetchAppointments();
     } catch (error) {
       console.error("Failed to bulk cancel:", error);
-      alert("Failed to cancel appointments");
+      showToast("Failed to cancel appointments", "error");
     }
   };
 
@@ -783,13 +809,10 @@ export default function AppointmentList() {
                 </TableHeader>
 
                 <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                  {loading ? (
+                  {loading && !appointments.length ? (
                     <TableRow>
-                      <td className="px-4 py-8 text-center" colSpan={11}>
-                        <div className="flex items-center justify-center">
-                          <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div>
-                          <span className="ml-2 text-gray-500">Loading...</span>
-                        </div>
+                      <td colSpan={11}>
+                        <TableSkeleton rows={pageSize} cols={8} />
                       </td>
                     </TableRow>
                   ) : appointments.length === 0 ? (
@@ -830,7 +853,7 @@ export default function AppointmentList() {
                           <button className="font-medium text-gray-800 hover:text-brand-500 hover:underline dark:text-white">
                             {appointment.patientName}
                           </button>
-                          <div className="text-xs text-gray-500">{appointment.patientEmail}</div>
+                          <div className="text-xs text-gray-500">{wsSettings.hideEmail ? maskEmail(appointment.patientEmail) : appointment.patientEmail}</div>
                         </TableCell>
                         <TableCell className="px-4 py-3">
                           <button className="font-medium text-gray-800 hover:text-brand-500 hover:underline dark:text-white">
@@ -980,11 +1003,11 @@ export default function AppointmentList() {
                 </div>
                 <div>
                   <Label>Patient Email</Label>
-                  <p className="text-gray-700 dark:text-gray-300">{selectedAppointment.patientEmail}</p>
+                  <p className="text-gray-700 dark:text-gray-300">{wsSettings.hideEmail ? maskEmail(selectedAppointment.patientEmail) : selectedAppointment.patientEmail}</p>
                 </div>
                 <div>
                   <Label>Patient Phone</Label>
-                  <p className="text-gray-700 dark:text-gray-300">{selectedAppointment.patientPhone}</p>
+                  <p className="text-gray-700 dark:text-gray-300">{wsSettings.hidePhoneNumber ? maskPhone(selectedAppointment.patientPhone) : selectedAppointment.patientPhone}</p>
                 </div>
               </div>
 
@@ -1215,6 +1238,7 @@ export default function AppointmentList() {
           </div>
         </div>
       </Modal>
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import Chart from 'react-apexcharts';
 import { ApexOptions } from 'apexcharts';
+import { ChartBarIcon, ClipboardDocumentListIcon, LightBulbIcon } from '@heroicons/react/24/outline';
 import {
   AppointmentTypeRevenueDTO,
   formatCurrency,
@@ -131,7 +132,7 @@ const AppointmentTypeChart: React.FC<AppointmentTypeChartProps> = ({
                 : 'text-gray-500 dark:text-gray-400'
             }`}
           >
-            📊 Chart
+            <ChartBarIcon className="h-4 w-4 inline" /> Chart
           </button>
           <button
             onClick={() => setViewMode('table')}
@@ -141,7 +142,7 @@ const AppointmentTypeChart: React.FC<AppointmentTypeChartProps> = ({
                 : 'text-gray-500 dark:text-gray-400'
             }`}
           >
-            📋 Table
+            <ClipboardDocumentListIcon className="h-4 w-4 inline" /> Table
           </button>
         </div>
       </div>
@@ -210,7 +211,7 @@ const AppointmentTypeChart: React.FC<AppointmentTypeChartProps> = ({
 
       {onTypeClick && (
         <p className="text-xs text-gray-400 text-center">
-          💡 Click an appointment type to drill down into transactions
+          <LightBulbIcon className="h-4 w-4 inline text-yellow-400" /> Click an appointment type to drill down into transactions
         </p>
       )}
     </div>

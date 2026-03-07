@@ -272,7 +272,7 @@ export default function ServiceDetailPage() {
     <>
       <PageTitle
         title="Service Details"
-        description="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo."
+        description="Learn more about our specialized medical services designed to provide accurate diagnosis, effective treatment, and comprehensive patient care using advanced medical technology."
         breadcrumbs={[
           { label: "Home", to: "/home" },
           { label: "Category" },

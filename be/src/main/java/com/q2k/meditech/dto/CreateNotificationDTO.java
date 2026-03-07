@@ -8,6 +8,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 /**
  * Internal DTO used by NotificationEventService to create notifications.
  * NOT exposed in REST API — used only within the service layer.
@@ -40,4 +43,18 @@ public class CreateNotificationDTO {
      * Reference entity ID
      */
     private Long referenceId;
+
+    // Admin-only fields
+    private List<Long> userIds;
+
+    private LocalDateTime scheduledAt;
+
+    @Builder.Default
+    private Boolean sendEmail = false;
+
+    @Builder.Default
+    private Boolean sendSms = false;
+
+    @Builder.Default
+    private Boolean sendPush = true;
 }

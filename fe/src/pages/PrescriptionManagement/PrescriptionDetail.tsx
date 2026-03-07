@@ -324,7 +324,7 @@ export default function PrescriptionDetail() {
             </button>
             {prescription.appointmentId && (
               <button
-                onClick={() => navigate(`/appointment-detail/${prescription.appointmentId}`)}
+                onClick={() => navigate(`/admin/appointment-detail/${prescription.appointmentId}`)}
                 className="flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 transition-colors"
               >
                 <CalendarIcon /> View Appointment
@@ -451,7 +451,7 @@ export default function PrescriptionDetail() {
               {prescription.appointmentId && (
                 <div className="py-3">
                   <button
-                    onClick={() => navigate(`/appointment-detail/${prescription.appointmentId}`)}
+                    onClick={() => navigate(`/admin/appointment-detail/${prescription.appointmentId}`)}
                     className="text-sm text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                   >
                     View Appointment Details &rarr;

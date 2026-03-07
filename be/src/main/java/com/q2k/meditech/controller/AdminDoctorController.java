@@ -30,9 +30,8 @@ public class AdminDoctorController {
     @GetMapping("/list")
     @Transactional(readOnly = true)
     public ResponseEntity<List<DoctorBasicDTO>> getDoctorsList() {
-        List<Doctor> doctors = doctorRepository.findAll();
+        List<Doctor> doctors = doctorRepository.findActiveWithUser();
         List<DoctorBasicDTO> result = doctors.stream()
-                .filter(d -> d.getUser() != null && Boolean.TRUE.equals(d.getUser().getIsActive()))
                 .map(d -> DoctorBasicDTO.builder()
                         .id(d.getId())
                         .fullName(d.getFullName())

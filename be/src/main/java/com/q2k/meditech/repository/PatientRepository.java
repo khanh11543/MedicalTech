@@ -34,21 +34,19 @@ public interface PatientRepository extends JpaRepository<Patient, Long>, JpaSpec
 
     // ==================== LIST ALL (FILTERED) ====================
 
-    @Query("SELECT p FROM Patient p JOIN p.user u " +
+    @Query("SELECT p FROM Patient p JOIN FETCH p.user u " +
            "WHERE (:search IS NULL OR :search = '' OR " +
            "       LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
            "       u.phone LIKE CONCAT('%', :search, '%') OR " +
            "       LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%'))) " +
            "AND (:gender IS NULL OR p.gender = :gender) " +
-           "AND (:isActive IS NULL OR u.isActive = :isActive) " +
-           "AND (:hasInsurance IS NULL OR " +
-           "     (:hasInsurance = true AND p.insuranceNumber IS NOT NULL AND p.insuranceNumber != '') OR " +
-           "     (:hasInsurance = false AND (p.insuranceNumber IS NULL OR p.insuranceNumber = '')))")
+           "AND (:bloodGroup IS NULL OR p.bloodGroup = :bloodGroup) " +
+           "AND (:isActive IS NULL OR u.isActive = :isActive)")
     Page<Patient> findAllWithFilters(
             @Param("search") String search,
             @Param("gender") String gender,
+            @Param("bloodGroup") String bloodGroup,
             @Param("isActive") Boolean isActive,
-            @Param("hasInsurance") Boolean hasInsurance,
             Pageable pageable);
 
     // ==================== NEW PATIENTS THIS MONTH ====================

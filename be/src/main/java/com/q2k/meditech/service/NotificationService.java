@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -421,7 +422,7 @@ public class NotificationService {
                     .user(user)
                     .title(dto.getTitle())
                     .message(dto.getMessage())
-                    .type(dto.getType())
+                    .type(NotificationType.valueOf(dto.getType()))
                     .isRead(false)
                     .sentVia(sentVia)
                     .emailSent(dto.getSendEmail())

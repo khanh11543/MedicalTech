@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
 import ComponentCard from "../../components/common/ComponentCard";
 import Badge from "../../components/ui/badge/Badge";
 import { Modal } from "../../components/ui/modal";
@@ -26,6 +28,7 @@ const DAYS = Object.values(DayOfWeek);
 const DURATIONS = [15, 20, 30, 45, 60];
 
 export default function TimeSlotTemplates() {
+  const { toast, showToast, dismissToast } = useToast();
   const [templates, setTemplates] = useState<TimeSlotTemplateDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [showActiveOnly, setShowActiveOnly] = useState(false);
@@ -111,9 +114,10 @@ export default function TimeSlotTemplates() {
       }
       setFormOpen(false);
       fetchTemplates();
+      showToast(editingTemplate ? "Template updated" : "Template created", "success");
     } catch (e) {
       console.error("Save template failed:", e);
-      alert("Save failed.");
+      showToast("Save failed.", "error");
     } finally {
       setSaving(false);
     }
@@ -124,6 +128,7 @@ export default function TimeSlotTemplates() {
     try {
       await timeSlotService.deleteTemplate(id);
       fetchTemplates();
+      showToast("Template deleted", "success");
     } catch (e) {
       console.error("Delete failed:", e);
     }
@@ -149,7 +154,7 @@ export default function TimeSlotTemplates() {
       setPreview(p);
     } catch (e) {
       console.error("Preview failed:", e);
-      alert("Preview failed.");
+      showToast("Preview failed.", "error");
     }
   };
 
@@ -162,9 +167,10 @@ export default function TimeSlotTemplates() {
       setResult(res);
       setApplyOpen(false);
       setResultOpen(true);
+      showToast("Template applied", "success");
     } catch (e) {
       console.error("Apply failed:", e);
-      alert("Apply failed.");
+      showToast("Apply failed.", "error");
     }
   };
 
@@ -455,6 +461,7 @@ export default function TimeSlotTemplates() {
           </div>
         )}
       </Modal>
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

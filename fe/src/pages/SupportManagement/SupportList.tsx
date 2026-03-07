@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
 import { Modal } from "../../components/ui/modal";
 import { useModal } from "../../hooks/useModal";
 import Button from "../../components/ui/button/Button";
@@ -39,6 +41,7 @@ export default function SupportList() {
   const [stats, setStats] = useState<SupportTicketStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { toast, showToast, dismissToast } = useToast();
   const [filters, setFilters] = useState<SupportTicketListParams>({
     pageNumber: 0,
     pageSize: 10,
@@ -119,11 +122,15 @@ export default function SupportList() {
         status: responseStatus,
       });
       closeRespond();
-      fetchTickets();
+      setTickets(prev => prev ? {
+        ...prev,
+        content: prev.content.map(t => t.id === respondingTicket.id ? { ...t, status: responseStatus, adminResponse: responseText } : t)
+      } : prev);
+      showToast("Response sent successfully", "success");
       fetchStats();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message || "Failed to respond");
+      showToast(e.response?.data?.message || "Failed to respond", "error");
     } finally {
       setRespondLoading(false);
     }
@@ -132,11 +139,15 @@ export default function SupportList() {
   const handleClose = async (id: number) => {
     try {
       await adminService.closeTicket(id);
-      fetchTickets();
+      setTickets(prev => prev ? {
+        ...prev,
+        content: prev.content.map(t => t.id === id ? { ...t, status: "CLOSED" } : t)
+      } : prev);
+      showToast("Ticket closed", "success");
       fetchStats();
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message || "Failed to close ticket");
+      showToast(e.response?.data?.message || "Failed to close ticket", "error");
     }
   };
 
@@ -533,6 +544,7 @@ export default function SupportList() {
           </div>
         </div>
       </Modal>
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

@@ -741,6 +741,31 @@ public class AuthService {
         return MessageDTO.success("A new OTP has been sent to your email");
     }
 
+    /**
+     * Verify account using token link (for admin-created accounts)
+     */
+    @Transactional
+    public MessageDTO verifyAccountByToken(String token) {
+        String email = jwtService.validateVerificationToken(token);
+        if (email == null) {
+            throw new InvalidTokenException("Invalid or expired verification link");
+        }
+
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (user.getIsVerified()) {
+            return MessageDTO.success("Account is already verified");
+        }
+
+        user.setIsVerified(true);
+        user.setIsActive(true);
+        userRepository.save(user);
+
+        log.info("Account verified via token link: {}", email);
+        return MessageDTO.success("Account verified successfully! You can now login.");
+    }
+
     private String extractTokenFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {

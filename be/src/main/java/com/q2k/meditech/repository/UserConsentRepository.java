@@ -24,6 +24,8 @@ public interface UserConsentRepository extends JpaRepository<UserConsent, Long>,
 
     List<UserConsent> findByUserIdOrderByConsentDateDesc(Long userId);
 
+    java.util.Optional<UserConsent> findByUserIdAndConsentType(Long userId, ConsentType consentType);
+
     @Query("SELECT COUNT(c) FROM UserConsent c WHERE c.status = :status")
     long countByStatus(@Param("status") ConsentStatus status);
 

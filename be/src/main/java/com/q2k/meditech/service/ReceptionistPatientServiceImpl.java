@@ -59,7 +59,7 @@ public class ReceptionistPatientServiceImpl implements ReceptionistPatientServic
         log.info("Listing all patients - search: {}, gender: {}, active: {}, insured: {}",
                 search, gender, isActive, hasInsurance);
 
-        Page<Patient> patients = patientRepository.findAllWithFilters(search, gender, isActive, hasInsurance, pageable);
+        Page<Patient> patients = patientRepository.findAllWithFilters(search, gender, null, isActive, pageable);
 
         return patients.map(this::toPatientListDTO);
     }

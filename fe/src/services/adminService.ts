@@ -104,10 +104,32 @@ export interface DoctorProfile {
 export interface CreateUserRequest {
   email: string;
   password: string;
+  fullName?: string;
   phone?: string;
   isActive?: boolean;
   isVerified?: boolean;
   roleIds: number[];
+  // Doctor-specific fields
+  specialization?: string;
+  subSpecialization?: string;
+  yearsOfExperience?: string;
+  qualification?: string;
+  notes?: string;
+  sendInvite?: boolean;
+}
+
+export interface CreateUserResponse {
+  userId: number;
+  email: string;
+  fullName: string;
+  phone: string;
+  isActive: boolean;
+  roles: string[];
+  doctorId: number | null;
+  specialization: string | null;
+  verificationStatus: string | null;
+  inviteStatus: "sent" | "failed" | "not_sent";
+  inviteMessage: string | null;
 }
 
 export interface UpdateUserRequest {
@@ -177,6 +199,50 @@ export interface DocumentListParams {
   sortOrder?: "asc" | "desc";
 }
 
+// Doctor Verification Types (Phases 6-11)
+export interface DoctorVerificationDocument {
+  id: number;
+  docType: string;
+  docTypeDescription: string;
+  fileUrl: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  reviewNote: string | null;
+  reviewedAt: string | null;
+  reviewedByEmail: string | null;
+  createdAt: string;
+}
+
+export interface DoctorVerification {
+  doctorId: number;
+  fullName: string;
+  email: string;
+  avatarUrl: string | null;
+  specialization: string | null;
+  licenseNumber: string | null;
+  experienceYears: number | null;
+  education: string | null;
+  bio: string | null;
+  hospitalAffiliation: string | null;
+  officeAddress: string | null;
+  verificationStatus: string;
+  rejectionReason: string | null;
+  submittedAt: string | null;
+  verifiedAt: string | null;
+  verifiedByEmail: string | null;
+  createdAt: string;
+  totalDocuments: number;
+  approvedDocuments: number;
+  pendingDocuments: number;
+  rejectedDocuments: number;
+  documents: DoctorVerificationDocument[] | null;
+}
+
+export interface VerificationDecision {
+  decision: "APPROVE" | "REJECT" | "REQUEST_MORE_DOCUMENTS" | "SUSPEND" | "UNSUSPEND" | "REVOKE";
+  reason?: string;
+  instructions?: string;
+}
+
 // ============== API SERVICES ==============
 
 const adminService = {
@@ -197,7 +263,7 @@ const adminService = {
     return response.data;
   },
 
-  createUser: async (data: CreateUserRequest): Promise<User> => {
+  createUser: async (data: CreateUserRequest): Promise<CreateUserResponse> => {
     const response = await api.post("/admin/users", data);
     return response.data;
   },
@@ -259,6 +325,34 @@ const adminService = {
 
   rejectDocument: async (id: number, notes?: string): Promise<DoctorDocument> => {
     const response = await api.patch(`/admin/doctor-documents/${id}/reject`, { notes });
+    return response.data;
+  },
+
+  // ============== DOCTOR VERIFICATION (Phases 6-11) ==============
+  getDoctorVerifications: async (params: {
+    status?: string;
+    pageNumber?: number;
+    pageSize?: number;
+  } = {}): Promise<Page<DoctorVerification>> => {
+    const response = await api.get("/admin/verifications", { params });
+    return response.data;
+  },
+
+  getPendingVerifications: async (): Promise<DoctorVerification[]> => {
+    const response = await api.get("/admin/verifications/pending");
+    return response.data;
+  },
+
+  getVerificationDetail: async (doctorId: number): Promise<DoctorVerification> => {
+    const response = await api.get(`/admin/verifications/${doctorId}`);
+    return response.data;
+  },
+
+  submitVerificationDecision: async (
+    doctorId: number,
+    decision: VerificationDecision
+  ): Promise<DoctorVerification> => {
+    const response = await api.post(`/admin/verifications/${doctorId}/decision`, decision);
     return response.data;
   },
 

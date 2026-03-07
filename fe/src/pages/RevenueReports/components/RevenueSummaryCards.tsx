@@ -1,4 +1,14 @@
 import React from 'react';
+import {
+  BanknotesIcon,
+  ChartBarIcon,
+  DocumentTextIcon,
+  ArrowTrendingUpIcon,
+  ArrowPathIcon,
+  ArrowTrendingDownIcon,
+  ClockIcon,
+  CalendarDaysIcon,
+} from '@heroicons/react/24/outline';
 import { RevenueSummaryDTO, formatCurrency, formatCompactCurrency, formatPercent } from '../../../services/revenueService';
 
 interface RevenueSummaryCardsProps {
@@ -11,7 +21,7 @@ interface StatCardProps {
   value: string;
   subValue?: string;
   change?: number;
-  icon: string;
+  icon: React.ReactNode;
   color: string;
 }
 
@@ -30,7 +40,7 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, subValue, change, ico
         )}
       </div>
       <div className={`p-3 rounded-lg ${color}`}>
-        <span className="text-xl">{icon}</span>
+        {icon}
       </div>
     </div>
   </div>
@@ -64,7 +74,7 @@ const RevenueSummaryCards: React.FC<RevenueSummaryCardsProps> = ({ data, isLoadi
           value={formatCompactCurrency(data.grossRevenue)}
           subValue={formatCurrency(data.grossRevenue)}
           change={data.grossRevenueChange}
-          icon="💰"
+          icon={<BanknotesIcon className="h-6 w-6 text-green-600 dark:text-green-400" />}
           color="bg-green-100 dark:bg-green-500/20"
         />
         <StatCard
@@ -72,7 +82,7 @@ const RevenueSummaryCards: React.FC<RevenueSummaryCardsProps> = ({ data, isLoadi
           value={formatCompactCurrency(data.netRevenue)}
           subValue={formatCurrency(data.netRevenue)}
           change={data.netRevenueChange}
-          icon="📊"
+          icon={<ChartBarIcon className="h-6 w-6 text-blue-600 dark:text-blue-400" />}
           color="bg-blue-100 dark:bg-blue-500/20"
         />
         <StatCard
@@ -80,13 +90,13 @@ const RevenueSummaryCards: React.FC<RevenueSummaryCardsProps> = ({ data, isLoadi
           value={data.totalTransactions.toLocaleString()}
           subValue={`${data.completedTransactions} completed`}
           change={data.transactionCountChange}
-          icon="🧾"
+          icon={<DocumentTextIcon className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />}
           color="bg-indigo-100 dark:bg-indigo-500/20"
         />
         <StatCard
           label="Avg Transaction"
           value={formatCurrency(data.averageTransactionValue)}
-          icon="📈"
+          icon={<ArrowTrendingUpIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />}
           color="bg-purple-100 dark:bg-purple-500/20"
         />
       </div>
@@ -97,28 +107,28 @@ const RevenueSummaryCards: React.FC<RevenueSummaryCardsProps> = ({ data, isLoadi
           label="Refunded Amount"
           value={formatCompactCurrency(data.refundedAmount)}
           subValue={`${data.refundCount} refunds`}
-          icon="🔄"
+          icon={<ArrowPathIcon className="h-6 w-6 text-red-600 dark:text-red-400" />}
           color="bg-red-100 dark:bg-red-500/20"
         />
         <StatCard
           label="Refund Rate"
           value={`${data.refundRate.toFixed(1)}%`}
           subValue={`${data.refundCount} / ${data.completedTransactions}`}
-          icon="📉"
+          icon={<ArrowTrendingDownIcon className="h-6 w-6 text-orange-600 dark:text-orange-400" />}
           color="bg-orange-100 dark:bg-orange-500/20"
         />
         <StatCard
           label="Pending Amount"
           value={formatCompactCurrency(data.pendingAmount)}
           subValue={`${data.pendingTransactions} pending`}
-          icon="⏳"
+          icon={<ClockIcon className="h-6 w-6 text-amber-600 dark:text-amber-400" />}
           color="bg-amber-100 dark:bg-amber-500/20"
         />
         <StatCard
           label="Revenue / Day"
           value={formatCompactCurrency(data.dailyAverageRevenue || (data.grossRevenue / Math.max(data.totalDays || 30, 1)))}
           subValue={data.peakRevenueDay ? `Peak: ${data.peakRevenueDay}` : 'Avg daily gross'}
-          icon="📅"
+          icon={<CalendarDaysIcon className="h-6 w-6 text-teal-600 dark:text-teal-400" />}
           color="bg-teal-100 dark:bg-teal-500/20"
         />
       </div>

@@ -22,12 +22,24 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Token refresh queue
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+function subscribeTokenRefresh(cb: (token: string) => void) {
+  refreshSubscribers.push(cb);
+}
+
+function onTokenRefreshed(token: string) {
+  refreshSubscribers.forEach((cb) => cb(token));
+  refreshSubscribers = [];
+}
+
 // Response interceptor: handle 401, Network Errors, and token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    const status = error.response?.status;
 
     // Skip interceptor for auth endpoints (login, register, etc.) — let errors propagate directly
     const requestUrl = originalRequest?.url || "";
@@ -59,25 +71,29 @@ api.interceptors.response.use(
 
       const refreshToken = authStorage.getRefreshToken();
       if (!refreshToken) {
-        return Promise.reject(error);
-      }
-
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          return api(originalRequest);
-        } catch {
-          // Refresh failed — clear tokens and redirect to login
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("refreshToken");
-          localStorage.removeItem("user");
-          window.location.href = "/signin";
-          return Promise.reject(error);
-        }
-      } else {
-        // No refresh token available — redirect to login
         localStorage.removeItem("accessToken");
         localStorage.removeItem("user");
         window.location.href = "/signin";
         return Promise.reject(error);
+      }
+
+      isRefreshing = true;
+      try {
+        const response = await api.post("/auth/refresh-token", { refreshToken });
+        const accessToken = response.data.accessToken;
+        authStorage.setTokens(accessToken, refreshToken);
+        onTokenRefreshed(accessToken);
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        // Refresh failed — clear tokens and redirect to login
+        localStorage.removeItem("accessToken");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("user");
+        window.location.href = "/signin";
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
 

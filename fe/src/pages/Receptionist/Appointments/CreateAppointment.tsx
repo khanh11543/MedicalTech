@@ -59,6 +59,7 @@ export default function CreateAppointment({ isOpen, onClose, onCreated, rebookDa
   // Step 2: Appointment details
   const [doctors, setDoctors] = useState<DoctorOption[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState<number | null>(null);
+  const [doctorLocked, setDoctorLocked] = useState(false);
   const [appointmentDate, setAppointmentDate] = useState("");
   const [timeSlots, setTimeSlots] = useState<TimeSlotOption[]>([]);
   const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
@@ -78,6 +79,7 @@ export default function CreateAppointment({ isOpen, onClose, onCreated, rebookDa
     setPatientResults([]);
     setShowCreatePatient(false);
     setSelectedDoctorId(null);
+    setDoctorLocked(false);
     setAppointmentDate("");
     setSelectedSlotId(null);
     setNotes("");
@@ -94,6 +96,7 @@ export default function CreateAppointment({ isOpen, onClose, onCreated, rebookDa
       } as PatientBasicDTO);
       if (rebookData.doctorId) {
         setSelectedDoctorId(rebookData.doctorId);
+        setDoctorLocked(true);
       }
       setStep(2);
     } else {
@@ -453,11 +456,12 @@ export default function CreateAppointment({ isOpen, onClose, onCreated, rebookDa
 
               {/* Doctor selection */}
               <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Doctor *</label>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Doctor *{doctorLocked && <span className="ml-1 text-brand-500">(locked — same doctor)</span>}</label>
                 <select
                   value={selectedDoctorId || ""}
                   onChange={(e) => setSelectedDoctorId(Number(e.target.value) || null)}
-                  className="w-full px-3 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
+                  disabled={doctorLocked}
+                  className={`w-full px-3 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 ${doctorLocked ? "opacity-60 cursor-not-allowed" : ""}`}
                 >
                   <option value="">Select a doctor...</option>
                   {doctors.map((d) => (

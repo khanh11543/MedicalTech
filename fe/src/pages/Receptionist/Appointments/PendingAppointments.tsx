@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import receptionistService from "../../../services/receptionistService";
 import type { ReceptionistAppointmentListDTO } from "../../../services/receptionistService";
-import { StatusBadge, Spinner, EmptyState, Pagination, Toast, ConfirmDialog } from "./SharedComponents";
+import { StatusBadge, EmptyState, Pagination, Toast, ConfirmDialog } from "./SharedComponents";
+import { TableSkeleton } from "../../../components/ui/skeleton/Skeleton";
 
 interface PendingAppointmentsProps {
   onViewDetail: (id: number) => void;
@@ -167,9 +168,9 @@ export default function PendingAppointments({ onViewDetail, onCreateNew }: Pendi
         </div>
       )}
 
-      {loading ? (
+      {loading && !appointments.length ? (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-          <Spinner />
+          <TableSkeleton rows={8} cols={6} />
         </div>
       ) : appointments.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">

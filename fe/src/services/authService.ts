@@ -116,6 +116,11 @@ const authService = {
     const response = await api.post("/auth/refresh", { refreshToken });
     return response.data;
   },
+
+  verifyAccount: async (token: string): Promise<MessageResponse> => {
+    const response = await api.get(`/auth/verify-account?token=${encodeURIComponent(token)}`);
+    return response.data;
+  },
 };
 
 export default authService;

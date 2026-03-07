@@ -7,6 +7,7 @@ import com.q2k.meditech.dto.UpdatePatientDTO;
 import com.q2k.meditech.entity.Patient;
 import com.q2k.meditech.entity.User;
 import com.q2k.meditech.exception.ResourceNotFoundException;
+import com.q2k.meditech.repository.AppointmentRepository;
 import com.q2k.meditech.repository.PatientRepository;
 import com.q2k.meditech.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -39,12 +40,13 @@ public class AdminPatientController {
 
     private final PatientRepository patientRepository;
     private final UserRepository userRepository;
+    private final AppointmentRepository appointmentRepository;
 
     /**
      * GET /api/admin/patients - List all patients with filters
      */
     @GetMapping
-    @Transactional
+    @Transactional(readOnly = true)
     @Operation(summary = "List patients", description = "Get paginated list of patients with optional filters")
     public ResponseEntity<Page<AdminPatientDTO>> listPatients(
             @Parameter(description = "Search by name, email, or phone")
@@ -72,9 +74,6 @@ public class AdminPatientController {
             @RequestParam(defaultValue = "desc") String sortOrder) {
 
         log.info("GET /admin/patients - q: {}, gender: {}, bloodGroup: {}, isActive: {}", q, gender, bloodGroup, isActive);
-
-        // Auto-sync: create Patient profiles for users with PATIENT role who are missing one
-        syncMissingPatientProfiles();
 
         Sort sort = sortOrder.equalsIgnoreCase("asc")
                 ? Sort.by(sortBy).ascending()
@@ -166,9 +165,12 @@ public class AdminPatientController {
         return ResponseEntity.ok(MessageDTO.success(message));
     }
 
-    // ===== Sync helper =====
+    // ===== Sync endpoint =====
 
-    private void syncMissingPatientProfiles() {
+    @PostMapping("/sync")
+    @Transactional
+    @Operation(summary = "Sync missing patient profiles", description = "Create Patient profiles for users with PATIENT role who are missing one")
+    public ResponseEntity<MessageDTO> syncPatientProfiles() {
         List<User> usersWithoutProfile = userRepository.findUsersWithRoleMissingPatientProfile("PATIENT");
         if (!usersWithoutProfile.isEmpty()) {
             log.info("Syncing {} users with PATIENT role missing patient profile", usersWithoutProfile.size());
@@ -177,9 +179,9 @@ public class AdminPatientController {
                         .user(user)
                         .build();
                 patientRepository.save(patient);
-                log.info("Created patient profile for user: {} (ID: {})", user.getEmail(), user.getId());
             }
         }
+        return ResponseEntity.ok(MessageDTO.success("Synced " + usersWithoutProfile.size() + " patient profiles"));
     }
 
     // ===== Mapper helper =====
@@ -206,7 +208,7 @@ public class AdminPatientController {
                 .bloodGroup(patient.getBloodGroup())
                 .allergies(patient.getAllergies())
                 .medicalHistory(patient.getMedicalHistory())
-                .totalAppointments((long) patient.getAppointments().size())
+                .totalAppointments(appointmentRepository.countByPatientId(patient.getId()))
                 .build();
     }
 }

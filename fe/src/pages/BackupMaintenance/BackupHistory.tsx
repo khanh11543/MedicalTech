@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import ComponentCard from '../../components/common/ComponentCard';
 import PageMeta from '../../components/common/PageMeta';
+import Toast from '../../components/common/Toast';
+import { useToast } from '../../hooks/useToast';
 import Badge from '../../components/ui/badge/Badge';
 import * as backupService from '../../services/backupService';
 import type {
@@ -15,6 +17,7 @@ import type {
 
 const BackupHistory: React.FC = () => {
   const queryClient = useQueryClient();
+  const { toast, showToast, dismissToast } = useToast();
 
   // Filter state
   const [filters, setFilters] = useState<{
@@ -75,7 +78,7 @@ const BackupHistory: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['backup-history'] });
     },
     onError: (err: any) => {
-      alert(err?.response?.data?.message || 'Verify failed');
+      showToast(err?.response?.data?.message || 'Verify failed', 'error');
     },
   });
 
@@ -83,10 +86,10 @@ const BackupHistory: React.FC = () => {
     mutationFn: (id: number) => backupService.deleteBackup(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['backup-history'] });
-      alert('Backup deleted successfully');
+      showToast('Backup deleted successfully', 'success');
     },
     onError: (err: any) => {
-      alert(err?.response?.data?.message || 'Delete failed');
+      showToast(err?.response?.data?.message || 'Delete failed', 'error');
     },
   });
 
@@ -95,7 +98,7 @@ const BackupHistory: React.FC = () => {
       const blob = await backupService.downloadBackup(backup.id);
       backupService.downloadFile(blob, `${backup.backupName}.sql.gz`);
     } catch (err: any) {
-      alert(err?.response?.data?.message || 'Download failed');
+      showToast(err?.response?.data?.message || 'Download failed', 'error');
     }
   };
 
@@ -578,6 +581,7 @@ const BackupHistory: React.FC = () => {
           </div>
         </div>
       )}
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 };

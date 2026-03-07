@@ -44,8 +44,7 @@ function HeroSection() {
             </h1>
 
             <p className="text-[1rem] md:text-[1.2rem] text-white/80 mb-8 max-w-[600px] leading-relaxed">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit
-              tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo.
+              Providing trusted healthcare services with advanced technology and compassionate medical professionals dedicated to your well-being
             </p>
 
             {/* CTA Buttons */}
@@ -88,23 +87,23 @@ function HeroSection() {
           </div>
 
           {/* Features Row — glass panel */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-[15px] shadow-[0_10px_30px_rgba(0,0,0,0.1)] p-8 mt-4">
+          <div className="bg-white/80 backdrop-blur-sm rounded-[15px] shadow-[0_10px_30px_rgba(0,0,0,0.1)] p-8 mt-4 ">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
                 {
                   icon: "bi bi-heart-pulse-fill",
                   title: "Cardiology",
-                  desc: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+                  desc: "Specialized heart care including diagnosis, treatment, and prevention of cardiovascular diseases using modern cardiology technologies.",
                 },
                 {
                   icon: "bi bi-lungs-fill",
                   title: "Pulmonology",
-                  desc: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+                  desc: "Comprehensive respiratory care including diagnosis, treatment, and management of lung diseases using advanced pulmonology techniques.",
                 },
                 {
                   icon: "bi bi-capsule",
                   title: "Diagnostics",
-                  desc: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+                  desc: "Accurate diagnostic services including laboratory testing, imaging, and health screenings to support early disease detection.",
                 },
               ].map((f) => (
                 <div key={f.title} className="flex items-start gap-4">
@@ -153,15 +152,11 @@ function AboutSection() {
             <h2 className="text-[32px] font-bold text-[#18444c] mb-4">
               Committed to Exceptional Patient Care
             </h2>
-            <p className="text-[18px] font-medium text-[rgba(24,68,76,0.8)] mb-4">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit
-              tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo.
+            <p className="text-[18px] font-medium text-[rgba(24,68,76,0.8)] mb-4 text-justify">
+              At MediTrust Medical Center, our mission is to provide high-quality healthcare through advanced medical technology, experienced physicians, and compassionate patient-centered care.
             </p>
-            <p className="text-[#2c3031] mb-4">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin
-              consequat magna eu accumsan mattis. Duis non augue in tortor
-              facilisis tincidunt ac sit amet sapien. Suspendisse id risus non
-              nisi sodales condimentum.
+            <p className="text-[#2c3031] mb-4 text-justify">
+             We combine modern medical expertise with personalized treatment plans to ensure every patient receives safe, effective, and comfortable healthcare services. Our team is dedicated to improving patient outcomes and supporting long-term health and wellness.
             </p>
 
             {/* Feature Items */}
@@ -170,12 +165,12 @@ function AboutSection() {
                 {
                   icon: "bi bi-heart-pulse",
                   title: "Compassionate Care",
-                  desc: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+                  desc: "Our medical professionals prioritize patient comfort, respect, and emotional support throughout every stage of treatment.",
                 },
                 {
                   icon: "bi bi-star",
                   title: "Medical Excellence",
-                  desc: "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+                  desc: "Our hospital is equipped with advanced medical technologies and staffed by highly qualified specialists committed to delivering exceptional healthcare.",
                 },
               ].map((item) => (
                 <div
@@ -280,7 +275,8 @@ function DepartmentsSection() {
       <div className="container-landing">
         <HomeSectionTitle
           title="Featured Departments"
-          description="Necessitatibus eius consequatur ex aliquid fuga eum quidem sint consectetur velit"
+          description="Explore our specialized departments offering comprehensive diagnosis, treatment, and preventive healthcare 
+          services delivered by experienced medical professionals."
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -377,7 +373,7 @@ function ServicesSection() {
       <div className="container-landing">
         <HomeSectionTitle
           title="Featured Services"
-          description="Necessitatibus eius consequatur ex aliquid fuga eum quidem sint consectetur velit"
+          description="Our healthcare services are designed to support your health at every stage of life with personalized treatment and advanced medical technology."
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -495,7 +491,7 @@ function DoctorSection() {
       <div className="container-landing">
         <HomeSectionTitle
           title="Find A Doctor"
-          description="Necessitatibus eius consequatur ex aliquid fuga eum quidem sint consectetur velit"
+          description="Search our network of highly qualified physicians and specialists dedicated to providing exceptional patient care."
         />
 
         {/* Search */}
@@ -592,9 +588,7 @@ function CTASection() {
             Your Health is Our Priority
           </h2>
           <p className="text-[1.1rem] text-[rgba(44,48,49,0.8)] leading-relaxed mb-8">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do
-            eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim
-            ad minim veniam, quis nostrud exercitation ullamco laboris.
+            Schedule an appointment with one of our experienced healthcare professionals and receive personalized medical care tailored to your needs.
           </p>
           <div className="flex flex-wrap justify-center gap-3 mb-12">
             <Link
@@ -618,19 +612,19 @@ function CTASection() {
             {
               icon: "bi bi-heart-pulse",
               title: "24/7 Emergency Care",
-              desc: "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo.",
+              desc: "Immediate medical assistance available around the clock for critical and life-threatening conditions.",
               link: "Learn More",
             },
             {
               icon: "bi bi-calendar-check",
               title: "Easy Online Booking",
-              desc: "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.",
+              desc: "Schedule your medical appointment quickly and conveniently through our online system. Choose your preferred doctor, department, and time to receive personalized healthcare services.",
               link: "Book Now",
             },
             {
               icon: "bi bi-people",
               title: "Expert Medical Team",
-              desc: "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim.",
+              desc: "Highly qualified doctors and healthcare specialists committed to delivering exceptional care.",
               link: "Meet Our Doctors",
             },
           ].map((card) => (
@@ -697,7 +691,7 @@ function EmergencySection() {
       <div className="container-landing">
         <HomeSectionTitle
           title="Emergency Info"
-          description="Necessitatibus eius consequatur ex aliquid fuga eum quidem sint consectetur velit"
+          description="If you are experiencing a medical emergency, please contact emergency services immediately or visit our emergency department."
         />
 
         {/* col-lg-8 col-md-10 mx-auto equivalent */}

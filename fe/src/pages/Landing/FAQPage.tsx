@@ -9,24 +9,24 @@ interface FaqItem {
 
 const faqs: FaqItem[] = [
   {
-    question: "Vivamus suscipit tortor eget felis porttitor volutpat?",
+    question: "How do I book a medical appointment?",
     answer:
-      "Nulla quis lorem ut libero malesuada feugiat. Vestibulum ac diam sit amet quam vehicula elementum sed sit amet dui. Curabitur aliquet quam id dui posuere blandit. Nulla porttitor accumsan tincidunt.",
+      "You can book an appointment online through our appointment page by selecting your preferred department, doctor, and available time slot. You may also call our clinic directly for assistance with scheduling.",
   },
   {
-    question: "Curabitur aliquet quam id dui posuere blandit?",
+    question: "What should I bring to my appointment?",
     answer:
-      "Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Donec velit neque, auctor sit amet aliquam vel, ullamcorper sit amet ligula. Proin eget tortor risus. Mauris blandit aliquet elit, eget tincidunt nibh pulvinar.",
+      "Please bring a valid ID, your insurance card (if applicable), any previous medical records, and a list of medications you are currently taking. This helps our doctors provide accurate diagnosis and treatment.",
   },
   {
-    question: "Sed porttitor lectus nibh ullamcorper sit amet?",
+    question: "Can I choose my preferred doctor?",
     answer:
-      "Curabitur non nulla sit amet nisl tempus convallis quis ac lectus. Praesent sapien massa, convallis a pellentesque nec, egestas non nisi. Donec sollicitudin molestie malesuada. Vestibulum ac diam sit amet quam vehicula elementum.",
+      "Yes. When booking your appointment, you can select your preferred doctor based on department, availability, and specialization.",
   },
   {
-    question: "Nulla quis lorem ut libero malesuada feugiat?",
+    question: "How early should I arrive before my appointment?",
     answer:
-      "Donec sollicitudin molestie malesuada. Quisque velit nisi, pretium ut lacinia in, elementum id enim. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Donec velit neque, auctor sit amet aliquam vel.",
+      "We recommend arriving at least 10–15 minutes before your scheduled appointment to complete any necessary paperwork and check-in procedures.",
   },
 ];
 
@@ -47,7 +47,7 @@ export default function FAQPage() {
     <>
       <PageTitle
         title="Frequenty Asked Questions"
-        description="Lorem ipsum dolor sit amet, consectetur adipiscing elit. Ut elit tellus, luctus nec ullamcorper mattis, pulvinar dapibus leo."
+        description="Find answers to common questions about our medical services, appointments, healthcare procedures, and patient support. Our goal is to make your healthcare experience as smooth and informed as possible."
         breadcrumbs={[
           { label: "Home", to: "/home" },
           { label: "Category", to: "/" },
@@ -65,9 +65,7 @@ export default function FAQPage() {
               </div>
               <h3 className="faq-contact-title">Still Have Questions?</h3>
               <p className="faq-contact-desc">
-                Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia
-                Curae; Donec velit neque, auctor sit amet aliquam vel, ullamcorper sit amet ligula.
-                Vestibulum ac diam sit amet quam vehicula elementum.
+                If you need additional assistance or cannot find the answer you are looking for, our support team is always ready to help. Feel free to contact us through any of the options below.
               </p>
               <div className="faq-contact-options">
                 {contactOptions.map((opt) => (

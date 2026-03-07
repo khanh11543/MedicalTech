@@ -45,7 +45,7 @@ export default function SignInForm() {
       } else if (tokenData.roles?.includes("DOCTOR")) {
         navigate("/doctor");
       } else if (tokenData.roles?.includes("RECEPTIONIST")) {
-        navigate("/receptionist");
+        navigate("/receptionist/dashboard");
       } else {
         navigate("/patient");
       }

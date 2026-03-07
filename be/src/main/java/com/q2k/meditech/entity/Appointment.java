@@ -138,6 +138,7 @@ public class Appointment extends BaseEntity {
 
     @OneToMany(mappedBy = "appointment", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @OrderBy("changedAt DESC")
+    @org.hibernate.annotations.BatchSize(size = 10)
     @Builder.Default
     private List<AppointmentHistory> histories = new ArrayList<>();
 

@@ -33,7 +33,6 @@ public interface UserMapper {
      * Password will be set manually in service layer
      */
     @Mapping(target = "passwordHash", ignore = true)
-    @Mapping(target = "fullName", ignore = true)
     @Mapping(target = "verificationToken", ignore = true)
     @Mapping(target = "resetToken", ignore = true)
     @Mapping(target = "resetTokenExpiry", ignore = true)
