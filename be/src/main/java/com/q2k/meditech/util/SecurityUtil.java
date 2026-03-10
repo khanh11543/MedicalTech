@@ -27,8 +27,6 @@ public class SecurityUtil {
     public static Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         
-        log.info("Authentication is authenticated: {}", authentication.isAuthenticated());
-
         if (authentication == null || !authentication.isAuthenticated()) {
             log.warn("No authenticated user in SecurityContext");
             return null;
