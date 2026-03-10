@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Appointment } from "../../services/appointmentService";
 
 interface ExpandableAppointmentTableProps {
@@ -29,12 +29,16 @@ export default function ExpandableAppointmentTable({
 }: ExpandableAppointmentTableProps) {
     const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
-    const menuRef = useRef<HTMLDivElement>(null);
 
     // Close menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+            const target = event.target as HTMLElement;
+            // Check if click is on a menu button or inside a dropdown menu
+            const isMenuButton = target.closest('button[class*="w-8 h-8"]');
+            const isDropdownMenu = target.closest('[class*="absolute right-0"]');
+            
+            if (!isMenuButton && !isDropdownMenu) {
                 setOpenMenuId(null);
             }
         };
@@ -181,8 +185,9 @@ export default function ExpandableAppointmentTable({
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="relative" ref={menuRef}>
+                                                <div className="relative">
                                                     <button
+                                                        onMouseDown={(e) => e.stopPropagation()}
                                                         onClick={() => setOpenMenuId(openMenuId === appointment.id ? null : appointment.id)}
                                                         className="inline-flex items-center justify-center w-8 h-8 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                                                     >
@@ -204,7 +209,10 @@ export default function ExpandableAppointmentTable({
 
                                                     {/* Dropdown Menu */}
                                                     {openMenuId === appointment.id && (
-                                                        <div className="absolute right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 min-w-48">
+                                                        <div 
+                                                            onMouseDown={(e) => e.stopPropagation()}
+                                                            className="absolute right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 min-w-48"
+                                                        >
                                                             <button
                                                                 onClick={() => {
                                                                     if (onViewDetails) {

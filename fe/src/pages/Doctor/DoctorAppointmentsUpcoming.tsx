@@ -2,13 +2,19 @@ import { useState, useMemo, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadCrumb from "../../components/common/PageBreadCrumb";
 import ExpandableAppointmentTable from "../../components/tables/ExpandableAppointmentTable";
-import { getDoctorAppointments, Appointment } from "../../services/appointmentService";
+import AppointmentDetailModal from "../../components/modals/AppointmentDetailModal";
+import { getDoctorAppointments, getAppointmentDetails, Appointment } from "../../services/appointmentService";
 
 export default function DoctorAppointmentsUpcoming() {
     // Data fetching states
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Modal states
+    const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
     // Filter and pagination states
     const [searchQuery, setSearchQuery] = useState("");
@@ -30,7 +36,10 @@ export default function DoctorAppointmentsUpcoming() {
                 const response = await getDoctorAppointments({
                     sort: "appointmentDate,ASC",
                 });
-                console.log(response);
+                console.log("Fetched appointments:", response.content);
+                if (response.content && response.content.length > 0) {
+                    console.log("First appointment date format:", response.content[0].appointmentDate);
+                }
                 setAppointments(response.content || []);
             } catch (err) {
                 const errorMessage = err instanceof Error
@@ -81,8 +90,10 @@ export default function DoctorAppointmentsUpcoming() {
 
         // Filter by month
         result = result.filter((apt) => {
+            // Extract YYYY-MM from appointmentDate (handles both "YYYY-MM-DD" and "YYYY-MM-DDTHH:mm:ss" formats)
             const aptMonth = apt.appointmentDate.substring(0, 7);
-            return aptMonth === selectedMonth;
+            const matches = aptMonth === selectedMonth;
+            return matches;
         });
 
         // Search filter
@@ -128,8 +139,26 @@ export default function DoctorAppointmentsUpcoming() {
 
     const totalPages = Math.ceil(uniqueDates.length / itemsPerPage);
 
-    const handleViewDetails = (appointment: Appointment) => {
-        console.log("View details for appointment:", appointment);
+    const handleViewDetails = async (appointment: Appointment) => {
+        try {
+            setIsLoadingDetails(true);
+            const details = await getAppointmentDetails(appointment.id);
+            setSelectedAppointment(details);
+            setIsModalOpen(true);
+        } catch (err) {
+            const errorMessage = err instanceof Error
+                ? err.message
+                : "Failed to fetch appointment details";
+            console.error("Error fetching appointment details:", err);
+            alert(`Error loading appointment details: ${errorMessage}`);
+        } finally {
+            setIsLoadingDetails(false);
+        }
+    };
+
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setSelectedAppointment(null);
     };
 
     const handleResetFilters = () => {
@@ -553,6 +582,13 @@ export default function DoctorAppointmentsUpcoming() {
                 )}
                     </>
                 )}
+
+            {/* Appointment Detail Modal */}
+            <AppointmentDetailModal
+                appointment={selectedAppointment}
+                isOpen={isModalOpen}
+                onClose={handleCloseModal}
+            />
             </div>
         </>
     );
