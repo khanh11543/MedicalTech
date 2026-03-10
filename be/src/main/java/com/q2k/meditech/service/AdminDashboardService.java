@@ -92,14 +92,13 @@ public class AdminDashboardService {
     }
     
     /**
-     * Count today's appointments
+     * Count today's appointments using DB-level count
      */
     private long countTodayAppointments() {
         try {
             LocalDate today = LocalDate.now();
-            return appointmentRepository.findAll().stream()
-                    .filter(a -> a.getAppointmentDate() != null && a.getAppointmentDate().equals(today))
-                    .count();
+            Long count = appointmentRepository.countInRange(today, today, null);
+            return count != null ? count : 0L;
         } catch (Exception e) {
             log.warn("Error counting today's appointments: {}", e.getMessage());
             return 0L;
@@ -107,13 +106,12 @@ public class AdminDashboardService {
     }
     
     /**
-     * Count appointments by status
+     * Count appointments by status using DB-level count
      */
     private long countAppointmentsByStatus(AppointmentStatus status) {
         try {
-            return appointmentRepository.findAll().stream()
-                    .filter(a -> a.getStatus() == status)
-                    .count();
+            Long count = appointmentRepository.countByStatus(status);
+            return count != null ? count : 0L;
         } catch (Exception e) {
             log.warn("Error counting appointments by status {}: {}", status, e.getMessage());
             return 0L;
@@ -121,12 +119,11 @@ public class AdminDashboardService {
     }
     
     /**
-     * Get recent users
+     * Get recent users with roles pre-fetched
      */
     private List<AdminDashboardDTO.RecentUserDTO> getRecentUsers(int limit) {
         try {
-            return userRepository.findAll(PageRequest.of(0, limit, Sort.by("createdAt").descending()))
-                    .getContent()
+            return userRepository.findRecentWithRoles(PageRequest.of(0, limit))
                     .stream()
                     .map(this::mapToRecentUserDTO)
                     .collect(Collectors.toList());
@@ -156,12 +153,11 @@ public class AdminDashboardService {
     }
     
     /**
-     * Get recent appointments
+     * Get recent appointments with relationships pre-fetched
      */
     private List<AdminDashboardDTO.RecentAppointmentDTO> getRecentAppointments(int limit) {
         try {
-            return appointmentRepository.findAll(PageRequest.of(0, limit, Sort.by("createdAt").descending()))
-                    .getContent()
+            return appointmentRepository.findRecentWithDetails(PageRequest.of(0, limit))
                     .stream()
                     .map(this::mapToRecentAppointmentDTO)
                     .collect(Collectors.toList());

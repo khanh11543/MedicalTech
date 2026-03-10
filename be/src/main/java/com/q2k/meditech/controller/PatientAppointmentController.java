@@ -2,7 +2,9 @@ package com.q2k.meditech.controller;
 
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.entity.enums.BookedBy;
+import com.q2k.meditech.repository.PatientRepository;
 import com.q2k.meditech.service.AppointmentService;
+import com.q2k.meditech.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 public class PatientAppointmentController {
     
     private final AppointmentService appointmentService;
+    private final PatientRepository patientRepository;
     
     /**
      * Patient books an appointment
@@ -66,14 +69,15 @@ public class PatientAppointmentController {
         return ResponseEntity.ok(result);
     }
     
-    // Helper methods - implement based on your security configuration
+    // Helper methods
     private Long getCurrentUserId(UserDetails userDetails) {
-        // TODO: Implement based on your UserDetails implementation
-        return 1L; // Placeholder
+        return SecurityUtil.getCurrentUserId();
     }
     
     private Long getPatientIdFromUser(UserDetails userDetails) {
-        // TODO: Implement based on your UserDetails implementation
-        return 1L; // Placeholder
+        Long userId = SecurityUtil.getCurrentUserId();
+        return patientRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Patient profile not found for user: " + userId))
+                .getId();
     }
 }

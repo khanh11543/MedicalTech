@@ -309,7 +309,7 @@ public class StaffRegistryServiceImpl implements StaffRegistryService {
      */
     private String buildRegistrationLink(String invitationToken) {
         // TODO: Get from configuration
-        String frontendUrl = "http://localhost:3000";
+        String frontendUrl = "http://localhost:5173";
         return frontendUrl + "/register?token=" + invitationToken;
     }
 }

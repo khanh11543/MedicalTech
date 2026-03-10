@@ -114,16 +114,16 @@ public class AdminUserController {
      */
     @PostMapping
     @Operation(summary = "Create user", description = "Create a new user (Admin only)")
-    public ResponseEntity<UserDTO> createUser(
+    public ResponseEntity<CreateUserResponseDTO> createUser(
             @Valid @RequestBody CreateUserDTO dto) {
 
         log.info("POST /admin/users - email: {}", dto.getEmail());
 
         Long currentUserId = getAuthenticatedUserId();
 
-        UserDTO user = userService.createUser(dto, currentUserId);
+        CreateUserResponseDTO response = userService.createUser(dto, currentUserId);
 
-        return ResponseEntity.status(HttpStatus.CREATED).body(user);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**

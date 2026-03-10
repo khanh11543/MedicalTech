@@ -1,6 +1,7 @@
 package com.q2k.meditech.repository;
 
 import com.q2k.meditech.entity.Prescription;
+import com.q2k.meditech.entity.enums.PrescriptionStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -66,26 +67,40 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
     // Đếm số đơn thuốc của patient
     Long countByPatientId(Long patientId);
 
-    // Đếm đơn thuốc active của patient
+    // Đếm số đơn thuốc active của patient
     Long countByPatientIdAndIsActiveTrue(Long patientId);
-    
+
     // Đếm số đơn thuốc của doctor
     Long countByDoctorId(Long doctorId);
-    
-    // Tìm tất cả prescriptions với filters (cho Admin)
-    @Query("SELECT p FROM Prescription p " +
-           "JOIN FETCH p.patient pat " +
-           "JOIN FETCH pat.user " +
-           "JOIN FETCH p.doctor doc " +
-           "JOIN FETCH doc.user " +
-           "WHERE (:doctorId IS NULL OR doc.id = :doctorId) " +
-           "AND (:patientId IS NULL OR pat.id = :patientId) " +
-           "AND (:fromDate IS NULL OR p.prescriptionDate >= :fromDate) " +
-           "AND (:toDate IS NULL OR p.prescriptionDate <= :toDate)")
-    Page<Prescription> findAllWithFilters(
-            @Param("doctorId") Long doctorId,
-            @Param("patientId") Long patientId,
-            @Param("fromDate") LocalDate fromDate,
-            @Param("toDate") LocalDate toDate,
-            Pageable pageable);
+
+    // Tìm theo khoảng thời gian (for admin statistics)
+    List<Prescription> findByPrescriptionDateBetween(LocalDate from, LocalDate to);
+
+    // Count by status
+    long countByStatus(PrescriptionStatus status);
+
+    // Count by status within date range
+    @Query("SELECT COUNT(p) FROM Prescription p WHERE p.status = :status AND p.prescriptionDate BETWEEN :from AND :to")
+    long countByStatusAndDateRange(@Param("status") PrescriptionStatus status,
+                                   @Param("from") LocalDate from,
+                                   @Param("to") LocalDate to);
+
+    // Find by status
+    List<Prescription> findByStatus(PrescriptionStatus status);
+
+    // Count distinct patients in date range
+    @Query("SELECT COUNT(DISTINCT p.patient.id) FROM Prescription p WHERE p.prescriptionDate BETWEEN :from AND :to")
+    long countDistinctPatientsByDateRange(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    // Count distinct doctors in date range
+    @Query("SELECT COUNT(DISTINCT p.doctor.id) FROM Prescription p WHERE p.prescriptionDate BETWEEN :from AND :to")
+    long countDistinctDoctorsByDateRange(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    // Count distinct patients overall
+    @Query("SELECT COUNT(DISTINCT p.patient.id) FROM Prescription p")
+    long countDistinctPatients();
+
+    // Count distinct doctors overall
+    @Query("SELECT COUNT(DISTINCT p.doctor.id) FROM Prescription p")
+    long countDistinctDoctors();
 }

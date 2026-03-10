@@ -4,6 +4,7 @@ import authService, {
   type TokenResponse,
 } from "../services/authService";
 import userService from "../services/userService";
+import { authStorage } from "../utils/authStorage";
 
 interface AuthUser {
   userId: number;
@@ -19,7 +20,7 @@ interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (data: LoginRequest) => Promise<TokenResponse>;
+  login: (data: LoginRequest, rememberMe?: boolean) => Promise<TokenResponse>;
   logout: () => Promise<void>;
   setAuthFromToken: (tokenData: TokenResponse) => void;
   updateUserProfile: (partial: { avatarUrl?: string | null; fullName?: string | null }) => void;
@@ -31,25 +32,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load user from localStorage on mount
+  // Load user from the correct storage on mount
   useEffect(() => {
-    const accessToken = localStorage.getItem("accessToken");
-    const refreshToken = localStorage.getItem("refreshToken");
-    const storedUser = localStorage.getItem("user");
+    const accessToken = authStorage.getAccessToken();
+    const refreshToken = authStorage.getRefreshToken();
+    const storedUser = authStorage.getUser();
 
     if (accessToken && refreshToken && storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser({
-          ...parsedUser,
-          accessToken,
-          refreshToken,
-        });
-      } catch {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("user");
-      }
+      setUser({
+        ...storedUser,
+        accessToken,
+        refreshToken,
+      });
+    } else {
+      authStorage.clear();
     }
     setIsLoading(false);
   }, []);
@@ -86,23 +82,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       refreshToken: tokenData.refreshToken,
     };
 
-    localStorage.setItem("accessToken", tokenData.accessToken);
-    localStorage.setItem("refreshToken", tokenData.refreshToken);
-    localStorage.setItem(
-      "user",
-      JSON.stringify({
-        userId: tokenData.userId,
-        email: tokenData.email,
-        roles: tokenData.roles,
-      })
-    );
+    authStorage.setTokens(tokenData.accessToken, tokenData.refreshToken);
+    authStorage.setUser({
+      userId: tokenData.userId,
+      email: tokenData.email,
+      roles: tokenData.roles,
+    });
 
     setUser(authUser);
   }, []);
 
   const login = useCallback(
-    async (data: LoginRequest): Promise<TokenResponse> => {
+    async (data: LoginRequest, rememberMe = false): Promise<TokenResponse> => {
       const tokenData = await authService.login(data);
+      authStorage.setRememberMe(rememberMe);
       setAuthFromToken(tokenData);
       return tokenData;
     },
@@ -115,9 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // Ignore logout API errors
     } finally {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("user");
+      authStorage.clear();
       setUser(null);
     }
   }, []);

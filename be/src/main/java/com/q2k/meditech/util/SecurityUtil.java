@@ -34,18 +34,20 @@ public class SecurityUtil {
             return null;
         }
 
-        // Assuming principal is User entity with getId()
         Object principal = authentication.getPrincipal();
         
+        // If using custom User entity
+        if (principal instanceof com.q2k.meditech.entity.User) {
+            com.q2k.meditech.entity.User user = (com.q2k.meditech.entity.User) principal;
+            return user.getId();
+        }
+        
         if (principal instanceof org.springframework.security.core.userdetails.User) {
-            // If using Spring Security's default User, look up by username
-            // The username matches the email prefix in our test data (e.g., "patient" -> "patient@test.com")
-            String username = ((org.springframework.security.core.userdetails.User) principal).getUsername();
-            log.debug("Principal is Spring User: {}", username);
+            // The username from JWT is already the full email address
+            String email = ((org.springframework.security.core.userdetails.User) principal).getUsername();
+            log.debug("Principal is Spring User with email: {}", email);
             
             if (userRepository != null) {
-                // Map username to email (username@test.com)
-                String email = username;
                 return userRepository.findByEmail(email)
                         .map(com.q2k.meditech.entity.User::getId)
                         .orElse(null);
@@ -53,10 +55,12 @@ public class SecurityUtil {
             return null;
         }
         
-        // If using custom User entity
-        if (principal instanceof com.q2k.meditech.entity.User) {
-            com.q2k.meditech.entity.User user = (com.q2k.meditech.entity.User) principal;
-            return user.getId();
+        // Fallback: try getName() as email
+        String name = authentication.getName();
+        if (name != null && userRepository != null) {
+            return userRepository.findByEmail(name)
+                    .map(com.q2k.meditech.entity.User::getId)
+                    .orElse(null);
         }
         
         log.warn("Unknown principal type: {}", principal.getClass().getName());

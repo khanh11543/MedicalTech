@@ -162,4 +162,33 @@ public class JwtService {
     public LocalDateTime calculateRefreshTokenExpiry() {
         return LocalDateTime.now().plusSeconds(refreshExpiration / 1000);
     }
+
+    /**
+     * Generate email verification token (24h expiry)
+     */
+    public String generateVerificationToken(String email) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("type", "email_verification");
+        long verificationExpiry = 24 * 60 * 60 * 1000L; // 24 hours
+        return createToken(claims, email, verificationExpiry);
+    }
+
+    /**
+     * Extract email from verification token and validate
+     */
+    public String validateVerificationToken(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            String type = claims.get("type", String.class);
+            if (!"email_verification".equals(type)) {
+                return null;
+            }
+            if (isTokenExpired(token)) {
+                return null;
+            }
+            return claims.getSubject();
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }

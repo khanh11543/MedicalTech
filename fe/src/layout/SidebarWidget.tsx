@@ -10,6 +10,9 @@ export default function SidebarWidget() {
       <p className="text-gray-500 text-theme-sm dark:text-gray-400">
         Medical Appointment Management System. Streamline healthcare operations.
       </p>
+      <p className="text-xs italic text-gray-400 dark:text-gray-500">
+        "Enhancing Every Step of the Patient Journey with Reliable, Secure, and Intelligent Healthcare Solutions."
+      </p>
     </div>
   );
 }

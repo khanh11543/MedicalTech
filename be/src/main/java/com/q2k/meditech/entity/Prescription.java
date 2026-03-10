@@ -1,5 +1,6 @@
 package com.q2k.meditech.entity;
 
+import com.q2k.meditech.entity.enums.PrescriptionStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -32,8 +33,19 @@ public class Prescription extends BaseEntity {
     @JoinColumn(name = "appointment_id")
     private Appointment appointment; // Liên kết với lần khám (optional)
 
+    @Column(name = "prescription_code", unique = true)
+    private String prescriptionCode; // Auto-generated: PRE-{id} or UUID
+
     @Column(name = "prescription_date", nullable = false)
     private LocalDate prescriptionDate;
+
+    @Column(name = "expiry_date")
+    private LocalDate expiryDate; // When the prescription expires
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20)
+    @Builder.Default
+    private PrescriptionStatus status = PrescriptionStatus.ACTIVE;
 
     @Column(name = "diagnosis", columnDefinition = "TEXT")
     private String diagnosis; // Chẩn đoán
@@ -49,6 +61,7 @@ public class Prescription extends BaseEntity {
     private Boolean isActive = true;
 
     @OneToMany(mappedBy = "prescription", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 10)
     @Builder.Default
     private List<PrescriptionItem> items = new ArrayList<>();
 

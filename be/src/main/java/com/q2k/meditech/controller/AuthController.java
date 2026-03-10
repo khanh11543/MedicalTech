@@ -116,6 +116,19 @@ public class AuthController {
     }
 
     /**
+     * Verify account by token link (for admin-created accounts)
+     * GET /api/auth/verify-account?token=xxx
+     */
+    @GetMapping("/verify-account")
+    @Operation(summary = "Verify account by token link",
+               description = "Verify email via a link sent to admin-created accounts")
+    public ResponseEntity<MessageDTO> verifyAccountByToken(@RequestParam String token) {
+        log.info("Account verification by token link");
+        MessageDTO response = authService.verifyAccountByToken(token);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * Change password
      * POST /api/auth/change-password
      */

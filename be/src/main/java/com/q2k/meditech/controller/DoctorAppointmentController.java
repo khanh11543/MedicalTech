@@ -2,7 +2,9 @@ package com.q2k.meditech.controller;
 
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.entity.enums.AppointmentStatus;
+import com.q2k.meditech.repository.DoctorRepository;
 import com.q2k.meditech.service.AppointmentService;
+import com.q2k.meditech.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +23,7 @@ import java.time.LocalDate;
 public class DoctorAppointmentController {
     
     private final AppointmentService appointmentService;
+    private final DoctorRepository doctorRepository;
     
     /**
      * Doctor views their appointments
@@ -58,18 +61,19 @@ public class DoctorAppointmentController {
         
         Long doctorUserId = getCurrentUserId(userDetails);
         
-        AppointmentDTO result = appointmentService.confirmAppointment(id, doctorUserId);
+        AppointmentDTO result = appointmentService.confirmAppointment(id, null, doctorUserId, "DOCTOR");
         return ResponseEntity.ok(result);
     }
     
     // Helper methods
     private Long getCurrentUserId(UserDetails userDetails) {
-        // TODO: Implement based on your UserDetails implementation
-        return 1L;
+        return SecurityUtil.getCurrentUserId();
     }
     
     private Long getDoctorIdFromUser(UserDetails userDetails) {
-        // TODO: Implement based on your UserDetails implementation
-        return 1L;
+        Long userId = SecurityUtil.getCurrentUserId();
+        return doctorRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Doctor profile not found for user: " + userId))
+                .getId();
     }
 }

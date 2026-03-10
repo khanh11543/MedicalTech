@@ -9,7 +9,7 @@ import com.q2k.meditech.exception.DuplicateResourceException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.InvoiceRepository;
 import com.q2k.meditech.repository.PaymentRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -78,7 +78,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .totalPrice(payment.getAmount())
                 .build();
 
-        // Note: InvoiceItem will be saved automatically via cascade
+        invoice.getItems().add(item);
+        invoice = invoiceRepository.save(invoice);
 
         log.info("Invoice created with number: {}", invoice.getInvoiceNumber());
 
@@ -86,6 +87,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public InvoiceDTO getInvoiceByPaymentId(Long paymentId) {
         log.info("Getting invoice by payment ID: {}", paymentId);
 
@@ -101,6 +103,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public InvoiceDTO getInvoiceById(Long invoiceId) {
         log.info("Getting invoice by ID: {}", invoiceId);
 
@@ -160,6 +163,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     // ========== PATIENT METHODS ==========
 
     @Override
+    @Transactional(readOnly = true)
     public InvoiceDTO getInvoiceByPaymentIdForPatient(Long paymentId, Long patientId) {
         log.info("Getting invoice for payment ID: {} for patient ID: {}", paymentId, patientId);
 
@@ -183,6 +187,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public InvoiceDTO getInvoiceByIdForPatient(Long invoiceId, Long patientId) {
         log.info("Getting invoice ID: {} for patient ID: {}", invoiceId, patientId);
 

@@ -43,10 +43,13 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final LoginAttemptRepository loginAttemptRepository;
     private final RoleRepository roleRepository;
+    private final PasswordHistoryRepository passwordHistoryRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
+    private final NotificationEventService notificationEventService;
+    private final ActivityLoggingService activityLoggingService;
 
     @Value("${app.account-lock-duration:30}") // minutes
     private int accountLockDuration;
@@ -211,6 +214,13 @@ public class AuthService {
             emailService.sendWelcomeEmail(newUser.getEmail(), newUser.getEmail());
 
             log.info("New user created and verified: {}", newUser.getEmail());
+
+            // Send notification: new patient registered
+            try {
+                notificationEventService.onNewPatientRegistered(newUser);
+            } catch (Exception e) {
+                log.warn("Failed to send new patient notification: {}", e.getMessage());
+            }
         } else {
             // This is for email change flow - just activate existing user
             User user = verification.getUser();
@@ -282,6 +292,10 @@ public class AuthService {
 
             // Record successful login
             recordLoginAttempt(user, loginDTO.getEmail(), true, null, ipAddress, userAgent);
+
+            // Activity log
+            activityLoggingService.log(user, com.q2k.meditech.entity.enums.ActivityType.LOGIN,
+                    "User logged in", ipAddress, userAgent);
 
             // Generate tokens
             return generateTokens(user, loginDTO.getDeviceId(), loginDTO.getDeviceName(), 
@@ -382,6 +396,12 @@ public class AuthService {
             }
         }
 
+        // Activity log
+        String ipAddress = getClientIp(request);
+        String userAgent2 = request.getHeader("User-Agent");
+        activityLoggingService.log(user, com.q2k.meditech.entity.enums.ActivityType.LOGOUT,
+                "User logged out", ipAddress, userAgent2);
+
         return MessageDTO.success("Logged out successfully");
     }
 
@@ -406,12 +426,38 @@ public class AuthService {
             throw new BadCredentialsException("Current password is incorrect");
         }
 
+        // Check new password is not same as current
+        if (passwordEncoder.matches(changePasswordDTO.getNewPassword(), user.getPasswordHash())) {
+            throw new BadRequestException("New password must be different from current password");
+        }
+
+        // Check against last 3 passwords in history
+        var recentPasswords = passwordHistoryRepository.findTop3ByUserIdOrderByCreatedAtDesc(user.getId());
+        for (PasswordHistory ph : recentPasswords) {
+            if (passwordEncoder.matches(changePasswordDTO.getNewPassword(), ph.getPasswordHash())) {
+                throw new BadRequestException("New password cannot be the same as any of your last 3 passwords");
+            }
+        }
+
+        // Save current password to history before changing
+        PasswordHistory history = PasswordHistory.builder()
+                .user(user)
+                .passwordHash(user.getPasswordHash())
+                .build();
+        passwordHistoryRepository.save(history);
+
         // Update password
         user.setPasswordHash(passwordEncoder.encode(changePasswordDTO.getNewPassword()));
         userRepository.save(user);
 
         // Revoke all sessions except current (optional - for security)
         // userSessionRepository.revokeAllUserSessions(user, LocalDateTime.now(), "Password changed");
+
+        // Activity log
+        String ipAddress = getClientIp(request);
+        String ua = request.getHeader("User-Agent");
+        activityLoggingService.log(user, com.q2k.meditech.entity.enums.ActivityType.PASSWORD_CHANGE,
+                "Password changed", ipAddress, ua);
 
         return MessageDTO.success("Password changed successfully");
     }
@@ -693,6 +739,31 @@ public class AuthService {
         }
 
         return MessageDTO.success("A new OTP has been sent to your email");
+    }
+
+    /**
+     * Verify account using token link (for admin-created accounts)
+     */
+    @Transactional
+    public MessageDTO verifyAccountByToken(String token) {
+        String email = jwtService.validateVerificationToken(token);
+        if (email == null) {
+            throw new InvalidTokenException("Invalid or expired verification link");
+        }
+
+        User user = userRepository.findByEmail(email)
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        if (user.getIsVerified()) {
+            return MessageDTO.success("Account is already verified");
+        }
+
+        user.setIsVerified(true);
+        user.setIsActive(true);
+        userRepository.save(user);
+
+        log.info("Account verified via token link: {}", email);
+        return MessageDTO.success("Account verified successfully! You can now login.");
     }
 
     private String extractTokenFromRequest(HttpServletRequest request) {

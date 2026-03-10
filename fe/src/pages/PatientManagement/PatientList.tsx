@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
 import {
   Table,
   TableBody,
@@ -9,6 +11,8 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import Badge from "../../components/ui/badge/Badge";
+import { useWorkstation } from "../../context/WorkstationContext";
+import { maskPhone, maskEmail } from "../../utils/privacyMask";
 import adminService, {
   AdminPatient,
   Page,
@@ -30,6 +34,7 @@ function PatientDetailModal({
 }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { settings: wsSettings } = useWorkstation();
   const [form, setForm] = useState<UpdatePatientRequest>({
     fullName: patient.fullName || "",
     phone: patient.phone || "",
@@ -127,7 +132,7 @@ function PatientDetailModal({
               <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
                 {patient.fullName || patient.email}
               </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{patient.email}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{wsSettings.hideEmail ? maskEmail(patient.email) : patient.email}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -195,7 +200,7 @@ function PatientDetailModal({
             <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-3">Personal Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Field label="Full Name" value={patient.fullName || ""} field="fullName" />
-              <Field label="Phone" value={patient.phone || ""} field="phone" />
+              <Field label="Phone" value={editing ? (patient.phone || "") : (wsSettings.hidePhoneNumber ? maskPhone(patient.phone) : (patient.phone || ""))} field="phone" />
               <Field
                 label="Date of Birth"
                 value={patient.dateOfBirth || ""}
@@ -287,6 +292,8 @@ function PatientDetailModal({
 
 // ==================== MAIN COMPONENT ====================
 export default function PatientList() {
+  const { settings: wsSettings } = useWorkstation();
+  const { toast, showToast, dismissToast } = useToast();
   const [patients, setPatients] = useState<AdminPatient[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -347,16 +354,21 @@ export default function PatientList() {
   };
 
   const handleToggleStatus = async (patientId: number, currentStatus: boolean) => {
+    const prevPatients = patients;
+    setPatients(prev => prev.map(p =>
+      p.patientId === patientId ? { ...p, isActive: !currentStatus } : p
+    ));
     try {
       await adminService.updatePatientStatus(patientId, !currentStatus);
-      fetchPatients();
       if (selectedPatient?.patientId === patientId) {
         const updated = await adminService.getPatientDetail(patientId);
         setSelectedPatient(updated);
       }
+      showToast(`Patient ${!currentStatus ? "activated" : "deactivated"} successfully`, "success");
     } catch (err) {
       console.error("Failed to update patient status:", err);
-      alert("Failed to update patient status");
+      setPatients(prevPatients);
+      showToast("Failed to update patient status", "error");
     }
   };
 
@@ -364,10 +376,13 @@ export default function PatientList() {
     try {
       const updated = await adminService.updatePatient(id, data);
       setSelectedPatient(updated);
-      fetchPatients();
+      setPatients(prev => prev.map(p =>
+        p.patientId === id ? { ...p, ...updated } : p
+      ));
+      showToast("Patient updated successfully", "success");
     } catch (err) {
       console.error("Failed to update patient:", err);
-      alert("Failed to update patient");
+      showToast("Failed to update patient", "error");
     }
   };
 
@@ -561,9 +576,9 @@ export default function PatientList() {
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-3 text-start">
-                          <p className="text-sm text-gray-700 dark:text-gray-300">{p.email}</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300">{wsSettings.hideEmail ? maskEmail(p.email) : p.email}</p>
                           {p.phone && (
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{p.phone}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{wsSettings.hidePhoneNumber ? maskPhone(p.phone) : p.phone}</p>
                           )}
                         </TableCell>
                         <TableCell className="px-4 py-3 text-start">
@@ -674,6 +689,7 @@ export default function PatientList() {
           onToggleStatus={handleToggleStatus}
         />
       )}
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

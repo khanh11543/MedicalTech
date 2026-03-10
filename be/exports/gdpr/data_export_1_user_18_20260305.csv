@@ -1,0 +1,44 @@
+Section,Key,Value
+exportInfo,requestedDate,2026-03-04
+exportInfo,generatedAt,2026-03-05T14:09:14.724762600
+exportInfo,requestId,1
+exportInfo,exportFormat,CSV
+profile,id,18
+profile,email,patient@test.com
+profile,fullName,Patient Test
+profile,phone,0901111111
+profile,avatarUrl,/uploads/avatars/avatar_18_80f38b5d.jpg
+profile,isActive,true
+profile,isVerified,true
+profile,twoFactorEnabled,false
+profile,lastLogin,2026-03-04T13:11:47.551254
+profile,createdAt,2026-02-15T16:15:23.081640
+profile,dateOfBirth,1990-03-15
+profile,gender,MALE
+profile,address,"123 Trần Hưng Đạo, Q.1, TP.HCM"
+profile,insuranceNumber,BH-001-2024
+profile,insuranceProvider,Bảo Việt
+profile,emergencyContact,0933111222
+profile,bloodGroup,O+
+profile,allergies,Dị ứng Penicillin
+profile,medicalHistory,Viêm dạ dày mãn tính
+appointments[0],id,1001
+appointments[0],appointmentDate,2026-02-23
+appointments[0],status,CONFIRMED
+appointments[0],reason,Khám tổng quát tim mạch định kỳ
+appointments[0],notes,Bệnh nhân có tiền sử tăng huyết áp
+appointments[0],createdAt,2026-02-19T23:30:27
+prescriptions[0],id,1
+prescriptions[0],prescriptionDate,2026-02-19
+prescriptions[0],diagnosis,Tăng huyết áp độ 2 (I10)
+prescriptions[0],isActive,true
+prescriptions[0],createdAt,2026-02-20T01:38:18
+prescriptions[0],items,[]
+payments[0],id,1
+payments[0],amount,500000.00
+payments[0],status,PAID
+payments[0],paymentMethod,MOMO
+payments[0],createdAt,2026-02-20T00:06:04
+activityLogs[0],lastLogin,2026-03-04T13:11:47.551254
+activityLogs[0],accountCreated,2026-02-15T16:15:23.081640
+activityLogs[0],failedLoginCount,0

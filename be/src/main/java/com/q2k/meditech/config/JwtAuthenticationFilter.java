@@ -37,6 +37,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
             String token = extractTokenFromRequest(request);
+            String requestPath = request.getRequestURI();
 
             if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 // Extract username from token
@@ -63,9 +64,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         // Set authentication in security context
                         SecurityContextHolder.getContext().setAuthentication(authentication);
                         
-                        log.debug("Authenticated user: {}", username);
+                        log.info("Authenticated user: {} with authorities: {} for path: {}", 
+                                username, userDetails.getAuthorities(), requestPath);
                     }
                 }
+            } else if (token == null) {
+                log.warn("No JWT token found for path: {}", requestPath);
             }
         } catch (Exception ex) {
             log.error("Cannot set user authentication: {}", ex.getMessage());

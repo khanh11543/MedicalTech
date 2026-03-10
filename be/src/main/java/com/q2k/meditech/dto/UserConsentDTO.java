@@ -1,27 +1,29 @@
 package com.q2k.meditech.dto;
 
+import com.q2k.meditech.entity.enums.ConsentStatus;
+import com.q2k.meditech.entity.enums.ConsentType;
 import lombok.*;
 
 import java.time.LocalDateTime;
 
-/**
- * DTO for User Consent
- */
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
+@Data @NoArgsConstructor @AllArgsConstructor @Builder
 public class UserConsentDTO {
-    
     private Long id;
     private Long userId;
-    private String username;
-    private String consentType;
-    private Boolean consentGiven;
-    private String consentText;
+    private String userName;
+    private String userEmail;
+    private ConsentType consentType;
+    private ConsentStatus status;
+    private LocalDateTime consentDate;
+    private String version;
     private String ipAddress;
-    private LocalDateTime grantedAt;
-    private LocalDateTime revokedAt;
+    private String userAgent;
+    private LocalDateTime revokedDate;
+    private Long revokedBy;
+    private String revokedByName;
+    private String revocationReason;
+    private Boolean notificationSent;
+    private LocalDateTime notificationSentDate;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

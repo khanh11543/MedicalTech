@@ -20,6 +20,7 @@ import java.util.Set;
 public class UserDTO {
     private Long id;
     private String email;
+    private String fullName;
     private String phone;
     private String avatarUrl;
     private Boolean isActive;

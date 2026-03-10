@@ -8,6 +8,8 @@ import com.q2k.meditech.entity.DataProcessingActivity;
 import com.q2k.meditech.entity.DataRequest;
 import com.q2k.meditech.entity.User;
 import com.q2k.meditech.entity.UserConsent;
+import com.q2k.meditech.entity.enums.ConsentStatus;
+import com.q2k.meditech.entity.enums.ConsentType;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.DataProcessingActivityRepository;
 import com.q2k.meditech.repository.DataRequestRepository;
@@ -54,8 +56,8 @@ public class GDPRComplianceService {
 
         // Consent Statistics
         long totalConsents = userConsentRepository.count();
-        long activeConsents = userConsentRepository.countByConsentGiven(true);
-        long revokedConsents = userConsentRepository.countByConsentGiven(false);
+        long activeConsents = userConsentRepository.countByStatus(ConsentStatus.ACCEPTED);
+        long revokedConsents = userConsentRepository.countByStatus(ConsentStatus.REVOKED);
 
         // Processing Activities
         long totalProcessingActivities = dataProcessingActivityRepository.count();
@@ -181,7 +183,7 @@ public class GDPRComplianceService {
      */
     @Transactional(readOnly = true)
     public List<UserConsentDTO> getUserConsentsByUserId(Long userId) {
-        return userConsentRepository.findByUserIdOrderByCreatedAtDesc(userId)
+        return userConsentRepository.findByUserIdOrderByConsentDateDesc(userId)
                 .stream()
                 .map(this::convertToUserConsentDTO)
                 .collect(Collectors.toList());
@@ -191,8 +193,8 @@ public class GDPRComplianceService {
      * Create or update user consent
      */
     @Transactional
-    public UserConsentDTO updateUserConsent(Long userId, String consentType, Boolean consentGiven, 
-                                           String consentText, String ipAddress, String userAgent) {
+    public UserConsentDTO updateUserConsent(Long userId, ConsentType consentType, boolean consentGiven, 
+                                           String ipAddress, String userAgent) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
@@ -200,18 +202,18 @@ public class GDPRComplianceService {
                 .orElse(UserConsent.builder()
                         .user(user)
                         .consentType(consentType)
+                        .consentDate(LocalDateTime.now())
                         .build());
 
-        consent.setConsentGiven(consentGiven);
-        consent.setConsentText(consentText);
+        consent.setStatus(consentGiven ? ConsentStatus.ACCEPTED : ConsentStatus.REVOKED);
         consent.setIpAddress(ipAddress);
         consent.setUserAgent(userAgent);
 
-        if (Boolean.TRUE.equals(consentGiven)) {
-            consent.setGrantedAt(LocalDateTime.now());
-            consent.setRevokedAt(null);
+        if (consentGiven) {
+            consent.setConsentDate(LocalDateTime.now());
+            consent.setRevokedDate(null);
         } else {
-            consent.setRevokedAt(LocalDateTime.now());
+            consent.setRevokedDate(LocalDateTime.now());
         }
 
         UserConsent saved = userConsentRepository.save(consent);
@@ -337,13 +339,18 @@ public class GDPRComplianceService {
         return UserConsentDTO.builder()
                 .id(consent.getId())
                 .userId(consent.getUser().getId())
-                .username(consent.getUser().getEmail())
+                .userName(consent.getUser().getFullName())
+                .userEmail(consent.getUser().getEmail())
                 .consentType(consent.getConsentType())
-                .consentGiven(consent.getConsentGiven())
-                .consentText(consent.getConsentText())
+                .status(consent.getStatus())
+                .consentDate(consent.getConsentDate())
+                .version(consent.getVersion())
                 .ipAddress(consent.getIpAddress())
-                .grantedAt(consent.getGrantedAt())
-                .revokedAt(consent.getRevokedAt())
+                .userAgent(consent.getUserAgent())
+                .revokedDate(consent.getRevokedDate())
+                .revokedBy(consent.getRevokedBy())
+                .notificationSent(consent.getNotificationSent())
+                .notificationSentDate(consent.getNotificationSentDate())
                 .createdAt(consent.getCreatedAt())
                 .updatedAt(consent.getUpdatedAt())
                 .build();

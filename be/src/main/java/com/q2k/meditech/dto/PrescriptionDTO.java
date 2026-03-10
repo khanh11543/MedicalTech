@@ -31,7 +31,10 @@ public class PrescriptionDTO {
     private LocalDate appointmentDate;
     
     // Prescription details
+    private String prescriptionCode;
     private LocalDate prescriptionDate;
+    private LocalDate expiryDate;
+    private String status; // ACTIVE, EXPIRED, CANCELLED
     private String diagnosis;
     private String notes;
     private LocalDate followUpDate;

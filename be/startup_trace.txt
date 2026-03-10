@@ -1,0 +1,70 @@
+﻿[INFO] Scanning for projects...
+[INFO] 
+[INFO] --------------------------< com.q2k:meditech >--------------------------
+[INFO] Building be 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:3.4.2:run (default-cli) > test-compile @ meditech >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ meditech ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 0 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ meditech ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ meditech ---
+[INFO] skip non existing resourceDirectory D:\DATN\MedicalTech\be\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ meditech ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 2 source files with javac [debug parameters release 17] to target\test-classes
+[INFO] 
+[INFO] <<< spring-boot:3.4.2:run (default-cli) < test-compile @ meditech <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:3.4.2:run (default-cli) @ meditech ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.4.2)
+
+18:25:31 INFO  com.q2k.meditech.BeApplication - Starting BeApplication using Java 17.0.16 with PID 16316 (D:\DATN\MedicalTech\be\target\classes started by DO NGOC VINH in D:\DATN\MedicalTech\be)
+18:25:31 INFO  com.q2k.meditech.BeApplication - The following 1 profile is active: "dev"
+18:26:17 INFO  c.q.m.service.GeoLocationService - GeoIP2 database loaded from: data/GeoLite2-City.mmdb
+18:26:19 INFO  com.q2k.meditech.service.SmsService - eSMS service initialized - Brand: , Sandbox: true
+18:26:21 WARN  o.s.b.d.a.OptionalLiveReloadServer - Unable to start LiveReload server
+18:26:22 INFO  org.springframework.web.SimpLogging - Starting...
+18:26:22 INFO  org.springframework.web.SimpLogging - BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@67ee7f86]]
+18:26:22 INFO  org.springframework.web.SimpLogging - Started.
+18:26:22 INFO  org.springframework.web.SimpLogging - Stopping...
+18:26:22 INFO  org.springframework.web.SimpLogging - BrokerAvailabilityEvent[available=false, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@67ee7f86]]
+18:26:22 INFO  org.springframework.web.SimpLogging - Stopped.
+18:26:22 WARN  o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Exception encountered during context initialization - cancelling refresh attempt: org.springframework.context.ApplicationContextException: Failed to start bean 'webServerStartStop'
+18:26:22 ERROR o.s.b.d.LoggingFailureAnalysisReporter - 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Web server failed to start. Port 8080 was already in use.
+
+Action:
+
+Identify and stop the process that's listening on port 8080 or configure this application to listen on another port.
+
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  55.983 s
+[INFO] Finished at: 2026-03-05T18:26:22+07:00
+[INFO] ------------------------------------------------------------------------

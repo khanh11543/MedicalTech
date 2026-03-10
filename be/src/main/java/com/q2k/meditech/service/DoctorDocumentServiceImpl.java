@@ -68,7 +68,7 @@ public class DoctorDocumentServiceImpl implements DoctorDocumentService {
         
         // Update doctor verification status to PENDING if not already
         if (doctor.getVerificationStatus() == VerificationStatus.REJECTED) {
-            doctor.setVerificationStatus(VerificationStatus.PENDING);
+            doctor.setVerificationStatus(VerificationStatus.AWAITING_DOCUMENTS);
             doctor.setRejectionReason(null);
             doctorRepository.save(doctor);
         }
@@ -78,6 +78,7 @@ public class DoctorDocumentServiceImpl implements DoctorDocumentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<DoctorDocumentDTO> listMyDocuments(Long doctorId, String status, String docType) {
         log.info("Listing documents for doctor ID: {}, status: {}, type: {}", doctorId, status, docType);
 
@@ -144,6 +145,7 @@ public class DoctorDocumentServiceImpl implements DoctorDocumentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public Page<DoctorDocumentDTO> listPendingDocuments(Pageable pageable) {
         log.info("Admin listing pending documents");
 
@@ -152,6 +154,7 @@ public class DoctorDocumentServiceImpl implements DoctorDocumentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public DoctorDocumentDTO getDocumentDetail(Long documentId) {
         log.info("Getting document detail for ID: {}", documentId);
 
@@ -275,7 +278,8 @@ public class DoctorDocumentServiceImpl implements DoctorDocumentService {
                 case REJECTED -> rejectedCount++;
             }
 
-            if (doc.getStatus() == ReviewStatus.APPROVED) {
+            // Count as "has document" if uploaded (PENDING or APPROVED), not if REJECTED
+            if (doc.getStatus() != ReviewStatus.REJECTED) {
                 switch (doc.getDocType()) {
                     case LICENSE -> hasLicense = true;
                     case ID -> hasId = true;

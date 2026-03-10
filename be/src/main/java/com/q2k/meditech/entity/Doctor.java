@@ -1,8 +1,10 @@
 package com.q2k.meditech.entity;
 
+import com.q2k.meditech.entity.enums.DoctorQueueStatus;
 import com.q2k.meditech.entity.enums.VerificationStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -87,6 +89,15 @@ public class Doctor {
     @Column(name="is_available", nullable = false)
     private Boolean isAvailable = true;
 
+    // ===== Queue Management =====
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "queue_status", length = 20)
+    private DoctorQueueStatus queueStatus = DoctorQueueStatus.OFFLINE;
+
+    @Column(name = "current_room", length = 20)
+    private String currentRoom;
+
     @Column(name="hospital_affiliation", length = 255)
     private String hospitalAffiliation;
 
@@ -97,7 +108,7 @@ public class Doctor {
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name="verification_status", nullable = false, length = 20)
-    private VerificationStatus verificationStatus = VerificationStatus.PENDING;
+    private VerificationStatus verificationStatus = VerificationStatus.AWAITING_DOCUMENTS;
 
     @Column(name="verified_at")
     private LocalDateTime verifiedAt;
@@ -111,6 +122,9 @@ public class Doctor {
 
     @Column(name="rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
+
+    @Column(name="submitted_at")
+    private LocalDateTime submittedAt;
 
     // ===== timestamps (nếu bạn đã có BaseEntity thì có thể bỏ 2 field dưới) =====
     @Builder.Default
@@ -128,10 +142,12 @@ public class Doctor {
 
     // ===== Relations =====
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 10)
     @Builder.Default
     private List<DoctorDocument> documents = new ArrayList<>();
 
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, orphanRemoval = true)
+    @BatchSize(size = 10)
     @Builder.Default
     private List<DoctorSpecialty> doctorSpecialties = new ArrayList<>();
 

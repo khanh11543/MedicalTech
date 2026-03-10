@@ -154,27 +154,435 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
      */
     @Query("SELECT COUNT(a) > 0 FROM Appointment a WHERE a.timeSlot.id = :timeSlotId AND a.status NOT IN ('CANCELLED', 'RESCHEDULED')")
     boolean existsByTimeSlotAndNotCancelled(@Param("timeSlotId") Long timeSlotId);
+    
+    /**
+     * Count total appointments by patient
+     */
+    Long countByPatientId(Long patientId);
+    
+    /**
+     * Count appointments by patient and status
+     */
+    Long countByPatientIdAndStatus(Long patientId, AppointmentStatus status);
+    
+    /**
+     * Count appointments by patient and doctor
+     */
+    Long countByPatientIdAndDoctorId(Long patientId, Long doctorId);
+    
+    /**
+     * Count appointments by status (global)
+     */
+    @Query("SELECT COUNT(a) FROM Appointment a WHERE a.status = :status")
+    Long countByStatus(@Param("status") AppointmentStatus status);
 
     /**
-     * Find all appointments with filters for admin (with JOIN FETCH to avoid N+1)
+     * Find recent appointments with all relationships fetched (avoids N+1)
      */
-    @Query("SELECT DISTINCT a FROM Appointment a " +
-            "LEFT JOIN FETCH a.patient p " +
-            "LEFT JOIN FETCH p.user " +
-            "LEFT JOIN FETCH a.doctor d " +
-            "LEFT JOIN FETCH d.user " +
-            "WHERE (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
-            "AND (:patientId IS NULL OR a.patient.id = :patientId) " +
-            "AND (:status IS NULL OR CAST(a.status AS string) = :status) " +
-            "AND (:fromDate IS NULL OR a.appointmentDate >= :fromDate) " +
-            "AND (:toDate IS NULL OR a.appointmentDate <= :toDate) " +
-            "ORDER BY a.appointmentDate ASC, a.startTime ASC")
+    @Query("SELECT a FROM Appointment a " +
+           "JOIN FETCH a.patient p " +
+           "JOIN FETCH p.user pu " +
+           "JOIN FETCH a.doctor d " +
+           "JOIN FETCH d.user du " +
+           "ORDER BY a.createdAt DESC")
+    List<Appointment> findRecentWithDetails(Pageable pageable);
+
+    // ==================== STATISTICS QUERIES ====================
+    
+    /**
+     * Count appointments by status in date range
+     */
+    @Query("SELECT COUNT(a) FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to " +
+           "AND (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
+           "AND a.status = :status")
+    Long countByStatusInRange(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("doctorId") Long doctorId,
+            @Param("status") AppointmentStatus status);
+    
+    /**
+     * Count total appointments in date range
+     */
+    @Query("SELECT COUNT(a) FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to " +
+           "AND (:doctorId IS NULL OR a.doctor.id = :doctorId)")
+    Long countInRange(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("doctorId") Long doctorId);
+    
+    /**
+     * Get appointments count by date (for time series)
+     */
+    @Query("SELECT a.appointmentDate, COUNT(a) FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to " +
+           "AND (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
+           "GROUP BY a.appointmentDate " +
+           "ORDER BY a.appointmentDate")
+    List<Object[]> countByDateInRange(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("doctorId") Long doctorId);
+    
+    /**
+     * Get appointments count by date and status (for time series)
+     */
+    @Query("SELECT a.appointmentDate, a.status, COUNT(a) FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to " +
+           "AND (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
+           "GROUP BY a.appointmentDate, a.status " +
+           "ORDER BY a.appointmentDate")
+    List<Object[]> countByDateAndStatusInRange(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("doctorId") Long doctorId);
+    
+    /**
+     * Get status distribution
+     */
+    @Query("SELECT a.status, COUNT(a) FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to " +
+           "AND (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
+           "GROUP BY a.status")
+    List<Object[]> getStatusDistribution(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("doctorId") Long doctorId);
+    
+    /**
+     * Get doctor stats with counts
+     */
+    @Query("SELECT a.doctor, " +
+           "COUNT(a), " +
+           "SUM(CASE WHEN a.status = 'COMPLETED' THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN a.status = 'CANCELLED' THEN 1 ELSE 0 END), " +
+           "SUM(CASE WHEN a.status = 'NO_SHOW' THEN 1 ELSE 0 END) " +
+           "FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to " +
+           "GROUP BY a.doctor " +
+           "ORDER BY COUNT(a) DESC")
+    Page<Object[]> getDoctorStats(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            Pageable pageable);
+    
+    /**
+     * Get appointments by day of week and hour
+     */
+    @Query("SELECT FUNCTION('DAYOFWEEK', a.appointmentDate), FUNCTION('HOUR', a.startTime), COUNT(a) " +
+           "FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to " +
+           "AND (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
+           "AND a.status NOT IN ('CANCELLED') " +
+           "GROUP BY FUNCTION('DAYOFWEEK', a.appointmentDate), FUNCTION('HOUR', a.startTime)")
+    List<Object[]> getHeatmapData(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("doctorId") Long doctorId);
+    
+    /**
+     * Get cancellations by reason
+     */
+    @Query("SELECT a.cancellationReason, COUNT(a) FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to " +
+           "AND (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
+           "AND a.status = 'CANCELLED' " +
+           "GROUP BY a.cancellationReason " +
+           "ORDER BY COUNT(a) DESC")
+    List<Object[]> getCancellationReasons(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("doctorId") Long doctorId);
+    
+    /**
+     * Get cancellations by cancelled by user role
+     */
+    @Query("SELECT a.cancelledBy, COUNT(a) FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to " +
+           "AND (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
+           "AND a.status = 'CANCELLED' " +
+           "GROUP BY a.cancelledBy")
+    List<Object[]> getCancellationsByRole(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("doctorId") Long doctorId);
+    
+    /**
+     * Get no-shows with patient info
+     */
+    @Query("SELECT a.patient.id, a.patient.user.fullName, a.patient.user.phone, COUNT(a), MAX(a.appointmentDate) " +
+           "FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to " +
+           "AND (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
+           "AND a.status = 'NO_SHOW' " +
+           "GROUP BY a.patient.id, a.patient.user.fullName, a.patient.user.phone " +
+           "ORDER BY COUNT(a) DESC")
+    List<Object[]> getNoShowPatients(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("doctorId") Long doctorId);
+    
+    /**
+     * Get no-shows by day of week
+     */
+    @Query("SELECT FUNCTION('DAYOFWEEK', a.appointmentDate), COUNT(a) " +
+           "FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to " +
+           "AND (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
+           "AND a.status = 'NO_SHOW' " +
+           "GROUP BY FUNCTION('DAYOFWEEK', a.appointmentDate)")
+    List<Object[]> getNoShowsByDayOfWeek(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("doctorId") Long doctorId);
+    
+    /**
+     * Get appointments that should have been attended (for no-show rate calculation)
+     */
+    @Query("SELECT COUNT(a) FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to " +
+           "AND (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
+           "AND a.status IN ('CONFIRMED', 'CHECKED_IN', 'IN_PROGRESS', 'COMPLETED', 'NO_SHOW')")
+    Long countScheduledAppointments(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("doctorId") Long doctorId);
+    
+    /**
+     * Get completed appointments with check-in time (for wait time calculation)
+     */
+    @Query("SELECT a FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to " +
+           "AND (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
+           "AND a.status = 'COMPLETED' " +
+           "AND a.checkedInAt IS NOT NULL " +
+           "AND a.consultationStartedAt IS NOT NULL")
+    List<Appointment> findCompletedWithTimestamps(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("doctorId") Long doctorId);
+    
+    /**
+     * Check for conflicting appointments of a PATIENT (for reschedule: exclude current appointment)
+     */
+    @Query("SELECT a FROM Appointment a " +
+           "WHERE a.patient.id = :patientId " +
+           "AND a.appointmentDate = :date " +
+           "AND a.id != :excludeId " +
+           "AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'RESCHEDULED') " +
+           "AND ((a.startTime <= :startTime AND a.endTime > :startTime) " +
+           "     OR (a.startTime < :endTime AND a.endTime >= :endTime) " +
+           "     OR (a.startTime >= :startTime AND a.endTime <= :endTime))")
+    List<Appointment> findPatientConflictingAppointmentsExcluding(
+            @Param("patientId") Long patientId,
+            @Param("date") LocalDate date,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime,
+            @Param("excludeId") Long excludeId);
+
+    /**
+     * Count distinct doctors in range
+     */
+    @Query("SELECT COUNT(DISTINCT a.doctor.id) FROM Appointment a " +
+           "WHERE a.appointmentDate BETWEEN :from AND :to")
+    Long countDistinctDoctors(
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
+
+    // ==================== QUEUE MANAGEMENT QUERIES ====================
+
+    /**
+     * Find all queued patients (CHECKED_IN or IN_PROGRESS) for a doctor today,
+     * ordered by queue number.
+     */
+    @Query("SELECT a FROM Appointment a " +
+           "JOIN FETCH a.patient p " +
+           "JOIN FETCH p.user pu " +
+           "JOIN FETCH a.doctor d " +
+           "JOIN FETCH d.user du " +
+           "WHERE d.id = :doctorId " +
+           "AND a.appointmentDate = :date " +
+           "AND a.status IN :statuses " +
+           "ORDER BY a.queueNumber ASC")
+    List<Appointment> findQueuedByDoctorAndDate(
+            @Param("doctorId") Long doctorId,
+            @Param("date") LocalDate date,
+            @Param("statuses") List<AppointmentStatus> statuses);
+
+    /**
+     * Find all queued patients across ALL doctors for today.
+     */
+    @Query("SELECT a FROM Appointment a " +
+           "JOIN FETCH a.patient p " +
+           "JOIN FETCH p.user pu " +
+           "JOIN FETCH a.doctor d " +
+           "JOIN FETCH d.user du " +
+           "WHERE a.appointmentDate = :date " +
+           "AND a.status IN :statuses " +
+           "ORDER BY a.queueNumber ASC")
+    List<Appointment> findAllQueuedByDate(
+            @Param("date") LocalDate date,
+            @Param("statuses") List<AppointmentStatus> statuses);
+
+    /**
+     * Find queue-related history events (for audit log).
+     */
+    @Query("SELECT h FROM AppointmentHistory h " +
+           "JOIN FETCH h.appointment a " +
+           "WHERE a.appointmentDate = :date " +
+           "AND h.action IN :actions " +
+           "ORDER BY h.changedAt DESC")
+    List<com.q2k.meditech.entity.AppointmentHistory> findQueueAuditEvents(
+            @Param("date") LocalDate date,
+            @Param("actions") List<String> actions);
+
+    /**
+     * Find queue-related history events for a specific doctor.
+     */
+    @Query("SELECT h FROM AppointmentHistory h " +
+           "JOIN FETCH h.appointment a " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.appointmentDate = :date " +
+           "AND h.action IN :actions " +
+           "ORDER BY h.changedAt DESC")
+    List<com.q2k.meditech.entity.AppointmentHistory> findQueueAuditEventsByDoctor(
+            @Param("doctorId") Long doctorId,
+            @Param("date") LocalDate date,
+            @Param("actions") List<String> actions);
+
+    // ==================== REPORT QUERIES (Tab 6) ====================
+
+    /**
+     * Find all appointments on a date with full details for Daily Appointment Report (6.1).
+     * Optionally filtered by doctor.
+     */
+    @Query("SELECT a FROM Appointment a " +
+           "JOIN FETCH a.patient p " +
+           "JOIN FETCH p.user pu " +
+           "JOIN FETCH a.doctor d " +
+           "JOIN FETCH d.user du " +
+           "WHERE a.appointmentDate = :date " +
+           "AND (:doctorId IS NULL OR d.id = :doctorId) " +
+           "ORDER BY a.startTime, a.queueNumber")
+    List<Appointment> findByDateWithDetailsForReport(
+            @Param("date") LocalDate date,
+            @Param("doctorId") Long doctorId);
+
+    /**
+     * Find checked-in / in-progress / completed appointments on a date with timestamps
+     * for Queue Performance Report (6.3).
+     */
+    @Query("SELECT a FROM Appointment a " +
+           "JOIN FETCH a.patient p " +
+           "JOIN FETCH p.user pu " +
+           "JOIN FETCH a.doctor d " +
+           "JOIN FETCH d.user du " +
+           "WHERE a.appointmentDate = :date " +
+           "AND a.status IN ('CHECKED_IN', 'IN_PROGRESS', 'COMPLETED') " +
+           "ORDER BY d.id, a.checkedInAt")
+    List<Appointment> findQueuePerformanceData(@Param("date") LocalDate date);
+
+    /**
+     * Count appointments by status on a specific date.
+     */
+    @Query("SELECT a.status, COUNT(a) FROM Appointment a " +
+           "WHERE a.appointmentDate = :date " +
+           "AND (:doctorId IS NULL OR a.doctor.id = :doctorId) " +
+           "GROUP BY a.status")
+    List<Object[]> countByStatusOnDate(
+            @Param("date") LocalDate date,
+            @Param("doctorId") Long doctorId);
+
+    /**
+     * Aggregate all status counts for a date in a single query (avoids 12 sequential COUNT queries)
+     */
+    @Query("SELECT a.status, COUNT(a) FROM Appointment a " +
+           "WHERE a.appointmentDate = :date " +
+           "GROUP BY a.status")
+    List<Object[]> countAllStatusesOnDate(@Param("date") LocalDate date);
+
+    // ==================== TIME SLOT INTEGRATION ====================
+
+    @Query("SELECT a FROM Appointment a WHERE a.timeSlot.id = :timeSlotId")
+    Optional<Appointment> findByTimeSlotId(@Param("timeSlotId") Long timeSlotId);
+
+    @Query("SELECT a.appointmentCode FROM Appointment a WHERE a.timeSlot.id = :timeSlotId")
+    Optional<String> findAppointmentCodeByTimeSlotId(@Param("timeSlotId") Long timeSlotId);
+
+    @Query("SELECT a FROM Appointment a WHERE a.doctor.id = :doctorId " +
+           "AND a.appointmentDate = :slotDate " +
+           "AND a.startTime = :startTime AND a.endTime = :endTime " +
+           "AND a.status <> com.q2k.meditech.entity.enums.AppointmentStatus.CANCELLED " +
+           "ORDER BY a.id DESC")
+    Optional<Appointment> findByDoctorAndDateTime(
+            @Param("doctorId") Long doctorId,
+            @Param("slotDate") LocalDate slotDate,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime);
+
+    // ==================== DOCTOR DASHBOARD ====================
+
+    @Query("SELECT a FROM Appointment a " +
+           "JOIN FETCH a.patient p " +
+           "JOIN FETCH p.user pu " +
+           "JOIN FETCH a.doctor d " +
+           "JOIN FETCH d.user du " +
+           "WHERE d.id = :doctorId AND a.appointmentDate = :date " +
+           "ORDER BY a.startTime")
+    List<Appointment> findByDoctorIdAndDateForDashboard(
+            @Param("doctorId") Long doctorId,
+            @Param("date") LocalDate date);
+
+    @Query("SELECT COUNT(a) FROM Appointment a " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.appointmentDate BETWEEN :fromDate AND :toDate")
+    Long countByDoctorIdAndDateRange(
+            @Param("doctorId") Long doctorId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    @Query("SELECT COUNT(a) FROM Appointment a " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.status = :status " +
+           "AND a.appointmentDate BETWEEN :fromDate AND :toDate")
+    Long countByDoctorIdAndStatusAndDateRange(
+            @Param("doctorId") Long doctorId,
+            @Param("status") AppointmentStatus status,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    // ==================== ADMIN FILTERED LIST ====================
+
+    @Query("SELECT a FROM Appointment a " +
+           "JOIN FETCH a.patient p " +
+           "JOIN FETCH p.user pu " +
+           "JOIN FETCH a.doctor d " +
+           "JOIN FETCH d.user du " +
+           "LEFT JOIN Payment pay ON pay.appointment = a " +
+           "WHERE (:doctorId IS NULL OR d.id = :doctorId) " +
+           "AND (:patientId IS NULL OR p.id = :patientId) " +
+           "AND (:status IS NULL OR CAST(a.status AS string) = :status) " +
+           "AND (:statuses IS NULL OR a.status IN :statuses) " +
+           "AND (:fromDate IS NULL OR a.appointmentDate >= :fromDate) " +
+           "AND (:toDate IS NULL OR a.appointmentDate <= :toDate) " +
+           "AND (:appointmentType IS NULL OR a.appointmentType = :appointmentType) " +
+           "AND (:paymentStatus IS NULL OR pay.paymentStatus = :paymentStatus) " +
+           "AND (:search IS NULL OR :search = '' " +
+           "    OR LOWER(a.appointmentCode) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "    OR LOWER(pu.fullName) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "    OR LOWER(pu.email) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "    OR LOWER(du.fullName) LIKE LOWER(CONCAT('%', :search, '%')))")
     Page<Appointment> findAllWithFiltersAdmin(
             @Param("doctorId") Long doctorId,
             @Param("patientId") Long patientId,
             @Param("status") String status,
+            @Param("statuses") List<AppointmentStatus> statuses,
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate,
-            Pageable pageable
-    );
+            @Param("appointmentType") String appointmentType,
+            @Param("paymentStatus") String paymentStatus,
+            @Param("search") String search,
+            Pageable pageable);
 }

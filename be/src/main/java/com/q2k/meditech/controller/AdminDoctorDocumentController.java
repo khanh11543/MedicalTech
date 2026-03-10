@@ -3,6 +3,7 @@ package com.q2k.meditech.controller;
 import com.q2k.meditech.dto.DoctorDocumentDTO;
 import com.q2k.meditech.dto.ReviewDocDTO;
 import com.q2k.meditech.service.DoctorDocumentService;
+import com.q2k.meditech.util.SecurityUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -145,9 +146,7 @@ public class AdminDoctorDocumentController {
 
         log.info("PATCH /admin/doctor-documents/{}/approve", id);
 
-        // TODO: Get current user ID from SecurityContext
-        // For now, use hardcoded admin ID (1)
-        Long currentUserId = 1L;
+        Long currentUserId = SecurityUtil.getCurrentUserId();
 
         DoctorDocumentDTO result = documentService.approveDocument(id, dto, currentUserId);
 
@@ -173,8 +172,7 @@ public class AdminDoctorDocumentController {
 
         log.info("PATCH /admin/doctor-documents/{}/reject", id);
 
-        // TODO: Get current user ID from SecurityContext
-        Long currentUserId = 1L;
+        Long currentUserId = SecurityUtil.getCurrentUserId();
 
         DoctorDocumentDTO result = documentService.rejectDocument(id, dto, currentUserId);
 

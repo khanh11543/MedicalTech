@@ -1,0 +1,45 @@
+{
+  "exportInfo" : {
+    "generatedAt" : "2026-03-05T14:18:48.097652900",
+    "requestedDate" : "2026-02-25",
+    "exportFormat" : "JSON",
+    "requestId" : 3
+  },
+  "profile" : {
+    "id" : 126,
+    "email" : "nhat@email.com",
+    "fullName" : "nhat",
+    "phone" : "0901234567",
+    "avatarUrl" : null,
+    "isActive" : false,
+    "isVerified" : false,
+    "twoFactorEnabled" : false,
+    "lastLogin" : null,
+    "createdAt" : "2026-02-28T00:04:12.042659",
+    "dateOfBirth" : "2005-06-07",
+    "gender" : "MALE",
+    "address" : "123 Nguyễn Huệ - TPHCM",
+    "insuranceNumber" : null,
+    "insuranceProvider" : null,
+    "emergencyContact" : null,
+    "bloodGroup" : null,
+    "allergies" : null,
+    "medicalHistory" : null
+  },
+  "appointments" : [ {
+    "id" : 1004,
+    "appointmentDate" : "2026-03-01",
+    "status" : "CANCELLED",
+    "reason" : null,
+    "notes" : null,
+    "createdAt" : "2026-02-28T13:01:01.960228"
+  } ],
+  "prescriptions" : [ ],
+  "payments" : [ ],
+  "reviews" : [ ],
+  "activityLogs" : [ {
+    "lastLogin" : null,
+    "accountCreated" : "2026-02-28T00:04:12.042659",
+    "failedLoginCount" : 0
+  } ]
+}

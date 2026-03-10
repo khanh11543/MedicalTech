@@ -23,6 +23,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     @Query("SELECT i FROM Invoice i " +
             "LEFT JOIN FETCH i.payment p " +
             "LEFT JOIN FETCH i.patient pat " +
+            "LEFT JOIN FETCH pat.user u " +
             "WHERE i.payment.id = :paymentId")
     Optional<Invoice> findByPaymentIdWithDetails(@Param("paymentId") Long paymentId);
 
@@ -37,6 +38,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
     @Query("SELECT i FROM Invoice i " +
             "LEFT JOIN FETCH i.payment p " +
             "LEFT JOIN FETCH i.patient pat " +
+            "LEFT JOIN FETCH pat.user u " +
             "WHERE i.id = :id")
     Optional<Invoice> findByIdWithDetails(@Param("id") Long id);
 

@@ -166,32 +166,65 @@ public class MomoClient {
 
     /**
      * Query payment status from MoMo
+     * API: POST {endpoint}/query
+     * Signature format: accessKey=$accessKey&orderId=$orderId&partnerCode=$partnerCode&requestId=$requestId
      */
     public MomoQueryResponse queryPaymentStatus(String orderId) {
         try {
             log.info("Querying MoMo payment status - orderId: {}", orderId);
 
+            String requestId = UUID.randomUUID().toString();
+
+            // Build raw signature (alphabetical order)
+            String rawSignature = "accessKey=" + accessKey
+                    + "&orderId=" + orderId
+                    + "&partnerCode=" + partnerCode
+                    + "&requestId=" + requestId;
+
+            String signature = new HmacUtils(HmacAlgorithms.HMAC_SHA_256, secretKey).hmacHex(rawSignature);
+
             Map<String, Object> requestData = new LinkedHashMap<>();
             requestData.put("partnerCode", partnerCode);
-            requestData.put("requestId", UUID.randomUUID().toString());
+            requestData.put("requestId", requestId);
             requestData.put("orderId", orderId);
+            requestData.put("signature", signature);
             requestData.put("lang", "vi");
 
-            String signature = generateSignature(requestData);
-            requestData.put("signature", signature);
+            String apiUrl = momoEndpoint + "/query";
+            log.info("Calling MoMo Query API: {}", apiUrl);
 
-            // Call MoMo API endpoint: /query
-            // Implementation would call actual MoMo API
+            String requestBody = objectMapper.writeValueAsString(requestData);
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+            org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(requestBody, headers);
+
+            org.springframework.http.ResponseEntity<String> responseEntity;
+            try {
+                responseEntity = restTemplate.exchange(apiUrl, org.springframework.http.HttpMethod.POST, entity, String.class);
+            } catch (org.springframework.web.client.HttpClientErrorException e) {
+                log.error("MoMo Query API HTTP error: {}", e.getResponseBodyAsString());
+                throw new RuntimeException("MoMo query error: " + e.getResponseBodyAsString());
+            }
+
+            Map<String, Object> responseBody = objectMapper.readValue(responseEntity.getBody(), Map.class);
+            log.info("MoMo query response: {}", responseBody);
+
+            Integer resultCode = (Integer) responseBody.get("resultCode");
+            Long transId = responseBody.get("transId") != null 
+                    ? Long.valueOf(responseBody.get("transId").toString())
+                    : null;
 
             return MomoQueryResponse.builder()
                     .orderId(orderId)
-                    .resultCode(0)
-                    .message("OK")
+                    .resultCode(resultCode != null ? resultCode : -1)
+                    .message((String) responseBody.get("message"))
+                    .transId(transId)
                     .build();
 
         } catch (Exception e) {
-            log.error("Error querying MoMo payment status", e);
-            throw new RuntimeException("Failed to query MoMo payment status", e);
+            log.error("Error querying MoMo payment status for orderId: {}", orderId, e);
+            throw new RuntimeException("Failed to query MoMo payment status: " + e.getMessage(), e);
         }
     }
 

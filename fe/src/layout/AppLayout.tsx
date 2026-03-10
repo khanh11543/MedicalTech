@@ -1,14 +1,19 @@
 import { SidebarProvider, useSidebar } from "../context/SidebarContext";
+import { WorkstationProvider } from "../context/WorkstationContext";
 import { Outlet } from "react-router";
 import AppHeader from "./AppHeader";
 import Backdrop from "./Backdrop";
 import AppSidebar from "./AppSidebar";
+import useAutoLock from "../hooks/useAutoLock";
+import LockScreen from "../components/common/LockScreen";
 
 const LayoutContent: React.FC = () => {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
+  const { isLocked, verifyPin } = useAutoLock();
 
   return (
     <div className="min-h-screen xl:flex">
+      {isLocked && <LockScreen onVerify={verifyPin} />}
       <div>
         <AppSidebar />
         <Backdrop />
@@ -30,7 +35,9 @@ const LayoutContent: React.FC = () => {
 const AppLayout: React.FC = () => {
   return (
     <SidebarProvider>
-      <LayoutContent />
+      <WorkstationProvider>
+        <LayoutContent />
+      </WorkstationProvider>
     </SidebarProvider>
   );
 };

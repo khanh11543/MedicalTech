@@ -1,12 +1,13 @@
 import { useAuth } from "../../context/AuthContext";
 import PageMeta from "../../components/common/PageMeta";
+import { authStorage } from "../../utils/authStorage";
 
 export default function DebugInfo() {
   const { user, isAuthenticated } = useAuth();
   
-  const token = localStorage.getItem("accessToken");
-  const refreshToken = localStorage.getItem("refreshToken");
-  const storedUser = localStorage.getItem("user");
+  const token = authStorage.getAccessToken();
+  const refreshToken = authStorage.getRefreshToken();
+  const storedUser = authStorage.getUser();
 
   return (
     <>

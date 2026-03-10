@@ -6,6 +6,8 @@ import lombok.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -49,6 +51,19 @@ public class Invoice {
     @Builder.Default
     @Column(length = 20)
     private String status = "ISSUED";
+
+    /** Email delivery status: NOT_SENT, SENT, FAILED */
+    @Builder.Default
+    @Column(name = "email_status", length = 20)
+    private String emailStatus = "NOT_SENT";
+
+    @Column(name = "email_sent_at")
+    private LocalDateTime emailSentAt;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
+    @org.hibernate.annotations.BatchSize(size = 10)
+    private List<InvoiceItem> items = new ArrayList<>();
 
     @Lob
     private String notes;

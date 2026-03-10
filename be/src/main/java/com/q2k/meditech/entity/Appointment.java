@@ -41,6 +41,9 @@ public class Appointment extends BaseEntity {
     @Column(name = "appointment_date", nullable = false)
     private LocalDate appointmentDate;
 
+    @Column(name = "appointment_time", nullable = false)
+    private LocalTime appointmentTime;
+
     @Column(name = "start_time", nullable = false)
     private LocalTime startTime;
 
@@ -54,6 +57,9 @@ public class Appointment extends BaseEntity {
 
     @Column(name = "appointment_code", unique = true)
     private String appointmentCode;
+
+    @Column(name = "appointment_type", length = 30)
+    private String appointmentType; // CONSULTATION, FOLLOW_UP, EMERGENCY, CHECKUP
 
     @Enumerated(EnumType.STRING)
     @Column(name = "booked_by", nullable = false, length = 20, columnDefinition = "VARCHAR(20)")
@@ -85,13 +91,54 @@ public class Appointment extends BaseEntity {
 
     @Column(name = "checked_in_at")
     private java.time.LocalDateTime checkedInAt;
+    
+    @Column(name = "checked_in_by")
+    private Long checkedInBy; // User ID người check-in (receptionist/admin)
+    
+    @Column(name = "consultation_started_at")
+    private java.time.LocalDateTime consultationStartedAt;
+    
+    @Column(name = "consultation_ended_at")
+    private java.time.LocalDateTime consultationEndedAt;
+    
+    @Column(name = "doctor_notes", columnDefinition = "TEXT")
+    private String doctorNotes;
+    
+    @Column(name = "diagnosis", columnDefinition = "TEXT")
+    private String diagnosis;
+    
+    @Column(name = "prescription_text", columnDefinition = "TEXT")
+    private String prescription;
+    
+    @Column(name = "follow_up_recommendations", columnDefinition = "TEXT")
+    private String followUpRecommendations;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "time_slot_id")
     private TimeSlot timeSlot;
 
+    @PrePersist
+    private void onPrePersist() {
+        syncAppointmentTime();
+        if (this.appointmentCode == null || this.appointmentCode.isBlank()) {
+            this.appointmentCode = "APT-" + System.currentTimeMillis();
+        }
+    }
+
+    @PreUpdate
+    private void onPreUpdate() {
+        syncAppointmentTime();
+    }
+
+    private void syncAppointmentTime() {
+        if (this.appointmentTime == null && this.startTime != null) {
+            this.appointmentTime = this.startTime;
+        }
+    }
+
     @OneToMany(mappedBy = "appointment", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @OrderBy("changedAt DESC")
+    @org.hibernate.annotations.BatchSize(size = 10)
     @Builder.Default
     private List<AppointmentHistory> histories = new ArrayList<>();
 

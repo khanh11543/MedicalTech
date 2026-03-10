@@ -1,40 +1,60 @@
 package com.q2k.meditech.dto;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import com.q2k.meditech.entity.enums.NotificationCategory;
+import com.q2k.meditech.entity.enums.NotificationPriority;
+import com.q2k.meditech.entity.enums.NotificationType;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Internal DTO used by NotificationEventService to create notifications.
+ * NOT exposed in REST API — used only within the service layer.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class CreateNotificationDTO {
 
-    @NotNull(message = "User IDs are required")
-    private List<Long> userIds; // List of user IDs to send notification to
+    private Long userId;
 
-    @NotBlank(message = "Title is required")
     private String title;
 
-    @NotBlank(message = "Message is required")
     private String message;
 
-    @NotBlank(message = "Type is required")
-    private String type; // SYSTEM, APPOINTMENT, PAYMENT, etc.
+    private NotificationType type;
 
-    private String referenceType; // Optional: APPOINTMENT, PRESCRIPTION, etc.
-    
-    private Long referenceId; // Optional: ID of referenced entity
+    private NotificationCategory category;
 
+    @Builder.Default
+    private NotificationPriority priority = NotificationPriority.INFO;
+
+    /**
+     * Reference entity type (e.g. "APPOINTMENT", "PAYMENT", "USER")
+     */
+    private String referenceType;
+
+    /**
+     * Reference entity ID
+     */
+    private Long referenceId;
+
+    // Admin-only fields
+    private List<Long> userIds;
+
+    private LocalDateTime scheduledAt;
+
+    @Builder.Default
     private Boolean sendEmail = false;
-    
-    private Boolean sendSms = false;
-    
-    private Boolean sendPush = true;
 
-    private LocalDateTime scheduledAt; // Optional: schedule for future delivery
+    @Builder.Default
+    private Boolean sendSms = false;
+
+    @Builder.Default
+    private Boolean sendPush = true;
 }

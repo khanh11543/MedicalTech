@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
+import { useDebounce } from "../../hooks/useDebounce";
+import { TableSkeleton } from "../../components/ui/skeleton/Skeleton";
 import adminService, {
   ContentItem,
   ContentCreateRequest,
@@ -14,11 +18,13 @@ export default function ContentList() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const pageSize = 10;
+  const { toast, showToast, dismissToast } = useToast();
 
   // Filters
   const [filterType, setFilterType] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
+  const debouncedSearch = useDebounce(searchQuery, 400);
 
   // Modal
   const [editModal, setEditModal] = useState<{
@@ -57,7 +63,7 @@ export default function ContentList() {
       setLoading(true);
       setError(null);
       const data = await adminService.getContents({
-        keyword: searchQuery || undefined,
+        keyword: debouncedSearch || undefined,
         type: filterType || undefined,
         status: filterStatus || undefined,
         pageNumber: currentPage,
@@ -71,7 +77,7 @@ export default function ContentList() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, filterType, filterStatus, currentPage]);
+  }, [debouncedSearch, filterType, filterStatus, currentPage]);
 
   useEffect(() => {
     fetchContents();
@@ -80,7 +86,7 @@ export default function ContentList() {
   // Reset to page 0 when filters change
   useEffect(() => {
     setCurrentPage(0);
-  }, [searchQuery, filterType, filterStatus]);
+  }, [debouncedSearch, filterType, filterStatus]);
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleString("en-US");
@@ -116,14 +122,17 @@ export default function ContentList() {
     try {
       setSaving(true);
       if (editModal.isNew) {
-        await adminService.createContent(formData);
+        const created = await adminService.createContent(formData);
+        setPage(prev => prev ? { ...prev, content: [created, ...prev.content], totalElements: prev.totalElements + 1 } : prev);
+        showToast("Content created successfully", "success");
       } else if (editModal.item) {
-        await adminService.updateContent(editModal.item.id, formData);
+        const updated = await adminService.updateContent(editModal.item.id, formData);
+        setPage(prev => prev ? { ...prev, content: prev.content.map(c => c.id === editModal.item!.id ? updated : c) } : prev);
+        showToast("Content updated successfully", "success");
       }
       setEditModal({ open: false, item: null, isNew: false });
-      fetchContents();
     } catch {
-      alert("Failed to save content. Please try again.");
+      showToast("Failed to save content. Please try again.", "error");
     } finally {
       setSaving(false);
     }
@@ -134,9 +143,10 @@ export default function ContentList() {
     if (!window.confirm("Are you sure you want to delete this content?")) return;
     try {
       await adminService.deleteContent(id);
-      fetchContents();
+      setPage(prev => prev ? { ...prev, content: prev.content.filter(c => c.id !== id), totalElements: prev.totalElements - 1 } : prev);
+      showToast("Content deleted", "success");
     } catch {
-      alert("Failed to delete content.");
+      showToast("Failed to delete content.", "error");
     }
   };
 
@@ -148,11 +158,14 @@ export default function ContentList() {
         : item.status === "DRAFT"
           ? "PUBLISHED"
           : "PUBLISHED";
+    const prevPage = page;
+    setPage(prev => prev ? { ...prev, content: prev.content.map(c => c.id === item.id ? { ...c, status: newStatus } : c) } : prev);
     try {
       await adminService.updateContentStatus(item.id, newStatus);
-      fetchContents();
+      showToast(`Content ${newStatus.toLowerCase()}`, "success");
     } catch {
-      alert("Failed to update status.");
+      setPage(prevPage);
+      showToast("Failed to update status.", "error");
     }
   };
 
@@ -240,10 +253,8 @@ export default function ContentList() {
         )}
 
         {/* Loading */}
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
-          </div>
+        {loading && !page ? (
+          <TableSkeleton rows={pageSize} cols={8} />
         ) : (
           <>
             {/* Table */}
@@ -522,6 +533,7 @@ export default function ContentList() {
           </div>
         </div>
       )}
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

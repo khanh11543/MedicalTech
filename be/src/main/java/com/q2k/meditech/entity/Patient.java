@@ -20,6 +20,9 @@ public class Patient extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false, unique = true)
     private User user;
 
+    @Column(name = "full_name", nullable = false, length = 255)
+    private String fullName;
+
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
@@ -48,6 +51,7 @@ public class Patient extends BaseEntity {
     private String medicalHistory;
 
     @OneToMany(mappedBy = "patient", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @org.hibernate.annotations.BatchSize(size = 10)
     @Builder.Default
     private List<Appointment> appointments = new ArrayList<>();
 }

@@ -42,6 +42,28 @@ public class PaymentDTO {
     private String paymentStatus; // PENDING, INITIATED, PROCESSING, PAID, FAILED, CANCELLED, REFUNDED, EXPIRED
     
     private String transactionId;
+
+    /**
+     * Alias for transactionId - used by frontend as Transaction Code
+     */
+    public String getTransactionCode() {
+        return transactionId;
+    }
+
+    /**
+     * Alias for paymentStatus - used by frontend
+     */
+    public String getStatus() {
+        return paymentStatus;
+    }
+
+    /**
+     * Alias: frontend reads paymentDate (returns paidAt or createdAt)
+     */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    public LocalDateTime getPaymentDate() {
+        return paidAt != null ? paidAt : createdAt;
+    }
     
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime paidAt;
@@ -56,6 +78,12 @@ public class PaymentDTO {
     private Long processedBy;
     
     private String processedByName;
+
+    private String doctorName;
+
+    private BigDecimal amountReceived;
+
+    private BigDecimal changeGiven;
     
     private String notes;
     

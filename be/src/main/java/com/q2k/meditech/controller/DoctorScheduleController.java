@@ -1,10 +1,10 @@
 package com.q2k.meditech.controller;
 
 import com.q2k.meditech.dto.*;
-import com.q2k.meditech.entity.Doctor;
 import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.DoctorRepository;
+import com.q2k.meditech.service.DoctorProfileService;
 import com.q2k.meditech.service.DoctorScheduleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -36,6 +36,7 @@ public class DoctorScheduleController {
 
     private final DoctorScheduleService scheduleService;
     private final DoctorRepository doctorRepository;
+    private final DoctorProfileService doctorProfileService;
 
     // ========== WEEKLY SCHEDULES ==========
 
@@ -315,15 +316,6 @@ public class DoctorScheduleController {
      * Extracts user ID from authentication and finds associated doctor profile
      */
     private Long getCurrentDoctorId() {
-        Long userId = com.q2k.meditech.util.SecurityUtil.getCurrentUserId();
-        if (userId == null) {
-            throw new BadRequestException("User not authenticated");
-        }
-
-        // Find doctor by user ID
-        Doctor doctor = doctorRepository.findByUserId(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Doctor profile not found for user ID: " + userId));
-
-        return doctor.getId();
+        return doctorProfileService.requireDoctor().getId();
     }
 }

@@ -9,24 +9,26 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * Configures static resource handler so uploaded files (avatars, etc.)
- * can be served at /uploads/** from the local upload directory.
+ * Web MVC Configuration
+ * Configures static resource handlers for serving uploaded files (avatars, etc.)
  */
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
+
+    @Value("${app.upload.avatar-dir:uploads/avatars}")
+    private String avatarDir;
 
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
+        Path avatarPath = Paths.get(avatarDir).toAbsolutePath().normalize();
+        registry.addResourceHandler("/uploads/avatars/**")
+                .addResourceLocations("file:" + avatarPath.toString() + "/");
 
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:" + uploadPath.toString() + "/");
-
-        // Also serve avatars directly at /avatars/** path
-        registry.addResourceHandler("/avatars/**")
-                .addResourceLocations("file:" + uploadPath.toString() + "/avatars/");
+        Path documentsPath = Paths.get(uploadDir, "documents").toAbsolutePath().normalize();
+        registry.addResourceHandler("/uploads/documents/**")
+                .addResourceLocations("file:" + documentsPath.toString() + "/");
     }
 }

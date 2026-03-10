@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from "react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
 import {
   Table,
   TableBody,
@@ -395,6 +397,7 @@ export default function ReceptionistList() {
   const [receptionists, setReceptionists] = useState<AdminReceptionist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { toast, showToast, dismissToast } = useToast();
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
@@ -455,19 +458,25 @@ export default function ReceptionistList() {
   const handleCreate = async (data: CreateReceptionistRequest) => {
     await adminService.createReceptionist(data);
     fetchReceptionists();
+    showToast("Receptionist created successfully", "success");
   };
 
   const handleToggleStatus = async (receptionistId: number, currentStatus: boolean) => {
+    const prevReceptionists = receptionists;
+    setReceptionists(prev => prev.map(r =>
+      r.receptionistId === receptionistId ? { ...r, isActive: !currentStatus } : r
+    ));
     try {
       await adminService.updateReceptionistStatus(receptionistId, !currentStatus);
-      fetchReceptionists();
       if (selectedReceptionist?.receptionistId === receptionistId) {
         const updated = await adminService.getReceptionistDetail(receptionistId);
         setSelectedReceptionist(updated);
       }
+      showToast(`Receptionist ${!currentStatus ? "activated" : "deactivated"} successfully`, "success");
     } catch (err) {
       console.error("Failed to update receptionist status:", err);
-      alert("Failed to update receptionist status");
+      setReceptionists(prevReceptionists);
+      showToast("Failed to update receptionist status", "error");
     }
   };
 
@@ -475,10 +484,13 @@ export default function ReceptionistList() {
     try {
       const updated = await adminService.updateReceptionist(id, data);
       setSelectedReceptionist(updated);
-      fetchReceptionists();
+      setReceptionists(prev => prev.map(r =>
+        r.receptionistId === id ? { ...r, ...updated } : r
+      ));
+      showToast("Receptionist updated successfully", "success");
     } catch (err) {
       console.error("Failed to update receptionist:", err);
-      alert("Failed to update receptionist");
+      showToast("Failed to update receptionist", "error");
     }
   };
 
@@ -773,6 +785,7 @@ export default function ReceptionistList() {
           onToggleStatus={handleToggleStatus}
         />
       )}
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

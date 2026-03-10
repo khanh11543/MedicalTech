@@ -29,7 +29,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-        private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final MaintenanceFilter maintenanceFilter;
+    private final DoctorVerificationFilter doctorVerificationFilter;
 
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -62,17 +64,35 @@ public class SecurityConfig {
                                                                 "/swagger-ui.html")
                                                 .permitAll()
 
-                                                // Admin endpoints - require ADMIN role
-                                                .requestMatchers("/admin/**").hasRole("ADMIN")
+                        // Static files (avatars, uploads)
+                        .requestMatchers("/uploads/**").permitAll()
 
-                                                // Doctor endpoints - require DOCTOR role
-                                                .requestMatchers("/doctor/**").hasRole("DOCTOR")
+                        // WebSocket endpoint
+                        .requestMatchers("/ws/**").permitAll()
+
+                        // Swagger/OpenAPI endpoints
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+
+                        // Payment Management - accessible by ADMIN and RECEPTIONIST
+                        .requestMatchers("/admin/payments/**").hasAnyRole("ADMIN", "RECEPTIONIST")
+
+                        // Backup & Maintenance - ADMIN only
+                        .requestMatchers("/admin/backups/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/restore/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/maintenance/**").hasRole("ADMIN")
+                        .requestMatchers("/admin/optimization/**").hasRole("ADMIN")
+
+                        // Admin endpoints - require ADMIN role
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
 
                                                 // Patient endpoints - require PATIENT role
                                                 .requestMatchers("/patient/**").hasRole("PATIENT")
 
                                                 // Receptionist endpoints - require RECEPTIONIST role
                                                 .requestMatchers("/receptionist/**").hasRole("RECEPTIONIST")
+
+                                                // Doctor endpoints - require DOCTOR role
+                                                .requestMatchers("/doctor/**").hasRole("DOCTOR")
 
                                                 // All other requests need authentication
                                                 .anyRequest().authenticated())
@@ -98,14 +118,37 @@ public class SecurityConfig {
                                                                                         "Access denied. Insufficient permissions."));
                                                 }))
 
-                                // Add JWT filter before UsernamePasswordAuthenticationFilter
-                                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                // Handle authentication/authorization errors with proper CORS headers
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            new ObjectMapper().writeValue(response.getOutputStream(),
+                                    Map.of("status", 401, "message", "Unauthorized: " + authException.getMessage()));
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                            new ObjectMapper().writeValue(response.getOutputStream(),
+                                    Map.of("status", 403, "message", "Access Denied: " + accessDeniedException.getMessage()));
+                        })
+                )
+
+                // Add JWT filter before UsernamePasswordAuthenticationFilter
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+
+                // Add Maintenance filter after JWT (so we can check roles)
+                .addFilterAfter(maintenanceFilter, JwtAuthenticationFilter.class)
+
+                // Add Doctor verification filter after Maintenance filter
+                .addFilterAfter(doctorVerificationFilter, MaintenanceFilter.class);
 
                 return http.build();
         }
 
-        @Bean
-        public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-                return config.getAuthenticationManager();
-        }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
 }

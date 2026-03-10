@@ -38,13 +38,23 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
      * Search reviews by doctor name, patient user name/email
      */
     @Query("SELECT r FROM Review r " +
-           "LEFT JOIN r.doctor d " +
-           "LEFT JOIN r.patient p " +
-           "LEFT JOIN p.user pu " +
+           "LEFT JOIN FETCH r.doctor d " +
+           "LEFT JOIN FETCH r.patient p " +
+           "LEFT JOIN FETCH p.user pu " +
            "WHERE LOWER(d.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(pu.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(pu.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(r.comment) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "ORDER BY r.createdAt DESC")
     Page<Review> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
+
+    // ==================== DOCTOR DASHBOARD QUERIES ====================
+
+    /**
+     * Count reviews for a doctor created after a given date (for recent reviews count)
+     */
+    @Query("SELECT COUNT(r) FROM Review r WHERE r.doctor.id = :doctorId AND r.createdAt >= :since")
+    Long countByDoctorIdAndCreatedAtAfter(
+            @Param("doctorId") Long doctorId,
+            @Param("since") java.time.LocalDateTime since);
 }

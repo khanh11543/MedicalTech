@@ -54,6 +54,9 @@ public class Payment extends BaseEntity {
     @Column(name="transaction_id", length = 100)
     private String transactionId;
 
+    @Column(name="momo_order_id", length = 100)
+    private String momoOrderId; // Latest MoMo orderId (may include -R suffix for refreshes)
+
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name="gateway_response", columnDefinition = "json")
     private Object gatewayResponse;
@@ -73,6 +76,12 @@ public class Payment extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="processed_by")
     private User processedBy;
+
+    @Column(name="amount_received")
+    private BigDecimal amountReceived;
+
+    @Column(name="change_given")
+    private BigDecimal changeGiven;
 
     @Lob
     private String notes;

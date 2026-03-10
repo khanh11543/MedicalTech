@@ -29,12 +29,15 @@ export default function SignInForm() {
 
     setIsSubmitting(true);
     try {
-      const tokenData = await login({
-        email,
-        password,
-        deviceId: navigator.userAgent,
-        deviceName: `Web Browser - ${navigator.platform}`,
-      });
+      const tokenData = await login(
+        {
+          email,
+          password,
+          deviceId: navigator.userAgent,
+          deviceName: `Web Browser - ${navigator.platform}`,
+        },
+        isChecked
+      );
       
       // Role-based redirect
       if (tokenData.roles?.includes("ADMIN")) {
@@ -42,7 +45,7 @@ export default function SignInForm() {
       } else if (tokenData.roles?.includes("DOCTOR")) {
         navigate("/doctor");
       } else if (tokenData.roles?.includes("RECEPTIONIST")) {
-        navigate("/receptionist");
+        navigate("/receptionist/dashboard");
       } else {
         navigate("/patient");
       }

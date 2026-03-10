@@ -32,9 +32,9 @@ public interface UserService {
      * Create new user (Admin only)
      * @param dto CreateUserDTO
      * @param currentUserId ID of the admin creating the user
-     * @return UserDTO
+     * @return CreateUserResponseDTO
      */
-    UserDTO createUser(CreateUserDTO dto, Long currentUserId);
+    CreateUserResponseDTO createUser(CreateUserDTO dto, Long currentUserId);
     
     /**
      * Update user
