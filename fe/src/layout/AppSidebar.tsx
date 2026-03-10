@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 // Icons
@@ -98,7 +98,6 @@ const navItems: NavItem[] = [
     name: "User Management",
     path: "/admin/user-list",
   },
-
   {
     icon: <CheckCircleIcon />,
     name: "Doctor Verification",
@@ -208,9 +207,6 @@ const AppSidebar: React.FC = () => {
     type: "main";
     index: number;
   } | null>(null);
-  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
-    {}
-  );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // const isActive = (path: string) => location.pathname === path;
@@ -219,53 +215,18 @@ const AppSidebar: React.FC = () => {
     [location.pathname]
   );
 
-  useEffect(() => {
-    let submenuMatched = false;
-    activeNavItems.forEach((nav, index) => {
-      if (nav.subItems) {
-        nav.subItems.forEach((subItem) => {
-          if (isActive(subItem.path)) {
-            setOpenSubmenu({
-              type: "main",
-              index,
-            });
-            submenuMatched = true;
-          }
-        });
-      }
-    });
-
-    if (!submenuMatched) {
-      setOpenSubmenu(null);
-    }
-  }, [location, isActive]);
-
-  useEffect(() => {
-    if (openSubmenu !== null) {
-      const key = `${openSubmenu.type}-${openSubmenu.index}`;
-      if (subMenuRefs.current[key]) {
-        setSubMenuHeight((prevHeights) => ({
-          ...prevHeights,
-          [key]: subMenuRefs.current[key]?.scrollHeight || 0,
-        }));
-      }
-    }
-  }, [openSubmenu]);
-
-  const handleSubmenuToggle = (index: number, menuType: "main") => {
-    setOpenSubmenu((prevOpenSubmenu) => {
-      if (
-        prevOpenSubmenu &&
-        prevOpenSubmenu.type === menuType &&
-        prevOpenSubmenu.index === index
-      ) {
-        return null;
-      }
-      return { type: menuType, index };
+  const handleSubmenuToggle = (index: number, type: string) => {
+    setOpenSubmenu((prev) => {
+      const isSameOpen = prev?.type === type && prev?.index === index;
+      return isSameOpen ? null : { type: type as "main", index };
     });
   };
 
-  const renderMenuItems = (items: NavItem[], menuType: "main") => (
+  const handleCollapseAll = () => {
+    setOpenSubmenu(null);
+  };
+
+  const renderMenuItems = (items: NavItem[], menuType: string) => (
     <ul className="flex flex-col gap-4">
       {items.map((nav, index) => {
         // Check if any sub-item is active
@@ -324,9 +285,7 @@ const AppSidebar: React.FC = () => {
                   }}
                   className="overflow-hidden transition-all duration-300"
                   style={{
-                    height: isSubmenuOpen
-                      ? `${subMenuHeight[`${menuType}-${index}`] || "auto"}px`
-                      : "0px",
+                    height: isSubmenuOpen ? "auto" : "0px",
                   }}
                 >
                   <ul className="mt-2 space-y-1 ml-9">
@@ -437,18 +396,29 @@ const AppSidebar: React.FC = () => {
         <nav className="mb-6">
           <div className="flex flex-col gap-4">
             <div>
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "justify-start"
-                  }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  isReceptionist ? "Receptionist" : "Menu"
-                ) : (
-                  <HorizontaLDots className="size-6" />
+              <div className="mb-4 flex items-center justify-between">
+                <h2
+                  className={`text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered
+                    ? "lg:justify-center"
+                    : "justify-start"
+                    }`}
+                >
+                  {isExpanded || isHovered || isMobileOpen ? (
+                    isReceptionist ? "Receptionist" : "Menu"
+                  ) : (
+                    <HorizontaLDots className="size-6" />
+                  )}
+                </h2>
+                {(isExpanded || isHovered || isMobileOpen) && openSubmenu && (
+                  <button
+                    onClick={handleCollapseAll}
+                    className="text-xs font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    title="Collapse all menus"
+                  >
+                    Collapse
+                  </button>
                 )}
-              </h2>
+              </div>
               {renderMenuItems(activeNavItems, "main")}
             </div>
 
