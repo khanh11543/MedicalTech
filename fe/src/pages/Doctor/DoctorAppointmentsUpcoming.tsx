@@ -3,16 +3,16 @@ import PageMeta from "../../components/common/PageMeta";
 import PageBreadCrumb from "../../components/common/PageBreadCrumb";
 import ExpandableAppointmentTable from "../../components/tables/ExpandableAppointmentTable";
 import AppointmentDetailModal from "../../components/modals/AppointmentDetailModal";
-import { getDoctorAppointments, getAppointmentDetails, Appointment } from "../../services/appointmentService";
+import appointmentService, { AppointmentDTO } from "../../services/appointmentService";
 
 export default function DoctorAppointmentsUpcoming() {
     // Data fetching states
-    const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [appointments, setAppointments] = useState<AppointmentDTO[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     // Modal states
-    const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+    const [selectedAppointment, setSelectedAppointment] = useState<AppointmentDTO | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
@@ -33,9 +33,7 @@ export default function DoctorAppointmentsUpcoming() {
             try {
                 setLoading(true);
                 setError(null);
-                const response = await getDoctorAppointments({
-                    sort: "appointmentDate,ASC",
-                });
+                const response = await appointmentService.getDoctorAppointments({ });
                 console.log("Fetched appointments:", response.content);
                 if (response.content && response.content.length > 0) {
                     console.log("First appointment date format:", response.content[0].appointmentDate);
@@ -139,10 +137,10 @@ export default function DoctorAppointmentsUpcoming() {
 
     const totalPages = Math.ceil(uniqueDates.length / itemsPerPage);
 
-    const handleViewDetails = async (appointment: Appointment) => {
+    const handleViewDetails = async (appointment: AppointmentDTO) => {
         try {
             setIsLoadingDetails(true);
-            const details = await getAppointmentDetails(appointment.id);
+            const details = await appointmentService.getAppointmentById(appointment.id);
             setSelectedAppointment(details);
             setIsModalOpen(true);
         } catch (err) {
@@ -175,10 +173,14 @@ export default function DoctorAppointmentsUpcoming() {
         try {
             setLoading(true);
             setError(null);
-            const response = await getDoctorAppointments({
-                sort: "appointmentDate,ASC",
+            const response = await appointmentService.getAppointmentsByDoctor({
+                from: '',
+                to: '',
+                doctorId: undefined,
+                period: "DAILY",
+                limit: 10,
             });
-            setAppointments(response.content || []);
+            setAppointments(response || []);
         } catch (err) {
             const errorMessage = err instanceof Error
                 ? err.message

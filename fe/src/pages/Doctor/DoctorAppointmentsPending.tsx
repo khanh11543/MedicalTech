@@ -2,17 +2,13 @@ import { useState, useMemo, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadCrumb from "../../components/common/PageBreadCrumb";
 import PendingConfirmationTable from "../../components/tables/PendingConfirmationTable";
-import {
-    getDoctorAppointments,
-    confirmAppointment,
-    cancelAppointment,
-    requestRescheduleAppointment,
-    Appointment,
+import appointmentService, {
+    AppointmentDTO,
 } from "../../services/appointmentService";
 
 export default function DoctorAppointmentsPending() {
     // Data fetching states
-    const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [appointments, setAppointments] = useState<AppointmentDTO[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [actionInProgress, setActionInProgress] = useState<number | null>(null);
@@ -95,7 +91,7 @@ export default function DoctorAppointmentsPending() {
         try {
             setLoading(true);
             setError(null);
-            const response = await getDoctorAppointments({
+            const response = await appointmentService.getAppointmentsByDoctor({
                 status: "PENDING",
                 sort: "createdAt,DESC",
             });
@@ -111,11 +107,11 @@ export default function DoctorAppointmentsPending() {
         }
     };
 
-    const handleConfirm = async (appointment: Appointment) => {
+    const handleConfirm = async (appointment: AppointmentDTO) => {
         try {
             setActionInProgress(appointment.id);
             setActionError(null);
-            await confirmAppointment(appointment.id);
+            await appointmentService.confirmAppointment(appointment.id);
             setActionSuccess(`Appointment ${appointment.id} confirmed successfully!`);
             // Remove from list
             setAppointments(
@@ -132,7 +128,7 @@ export default function DoctorAppointmentsPending() {
         }
     };
 
-    const handleCancel = async (appointment: Appointment) => {
+    const handleCancel = async (appointment: AppointmentDTO) => {
         const reason = prompt("Please provide a reason for cancellation:");
         if (!reason) {
             return;
@@ -141,7 +137,7 @@ export default function DoctorAppointmentsPending() {
         try {
             setActionInProgress(appointment.id);
             setActionError(null);
-            await cancelAppointment(appointment.id, reason);
+            await appointmentService.cancelAppointment(appointment.id, reason);
             setActionSuccess(`Appointment ${appointment.id} cancelled successfully!`);
             // Remove from list
             setAppointments(
@@ -158,7 +154,7 @@ export default function DoctorAppointmentsPending() {
         }
     };
 
-    const handleReschedule = async (appointment: Appointment) => {
+    const handleReschedule = async (appointment: AppointmentDTO) => {
         const newDateTime = prompt(
             "Enter the new appointment date and time (YYYY-MM-DD HH:mm):"
         );
@@ -169,7 +165,7 @@ export default function DoctorAppointmentsPending() {
         try {
             setActionInProgress(appointment.id);
             setActionError(null);
-            await requestRescheduleAppointment(appointment.id, newDateTime);
+            await appointmentService.rescheduleAppointment(appointment.id, newDateTime);
             setActionSuccess(
                 `Reschedule request sent for appointment ${appointment.id}!`
             );

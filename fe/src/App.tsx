@@ -112,27 +112,19 @@ const DoctorProfileSetup = lazy(() => import("./pages/Doctor/DoctorProfileSetup"
 const DoctorVerificationCenter = lazy(() => import("./pages/Doctor/DoctorVerificationCenter"));
 const DoctorSettings = lazy(() => import("./pages/Doctor/DoctorSettings"));
 import DoctorProtectedRoute from "./components/auth/DoctorProtectedRoute";
-import DoctorDashboard from "./pages/Doctor/DoctorDashboard";
-import DoctorToday from "./pages/Doctor/DoctorToday";
-import DoctorAppointments from "./pages/Doctor/DoctorAppointments";
 import DoctorAppointmentsUpcoming from "./pages/Doctor/DoctorAppointmentsUpcoming";
 import DoctorAppointmentsPending from "./pages/Doctor/DoctorAppointmentsPending";
 import DoctorAppointmentsHistory from "./pages/Doctor/DoctorAppointmentsHistory";
-import DoctorSchedule from "./pages/Doctor/DoctorSchedule";
 import DoctorScheduleWeekly from "./pages/Doctor/DoctorScheduleWeekly";
 import DoctorScheduleTimeOff from "./pages/Doctor/DoctorScheduleTimeOff";
 import DoctorScheduleTemplates from "./pages/Doctor/DoctorScheduleTemplates";
 import DoctorScheduleBlockSlots from "./pages/Doctor/DoctorScheduleBlockSlots";
-import DoctorConsultation from "./pages/Doctor/DoctorConsultation";
-import DoctorPrescriptions from "./pages/Doctor/DoctorPrescriptions";
 import DoctorPrescriptionsCreate from "./pages/Doctor/DoctorPrescriptionsCreate";
 import DoctorPrescriptionsHistory from "./pages/Doctor/DoctorPrescriptionsHistory";
 import DoctorPrescriptionsTemplates from "./pages/Doctor/DoctorPrescriptionsTemplates";
-import DoctorPatients from "./pages/Doctor/DoctorPatients";
 import DoctorPatientsMyPatients from "./pages/Doctor/DoctorPatientsMyPatients";
 import DoctorPatientsRecent from "./pages/Doctor/DoctorPatientsRecent";
 import DoctorPatientsChronic from "./pages/Doctor/DoctorPatientsChronic";
-import DoctorReviews from "./pages/Doctor/DoctorReviews";
 
 // Shared Pages
 const EditProfile = lazy(() => import("./pages/EditProfile/EditProfile"));

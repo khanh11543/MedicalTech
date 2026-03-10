@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 // Icons
@@ -25,11 +25,6 @@ import {
 import { useSidebar } from "../context/SidebarContext";
 import { useAuth } from "../context/AuthContext";
 import SidebarWidget from "./SidebarWidget";
-
-type SubItem = {
-  name: string;
-  path: string;
-};
 
 type NavItem = {
   name: string;
@@ -212,9 +207,6 @@ const AppSidebar: React.FC = () => {
     type: "main";
     index: number;
   } | null>(null);
-  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
-    {}
-  );
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // const isActive = (path: string) => location.pathname === path;
@@ -223,7 +215,18 @@ const AppSidebar: React.FC = () => {
     [location.pathname]
   );
 
-  const renderMenuItems = (items: NavItem[]) => (
+  const handleSubmenuToggle = (index: number, type: string) => {
+    setOpenSubmenu((prev) => {
+      const isSameOpen = prev?.type === type && prev?.index === index;
+      return isSameOpen ? null : { type: type as "main", index };
+    });
+  };
+
+  const handleCollapseAll = () => {
+    setOpenSubmenu(null);
+  };
+
+  const renderMenuItems = (items: NavItem[], menuType: string) => (
     <ul className="flex flex-col gap-4">
       {items.map((nav, index) => {
         // Check if any sub-item is active
@@ -282,9 +285,7 @@ const AppSidebar: React.FC = () => {
                   }}
                   className="overflow-hidden transition-all duration-300"
                   style={{
-                    height: isSubmenuOpen
-                      ? `${subMenuHeight[`${menuType}-${index}`] || "auto"}px`
-                      : "0px",
+                    height: isSubmenuOpen ? "auto" : "0px",
                   }}
                 >
                   <ul className="mt-2 space-y-1 ml-9">
@@ -395,18 +396,29 @@ const AppSidebar: React.FC = () => {
         <nav className="mb-6">
           <div className="flex flex-col gap-4">
             <div>
-              <h2
-                className={`mb-4 text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "justify-start"
-                  }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  isReceptionist ? "Receptionist" : "Menu"
-                ) : (
-                  <HorizontaLDots className="size-6" />
+              <div className="mb-4 flex items-center justify-between">
+                <h2
+                  className={`text-xs uppercase flex leading-[20px] text-gray-400 ${!isExpanded && !isHovered
+                    ? "lg:justify-center"
+                    : "justify-start"
+                    }`}
+                >
+                  {isExpanded || isHovered || isMobileOpen ? (
+                    isReceptionist ? "Receptionist" : "Menu"
+                  ) : (
+                    <HorizontaLDots className="size-6" />
+                  )}
+                </h2>
+                {(isExpanded || isHovered || isMobileOpen) && openSubmenu && (
+                  <button
+                    onClick={handleCollapseAll}
+                    className="text-xs font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    title="Collapse all menus"
+                  >
+                    Collapse
+                  </button>
                 )}
-              </h2>
+              </div>
               {renderMenuItems(activeNavItems, "main")}
             </div>
 

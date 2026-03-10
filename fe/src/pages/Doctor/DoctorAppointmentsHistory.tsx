@@ -5,11 +5,11 @@ import HistoryAppointmentTable from "../../components/tables/HistoryAppointmentT
 import AppointmentSummaryModal from "../../components/modals/AppointmentSummaryModal";
 import AppointmentDetailModal from "../../components/modals/AppointmentDetailModal";
 import MedicalRecordModal from "../../components/modals/MedicalRecordModal";
-import { getDoctorAppointments, Appointment } from "../../services/appointmentService";
+import appointmentService, { AppointmentDTO } from "../../services/appointmentService";
 
 export default function DoctorAppointmentsHistory() {
     // Data fetching states
-    const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [appointments, setAppointments] = useState<AppointmentDTO[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +31,7 @@ export default function DoctorAppointmentsHistory() {
             try {
                 setLoading(true);
                 setError(null);
-                const response = await getDoctorAppointments({
+                const response = await appointmentService.getAppointmentsByDoctor({
                     sort: "appointmentDate,DESC",
                 });
                 // Filter to only show completed, cancelled, no-show, and rescheduled appointments
@@ -107,7 +107,7 @@ export default function DoctorAppointmentsHistory() {
         try {
             setLoading(true);
             setError(null);
-            const response = await getDoctorAppointments({
+            const response = await appointmentService.getAppointmentsByDoctor({
                 sort: "appointmentDate,DESC",
             });
             const historyAppointments = response.content?.filter((apt) =>
@@ -125,17 +125,17 @@ export default function DoctorAppointmentsHistory() {
         }
     };
 
-    const handleViewSummary = (appointment: Appointment) => {
+    const handleViewSummary = (appointment: AppointmentDTO) => {
         setSelectedAppointment(appointment);
         setSummaryModalOpen(true);
     };
 
-    const handleViewDetail = (appointment: Appointment) => {
+    const handleViewDetail = (appointment: AppointmentDTO) => {
         setSelectedAppointment(appointment);
         setDetailModalOpen(true);
     };
 
-    const handleViewMedicalRecord = (appointment: Appointment) => {
+    const handleViewMedicalRecord = (appointment: AppointmentDTO) => {
         setSelectedAppointment(appointment);
         setMedicalRecordModalOpen(true);
     };
