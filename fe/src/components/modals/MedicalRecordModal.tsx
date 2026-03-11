@@ -1,4 +1,4 @@
-import { Appointment } from "../../services/appointmentService";
+import { AppointmentDTO } from "../../services/appointmentService";
 
 interface MedicalRecordModalProps {
     appointment: Appointment | null;

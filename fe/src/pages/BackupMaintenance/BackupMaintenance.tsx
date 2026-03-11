@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import Toast from "../../components/common/Toast";
+import ComponentCard from "../../components/common/ComponentCard";
 import { useToast } from "../../hooks/useToast";
 import {
   Table,

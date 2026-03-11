@@ -1,9 +1,9 @@
 import { useState, useMemo, useEffect } from "react";
-import { Appointment } from "../../services/appointmentService";
+import { AppointmentDTO } from "../../services/appointmentService";
 
 interface ExpandableAppointmentTableProps {
-    appointments: Appointment[];
-    onViewDetails?: (appointment: Appointment) => void;
+    appointments: AppointmentDTO[];
+    onViewDetails?: (appointment: AppointmentDTO) => void;
 }
 
 const getStatusColor = (status: string) => {
@@ -49,7 +49,7 @@ export default function ExpandableAppointmentTable({
 
     // Group appointments by date
     const groupedAppointments = useMemo(() => {
-        const groups: { [key: string]: Appointment[] } = {};
+        const groups: { [key: string]: AppointmentDTO[] } = {};
         appointments.forEach((apt) => {
             if (!groups[apt.appointmentDate]) {
                 groups[apt.appointmentDate] = [];
@@ -63,7 +63,7 @@ export default function ExpandableAppointmentTable({
             .reduce((acc, [date, apts]) => {
                 acc[date] = apts;
                 return acc;
-            }, {} as { [key: string]: Appointment[] });
+            }, {} as { [key: string]: AppointmentDTO[] });
     }, [appointments]);
 
     const toggleDateExpand = (date: string) => {

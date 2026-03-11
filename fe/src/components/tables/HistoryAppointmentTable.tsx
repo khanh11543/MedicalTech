@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Appointment } from "../../services/appointmentService";
+import { AppointmentDTO } from "../../services/appointmentService";
 
 interface HistoryAppointmentTableProps {
     appointments: Appointment[];

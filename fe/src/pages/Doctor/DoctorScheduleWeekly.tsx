@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "react-toastify";
 import PageMeta from "../../components/common/PageMeta";
-import PageBreadCrumb from "../../components/common/PageBreadCrumb";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import ScheduleForm from "../../components/forms/ScheduleForm";
 import ScheduleExceptionForm from "../../components/forms/ScheduleExceptionForm";
 import {
@@ -249,7 +249,7 @@ export default function DoctorScheduleWeekly() {
   return (
     <>
       <PageMeta title="Weekly Schedule | Doctor Panel" description="Manage your weekly schedule and time slots" />
-      <PageBreadCrumb pageTitle="Weekly Schedule" />
+      <PageBreadcrumb pageTitle="Weekly Schedule" />
 
       <div className="space-y-6">
         {/* Header */}

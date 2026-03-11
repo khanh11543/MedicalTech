@@ -1,11 +1,16 @@
 import { useState, useMemo, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import PageBreadCrumb from "../../components/common/PageBreadCrumb";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
 import ExpandableAppointmentTable from "../../components/tables/ExpandableAppointmentTable";
 import AppointmentDetailModal from "../../components/modals/AppointmentDetailModal";
 import appointmentService, { AppointmentDTO } from "../../services/appointmentService";
 
 export default function DoctorAppointmentsUpcoming() {
+    // Toast notification
+    const { toast, showToast, dismissToast } = useToast();
+    
     // Data fetching states
     const [appointments, setAppointments] = useState<AppointmentDTO[]>([]);
     const [loading, setLoading] = useState(true);
@@ -14,7 +19,6 @@ export default function DoctorAppointmentsUpcoming() {
     // Modal states
     const [selectedAppointment, setSelectedAppointment] = useState<AppointmentDTO | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isLoadingDetails, setIsLoadingDetails] = useState(false);
 
     // Filter and pagination states
     const [searchQuery, setSearchQuery] = useState("");
@@ -33,7 +37,10 @@ export default function DoctorAppointmentsUpcoming() {
             try {
                 setLoading(true);
                 setError(null);
-                const response = await appointmentService.getDoctorAppointments({ });
+                const response = await appointmentService.getDoctorAppointments({
+                    pageNumber: 0,
+                    pageSize: 100
+                });
                 console.log("Fetched appointments:", response.content);
                 if (response.content && response.content.length > 0) {
                     console.log("First appointment date format:", response.content[0].appointmentDate);
@@ -139,8 +146,7 @@ export default function DoctorAppointmentsUpcoming() {
 
     const handleViewDetails = async (appointment: AppointmentDTO) => {
         try {
-            setIsLoadingDetails(true);
-            const details = await appointmentService.getAppointmentById(appointment.id);
+            const details = await appointmentService.getDoctorAppointmentDetail(appointment.id);
             setSelectedAppointment(details);
             setIsModalOpen(true);
         } catch (err) {
@@ -148,9 +154,7 @@ export default function DoctorAppointmentsUpcoming() {
                 ? err.message
                 : "Failed to fetch appointment details";
             console.error("Error fetching appointment details:", err);
-            alert(`Error loading appointment details: ${errorMessage}`);
-        } finally {
-            setIsLoadingDetails(false);
+            showToast(errorMessage, "error");
         }
     };
 
@@ -173,14 +177,11 @@ export default function DoctorAppointmentsUpcoming() {
         try {
             setLoading(true);
             setError(null);
-            const response = await appointmentService.getAppointmentsByDoctor({
-                from: '',
-                to: '',
-                doctorId: undefined,
-                period: "DAILY",
-                limit: 10,
+            const response = await appointmentService.getDoctorAppointments({
+                pageNumber: 0,
+                pageSize: 100
             });
-            setAppointments(response || []);
+            setAppointments(response.content || []);
         } catch (err) {
             const errorMessage = err instanceof Error
                 ? err.message
@@ -195,7 +196,7 @@ export default function DoctorAppointmentsUpcoming() {
     return (
         <>
             <PageMeta title="Upcoming Appointments | Doctor Panel" description="View your upcoming appointments" />
-            <PageBreadCrumb pageTitle="Upcoming Appointments" />
+            <PageBreadcrumb pageTitle="Upcoming Appointments" />
 
             <div className="space-y-6">
                 {/* Header Section */}
@@ -591,6 +592,9 @@ export default function DoctorAppointmentsUpcoming() {
                 isOpen={isModalOpen}
                 onClose={handleCloseModal}
             />
+
+            {/* Toast Notifications */}
+            <Toast toast={toast} onDismiss={dismissToast} />
             </div>
         </>
     );
