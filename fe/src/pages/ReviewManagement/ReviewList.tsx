@@ -3,7 +3,12 @@ import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import { useDebounce } from "../../hooks/useDebounce";
 import { TableSkeleton } from "../../components/ui/skeleton/Skeleton";
-import adminService, { Review, ReviewListParams, ModerateReviewRequest, Page } from "../../services/adminService";
+import adminService, {
+  Review,
+  ReviewListParams,
+  ModerateReviewRequest,
+  Page,
+} from "../../services/adminService";
 
 export default function ReviewList() {
   const [reviews, setReviews] = useState<Page<Review> | null>(null);
@@ -11,17 +16,14 @@ export default function ReviewList() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Search with debounce
   const [keyword, setKeyword] = useState("");
   const debouncedKeyword = useDebounce(keyword, 400);
 
-  // Filters
   const [filters, setFilters] = useState<ReviewListParams>({
     pageNumber: 0,
     pageSize: 10,
   });
 
-  // Moderate modal
   const [moderateModal, setModerateModal] = useState<{
     open: boolean;
     review: Review | null;
@@ -187,7 +189,10 @@ export default function ReviewList() {
 
           <div className="flex items-end">
             <button
-              onClick={() => { setFilters({ pageNumber: 0, pageSize: 10 }); setKeyword(""); }}
+              onClick={() => {
+                setFilters({ pageNumber: 0, pageSize: 10 });
+                setKeyword("");
+              }}
               className="w-full rounded bg-teal-500 px-4 py-2.5 font-medium text-white hover:bg-teal-600 transition-colors"
             >
               Reset Filters
@@ -212,8 +217,8 @@ export default function ReviewList() {
           <TableSkeleton rows={10} cols={8} />
         ) : null}
 
-        {/* Table */}
-        {!loading || reviews ? (
+        {/* Table: Reviews */}
+        {(
           <>
             <div className="max-w-full overflow-x-auto">
               <table className="w-full table-auto">
@@ -230,7 +235,7 @@ export default function ReviewList() {
                   </tr>
                 </thead>
                 <tbody>
-                  {reviews.content.length === 0 ? (
+                  {!reviews || reviews.content.length === 0 ? (
                     <tr>
                       <td colSpan={8} className="px-4 py-5 text-center text-gray-500 dark:text-gray-400">
                         No reviews found
@@ -252,7 +257,7 @@ export default function ReviewList() {
                           )}
                         </td>
                         <td className="px-4 py-5">
-                          <p className="text-sm text-gray-900 dark:text-white">{review.doctorName}</p>
+                          <p className="text-sm text-gray-900 dark:text-white">{review.doctorName ?? "—"}</p>
                         </td>
                         <td className="px-4 py-5">
                           <div className="flex items-center gap-1">
@@ -315,7 +320,7 @@ export default function ReviewList() {
             </div>
 
             {/* Pagination */}
-            {reviews.totalPages > 1 && (
+            {reviews && reviews.totalPages > 1 && (
               <div className="flex items-center justify-between border-t border-gray-200 dark:border-white/[0.05] px-4 py-4">
                 <div className="text-sm text-gray-700 dark:text-gray-300">
                   Showing {reviews.numberOfElements} of {reviews.totalElements} results

@@ -6,7 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -39,6 +41,35 @@ public class UserDetailDTO {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt;
     
-    // Chi tiết roles (bao gồm cả assignedAt, assignedBy)
     private Set<UserRoleDetailDTO> roles;
+
+    private DoctorProfileInfo doctorProfile;
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class DoctorProfileInfo {
+        private Long id;
+        private String fullName;
+        private String licenseNumber;
+        private String specialization;
+        private Integer yearsOfExperience;
+        private String bio;
+        private BigDecimal consultationFee;
+        private String verificationStatus;
+        private BigDecimal rating;
+        private Integer reviewCount;
+        private List<DoctorSpecialtyInfo> specialties;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class DoctorSpecialtyInfo {
+        private Long id;
+        private String name;
+        private Boolean isPrimary;
+    }
 }

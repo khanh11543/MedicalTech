@@ -1,93 +1,29 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { PageTitle } from "./components/SharedComponents";
+import publicService, { type Specialty } from "../../services/publicService";
 import "./landing.css";
 
-/* ── Data ── */
+/* ── Helper: parse highlights JSON from API ── */
+function parseHighlights(raw: string | null): string[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
+}
+
+/* ── Types ── */
 interface Department {
+  id: number;
+  slug: string;
   icon: string;
   title: string;
   subtitle: string;
   description: string;
   highlights: string[];
   img: string;
-  statNumber?: string;
-  statLabel?: string;
   featured?: boolean;
-  services?: string[];
-  achievements?: { icon: string; text: string }[];
 }
 
-const departments: Department[] = [
-  {
-    icon: "bi bi-heart-pulse",
-    title: "Cardiology",
-    subtitle: "Heart & Vascular Care",
-    description:
-      "Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna.",
-    highlights: [
-      "Advanced Cardiac Surgery",
-      "Interventional Cardiology",
-      "Heart Rhythm Management",
-    ],
-    img: "/images/landing/cardiology-2.webp",
-    statNumber: "500+",
-    statLabel: "Procedures",
-  },
-  {
-    icon: "bi bi-lightning-fill",
-    title: "Neurology",
-    subtitle: "Brain & Nervous System",
-    description:
-      "Excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum sed ut perspiciatis.",
-    highlights: [],
-    img: "/images/landing/neurology-4.webp",
-    featured: true,
-    services: ["Brain Imaging", "Epilepsy Care", "Stroke Treatment", "Memory Disorders"],
-    achievements: [
-      { icon: "bi bi-award", text: "Award Winning Team" },
-      { icon: "bi bi-clock", text: "24/7 Stroke Center" },
-    ],
-  },
-  {
-    icon: "bi bi-shield-plus",
-    title: "Dermatology",
-    subtitle: "Skin Health Experts",
-    description:
-      "Ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure.",
-    highlights: [
-      "Cosmetic Dermatology",
-      "Skin Cancer Treatment",
-      "Laser Therapy",
-    ],
-    img: "/images/landing/dermatology-3.webp",
-    statNumber: "1200+",
-    statLabel: "Treatments",
-  },
-  {
-    icon: "bi bi-bandaid",
-    title: "Orthopedics",
-    subtitle: "Bone & Joint Care",
-    description:
-      "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint occaecat.",
-    highlights: ["Joint Replacement", "Sports Medicine", "Spine Surgery"],
-    img: "/images/landing/orthopedics-4.webp",
-    statNumber: "800+",
-    statLabel: "Surgeries",
-  },
-  {
-    icon: "bi bi-emoji-smile",
-    title: "Pediatrics",
-    subtitle: "Children's Health",
-    description:
-      "Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium totam rem aperiam eaque.",
-    highlights: ["Newborn Care", "Child Development", "Vaccination Programs"],
-    img: "/images/landing/pediatrics-2.webp",
-    statNumber: "2000+",
-    statLabel: "Young Patients",
-  },
-];
-
-/* ── Regular Department Card ── */
+/* ── Department Card ── */
 function DepartmentCard({ dept }: { dept: Department }) {
   return (
     <div className="dept-card">
@@ -100,15 +36,9 @@ function DepartmentCard({ dept }: { dept: Department }) {
         <p className="dept-card-subtitle">{dept.subtitle}</p>
       </div>
 
-      {/* Image with stat badge */}
+      {/* Image */}
       <div className="dept-card-img-wrapper">
         <img src={dept.img} alt={dept.title} loading="lazy" />
-        {dept.statNumber && (
-          <div className="dept-card-stat">
-            <span className="dept-card-stat-number">{dept.statNumber}</span>
-            <span className="dept-card-stat-label">{dept.statLabel}</span>
-          </div>
-        )}
       </div>
 
       {/* Content */}
@@ -122,7 +52,7 @@ function DepartmentCard({ dept }: { dept: Department }) {
             </li>
           ))}
         </ul>
-        <Link to={`/departments/${dept.title.toLowerCase()}`} className="dept-card-link">
+        <Link to={`/departments/${dept.slug}`} className="dept-card-link">
           Learn More
         </Link>
       </div>
@@ -147,29 +77,18 @@ function FeaturedDepartmentCard({ dept }: { dept: Department }) {
         <p className="dept-featured-subtitle">{dept.subtitle}</p>
       </div>
 
-      {/* Image with overlay achievements */}
+      {/* Image */}
       <div className="dept-featured-img">
         <img src={dept.img} alt={dept.title} loading="lazy" />
-        {dept.achievements && (
-          <div className="dept-featured-overlay">
-            {dept.achievements.map((a) => (
-              <div key={a.text} className="dept-featured-achievement">
-                <i className={a.icon}></i>
-                <span>{a.text}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Content */}
       <div className="dept-featured-body">
         <p className="dept-featured-desc">{dept.description}</p>
 
-        {/* Service tags */}
-        {dept.services && (
+        {dept.highlights.length > 0 && (
           <div className="dept-featured-tags">
-            {dept.services.map((s) => (
+            {dept.highlights.map((s) => (
               <span key={s} className="dept-featured-tag">
                 {s}
               </span>
@@ -178,7 +97,7 @@ function FeaturedDepartmentCard({ dept }: { dept: Department }) {
         )}
 
         <div className="dept-featured-btn-wrapper">
-          <Link to={`/departments/${dept.title.toLowerCase()}`} className="dept-featured-btn">
+          <Link to={`/departments/${dept.slug}`} className="dept-featured-btn">
             Explore Department
             <i className="bi bi-arrow-right-circle"></i>
           </Link>
@@ -190,15 +109,72 @@ function FeaturedDepartmentCard({ dept }: { dept: Department }) {
 
 /* ── Page ── */
 export default function DepartmentsPage() {
-  const col1 = [departments[0], departments[2]]; // Cardiology, Dermatology
-  const featured = departments[1]; // Neurology
-  const col3 = [departments[3], departments[4]]; // Orthopedics, Pediatrics
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    publicService.getSpecialties().then((list) => {
+      const mapped: Department[] = list.map((s: Specialty, idx: number) => ({
+        id: s.id,
+        slug: s.slug || s.name.toLowerCase().replace(/\s+/g, "-"),
+        icon: s.iconUrl || "bi bi-hospital",
+        title: s.name,
+        subtitle: s.subtitle || s.name,
+        description: s.description || "Specialized medical care with experienced professionals.",
+        highlights: parseHighlights(s.highlights),
+        img: s.imageUrl || "/images/landing/cardiology-3.webp",
+        featured: idx === 0,
+      }));
+      setDepartments(mapped);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <>
+        <PageTitle
+          title="Departments"
+          description="Our medical departments provide specialized healthcare services."
+          breadcrumbs={[{ label: "Home", to: "/home" }, { label: "Departments" }]}
+        />
+        <section className="dept-section">
+          <div className="container-landing text-center py-20">
+            <i className="bi bi-arrow-repeat text-4xl text-[#049ebb] animate-spin"></i>
+            <p className="mt-4 text-gray-500">Loading...</p>
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  if (departments.length === 0) {
+    return (
+      <>
+        <PageTitle
+          title="Departments"
+          description="Our medical departments provide specialized healthcare services."
+          breadcrumbs={[{ label: "Home", to: "/home" }, { label: "Departments" }]}
+        />
+        <section className="dept-section">
+          <div className="container-landing text-center py-20">
+            <p className="text-gray-500">No department data available.</p>
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  // First item = featured, rest split into 2 columns
+  const featured = departments[0];
+  const rest = departments.slice(1);
+  const col1 = rest.filter((_, i) => i % 2 === 0);
+  const col2 = rest.filter((_, i) => i % 2 === 1);
 
   return (
     <>
       <PageTitle
         title="Departments"
-        description="Our medical departments provide specialized healthcare services delivered by experienced physicians and supported by advanced medical technology. Each department is dedicated to providing accurate diagnosis, effective treatment, and compassionate patient care."
+        description="Our medical departments provide specialized healthcare services delivered by experienced physicians and supported by advanced medical technology."
         breadcrumbs={[
           { label: "Home", to: "/home" },
           { label: "Category", to: "/home" },
@@ -212,7 +188,7 @@ export default function DepartmentsPage() {
             {/* Column 1 */}
             <div className="dept-col">
               {col1.map((d) => (
-                <DepartmentCard key={d.title} dept={d} />
+                <DepartmentCard key={d.id} dept={d} />
               ))}
             </div>
 
@@ -223,8 +199,8 @@ export default function DepartmentsPage() {
 
             {/* Column 3 */}
             <div className="dept-col">
-              {col3.map((d) => (
-                <DepartmentCard key={d.title} dept={d} />
+              {col2.map((d) => (
+                <DepartmentCard key={d.id} dept={d} />
               ))}
             </div>
           </div>

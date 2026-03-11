@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PageTitle } from "./components/SharedComponents";
+import publicService from "../../services/publicService";
 import "./landing.css";
 
 interface FaqItem {
@@ -7,7 +8,7 @@ interface FaqItem {
   answer: string;
 }
 
-const faqs: FaqItem[] = [
+const fallbackFaqs: FaqItem[] = [
   {
     question: "How do I book a medical appointment?",
     answer:
@@ -38,6 +39,23 @@ const contactOptions = [
 
 export default function FAQPage() {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [faqs, setFaqs] = useState<FaqItem[]>(fallbackFaqs);
+
+  useEffect(() => {
+    publicService
+      .getContents("FAQ", { size: 20 })
+      .then((res) => {
+        if (res.content && res.content.length > 0) {
+          setFaqs(
+            res.content.map((c) => ({
+              question: c.title,
+              answer: c.body || c.summary || "",
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const toggle = (index: number) => {
     setActiveIndex(activeIndex === index ? -1 : index);

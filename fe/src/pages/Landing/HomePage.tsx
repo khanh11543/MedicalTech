@@ -1,5 +1,7 @@
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { StarRating } from "./components/SharedComponents";
+import publicService, { type Specialty } from "../../services/publicService";
 import "./landing.css";
 
 /* ============================================================
@@ -70,7 +72,7 @@ function HeroSection() {
                 <div className="flex flex-col">
                   <span className="text-white/80 text-[0.9rem]">Emergency Line</span>
                   <strong className="text-[1.1rem] font-semibold text-white">
-                    +1 (555) 987-6543
+                    +84 925 147 580
                   </strong>
                 </div>
               </div>
@@ -79,7 +81,7 @@ function HeroSection() {
                 <div className="flex flex-col">
                   <span className="text-white/80 text-[0.9rem]">Working Hours</span>
                   <strong className="text-[1.1rem] font-semibold text-white">
-                    Mon-Fri: 8AM-8PM
+                    Mon-Fri: 8AM-5.30PM
                   </strong>
                 </div>
               </div>
@@ -204,79 +206,42 @@ function AboutSection() {
           </div>
         </div>
 
-        {/* Certifications */}
-        <div className="mt-10 pt-8 border-t border-[rgba(44,48,49,0.1)]">
-          <h4 className="text-center text-[20px] font-bold text-[#18444c] mb-5">
-            Our Accreditations
-          </h4>
-          <div className="flex flex-wrap justify-center items-center gap-[30px]">
-            {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="flex-[0_0_150px] text-center transition-transform hover:-translate-y-[5px] group"
-              >
-                <img
-                  src={`/images/landing/clients-${i}.webp`}
-                  alt="Certification"
-                  className="max-w-full h-auto grayscale opacity-70 transition-all group-hover:grayscale-0 group-hover:opacity-100"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </section>
   );
 }
 
 // ==================== Featured Departments ====================
+// ==================== Featured Departments ====================
+
 function DepartmentsSection() {
-  const departments = [
-    {
-      icon: "fas fa-heartbeat",
-      title: "Cardiology",
-      desc: "Comprehensive cardiovascular care with advanced diagnostic techniques and treatment options for heart conditions, ensuring optimal cardiac health for all patients.",
-      img: "/images/landing/cardiology-3.webp",
-    },
-    {
-      icon: "fas fa-brain",
-      title: "Neurology",
-      desc: "Expert neurological care specializing in brain and nervous system disorders, providing cutting-edge treatments and compassionate support for neurological conditions.",
-      img: "/images/landing/neurology-2.webp",
-    },
-    {
-      icon: "fas fa-bone",
-      title: "Orthopedics",
-      desc: "Advanced musculoskeletal care focusing on bones, joints, and muscles with innovative surgical and non-surgical treatment approaches for mobility restoration.",
-      img: "/images/landing/orthopedics-4.webp",
-    },
-    {
-      icon: "fas fa-baby",
-      title: "Pediatrics",
-      desc: "Specialized healthcare for children from infancy through adolescence, offering comprehensive medical care in a child-friendly environment with experienced pediatric specialists.",
-      img: "/images/landing/pediatrics-3.webp",
-    },
-    {
-      icon: "fas fa-shield-alt",
-      title: "Oncology",
-      desc: "Comprehensive cancer care with multidisciplinary approach, offering advanced treatment options, clinical trials, and compassionate support throughout the cancer journey.",
-      img: "/images/landing/oncology-4.webp",
-    },
-    {
-      icon: "fas fa-ambulance",
-      title: "Emergency Care",
-      desc: "Round-the-clock emergency medical services with rapid response capabilities, state-of-the-art equipment, and experienced emergency physicians for critical care.",
-      img: "/images/landing/emergency-2.webp",
-    },
-  ];
+  const navigate = useNavigate();
+  const [departments, setDepartments] = useState<{ icon: string; title: string; desc: string; img: string; slug: string }[]>([]);
+
+  useEffect(() => {
+    publicService.getSpecialties().then((list) => {
+      if (list.length > 0) {
+        setDepartments(list.slice(0, 6).map((s: Specialty) => ({
+          icon: s.iconUrl || "bi bi-hospital",
+          title: s.name,
+          desc: s.description || "Specialized medical care with experienced professionals.",
+          img: s.imageUrl || "/images/landing/cardiology-3.webp",
+          slug: s.slug || s.name.toLowerCase().replace(/\s+/g, "-"),
+        })));
+      }
+    }).catch(() => {});
+  }, []);
 
   return (
     <section className="py-[60px] bg-white">
       <div className="container-landing">
+        {departments.length === 0 && (
+          <div className="text-center py-10 text-gray-400">Loading departments...</div>
+        )}
+
         <HomeSectionTitle
           title="Featured Departments"
-          description="Explore our specialized departments offering comprehensive diagnosis, treatment, and preventive healthcare 
-          services delivered by experienced medical professionals."
+          description="Explore our specialized departments offering comprehensive diagnosis, treatment, and preventive healthcare services delivered by experienced medical professionals."
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -305,15 +270,24 @@ function DepartmentsSection() {
                 <p className="text-[15px] leading-relaxed text-[rgba(44,48,49,0.8)] mb-6">
                   {dept.desc}
                 </p>
-                <Link
-                  to="/departments"
-                  className="inline-flex items-center gap-2 text-[#049ebb] font-semibold text-[14px] no-underline transition-all group/link"
-                >
-                  <span className="transition-transform group-hover/link:translate-x-[3px]">
-                    Learn More
-                  </span>
-                  <i className="fas fa-arrow-right text-[16px] transition-transform group-hover/link:translate-x-[3px]"></i>
-                </Link>
+                <div className="flex items-center gap-4">
+                  <Link
+                    to={`/departments/${dept.slug}`}
+                    className="inline-flex items-center gap-2 text-[#049ebb] font-semibold text-[14px] no-underline transition-all group/link"
+                  >
+                    <span className="transition-transform group-hover/link:translate-x-[3px]">
+                      Learn More
+                    </span>
+                    <i className="fas fa-arrow-right text-[16px] transition-transform group-hover/link:translate-x-[3px]"></i>
+                  </Link>
+                  <button
+                    onClick={() => navigate(`/appointment?department=${encodeURIComponent(dept.title)}`)}
+                    className="inline-flex items-center gap-2 py-[6px] px-4 rounded-lg text-[13px] font-semibold text-white bg-[#049ebb] border-none cursor-pointer transition-all hover:bg-[#037a94] hover:shadow-[0_4px_12px_rgba(4,158,187,0.4)]"
+                  >
+                    <i className="bi bi-calendar-check"></i>
+                    Book Now
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -425,145 +399,88 @@ function ServicesSection() {
 
 // ==================== Find A Doctor Section ====================
 function DoctorSection() {
-  const doctors = [
-    {
-      name: "Dr. Sarah Mitchell",
-      specialty: "Cardiology",
-      exp: "15+ years",
-      rating: 4.9,
-      img: "/images/landing/staff-3.webp",
-      status: "online" as const,
-    },
-    {
-      name: "Dr. Michael Rodriguez",
-      specialty: "Neurology",
-      exp: "12+ years",
-      rating: 4.7,
-      img: "/images/landing/staff-7.webp",
-      status: "busy" as const,
-    },
-    {
-      name: "Dr. Emily Chen",
-      specialty: "Pediatrics",
-      exp: "8+ years",
-      rating: 5.0,
-      img: "/images/landing/staff-1.webp",
-      status: "online" as const,
-    },
-    {
-      name: "Dr. James Thompson",
-      specialty: "Orthopedics",
-      exp: "20+ years",
-      rating: 4.8,
-      img: "/images/landing/staff-9.webp",
-      status: "offline" as const,
-    },
-    {
-      name: "Dr. Lisa Anderson",
-      specialty: "Dermatology",
-      exp: "10+ years",
-      rating: 4.6,
-      img: "/images/landing/staff-5.webp",
-      status: "online" as const,
-    },
-    {
-      name: "Dr. Robert Kim",
-      specialty: "Oncology",
-      exp: "18+ years",
-      rating: 4.9,
-      img: "/images/landing/staff-12.webp",
-      status: "online" as const,
-    },
-  ];
+  const [doctors, setDoctors] = useState<{ id: number; name: string; specialty: string; exp: string; rating: number; ratingCount: number; img: string; isAvailable: boolean }[]>([]);
 
-  const statusConfig = {
-    online: { label: "Available", bg: "rgba(40,167,69,0.9)", color: "white" },
-    busy: { label: "In Surgery", bg: "rgba(255,193,7,0.9)", color: "white" },
-    offline: {
-      label: "Next: Tomorrow 9AM",
-      bg: "rgba(44,48,49,0.8)",
-      color: "white",
-    },
-  };
+  useEffect(() => {
+    publicService.getDoctors({ pageSize: 6, sortBy: "ratingAvg", sortOrder: "desc" }).then((res) => {
+      const list = res.content;
+      if (Array.isArray(list) && list.length > 0) {
+        setDoctors(list.map((d) => ({
+          id: d.id,
+          name: d.fullName,
+          specialty: d.primarySpecialty || "General",
+          exp: d.experienceYears ? `${d.experienceYears}+ years` : "",
+          rating: d.ratingAvg ?? 0,
+          ratingCount: d.ratingCount ?? 0,
+          img: d.avatarUrl || "",
+          isAvailable: d.isAvailable,
+        })));
+      }
+    }).catch(() => {});
+  }, []);
+
+  if (doctors.length === 0) return null;
 
   return (
     <section className="py-[60px] bg-white">
       <div className="container-landing">
         <HomeSectionTitle
-          title="Find A Doctor"
-          description="Search our network of highly qualified physicians and specialists dedicated to providing exceptional patient care."
+          title="Our Doctors"
+          description="Meet our team of highly qualified physicians and specialists dedicated to providing exceptional patient care."
         />
 
-        {/* Search */}
-        <div className="bg-white rounded-[15px] p-8 shadow-[0_10px_30px_rgba(44,48,49,0.1)] mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input
-              type="text"
-              placeholder="Doctor name or keyword"
-              className="w-full py-3 px-4 border-2 border-[rgba(44,48,49,0.15)] rounded-[10px] text-[0.95rem] outline-none transition-all focus:border-[#049ebb] focus:shadow-[0_0_0_0.2rem_rgba(4,158,187,0.15)]"
-            />
-            <select className="w-full py-3 px-4 border-2 border-[rgba(44,48,49,0.15)] rounded-[10px] text-[0.95rem] text-gray-500 outline-none transition-all focus:border-[#049ebb] focus:shadow-[0_0_0_0.2rem_rgba(4,158,187,0.15)]">
-              <option value="">Select Specialty</option>
-              <option>Cardiology</option>
-              <option>Neurology</option>
-              <option>Orthopedics</option>
-              <option>Pediatrics</option>
-              <option>Dermatology</option>
-              <option>Oncology</option>
-            </select>
-            <button className="w-full py-3 px-6 rounded-[10px] font-semibold bg-[#049ebb] text-white border-none cursor-pointer transition-all hover:bg-[#037a94] hover:-translate-y-[2px] flex items-center justify-center gap-2">
-              <i className="bi bi-search"></i>
-              Search Doctor
-            </button>
-          </div>
-        </div>
-
-        {/* Doctor Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {doctors.map((doc) => (
             <div
-              key={doc.name}
+              key={doc.id}
               className="bg-white rounded-[15px] overflow-hidden shadow-[0_5px_25px_rgba(44,48,49,0.08)] transition-all hover:-translate-y-[5px] hover:shadow-[0_15px_40px_rgba(44,48,49,0.15)]"
             >
-              {/* Image */}
-              <div className="relative overflow-hidden">
-                <img
-                  src={doc.img}
-                  alt={doc.name}
-                  className="w-full h-[250px] object-cover transition-transform duration-300 hover:scale-105"
-                />
-                <div
-                  className="absolute top-[15px] right-[15px] py-1 px-3 rounded-[20px] text-[0.75rem] font-semibold uppercase tracking-[0.5px]"
-                  style={{
-                    background: statusConfig[doc.status].bg,
-                    color: statusConfig[doc.status].color,
-                  }}
-                >
-                  {statusConfig[doc.status].label}
-                </div>
+              <div className="relative overflow-hidden h-[250px]">
+                {doc.img ? (
+                  <img
+                    src={doc.img}
+                    alt={doc.name}
+                    className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[#049ebb] to-[#037a94] flex items-center justify-center">
+                    <span className="text-[4rem] font-bold text-white">{doc.name.replace(/^Dr\.?\s*/i, "").charAt(0)}</span>
+                  </div>
+                )}
+                {doc.isAvailable && (
+                  <div className="absolute top-[15px] right-[15px] py-1 px-3 rounded-[20px] text-[0.75rem] font-semibold uppercase tracking-[0.5px] bg-[rgba(40,167,69,0.9)] text-white">
+                    Available
+                  </div>
+                )}
               </div>
-              {/* Info */}
               <div className="p-6">
                 <h5 className="text-[1.25rem] font-semibold text-[#18444c] mb-2">
                   {doc.name}
                 </h5>
                 <p className="text-[#049ebb] font-medium mb-1">{doc.specialty}</p>
-                <p className="text-[0.9rem] text-[rgba(44,48,49,0.7)] mb-3">
-                  {doc.exp} experience
-                </p>
+                {doc.exp && (
+                  <p className="text-[0.9rem] text-[rgba(44,48,49,0.7)] mb-1">
+                    {doc.exp} experience
+                  </p>
+                )}
                 <div className="flex items-center mb-4">
-                  <StarRating rating={doc.rating} />
+                  <StarRating rating={doc.ratingCount > 0 ? doc.rating : 0} showValue={false} />
+                  {doc.ratingCount > 0 ? (
+                    <span className="ml-2 text-[0.8rem] text-gray-400">({doc.ratingCount})</span>
+                  ) : (
+                    <span className="ml-2 text-[0.8rem] text-gray-400">No reviews</span>
+                  )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 items-center">
                   <Link
-                    to="/doctors"
-                    className="flex-1 py-2 px-4 text-center text-[0.875rem] font-medium rounded-lg border-2 border-[#049ebb] text-[#049ebb] no-underline transition-all hover:bg-[#049ebb] hover:text-white"
+                    to={`/doctors/${doc.id}`}
+                    className="w-full flex items-center justify-center py-2 px-4 text-center text-[0.875rem] font-medium rounded-lg border-2 border-[#049ebb] text-[#049ebb] no-underline transition-all hover:bg-[#049ebb] hover:text-white"
                   >
                     View Profile
                   </Link>
                   <Link
-                    to="/appointment"
-                    className="flex-1 py-2 px-4 text-center text-[0.875rem] font-medium rounded-lg border-2 border-[#049ebb] bg-[#049ebb] text-white no-underline transition-all hover:bg-[#037a94] hover:border-[#037a94]"
+                    to={`/appointment?doctor=${doc.id}&department=${encodeURIComponent(doc.specialty)}`}
+                    className="w-full flex items-center justify-center py-2 px-4 text-center text-[0.875rem] font-medium rounded-lg border-2 border-[#049ebb] bg-[#049ebb] text-white no-underline transition-all hover:bg-[#037a94] hover:border-[#037a94]"
                   >
                     Book Appointment
                   </Link>
@@ -571,6 +488,17 @@ function DoctorSection() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* View All Doctors */}
+        <div className="text-center mt-10">
+          <Link
+            to="/doctors"
+            className="inline-flex items-center gap-2 py-[14px] px-[32px] rounded-full font-semibold border-2 border-[#049ebb] text-[#049ebb] no-underline transition-all hover:bg-[#049ebb] hover:text-white hover:-translate-y-[2px]"
+          >
+            View All Doctors
+            <i className="bi bi-arrow-right"></i>
+          </Link>
         </div>
       </div>
     </section>
@@ -614,18 +542,21 @@ function CTASection() {
               title: "24/7 Emergency Care",
               desc: "Immediate medical assistance available around the clock for critical and life-threatening conditions.",
               link: "Learn More",
+              to: "/services",
             },
             {
               icon: "bi bi-calendar-check",
               title: "Easy Online Booking",
               desc: "Schedule your medical appointment quickly and conveniently through our online system. Choose your preferred doctor, department, and time to receive personalized healthcare services.",
               link: "Book Now",
+              to: "/appointment",
             },
             {
               icon: "bi bi-people",
               title: "Expert Medical Team",
               desc: "Highly qualified doctors and healthcare specialists committed to delivering exceptional care.",
               link: "Meet Our Doctors",
+              to: "/doctors",
             },
           ].map((card) => (
             <div
@@ -643,13 +574,13 @@ function CTASection() {
               <p className="text-[rgba(44,48,49,0.7)] leading-relaxed mb-6">
                 {card.desc}
               </p>
-              <a
-                href="#"
+              <Link
+                to={card.to}
                 className="inline-flex items-center text-[#049ebb] font-semibold no-underline transition-all group/link"
               >
                 <span className="mr-2">{card.link}</span>
                 <i className="bi bi-arrow-right transition-transform group-hover/link:translate-x-[5px]"></i>
-              </a>
+              </Link>
             </div>
           ))}
         </div>
@@ -671,11 +602,11 @@ function CTASection() {
               </div>
             </div>
             <a
-              href="tel:5551234567"
+              href="tel:8362374768"
               className="inline-flex items-center bg-white text-[#049ebb] py-[15px] px-[25px] rounded-full font-bold text-[1.1rem] no-underline transition-all hover:-translate-y-[2px] hover:shadow-[0_8px_25px_rgba(0,0,0,0.2)] whitespace-nowrap"
             >
               <i className="bi bi-telephone-fill mr-[10px] text-[1.2rem]"></i>
-              Call (555) 123-4567
+              Call  
             </a>
           </div>
         </div>
@@ -719,36 +650,36 @@ function EmergencySection() {
 
           {/* Contact Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-            {[
-              {
-                icon: "bi bi-hospital",
-                title: "Emergency Room",
-                phone: "+1 (555) 123-4567",
-                address: "1245 Healthcare Blvd, Medical City, CA 90210",
-                hours: "Open 24/7",
-                urgent: true,
-              },
-              {
-                icon: "bi bi-clock",
-                title: "Urgent Care",
-                phone: "+1 (555) 987-6543",
-                address: "892 Wellness Ave, Health District, CA 90211",
-                hours: "Mon-Sun: 7:00 AM - 10:00 PM",
-              },
-              {
-                icon: "bi bi-headset",
-                title: "Nurse Helpline",
-                phone: "+1 (555) 456-7890",
-                address: "24/7 medical advice and guidance",
-                hours: "Available 24/7",
-              },
-              {
-                icon: "bi bi-heart-pulse",
-                title: "Poison Control",
-                phone: "1-800-222-1222",
-                address: "National poison control hotline",
-                hours: "Available 24/7",
-              },
+  {[
+    {
+      icon: "bi bi-hospital",
+      title: "Emergency Medical Service",
+      phone: "115",
+      address: "Ho Chi Minh City Emergency Center 115",
+      hours: "Open 24/7",
+      urgent: true,
+    },
+    {
+      icon: "bi bi-clock",
+      title: "After-hours Clinic",
+      phone: "+84 28 3855 4269",
+      address: "Cho Ray Hospital, 201B Nguyen Chi Thanh St, District 5, Ho Chi Minh City",
+      hours: "Mon - Sun: 7:00 AM - 10:00 PM",
+    },
+    {
+      icon: "bi bi-headset",
+      title: "Medical Consultation Hotline",
+      phone: "1900 9095",
+      address: "Vietnam Ministry of Health Medical Advisory Service",
+      hours: "Available 24/7",
+    },
+    {
+      icon: "bi bi-heart-pulse",
+      title: "Poison Control Center",
+      phone: "+84 28 3855 4137",
+      address: "Poison Control Center - Cho Ray Hospital, Ho Chi Minh City",
+      hours: "Available 24/7",
+    },
             ].map((card) => (
               <div
                 key={card.title}

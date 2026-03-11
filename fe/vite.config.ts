@@ -19,7 +19,13 @@ export default defineConfig({
     }),
   ],
   server: {
-    host: true, // Listen on 0.0.0.0 — accessible from LAN devices
+    host: true,
     port: 5173,
+    proxy: {
+      "/uploads": {
+        target: "http://localhost:8080/api",
+        changeOrigin: true,
+      },
+    },
   },
 });

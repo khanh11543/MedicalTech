@@ -68,8 +68,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                 username, userDetails.getAuthorities(), requestPath);
                     }
                 }
-            } else if (token == null) {
-                log.warn("No JWT token found for path: {}", requestPath);
+            } else if (token == null && !requestPath.contains("/public/")) {
+                log.debug("No JWT token found for path: {}", requestPath);
             }
         } catch (Exception ex) {
             log.error("Cannot set user authentication: {}", ex.getMessage());

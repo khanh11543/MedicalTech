@@ -100,6 +100,7 @@ public class PatientMedicalRecordController {
                 .recordCode(mr.getRecordCode())
                 .doctorId(mr.getDoctor() != null ? mr.getDoctor().getId() : null)
                 .doctorName(mr.getDoctor() != null ? mr.getDoctor().getFullName() : null)
+                .doctorSpecialization(mr.getDoctor() != null ? mr.getDoctor().getSpecialization() : null)
                 .appointmentId(mr.getAppointment() != null ? mr.getAppointment().getId() : null)
                 .visitDate(mr.getVisitDate())
                 .chiefComplaint(mr.getChiefComplaint())

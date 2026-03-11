@@ -139,6 +139,51 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
+    public PaymentDTO createPaymentForAppointment(Long appointmentId, Long processedByUserId) {
+        log.info("Creating payment for appointment ID: {} (processedBy: {})", appointmentId, processedByUserId);
+        if (appointmentId == null) {
+            throw new BadRequestException("Appointment ID cannot be null");
+        }
+        Optional<Payment> existing = paymentRepository.findByAppointmentIdWithDetails(appointmentId);
+        if (existing.isPresent()) {
+            log.debug("Payment already exists for appointment {}, returning it", appointmentId);
+            return mapToDTO(existing.get());
+        }
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", appointmentId));
+        Patient patient = appointment.getPatient();
+        Doctor doctor = appointment.getDoctor();
+        BigDecimal consultationFee = doctor.getConsultationFee() != null ? doctor.getConsultationFee() : BigDecimal.ZERO;
+        BigDecimal totalAmount = consultationFee;
+        User processedBy = processedByUserId != null
+                ? userRepository.findById(processedByUserId).orElse(null)
+                : null;
+        Payment payment = Payment.builder()
+                .paymentCode(generatePaymentCode())
+                .appointment(appointment)
+                .patient(patient)
+                .amount(consultationFee)
+                .discountAmount(BigDecimal.ZERO)
+                .taxAmount(BigDecimal.ZERO)
+                .totalAmount(totalAmount)
+                .currency("VND")
+                .paymentMethod(null)
+                .paymentStatus("PENDING")
+                .processedBy(processedBy)
+                .notes(null)
+                .build();
+        payment = paymentRepository.save(payment);
+        log.info("Payment created for appointment {} with ID: {}", appointmentId, payment.getId());
+        try {
+            notificationEventService.onNewPendingPayment(payment);
+        } catch (Exception e) {
+            log.warn("Failed to send new payment notification: {}", e.getMessage());
+        }
+        return mapToDTO(payment);
+    }
+
+    @Override
+    @Transactional
     public PaymentInitDTO initMomoPayment(Long paymentId, MomoInitDTO dto, Long currentUserId) {
         return initMomoPaymentInternal(paymentId, dto, currentUserId, false);
     }
@@ -783,6 +828,11 @@ public class PaymentServiceImpl implements PaymentService {
                         && payment.getAppointment().getDoctor() != null 
                         && payment.getAppointment().getDoctor().getUser() != null
                         ? payment.getAppointment().getDoctor().getUser().getFullName() : null)
+                .doctorSpecialty(payment.getAppointment() != null 
+                        && payment.getAppointment().getDoctor() != null
+                        ? payment.getAppointment().getDoctor().getSpecialization() : null)
+                .appointmentDate(payment.getAppointment() != null 
+                        ? payment.getAppointment().getAppointmentDate() : null)
                 .build();
 
         if (payment.getProcessedBy() != null) {
@@ -813,6 +863,7 @@ public class PaymentServiceImpl implements PaymentService {
     // ========== PATIENT METHODS ==========
 
     @Override
+    @Transactional(readOnly = true)
     public org.springframework.data.domain.Page<PaymentDTO> getMyPayments(
             Long patientId,
             String status,
@@ -858,6 +909,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PaymentDTO getPaymentByIdForPatient(Long paymentId, Long patientId) {
         log.info("Getting payment ID: {} for patient ID: {}", paymentId, patientId);
 
@@ -881,6 +933,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PaymentQrDTO getPaymentQrForPatient(Long paymentId, Long patientId) {
         log.info("Getting QR for payment ID: {} for patient ID: {}", paymentId, patientId);
 
@@ -911,6 +964,52 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("No active QR code found for payment: " + paymentId));
 
         return mapToQrDTO(qr);
+    }
+
+    @Override
+    @Transactional
+    public PaymentInitDTO initMomoPaymentForPatient(Long paymentId, Long patientId) {
+        log.info("Patient {} initiating MoMo payment for payment ID: {}", patientId, paymentId);
+
+        if (paymentId == null) throw new BadRequestException("Payment ID cannot be null");
+        if (patientId == null) throw new BadRequestException("Patient ID cannot be null");
+
+        Payment payment = paymentRepository.findByIdWithDetails(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
+
+        if (!payment.getPatient().getId().equals(patientId)) {
+            throw new BadRequestException("You can only pay for your own payments");
+        }
+
+        Long userId = payment.getPatient().getUser().getId();
+        return initMomoPaymentInternal(paymentId, new MomoInitDTO(), userId, false);
+    }
+
+    @Override
+    @Transactional
+    public PaymentDTO cancelPaymentForPatient(Long paymentId, Long patientId, String reason) {
+        log.info("Patient {} cancelling payment ID: {}", patientId, paymentId);
+
+        if (paymentId == null) throw new BadRequestException("Payment ID cannot be null");
+        if (patientId == null) throw new BadRequestException("Patient ID cannot be null");
+
+        Payment payment = paymentRepository.findByIdWithDetails(paymentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
+
+        if (!payment.getPatient().getId().equals(patientId)) {
+            throw new BadRequestException("You can only cancel your own payments");
+        }
+
+        if (!"PENDING".equals(payment.getPaymentStatus()) && !"INITIATED".equals(payment.getPaymentStatus())) {
+            throw new BadRequestException("Can only cancel PENDING or INITIATED payments, current status: " + payment.getPaymentStatus());
+        }
+
+        CancelPaymentDTO dto = CancelPaymentDTO.builder()
+                .reason(reason != null ? reason : "Cancelled by patient")
+                .build();
+
+        Long userId = payment.getPatient().getUser().getId();
+        return cancelPayment(paymentId, dto, userId);
     }
 
     // ========== ADMIN METHODS ==========

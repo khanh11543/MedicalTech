@@ -207,8 +207,8 @@ export const skipPatient = async (appointmentId: number, reason: string): Promis
   await api.post(`/doctor/today/skip/${appointmentId}`, { reason });
 };
 
-export const markNoShow = async (appointmentId: number): Promise<void> => {
-  await api.post(`/doctor/today/no-show/${appointmentId}`);
+export const markNoShow = async (appointmentId: number, reason: string): Promise<void> => {
+  await api.post(`/doctor/today/no-show/${appointmentId}`, { reason });
 };
 
 export const changeDoctorStatus = async (status: string): Promise<void> => {

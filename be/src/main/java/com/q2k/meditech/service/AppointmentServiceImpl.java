@@ -56,7 +56,8 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final TimeSlotRepository timeSlotRepository;
     private final EmailService emailService;
     private final PrivacyMaskingService privacyMaskingService;
-    
+    private final PaymentService paymentService;
+
     // ==================== BOOKING ====================
     
     @Override
@@ -129,11 +130,11 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .build();
         
         appointment = appointmentRepository.save(appointment);
-        
+
         // Create history entry
-        createHistory(appointment, "CREATED", null, AppointmentStatus.PENDING, 
+        createHistory(appointment, "CREATED", null, AppointmentStatus.PENDING,
                 bookedByUserId, bookedBy.name(), "Appointment booked");
-        
+
         log.info("Appointment created with ID: {}", appointment.getId());
 
         // Send notification: new booking
@@ -142,7 +143,14 @@ public class AppointmentServiceImpl implements AppointmentService {
         } catch (Exception e) {
             log.warn("Failed to send new booking notification: {}", e.getMessage());
         }
-        
+
+        // Create PENDING payment so it appears in patient Payment History and can be paid
+        try {
+            paymentService.createPaymentForAppointment(appointment.getId(), bookedByUserId);
+        } catch (Exception e) {
+            log.warn("Failed to create payment for appointment {}: {}", appointment.getId(), e.getMessage());
+        }
+
         return appointmentMapper.toDTO(appointment);
     }
     
@@ -1012,6 +1020,14 @@ public class AppointmentServiceImpl implements AppointmentService {
         log.info("User {} ({}) cancelling appointment {}", userId, userRole, appointmentId);
         
         Appointment appointment = getAppointmentEntity(appointmentId);
+        
+        // Patient may only cancel their own appointment
+        if ("PATIENT".equals(userRole)) {
+            if (appointment.getPatient() == null || appointment.getPatient().getUser() == null
+                    || !appointment.getPatient().getUser().getId().equals(userId)) {
+                throw new AppointmentException.AppointmentNotCancellableException();
+            }
+        }
         
         // Check if can be cancelled
         if (!canBeCancelled(appointment)) {

@@ -1,5 +1,7 @@
 package com.q2k.meditech.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.entity.Appointment;
 import com.q2k.meditech.entity.Doctor;
@@ -18,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,9 +39,11 @@ public class ReviewService {
     @Autowired
     private DoctorRepository doctorRepository;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @Transactional
     public ReviewDTO createReview(ReviewCreateDTO dto) {
-        // Validate required fields
         if (dto.getAppointmentId() == null) {
             throw new IllegalArgumentException("appointmentId is required");
         }
@@ -48,26 +53,16 @@ public class ReviewService {
         if (dto.getRating() == null || dto.getRating() < 1 || dto.getRating() > 5) {
             throw new IllegalArgumentException("rating must be between 1 and 5");
         }
-
-        // Check if review already exists for this appointment
         if (reviewRepository.existsByAppointmentId(dto.getAppointmentId())) {
             throw new IllegalArgumentException("Review already exists for this appointment");
         }
-
-        // Fetch appointment
         Appointment appointment = appointmentRepository.findById(dto.getAppointmentId())
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", dto.getAppointmentId()));
-
-        // Fetch patient
         Patient patient = patientRepository.findById(dto.getPatientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient", "id", dto.getPatientId()));
-
-        // Validate patient matches appointment
         if (!appointment.getPatient().getId().equals(dto.getPatientId())) {
             throw new IllegalArgumentException("Patient does not match appointment");
         }
-
-        // Create review
         Review review = new Review();
         review.setAppointment(appointment);
         review.setPatient(patient);
@@ -76,64 +71,128 @@ public class ReviewService {
         review.setComment(dto.getComment());
         review.setIsAnonymous(dto.getIsAnonymous() != null ? dto.getIsAnonymous() : false);
         review.setIsVisible(true);
-
         Review saved = reviewRepository.save(review);
-
-        // Update doctor rating
-        updateDoctorRating(appointment.getDoctor().getId());
-
+        if (appointment.getDoctor() != null) {
+            updateDoctorRating(appointment.getDoctor().getId());
+        }
         return convertToDTO(saved);
     }
 
+    @Transactional
+    public ReviewDTO createReviewForPatient(ReviewCreateDTO dto, Long currentUserId) {
+        if (dto.getAppointmentId() != null) {
+            return createReviewForPatientWithAppointment(dto, currentUserId);
+        }
+        return createReviewWithoutAppointment(dto, currentUserId);
+    }
+
+    /** Create a general review (no appointment) - e.g. from public testimonial form. Patient from current user. */
+    @Transactional
+    public ReviewDTO createReviewWithoutAppointment(ReviewCreateDTO dto, Long currentUserId) {
+        if (dto.getRating() == null || dto.getRating() < 1 || dto.getRating() > 5) {
+            throw new IllegalArgumentException("rating must be between 1 and 5");
+        }
+        if (dto.getComment() == null || dto.getComment().trim().isEmpty()) {
+            throw new IllegalArgumentException("comment is required");
+        }
+        Patient patient = patientRepository.findByUserId(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found for current user"));
+        Doctor doctor = null;
+        if (dto.getDoctorId() != null) {
+            doctor = doctorRepository.findById(dto.getDoctorId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Doctor", "id", dto.getDoctorId()));
+        }
+        String imageUrlsJson = null;
+        if (dto.getImageUrls() != null && !dto.getImageUrls().isEmpty()) {
+            try {
+                imageUrlsJson = objectMapper.writeValueAsString(dto.getImageUrls());
+            } catch (Exception ignored) {
+            }
+        }
+        Review review = new Review();
+        review.setAppointment(null);
+        review.setPatient(patient);
+        review.setDoctor(doctor);
+        review.setRating(dto.getRating());
+        review.setComment(dto.getComment().trim());
+        review.setImageUrls(imageUrlsJson);
+        review.setIsAnonymous(dto.getIsAnonymous() != null ? dto.getIsAnonymous() : false);
+        review.setIsVisible(true);
+        Review saved = reviewRepository.save(review);
+        if (doctor != null) {
+            updateDoctorRating(doctor.getId());
+        }
+        return convertToDTO(saved);
+    }
+
+    @Transactional
+    public ReviewDTO createReviewForPatientWithAppointment(ReviewCreateDTO dto, Long currentUserId) {
+        if (dto.getAppointmentId() == null) {
+            throw new IllegalArgumentException("appointmentId is required for appointment-based review");
+        }
+        if (dto.getRating() == null || dto.getRating() < 1 || dto.getRating() > 5) {
+            throw new IllegalArgumentException("rating must be between 1 and 5");
+        }
+        if (reviewRepository.existsByAppointmentId(dto.getAppointmentId())) {
+            throw new IllegalArgumentException("Review already exists for this appointment");
+        }
+        Appointment appointment = appointmentRepository.findById(dto.getAppointmentId())
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", dto.getAppointmentId()));
+        if (appointment.getStatus() != com.q2k.meditech.entity.enums.AppointmentStatus.COMPLETED) {
+            throw new IllegalArgumentException("Can only review completed appointments");
+        }
+        Patient patient = patientRepository.findByUserId(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found for current user"));
+        if (!appointment.getPatient().getId().equals(patient.getId())) {
+            throw new IllegalArgumentException("You can only review your own appointments");
+        }
+        Review review = new Review();
+        review.setAppointment(appointment);
+        review.setPatient(patient);
+        review.setDoctor(appointment.getDoctor());
+        review.setRating(dto.getRating());
+        review.setComment(dto.getComment());
+        review.setIsAnonymous(dto.getIsAnonymous() != null ? dto.getIsAnonymous() : false);
+        review.setIsVisible(true);
+        Review saved = reviewRepository.save(review);
+        if (appointment.getDoctor() != null) {
+            updateDoctorRating(appointment.getDoctor().getId());
+        }
+        return convertToDTO(saved);
+    }
+
+    @Transactional(readOnly = true)
     public ReviewListResponse getDoctorReviews(Long doctorId, Integer pageNumber, Integer pageSize) {
         if (doctorId == null) {
             throw new IllegalArgumentException("doctorId is required");
         }
-
         Pageable pageable = PageRequest.of(
                 pageNumber != null && pageNumber >= 0 ? pageNumber : 0,
                 pageSize != null && pageSize > 0 ? pageSize : 20
         );
-
         Page<Review> page = reviewRepository.findByDoctorIdOrderByCreatedAtDesc(doctorId, pageable);
-
-        List<ReviewDTO> reviews = page.getContent().stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
-
+        List<ReviewDTO> reviews = page.getContent().stream().map(this::convertToDTO).collect(Collectors.toList());
         ReviewListResponse response = new ReviewListResponse();
         response.setReviews(reviews);
         response.setTotalPages(page.getTotalPages());
         response.setTotalElements(page.getTotalElements());
         response.setCurrentPage(page.getNumber());
         response.setPageSize(page.getSize());
-
         return response;
     }
 
     @Transactional
     public ReviewDTO replyToReview(Long reviewId, Long doctorId, ReplyReviewDTO dto) {
-        if (reviewId == null) {
-            throw new IllegalArgumentException("reviewId is required");
+        if (reviewId == null || doctorId == null || dto.getAdminResponse() == null || dto.getAdminResponse().trim().isEmpty()) {
+            throw new IllegalArgumentException("reviewId, doctorId and adminResponse are required");
         }
-        if (doctorId == null) {
-            throw new IllegalArgumentException("doctorId is required");
-        }
-        if (dto.getAdminResponse() == null || dto.getAdminResponse().trim().isEmpty()) {
-            throw new IllegalArgumentException("adminResponse is required");
-        }
-
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review", "id", reviewId));
-
-        // Verify the review belongs to this doctor
-        if (!review.getDoctor().getId().equals(doctorId)) {
+        if (review.getDoctor() == null || !review.getDoctor().getId().equals(doctorId)) {
             throw new IllegalArgumentException("Review does not belong to this doctor");
         }
-
         review.setAdminResponse(dto.getAdminResponse());
         review.setRespondedAt(LocalDateTime.now());
-
         Review saved = reviewRepository.save(review);
         return convertToDTO(saved);
     }
@@ -143,30 +202,23 @@ public class ReviewService {
         if (reviewId == null) {
             throw new IllegalArgumentException("reviewId is required");
         }
-
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review", "id", reviewId));
-
         if (dto.getIsVisible() != null) {
             review.setIsVisible(dto.getIsVisible());
         }
-
         if (dto.getAdminResponse() != null && !dto.getAdminResponse().trim().isEmpty()) {
             review.setAdminResponse(dto.getAdminResponse());
             review.setRespondedAt(LocalDateTime.now());
         }
-
         Review saved = reviewRepository.save(review);
         return convertToDTO(saved);
     }
 
-    /**
-     * Get all reviews for admin panel (paginated, with optional filters)
-     */
+    @Transactional(readOnly = true)
     public Page<ReviewDTO> getAllReviews(String keyword, Boolean isVisible, Integer rating,
                                          int pageNumber, int pageSize) {
         Pageable pageable = PageRequest.of(pageNumber, pageSize);
-
         Page<Review> page;
         if (keyword != null && !keyword.trim().isEmpty()) {
             page = reviewRepository.searchByKeyword(keyword.trim(), pageable);
@@ -177,48 +229,34 @@ public class ReviewService {
         } else {
             page = reviewRepository.findAllByOrderByCreatedAtDesc(pageable);
         }
-
         return page.map(this::convertToDTO);
     }
 
-    /**
-     * Get a single review by ID (admin)
-     */
+    @Transactional(readOnly = true)
     public ReviewDTO getReviewById(Long reviewId) {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review", "id", reviewId));
         return convertToDTO(review);
     }
 
-    /**
-     * Delete a review (admin only)
-     */
     @Transactional
     public void deleteReview(Long reviewId) {
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review", "id", reviewId));
-
-        // Update doctor rating after deletion
-        Long doctorId = review.getDoctor().getId();
+        Long doctorId = review.getDoctor() != null ? review.getDoctor().getId() : null;
         reviewRepository.delete(review);
-        updateDoctorRating(doctorId);
+        if (doctorId != null) {
+            updateDoctorRating(doctorId);
+        }
     }
 
     private void updateDoctorRating(Long doctorId) {
         Doctor doctor = doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor", "id", doctorId));
-
         List<Review> reviews = reviewRepository.findByDoctorIdOrderByCreatedAtDesc(
-                doctorId, 
-                PageRequest.of(0, Integer.MAX_VALUE)
-        ).getContent();
-
+                doctorId, PageRequest.of(0, Integer.MAX_VALUE)).getContent();
         if (!reviews.isEmpty()) {
-            double avgRating = reviews.stream()
-                    .mapToInt(Review::getRating)
-                    .average()
-                    .orElse(0.0);
-
+            double avgRating = reviews.stream().mapToInt(Review::getRating).average().orElse(0.0);
             doctor.setRatingAvg(java.math.BigDecimal.valueOf(avgRating).setScale(2, java.math.RoundingMode.HALF_UP));
             doctor.setRatingCount(reviews.size());
             doctorRepository.save(doctor);
@@ -230,12 +268,20 @@ public class ReviewService {
         dto.setId(review.getId());
         dto.setAppointmentId(review.getAppointment() != null ? review.getAppointment().getId() : null);
         dto.setPatientId(review.getPatient() != null ? review.getPatient().getId() : null);
-        dto.setPatientName(review.getIsAnonymous() ? "Anonymous" : 
+        dto.setPatientName(review.getIsAnonymous() ? "Anonymous" :
                 (review.getPatient() != null && review.getPatient().getUser() != null ? review.getPatient().getUser().getFullName() : null));
         dto.setDoctorId(review.getDoctor() != null ? review.getDoctor().getId() : null);
         dto.setDoctorName(review.getDoctor() != null ? review.getDoctor().getFullName() : null);
         dto.setRating(review.getRating());
         dto.setComment(review.getComment());
+        List<String> imageUrls = Collections.emptyList();
+        if (review.getImageUrls() != null && !review.getImageUrls().isBlank()) {
+            try {
+                imageUrls = objectMapper.readValue(review.getImageUrls(), new TypeReference<>() {});
+            } catch (Exception ignored) {
+            }
+        }
+        dto.setImageUrls(imageUrls);
         dto.setIsAnonymous(review.getIsAnonymous());
         dto.setIsVisible(review.getIsVisible());
         dto.setAdminResponse(review.getAdminResponse());

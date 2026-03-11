@@ -57,7 +57,7 @@ export default function DoctorProtectedRoute() {
 
   if (!hasDoctorRole) {
     const hasAdminRole = user?.roles?.includes("ADMIN");
-    return <Navigate to={hasAdminRole ? "/admin" : "/patient"} replace />;
+    return <Navigate to={hasAdminRole ? "/admin" : "/home"} replace />;
   }
 
   return (

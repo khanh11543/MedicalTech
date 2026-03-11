@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -80,6 +81,12 @@ public class PaymentDTO {
     private String processedByName;
 
     private String doctorName;
+
+    /** Doctor specialty for display on patient portal (e.g. "Pediatrics") */
+    private String doctorSpecialty;
+
+    /** Appointment date for display on patient portal */
+    private LocalDate appointmentDate;
 
     private BigDecimal amountReceived;
 

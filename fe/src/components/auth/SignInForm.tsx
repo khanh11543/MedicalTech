@@ -6,11 +6,14 @@ import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 import { useAuth } from "../../context/AuthContext";
+import { authStorage } from "../../utils/authStorage";
 
 export default function SignInForm() {
+  const rememberedEmail = authStorage.getRememberedEmail();
+
   const [showPassword, setShowPassword] = useState(false);
-  const [isChecked, setIsChecked] = useState(false);
-  const [email, setEmail] = useState("");
+  const [isChecked, setIsChecked] = useState(!!rememberedEmail);
+  const [email, setEmail] = useState(rememberedEmail || "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,7 +41,13 @@ export default function SignInForm() {
         },
         isChecked
       );
-      
+
+      if (isChecked) {
+        authStorage.setRememberedEmail(email);
+      } else {
+        authStorage.clearRememberedEmail();
+      }
+
       // Role-based redirect
       if (tokenData.roles?.includes("ADMIN")) {
         navigate("/admin");
@@ -47,7 +56,7 @@ export default function SignInForm() {
       } else if (tokenData.roles?.includes("RECEPTIONIST")) {
         navigate("/receptionist/dashboard");
       } else {
-        navigate("/patient");
+        navigate("/home");
       }
     } catch (err: unknown) {
       const axiosError = err as {

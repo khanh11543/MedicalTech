@@ -10,10 +10,9 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ReviewListResponse {
-
     private List<ReviewDTO> reviews;
-    private Integer totalPages;
-    private Long totalElements;
-    private Integer currentPage;
-    private Integer pageSize;
+    private int totalPages;
+    private long totalElements;
+    private int currentPage;
+    private int pageSize;
 }

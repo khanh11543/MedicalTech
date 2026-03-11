@@ -1,12 +1,8 @@
 package com.q2k.meditech.config;
 
-import com.q2k.meditech.entity.Doctor;
-import com.q2k.meditech.entity.Role;
-import com.q2k.meditech.entity.User;
-import com.q2k.meditech.entity.UserRole;
-import com.q2k.meditech.repository.DoctorRepository;
-import com.q2k.meditech.repository.RoleRepository;
-import com.q2k.meditech.repository.UserRepository;
+import com.q2k.meditech.entity.*;
+import com.q2k.meditech.entity.enums.AppointmentStatus;
+import com.q2k.meditech.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -14,9 +10,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Optional;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.*;
 
 /**
  * Data Seeder - Creates test users on application startup
@@ -29,6 +25,9 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final DoctorRepository doctorRepository;
+    private final SpecialtyRepository specialtyRepository;
+    private final AppointmentRepository appointmentRepository;
+    private final ReviewRepository reviewRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -58,6 +57,12 @@ public class DataSeeder implements CommandLineRunner {
         
         // Ensure all doctors are available for appointments
         updateDoctorsAvailability();
+
+        // Seed specialty metadata (slug, subtitle, highlights, icons)
+        seedSpecialtyMetadata();
+
+        // Seed sample reviews for completed appointments
+        seedSampleReviews();
         
         log.info("Data seeding completed!");
     }
@@ -81,6 +86,113 @@ public class DataSeeder implements CommandLineRunner {
         if (updatedCount > 0) {
             log.info("Updated {} doctors to be available for appointments", updatedCount);
         }
+    }
+
+    /**
+     * Seed slug, subtitle, highlights, iconUrl, imageUrl for each specialty if missing
+     */
+    private void seedSpecialtyMetadata() {
+        String[][] meta = {
+            // name, slug, subtitle, highlights (JSON), iconUrl, imageUrl
+            {"Nội khoa",       "internal-medicine", "Internal Medicine",       "[\"General Checkup\",\"Chronic Disease\",\"Internal Cardiology\"]",        "bi bi-heart-pulse",     "/images/landing/cardiology-2.webp"},
+            {"Ngoại khoa",     "orthopedics",       "Surgery & Surgical Care", "[\"General Surgery\",\"Laparoscopic Surgery\",\"Orthopedic Trauma\"]",     "bi bi-bandaid",         "/images/landing/orthopedics-4.webp"},
+            {"Nhi khoa",       "pediatrics",        "Children's Health",       "[\"Pediatric Exam\",\"Vaccination\",\"Child Nutrition\"]",                 "bi bi-emoji-smile",     "/images/landing/pediatrics-2.webp"},
+            {"Sản phụ khoa",   "obstetrics",        "Women's Health",          "[\"Maternity Care\",\"Gynecology\",\"Family Planning\"]",                  "bi bi-gender-female",   "/images/landing/facilities-1.webp"},
+            {"Da liễu",        "dermatology",       "Skin Health Experts",     "[\"Skin Treatment\",\"Cosmetic Dermatology\",\"Laser Therapy\"]",          "bi bi-shield-plus",     "/images/landing/dermatology-3.webp"},
+            {"Tim mạch",       "cardiology",        "Heart & Vascular Care",   "[\"Echocardiogram\",\"Interventional Cardiology\",\"Cardiac Surgery\"]",   "bi bi-heart-fill",      "/images/landing/cardiology-3.webp"},
+            {"Thần kinh",      "neurology",         "Brain & Nervous System",  "[\"Stroke Treatment\",\"Parkinson Care\",\"Chronic Headache\"]",           "bi bi-lightning-fill",  "/images/landing/neurology-4.webp"},
+            {"Mắt",            "ophthalmology",     "Eye Care Specialists",    "[\"Lasik Surgery\",\"Cataract Treatment\",\"Eye Examination\"]",           "bi bi-eye",             "/images/landing/showcase-1.webp"},
+            {"Tai Mũi Họng",   "ent",               "ENT Specialists",         "[\"Sinusitis\",\"Tonsillitis\",\"Hearing Treatment\"]",                    "bi bi-ear-fill",        "/images/landing/facilities-1.webp"},
+            {"Răng Hàm Mặt",   "dental",            "Dental & Maxillofacial",  "[\"Tooth Extraction\",\"Orthodontics\",\"Maxillofacial Surgery\"]",        "bi bi-emoji-laughing",  "/images/landing/showcase-1.webp"},
+        };
+
+        for (String[] row : meta) {
+            specialtyRepository.findByNameIgnoreCase(row[0]).ifPresent(s -> {
+                boolean changed = false;
+                if (s.getSlug() == null)       { s.setSlug(row[1]);       changed = true; }
+                if (s.getSubtitle() == null)   { s.setSubtitle(row[2]);   changed = true; }
+                if (s.getHighlights() == null) { s.setHighlights(row[3]); changed = true; }
+                if (s.getIconUrl() == null)    { s.setIconUrl(row[4]);    changed = true; }
+                if (s.getImageUrl() == null)   { s.setImageUrl(row[5]);   changed = true; }
+                if (changed) {
+                    specialtyRepository.save(s);
+                    log.info("Seeded metadata for specialty: {}", row[0]);
+                }
+            });
+        }
+    }
+
+    private void seedSampleReviews() {
+        if (reviewRepository.count() > 0) {
+            log.info("Reviews already exist, skipping review seeding.");
+            return;
+        }
+
+        List<Appointment> completedAppointments = appointmentRepository.findAll().stream()
+                .filter(a -> a.getStatus() == AppointmentStatus.COMPLETED)
+                .filter(a -> a.getPatient() != null && a.getDoctor() != null)
+                .limit(10)
+                .toList();
+
+        if (completedAppointments.isEmpty()) {
+            log.info("No completed appointments found, skipping review seeding.");
+            return;
+        }
+
+        String[] comments = {
+                "Bác sĩ rất tận tâm và chu đáo. Tôi rất hài lòng với dịch vụ khám bệnh tại đây.",
+                "Quy trình khám nhanh gọn, bác sĩ giải thích rõ ràng về tình trạng sức khỏe của tôi.",
+                "Nhân viên thân thiện, phòng khám sạch sẽ. Bác sĩ có chuyên môn cao và rất nhiệt tình.",
+                "Tôi đã được tư vấn rất kỹ về phác đồ điều trị. Cảm ơn bác sĩ rất nhiều!",
+                "Dịch vụ chuyên nghiệp, thời gian chờ đợi hợp lý. Sẽ quay lại khám lần sau.",
+                "Bác sĩ rất kiên nhẫn lắng nghe và trả lời mọi thắc mắc của tôi. Rất đáng tin cậy.",
+                "Trải nghiệm khám bệnh tuyệt vời. Bác sĩ chẩn đoán chính xác và điều trị hiệu quả.",
+                "Cơ sở vật chất hiện đại, đội ngũ y tế chuyên nghiệp. Tôi rất an tâm khi khám tại đây.",
+                "Bác sĩ tư vấn rất chi tiết, giúp tôi hiểu rõ tình trạng bệnh và cách phòng ngừa.",
+                "Rất hài lòng với chất lượng dịch vụ. Bác sĩ giỏi, nhân viên nhiệt tình và chu đáo.",
+        };
+        int[] ratings = {5, 5, 5, 4, 5, 5, 4, 5, 5, 4};
+
+        Map<Long, List<Integer>> doctorRatings = new HashMap<>();
+        int created = 0;
+
+        for (int i = 0; i < completedAppointments.size(); i++) {
+            Appointment apt = completedAppointments.get(i);
+
+            if (reviewRepository.existsByAppointmentId(apt.getId())) {
+                continue;
+            }
+
+            int rating = ratings[i % ratings.length];
+            Review review = Review.builder()
+                    .appointment(apt)
+                    .patient(apt.getPatient())
+                    .doctor(apt.getDoctor())
+                    .rating(rating)
+                    .comment(comments[i % comments.length])
+                    .isAnonymous(false)
+                    .isVisible(true)
+                    .build();
+            reviewRepository.save(review);
+            created++;
+
+            doctorRatings.computeIfAbsent(apt.getDoctor().getId(), k -> new ArrayList<>()).add(rating);
+            log.info("Seeded review for appointment #{} (doctor: {}, rating: {})",
+                    apt.getId(), apt.getDoctor().getFullName(), rating);
+        }
+
+        // Update doctor rating aggregates
+        for (Map.Entry<Long, List<Integer>> entry : doctorRatings.entrySet()) {
+            doctorRepository.findById(entry.getKey()).ifPresent(doctor -> {
+                List<Integer> allRatings = entry.getValue();
+                double avg = allRatings.stream().mapToInt(Integer::intValue).average().orElse(0.0);
+                doctor.setRatingAvg(BigDecimal.valueOf(avg).setScale(2, RoundingMode.HALF_UP));
+                doctor.setRatingCount(allRatings.size());
+                doctorRepository.save(doctor);
+            });
+        }
+
+        log.info("Seeded {} sample reviews.", created);
     }
 
     private Role getOrCreateRole(String roleName) {

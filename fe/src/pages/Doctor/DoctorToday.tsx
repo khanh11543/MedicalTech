@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import Toast from "../../components/common/Toast";
@@ -52,6 +53,7 @@ function fmtSlot(t: string | null) {
 // MAIN COMPONENT
 // ===================================================================
 export default function DoctorToday() {
+  const navigate = useNavigate();
   const [view, setView] = useState<"queue" | "timeline">("queue");
   const [data, setData] = useState<DoctorTodayData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,6 +62,9 @@ export default function DoctorToday() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [skipModal, setSkipModal] = useState<number | null>(null);
   const [skipReason, setSkipReason] = useState("");
+  const [noShowModal, setNoShowModal] = useState<number | null>(null);
+  const [noShowReason, setNoShowReason] = useState("");
+  const [timelineFilter, setTimelineFilter] = useState<string | null>(null);
   const refreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast, showToast, dismissToast } = useToast();
 
@@ -209,6 +214,7 @@ export default function DoctorToday() {
               patient={currentPatient}
               actionLoading={actionLoading}
               onComplete={(id) => doAction("complete", () => completeConsultation(id))}
+              onOpenConsultation={() => navigate("/doctor/consultation")}
             />
 
             {/* Queue actions */}
@@ -227,7 +233,10 @@ export default function DoctorToday() {
               queue={waitingQueue}
               actionLoading={actionLoading}
               onCall={(id) => doAction(`call-${id}`, () => callPatient(id))}
-              onNoShow={(id) => doAction(`noshow-${id}`, () => markNoShow(id))}
+              onNoShow={(id) => {
+                setNoShowModal(id);
+                setNoShowReason("");
+              }}
               onSkip={(id) => {
                 setSkipModal(id);
                 setSkipReason("");
@@ -240,14 +249,24 @@ export default function DoctorToday() {
         {/* ================================================================
             TIMELINE VIEW
            ================================================================ */}
-        {view === "timeline" && <TimelineView items={timeline} />}
+        {view === "timeline" && (
+          <TimelineView
+            items={timeline}
+            filter={timelineFilter}
+            onFilterChange={setTimelineFilter}
+          />
+        )}
       </div>
 
       {/* ================================================================
           SKIP MODAL
          ================================================================ */}
       {skipModal !== null && (
-        <SkipModal
+        <ReasonModal
+          title="Skip Patient"
+          description="A reason is required to skip a patient. This action will be recorded in the audit log."
+          confirmLabel="Confirm Skip"
+          confirmColor="bg-yellow-500 hover:bg-yellow-600"
           onCancel={() => setSkipModal(null)}
           onConfirm={() => {
             const id = skipModal;
@@ -256,6 +275,22 @@ export default function DoctorToday() {
           }}
           reason={skipReason}
           setReason={setSkipReason}
+        />
+      )}
+      {noShowModal !== null && (
+        <ReasonModal
+          title="Mark No-Show"
+          description="A reason is required to mark a patient as no-show. This action will be recorded in the audit log and cannot be undone."
+          confirmLabel="Confirm No-Show"
+          confirmColor="bg-red-500 hover:bg-red-600"
+          onCancel={() => setNoShowModal(null)}
+          onConfirm={() => {
+            const id = noShowModal;
+            setNoShowModal(null);
+            doAction(`noshow-${id}`, () => markNoShow(id, noShowReason));
+          }}
+          reason={noShowReason}
+          setReason={setNoShowReason}
         />
       )}
       <Toast toast={toast} onDismiss={dismissToast} />
@@ -336,10 +371,12 @@ function CurrentPatientCard({
   patient,
   actionLoading,
   onComplete,
+  onOpenConsultation,
 }: {
   patient: CurrentPatient | null;
   actionLoading: string | null;
   onComplete: (id: number) => void;
+  onOpenConsultation: () => void;
 }) {
   const elapsed = useElapsedTimer(patient?.elapsedSeconds ?? null, !!patient);
 
@@ -413,6 +450,12 @@ function CurrentPatientCard({
 
         {/* Action buttons */}
         <div className="flex flex-wrap gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <button
+            onClick={onOpenConsultation}
+            className="px-5 py-2.5 bg-brand-500 text-white text-sm font-medium rounded-lg hover:bg-brand-600 transition-colors"
+          >
+            Open Consultation Notes
+          </button>
           <button
             onClick={() => onComplete(patient.appointmentId)}
             disabled={actionLoading === "complete"}
@@ -541,10 +584,35 @@ function WaitingQueueList({
 }
 
 // ---- Timeline View ----
-function TimelineView({ items }: { items: TimelineItem[] }) {
+function TimelineView({
+  items,
+  filter,
+  onFilterChange,
+}: {
+  items: TimelineItem[];
+  filter: string | null;
+  onFilterChange: (f: string | null) => void;
+}) {
+  const filterPills = [
+    { key: null, label: "All" },
+    { key: "NOT_CHECKED_IN", label: "Not Checked In", color: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300" },
+    { key: "CHECKED_IN", label: "Waiting", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },
+    { key: "IN_PROGRESS", label: "In Progress", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
+    { key: "COMPLETED", label: "Completed", color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
+    { key: "NO_SHOW", label: "No-Show", color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+    { key: "NEEDS_FOLLOWUP", label: "Needs Follow-up", color: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" },
+  ] as const;
+
+  const filteredItems = items.filter((item) => {
+    if (!filter) return true;
+    if (filter === "NOT_CHECKED_IN") return item.status === "CONFIRMED" || item.status === "PENDING";
+    if (filter === "NEEDS_FOLLOWUP") return item.needsFollowUp;
+    return item.status === filter;
+  });
+
   // Group by hour
   const grouped: Record<string, TimelineItem[]> = {};
-  items.forEach((item) => {
+  filteredItems.forEach((item) => {
     const hour = item.startTime.substring(0, 2) + ":00";
     if (!grouped[hour]) grouped[hour] = [];
     grouped[hour].push(item);
@@ -552,7 +620,6 @@ function TimelineView({ items }: { items: TimelineItem[] }) {
 
   const hours = Object.keys(grouped).sort();
 
-  // Current time indicator
   const now = new Date();
   const nowStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
@@ -566,130 +633,160 @@ function TimelineView({ items }: { items: TimelineItem[] }) {
     gray: "bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600",
   };
 
-  if (items.length === 0) {
-    return (
-      <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] p-12 text-center">
-        <p className="text-gray-400 dark:text-gray-500 text-lg">No appointments scheduled for today</p>
-      </div>
-    );
-  }
-
   return (
     <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-white/[0.03] overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Today&apos;s Timeline</h3>
-        <span className="text-sm text-gray-500 dark:text-gray-400">Current time: {nowStr}</span>
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Today&apos;s Timeline</h3>
+          <span className="text-sm text-gray-500 dark:text-gray-400">Current time: {nowStr}</span>
+        </div>
+        {/* Filter pills */}
+        <div className="flex flex-wrap gap-2">
+          {filterPills.map((pill) => (
+            <button
+              key={pill.key ?? "all"}
+              onClick={() => onFilterChange(pill.key)}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                filter === pill.key
+                  ? "bg-brand-500 text-white shadow-sm"
+                  : pill.key === null
+                  ? "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  : `${pill.color} hover:opacity-80`
+              }`}
+            >
+              {pill.label}
+              {pill.key && (
+                <span className="ml-1 font-bold">
+                  {pill.key === "NOT_CHECKED_IN"
+                    ? items.filter((i) => i.status === "CONFIRMED" || i.status === "PENDING").length
+                    : pill.key === "NEEDS_FOLLOWUP"
+                    ? items.filter((i) => i.needsFollowUp).length
+                    : items.filter((i) => i.status === pill.key).length}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <div className="relative">
-        {hours.map((hour) => {
-          const hourItems = grouped[hour];
-          const hourNum = parseInt(hour);
-          const nowHour = now.getHours();
-          const isPastHour = hourNum < nowHour;
-          const isCurrentHour = hourNum === nowHour;
+      {filteredItems.length === 0 ? (
+        <div className="p-12 text-center">
+          <p className="text-gray-400 dark:text-gray-500 text-lg">
+            {items.length === 0 ? "No appointments scheduled for today" : "No appointments match this filter"}
+          </p>
+        </div>
+      ) : (
+        <div className="relative">
+          {hours.map((hour) => {
+            const hourItems = grouped[hour];
+            const hourNum = parseInt(hour);
+            const nowHour = now.getHours();
+            const isPastHour = hourNum < nowHour;
+            const isCurrentHour = hourNum === nowHour;
 
-          return (
-            <div key={hour} className="relative">
-              {/* Hour label */}
-              <div
-                className={`flex items-center gap-4 px-6 py-3 border-b border-gray-100 dark:border-gray-800 ${
-                  isCurrentHour
-                    ? "bg-brand-50 dark:bg-brand-900/10"
-                    : isPastHour
-                    ? "bg-gray-50/50 dark:bg-gray-900/30"
-                    : ""
-                }`}
-              >
-                <div className="relative">
-                  <span
-                    className={`text-sm font-bold w-14 text-center inline-block ${
-                      isCurrentHour
-                        ? "text-brand-600 dark:text-brand-400"
-                        : "text-gray-500 dark:text-gray-400"
-                    }`}
-                  >
-                    {hour}
-                  </span>
-                  {isCurrentHour && (
-                    <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-brand-500 rounded-full animate-pulse" />
-                  )}
-                </div>
-
-                <div className="flex-1 flex flex-wrap gap-2">
-                  {hourItems.map((item) => (
-                    <div
-                      key={item.appointmentId}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
-                        item.isNextSlot
-                          ? "ring-2 ring-brand-400 dark:ring-brand-500 shadow-md"
-                          : ""
-                      } ${statusColors[item.statusColor] || statusColors.gray} ${
-                        item.isCurrentSlot ? "shadow-md" : ""
+            return (
+              <div key={hour} className="relative">
+                <div
+                  className={`flex items-center gap-4 px-6 py-3 border-b border-gray-100 dark:border-gray-800 ${
+                    isCurrentHour
+                      ? "bg-brand-50 dark:bg-brand-900/10"
+                      : isPastHour
+                      ? "bg-gray-50/50 dark:bg-gray-900/30"
+                      : ""
+                  }`}
+                >
+                  <div className="relative">
+                    <span
+                      className={`text-sm font-bold w-14 text-center inline-block ${
+                        isCurrentHour
+                          ? "text-brand-600 dark:text-brand-400"
+                          : "text-gray-500 dark:text-gray-400"
                       }`}
                     >
-                      {/* Queue # */}
-                      {item.queueNumber && (
-                        <span className="text-sm font-bold opacity-70">#{item.queueNumber}</span>
-                      )}
+                      {hour}
+                    </span>
+                    {isCurrentHour && (
+                      <span className="absolute -left-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-brand-500 rounded-full animate-pulse" />
+                    )}
+                  </div>
 
-                      {/* Time span */}
-                      <span className="text-xs font-mono opacity-70">
-                        {fmtSlot(item.startTime)}&ndash;{fmtSlot(item.endTime)}
-                      </span>
-
-                      {/* Patient */}
-                      <span className="font-medium text-sm truncate max-w-[160px]">
-                        {item.patientName ?? "Unknown"}
-                      </span>
-
-                      {/* Age */}
-                      {item.age != null && (
-                        <span className="text-xs opacity-60">{item.age}y</span>
-                      )}
-
-                      {/* Status pill */}
-                      <span
-                        className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
-                          item.status === "COMPLETED"
-                            ? "bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200"
-                            : item.status === "IN_PROGRESS"
-                            ? "bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200"
-                            : item.status === "CHECKED_IN"
-                            ? "bg-yellow-200 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200"
-                            : item.status === "NO_SHOW"
-                            ? "bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-200"
-                            : "bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-200"
+                  <div className="flex-1 flex flex-wrap gap-2">
+                    {hourItems.map((item) => (
+                      <div
+                        key={item.appointmentId}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all ${
+                          item.isNextSlot
+                            ? "ring-2 ring-brand-400 dark:ring-brand-500 shadow-md"
+                            : ""
+                        } ${statusColors[item.statusColor] || statusColors.gray} ${
+                          item.isCurrentSlot ? "shadow-md" : ""
                         }`}
                       >
-                        {item.statusLabel}
-                      </span>
-
-                      {/* Next marker */}
-                      {item.isNextSlot && (
-                        <span className="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">
-                          Next &#x27A4;
+                        {item.queueNumber && (
+                          <span className="text-sm font-bold opacity-70">#{item.queueNumber}</span>
+                        )}
+                        <span className="text-xs font-mono opacity-70">
+                          {fmtSlot(item.startTime)}&ndash;{fmtSlot(item.endTime)}
                         </span>
-                      )}
-                    </div>
-                  ))}
+                        <span className="font-medium text-sm truncate max-w-[160px]">
+                          {item.patientName ?? "Unknown"}
+                        </span>
+                        {item.age != null && (
+                          <span className="text-xs opacity-60">{item.age}y</span>
+                        )}
+                        <span
+                          className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                            item.status === "COMPLETED"
+                              ? "bg-green-200 text-green-800 dark:bg-green-800 dark:text-green-200"
+                              : item.status === "IN_PROGRESS"
+                              ? "bg-blue-200 text-blue-800 dark:bg-blue-800 dark:text-blue-200"
+                              : item.status === "CHECKED_IN"
+                              ? "bg-yellow-200 text-yellow-800 dark:bg-yellow-800 dark:text-yellow-200"
+                              : item.status === "NO_SHOW"
+                              ? "bg-red-200 text-red-800 dark:bg-red-800 dark:text-red-200"
+                              : "bg-gray-200 text-gray-600 dark:bg-gray-600 dark:text-gray-200"
+                          }`}
+                        >
+                          {item.statusLabel}
+                        </span>
+                        {item.needsFollowUp && (
+                          <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400 uppercase">
+                            Follow-up
+                          </span>
+                        )}
+                        {item.isNextSlot && (
+                          <span className="text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase">
+                            Next &#x27A4;
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-// ---- Skip Modal ----
-function SkipModal({
+// ---- Generic Reason Modal (used for Skip + No-show) ----
+function ReasonModal({
+  title,
+  description,
+  confirmLabel,
+  confirmColor,
   onCancel,
   onConfirm,
   reason,
   setReason,
 }: {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  confirmColor: string;
   onCancel: () => void;
   onConfirm: () => void;
   reason: string;
@@ -699,15 +796,15 @@ function SkipModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
         <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-          Skip Patient
+          {title}
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-          A reason is required to skip a patient. This action will be recorded in the audit log.
+          {description}
         </p>
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Enter reason for skipping..."
+          placeholder="Enter reason..."
           rows={3}
           className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
         />
@@ -721,9 +818,9 @@ function SkipModal({
           <button
             onClick={onConfirm}
             disabled={!reason.trim()}
-            className="px-4 py-2 text-sm font-medium text-white bg-yellow-500 rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className={`px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${confirmColor}`}
           >
-            Confirm Skip
+            {confirmLabel}
           </button>
         </div>
       </div>

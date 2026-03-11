@@ -19,6 +19,7 @@ public class ReviewDTO {
     private String doctorName;
     private Integer rating;
     private String comment;
+    private java.util.List<String> imageUrls;
     private Boolean isAnonymous;
     private Boolean isVisible;
     private String adminResponse;

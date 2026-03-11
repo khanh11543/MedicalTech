@@ -58,6 +58,10 @@ public class CreateUserDTO {
     private String qualification;
     private String notes;
 
+    // Specialty/Department IDs to assign to doctor
+    private Set<Long> specialtyIds;
+    private Long primarySpecialtyId;
+
     // Whether to create staff invite and send email
     @Builder.Default
     private Boolean sendInvite = false;

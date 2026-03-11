@@ -16,6 +16,7 @@ const SignIn = lazy(() => import("./pages/AuthPages/SignIn"));
 const SignUp = lazy(() => import("./pages/AuthPages/SignUp"));
 const VerifyOtp = lazy(() => import("./pages/AuthPages/VerifyOtp"));
 const VerifyAccount = lazy(() => import("./pages/AuthPages/VerifyAccount"));
+const ForgotPassword = lazy(() => import("./pages/AuthPages/ForgotPassword"));
 const NotFound = lazy(() => import("./pages/OtherPage/NotFound"));
 
 // Admin Pages
@@ -72,6 +73,7 @@ const DepartmentsPage = lazy(() => import("./pages/Landing/DepartmentsPage"));
 const DepartmentDetailPage = lazy(() => import("./pages/Landing/DepartmentDetailPage"));
 const ServicesPage = lazy(() => import("./pages/Landing/ServicesPage"));
 const DoctorsPage = lazy(() => import("./pages/Landing/DoctorsPage"));
+const DoctorProfilePage = lazy(() => import("./pages/Landing/DoctorProfilePage"));
 const AppointmentPage = lazy(() => import("./pages/Landing/AppointmentPage"));
 const ContactPage = lazy(() => import("./pages/Landing/ContactPage"));
 const TestimonialsPage = lazy(() => import("./pages/Landing/TestimonialsPage"));
@@ -84,13 +86,9 @@ const ServiceDetailPage = lazy(() => import("./pages/Landing/ServiceDetailPage")
 // Patient Portal Pages
 const PatientAccount = lazy(() => import("./pages/Landing/PatientAccount"));
 const PatientProfile = lazy(() => import("./pages/Landing/PatientProfile"));
-const PatientAppointments = lazy(() => import("./pages/Landing/PatientAppointments"));
-const PatientPayments = lazy(() => import("./pages/Landing/PatientPayments"));
-import { PatientPortal } from "./pages/Landing/components/PatientNav";
+const PatientSettingsLayout = lazy(() => import("./pages/Patient/PatientSettingsLayout"));
 
 // Patient Pages
-import PatientLayout from "./pages/Patient/PatientLayout";
-const PatientDashboard = lazy(() => import("./pages/Patient/PatientDashboard"));
 const MyAppointments = lazy(() => import("./pages/Patient/MyAppointments"));
 const DoctorSearch = lazy(() => import("./pages/Patient/DoctorSearch"));
 const DoctorDetailPage = lazy(() => import("./pages/Patient/DoctorDetailPage"));
@@ -156,7 +154,10 @@ export default function App() {
             <Route path="/services" element={<ServicesPage />} />
             <Route path="/services/:slug" element={<ServiceDetailPage />} />
             <Route path="/doctors" element={<DoctorsPage />} />
-            <Route path="/appointment" element={<AppointmentPage />} />
+            <Route path="/doctors/:id" element={<DoctorProfilePage />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/appointment" element={<AppointmentPage />} />
+            </Route>
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/testimonials" element={<TestimonialsPage />} />
             <Route path="/faq" element={<FAQPage />} />
@@ -164,12 +165,20 @@ export default function App() {
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
 
-            {/* Patient Portal */}
-            <Route element={<PatientPortal />}>
-              <Route path="/patient/appointments" element={<PatientAppointments />} />
-              <Route path="/patient/payments" element={<PatientPayments />} />
-              <Route path="/patient/profile" element={<PatientProfile />} />
-              <Route path="/patient/account" element={<PatientAccount />} />
+            {/* Patient Settings — sidebar layout */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/patient/settings" element={<PatientSettingsLayout />}>
+                <Route index element={<Navigate to="/patient/settings/appointments" replace />} />
+                <Route path="profile" element={<PatientProfile />} />
+                <Route path="appointments" element={<MyAppointments />} />
+                <Route path="payments" element={<PaymentHistory />} />
+                <Route path="records" element={<MedicalRecords />} />
+                <Route path="prescriptions" element={<MyPrescriptions />} />
+                <Route path="account" element={<PatientAccount />} />
+              </Route>
+              {/* Keep direct access routes for backward compat */}
+              <Route path="/patient/doctors" element={<DoctorSearch />} />
+              <Route path="/patient/doctors/:id" element={<DoctorDetailPage />} />
             </Route>
           </Route>
 
@@ -265,19 +274,8 @@ export default function App() {
             </Route>
           </Route>
 
-          {/* Patient Routes - Protected but no ADMIN role required */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="/patient" element={<PatientLayout />}>
-              <Route index element={<PatientDashboard />} />
-              <Route path="appointments" element={<MyAppointments />} />
-              <Route path="doctors" element={<DoctorSearch />} />
-              <Route path="doctors/:id" element={<DoctorDetailPage />} />
-              <Route path="records" element={<MedicalRecords />} />
-              <Route path="prescriptions" element={<MyPrescriptions />} />
-              <Route path="payments" element={<PaymentHistory />} />
-              <Route path="profile" element={<PatientProfile />} />
-            </Route>
-          </Route>
+          {/* /patient → redirect to /home */}
+          <Route path="/patient" element={<Navigate to="/home" replace />} />
 
           {/* Doctor Routes - Protected with DOCTOR role check */}
           <Route element={<DoctorProtectedRoute />}>
@@ -330,6 +328,7 @@ export default function App() {
           {/* Auth Layout */}
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/verify-otp" element={<VerifyOtp />} />
           <Route path="/verify-account" element={<VerifyAccount />} />
 

@@ -40,5 +40,5 @@ public interface DoctorSpecialtyRepository extends JpaRepository<DoctorSpecialty
     /**
      * Find all doctors for a specialty
      */
-    List<DoctorSpecialty> findBySpecialtyId(Integer specialtyId);
+    List<DoctorSpecialty> findBySpecialtyId(Long specialtyId);
 }

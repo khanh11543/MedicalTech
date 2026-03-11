@@ -3,6 +3,7 @@ package com.q2k.meditech.service;
 import com.q2k.meditech.dto.SpecialtyDTO;
 import com.q2k.meditech.dto.mapper.SpecialtyMapper;
 import com.q2k.meditech.entity.Specialty;
+import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.SpecialtyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,11 +44,21 @@ public class SpecialtyServiceImpl implements SpecialtyService {
 
     @Override
     @Cacheable(value = "specialty", key = "#id")
-    public SpecialtyDTO getSpecialtyById(Integer id) {
+    public SpecialtyDTO getSpecialtyById(Long id) {
         log.debug("Getting specialty by id: {}", id);
         
         return specialtyRepository.findById(id)
                 .map(specialtyMapper::toDTO)
                 .orElse(null);
+    }
+
+    @Override
+    @Cacheable(value = "specialty", key = "'slug:' + #slug")
+    public SpecialtyDTO getSpecialtyBySlug(String slug) {
+        log.debug("Getting specialty by slug: {}", slug);
+        
+        return specialtyRepository.findBySlug(slug)
+                .map(specialtyMapper::toDTO)
+                .orElseThrow(() -> new ResourceNotFoundException("Specialty not found with slug: " + slug));
     }
 }

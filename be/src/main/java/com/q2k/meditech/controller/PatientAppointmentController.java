@@ -14,6 +14,13 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import com.q2k.meditech.entity.enums.AppointmentStatus;
+
 /**
  * Controller for Patient appointment operations
  */
@@ -34,8 +41,11 @@ public class PatientAppointmentController {
             @Valid @RequestBody BookAppointmentDTO dto,
             @AuthenticationPrincipal UserDetails userDetails) {
         
-        // TODO: Get actual user ID from security context
         Long userId = getCurrentUserId(userDetails);
+        
+        // Override patientId from security context — don't trust client-sent value
+        Long patientId = getPatientIdFromUser(userDetails);
+        dto.setPatientId(patientId);
         
         AppointmentDTO result = appointmentService.bookAppointment(dto, userId, BookedBy.PATIENT);
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
@@ -48,19 +58,33 @@ public class PatientAppointmentController {
     @GetMapping
     public ResponseEntity<Page<AppointmentDTO>> getMyAppointments(
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String statuses,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to,
             @RequestParam(defaultValue = "0") Integer pageNumber,
             @RequestParam(defaultValue = "10") Integer pageSize,
             @AuthenticationPrincipal UserDetails userDetails) {
         
-        // TODO: Get patient ID from security context
         Long patientId = getPatientIdFromUser(userDetails);
         
+        List<AppointmentStatus> statusList = null;
+        if (statuses != null && !statuses.isBlank()) {
+            statusList = Arrays.stream(statuses.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(s -> AppointmentStatus.valueOf(s.toUpperCase()))
+                    .collect(Collectors.toList());
+        }
+        if (statusList == null && status != null && !status.isBlank()) {
+            statusList = Collections.singletonList(AppointmentStatus.valueOf(status.toUpperCase()));
+        }
+        
         AppointmentFilterDTO filter = AppointmentFilterDTO.builder()
-                .status(status != null ? com.q2k.meditech.entity.enums.AppointmentStatus.valueOf(status.toUpperCase()) : null)
-                .from(from != null ? java.time.LocalDate.parse(from) : null)
-                .to(to != null ? java.time.LocalDate.parse(to) : null)
+                .status(statusList == null && status != null && !status.isBlank()
+                        ? AppointmentStatus.valueOf(status.toUpperCase()) : null)
+                .statuses(statusList)
+                .from(from != null && !from.isBlank() ? java.time.LocalDate.parse(from) : null)
+                .to(to != null && !to.isBlank() ? java.time.LocalDate.parse(to) : null)
                 .pageNumber(pageNumber)
                 .pageSize(pageSize)
                 .build();

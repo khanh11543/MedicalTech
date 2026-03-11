@@ -16,7 +16,8 @@ import {
 import Badge from "../../components/ui/badge/Badge";
 import { useWorkstation } from "../../context/WorkstationContext";
 import { maskPhone, maskEmail } from "../../utils/privacyMask";
-import adminService, { User, UserDetail, UserRoleDetail, Page } from "../../services/adminService";
+import adminService, { User, UserDetail, UserRoleDetail, DoctorSpecialtyInfo, Page } from "../../services/adminService";
+import publicService from "../../services/publicService";
 
 const API_ORIGIN = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api").replace(/\/$/, "");
 
@@ -57,14 +58,24 @@ export default function UserList() {
   const [showFilters, setShowFilters] = useState(false);
   const [roleMap, setRoleMap] = useState<Record<string, number>>({});
   const debouncedSearch = useDebounce(filters.search, 400);
+  // Specialty editing
+  const [allSpecialties, setAllSpecialties] = useState<{ id: number; name: string }[]>([]);
+  const [editingSpecialties, setEditingSpecialties] = useState(false);
+  const [editSpecialtyIds, setEditSpecialtyIds] = useState<number[]>([]);
+  const [editPrimaryId, setEditPrimaryId] = useState<number | null>(null);
+  const [savingSpecialties, setSavingSpecialties] = useState(false);
 
-  // Fetch available roles from backend on mount
+  // Fetch available roles and specialties from backend on mount
   useEffect(() => {
     adminService.getRoles().then((roles) => {
       const map: Record<string, number> = {};
       roles.forEach((r) => { map[r.name] = r.id; });
       setRoleMap(map);
     }).catch((err) => console.error("Failed to fetch roles:", err));
+
+    publicService.getSpecialties()
+      .then((data) => setAllSpecialties(data.map((s) => ({ id: s.id, name: s.name }))))
+      .catch(console.error);
   }, []);
 
   const fetchUsers = useCallback(async () => {
@@ -651,17 +662,131 @@ export default function UserList() {
                   <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
                     <h4 className="text-sm font-semibold text-green-700 dark:text-green-300 uppercase tracking-wider mb-3">Doctor Profile</h4>
                     <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                      <InfoRow label="Full Name" value={`${selectedUser.doctorProfile.firstName} ${selectedUser.doctorProfile.lastName}`} />
+                      <InfoRow label="Full Name" value={selectedUser.doctorProfile.fullName || "N/A"} />
                       <InfoRow label="License Number" value={selectedUser.doctorProfile.licenseNumber || "N/A"} />
                       <InfoRow label="Specialization" value={selectedUser.doctorProfile.specialization || "N/A"} />
                       <InfoRow label="Experience" value={`${selectedUser.doctorProfile.yearsOfExperience} years`} />
                       <InfoRow label="Consultation Fee" value={selectedUser.doctorProfile.consultationFee ? `${selectedUser.doctorProfile.consultationFee.toLocaleString()} VND` : "N/A"} />
                       <InfoRow label="Verification" value={selectedUser.doctorProfile.verificationStatus || "N/A"} />
-                      <InfoRow label="Rating" value={selectedUser.doctorProfile.rating ? `${selectedUser.doctorProfile.rating} ⭐ (${selectedUser.doctorProfile.reviewCount} reviews)` : "No ratings"} />
+                      <InfoRow label="Rating" value={selectedUser.doctorProfile.rating ? `${selectedUser.doctorProfile.rating} (${selectedUser.doctorProfile.reviewCount} reviews)` : "No ratings"} />
                       {selectedUser.doctorProfile.bio && (
                         <div className="col-span-2">
                           <span className="text-xs text-gray-500 dark:text-gray-400">Bio</span>
                           <p className="text-sm text-gray-800 dark:text-gray-200 mt-0.5">{selectedUser.doctorProfile.bio}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Departments / Specialties */}
+                    <div className="mt-4 pt-3 border-t border-green-200 dark:border-green-800">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-green-700 dark:text-green-300 uppercase tracking-wider">Departments</span>
+                        <button
+                          onClick={() => {
+                            if (editingSpecialties) {
+                              setEditingSpecialties(false);
+                            } else {
+                              const current = selectedUser.doctorProfile?.specialties || [];
+                              setEditSpecialtyIds(current.map((s: DoctorSpecialtyInfo) => s.id));
+                              setEditPrimaryId(current.find((s: DoctorSpecialtyInfo) => s.isPrimary)?.id ?? (current[0]?.id || null));
+                              setEditingSpecialties(true);
+                            }
+                          }}
+                          className="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        >
+                          {editingSpecialties ? "Cancel" : "Edit Departments"}
+                        </button>
+                      </div>
+
+                      {!editingSpecialties ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedUser.doctorProfile.specialties && selectedUser.doctorProfile.specialties.length > 0 ? (
+                            selectedUser.doctorProfile.specialties.map((s: DoctorSpecialtyInfo) => (
+                              <span
+                                key={s.id}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
+                                  s.isPrimary
+                                    ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 ring-1 ring-blue-300 dark:ring-blue-700"
+                                    : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                                }`}
+                              >
+                                {s.name}
+                                {s.isPrimary && <span className="text-[10px]">(Primary)</span>}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-xs text-gray-400">No departments assigned</span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-2 gap-1.5 max-h-[160px] overflow-y-auto p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                            {allSpecialties.map((s) => {
+                              const checked = editSpecialtyIds.includes(s.id);
+                              return (
+                                <label key={s.id} className={`flex items-center gap-2 p-1.5 rounded text-xs cursor-pointer transition-colors ${checked ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-gray-50 dark:hover:bg-gray-700/30"}`}>
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => {
+                                      const next = checked
+                                        ? editSpecialtyIds.filter((id) => id !== s.id)
+                                        : [...editSpecialtyIds, s.id];
+                                      setEditSpecialtyIds(next);
+                                      if (checked && editPrimaryId === s.id) {
+                                        setEditPrimaryId(next[0] ?? null);
+                                      }
+                                      if (!checked && next.length === 1) {
+                                        setEditPrimaryId(s.id);
+                                      }
+                                    }}
+                                    className="w-3.5 h-3.5 rounded border-gray-300 text-blue-600"
+                                  />
+                                  <span className="text-gray-700 dark:text-gray-300 truncate">{s.name}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                          {editSpecialtyIds.length > 1 && (
+                            <div>
+                              <label className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">Primary:</label>
+                              <select
+                                value={editPrimaryId ?? ""}
+                                onChange={(e) => setEditPrimaryId(Number(e.target.value))}
+                                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                              >
+                                {editSpecialtyIds.map((id) => {
+                                  const sp = allSpecialties.find((s) => s.id === id);
+                                  return sp ? <option key={sp.id} value={sp.id}>{sp.name}</option> : null;
+                                })}
+                              </select>
+                            </div>
+                          )}
+                          <button
+                            disabled={editSpecialtyIds.length === 0 || savingSpecialties}
+                            onClick={async () => {
+                              if (!selectedUser.doctorProfile || editSpecialtyIds.length === 0) return;
+                              setSavingSpecialties(true);
+                              try {
+                                await adminService.updateDoctorSpecialties(selectedUser.doctorProfile.id, {
+                                  specialtyIds: editSpecialtyIds,
+                                  primarySpecialtyId: editPrimaryId || editSpecialtyIds[0],
+                                });
+                                showToast("Departments updated successfully", "success");
+                                setEditingSpecialties(false);
+                                // Refresh the detail
+                                const refreshed = await adminService.getUserDetail(selectedUser.id);
+                                setSelectedUser(refreshed);
+                              } catch {
+                                showToast("Failed to update departments", "error");
+                              } finally {
+                                setSavingSpecialties(false);
+                              }
+                            }}
+                            className="w-full py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 rounded-lg transition-colors"
+                          >
+                            {savingSpecialties ? "Saving..." : "Save Departments"}
+                          </button>
                         </div>
                       )}
                     </div>

@@ -19,6 +19,9 @@ public interface PatientRepository extends JpaRepository<Patient, Long>, JpaSpec
     @Query("SELECT p FROM Patient p WHERE p.user.id = :userId")
     Optional<Patient> findByUserId(@Param("userId") Long userId);
 
+    @Query("SELECT p FROM Patient p JOIN FETCH p.user WHERE p.user.id = :userId")
+    Optional<Patient> findByUserIdWithUser(@Param("userId") Long userId);
+
     @Query("SELECT p FROM Patient p JOIN FETCH p.user WHERE p.id = :id")
     Optional<Patient> findByIdWithUser(@Param("id") Long id);
 

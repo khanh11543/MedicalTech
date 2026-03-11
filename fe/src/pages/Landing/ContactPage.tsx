@@ -1,36 +1,37 @@
 import { useState, type FormEvent } from "react";
 import { PageTitle } from "./components/SharedComponents";
+import publicService from "../../services/publicService";
 import "./landing.css";
 
 const contactInfo = [
   {
     icon: "bi bi-geo-alt",
     title: "Our Location",
-    text: "4952 Hilltop Dr, Anytown, CA 90210",
+    text: "11/7 đường 385 Tăng Nhơn Phú A, Thủ Đức, TP.HCM",
   },
   {
     icon: "bi bi-envelope",
     title: "Email Us",
-    text: "info@meditrust.com",
+    text: "khanh115432@gmail.com",
   },
   {
     icon: "bi bi-telephone",
     title: "Call Us",
-    text: "+1 (555) 123-4567",
+    text: "+84 952123456",
   },
   {
     icon: "bi bi-clock",
     title: "Working Hours",
-    text: "Monday - Saturday: 9AM - 7PM",
+    text: "Monday - Saturday: 8AM - 5PM",
   },
 ];
 
 const socials = [
-  { icon: "bi bi-facebook", href: "#" },
-  { icon: "bi bi-twitter-x", href: "#" },
-  { icon: "bi bi-instagram", href: "#" },
-  { icon: "bi bi-linkedin", href: "#" },
-  { icon: "bi bi-youtube", href: "#" },
+  { icon: "bi bi-facebook", href: "#", label: "Facebook" },
+  { icon: "bi bi-twitter-x", href: "#", label: "Twitter" },
+  { icon: "bi bi-instagram", href: "#", label: "Instagram" },
+  { icon: "bi bi-linkedin", href: "#", label: "LinkedIn" },
+  { icon: "bi bi-youtube", href: "#", label: "YouTube" },
 ];
 
 export default function ContactPage() {
@@ -41,6 +42,8 @@ export default function ContactPage() {
     message: "",
   });
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -48,10 +51,20 @@ export default function ContactPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setSent(true);
-    setTimeout(() => setSent(false), 5000);
+    setSending(true);
+    setError("");
+    try {
+      await publicService.submitContact(form);
+      setSent(true);
+      setForm({ name: "", email: "", subject: "", message: "" });
+      setTimeout(() => setSent(false), 5000);
+    } catch {
+      setError("Failed to send message. Please try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -95,7 +108,7 @@ export default function ContactPage() {
                 <h5 className="ct-social-title">Follow Us</h5>
                 <div className="ct-social-links">
                   {socials.map((s) => (
-                    <a key={s.icon} href={s.href} className="ct-social-link">
+                    <a key={s.icon} href={s.href} className="ct-social-link" aria-label={s.label}>
                       <i className={s.icon}></i>
                     </a>
                   ))}
@@ -108,14 +121,14 @@ export default function ContactPage() {
               {/* Map */}
               <div className="ct-map">
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d48389.78314118045!2d-74.006138!3d40.710059!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89c25a22a3bda30d%3A0xb89d1fe6bc499443!2sDowntown%20Conference%20Center!5e0!3m2!1sen!2sus!4v1676961268712!5m2!1sen!2sus"
+                  src="https://www.google.com/maps?q=11%2F7+%C4%91%C6%B0%E1%BB%9Dng+385%2C+T%C4%83ng+Nh%C6%A1n+Ph%C3%BA+A%2C+Th%E1%BB%A7+%C4%90%E1%BB%A9c%2C+TP.HCM&output=embed"
                   width="100%"
                   height="100%"
-                  style={{ border: 0 }}
+                  className="ct-map-iframe"
                   allowFullScreen
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
-                  title="Location Map"
+                  title="Location Map - 11/7 đường 385 Tăng Nhơn Phú A"
                 />
               </div>
 
@@ -132,9 +145,16 @@ export default function ContactPage() {
                   </div>
                 )}
 
+                {error && (
+                  <div className="ct-alert-error">
+                    {error}
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit}>
                   <div className="ct-form-group">
                     <input
+                      id="contact-name"
                       type="text"
                       name="name"
                       required
@@ -143,11 +163,12 @@ export default function ContactPage() {
                       onChange={handleChange}
                       className="ct-input"
                     />
-                    <label className="ct-label">Full Name</label>
+                    <label htmlFor="contact-name" className="ct-label">Full Name</label>
                   </div>
 
                   <div className="ct-form-group">
                     <input
+                      id="contact-email"
                       type="email"
                       name="email"
                       required
@@ -156,11 +177,12 @@ export default function ContactPage() {
                       onChange={handleChange}
                       className="ct-input"
                     />
-                    <label className="ct-label">Email Address</label>
+                    <label htmlFor="contact-email" className="ct-label">Email Address</label>
                   </div>
 
                   <div className="ct-form-group">
                     <input
+                      id="contact-subject"
                       type="text"
                       name="subject"
                       required
@@ -169,11 +191,12 @@ export default function ContactPage() {
                       onChange={handleChange}
                       className="ct-input"
                     />
-                    <label className="ct-label">Subject</label>
+                    <label htmlFor="contact-subject" className="ct-label">Subject</label>
                   </div>
 
                   <div className="ct-form-group">
                     <textarea
+                      id="contact-message"
                       name="message"
                       required
                       placeholder=" "
@@ -182,11 +205,11 @@ export default function ContactPage() {
                       onChange={handleChange}
                       className="ct-input ct-textarea"
                     />
-                    <label className="ct-label">Your Message</label>
+                    <label htmlFor="contact-message" className="ct-label">Your Message</label>
                   </div>
 
-                  <button type="submit" className="ct-submit-btn">
-                    Send Message
+                  <button type="submit" className="ct-submit-btn" disabled={sending}>
+                    {sending ? "Sending..." : "Send Message"}
                     <i className="bi bi-send-fill"></i>
                   </button>
                 </form>

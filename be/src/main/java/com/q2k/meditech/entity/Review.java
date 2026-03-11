@@ -14,16 +14,18 @@ import java.time.LocalDateTime;
 @Table(name = "reviews")
 public class Review extends BaseEntity {
 
+    /** Optional: set for appointment-based reviews; null for general testimonials */
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "appointment_id", nullable = false, unique = true)
+    @JoinColumn(name = "appointment_id", unique = true)
     private Appointment appointment;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "patient_id", nullable = false)
     private Patient patient;
 
+    /** Optional: set when reviewing a specific doctor or for appointment-based reviews */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "doctor_id", nullable = false)
+    @JoinColumn(name = "doctor_id")
     private Doctor doctor;
 
     @Column(nullable = false)
@@ -31,6 +33,9 @@ public class Review extends BaseEntity {
 
     @Column(columnDefinition = "TEXT")
     private String comment;
+
+    @Column(name = "image_urls", columnDefinition = "TEXT")
+    private String imageUrls; // JSON array of URLs
 
     @Column(name = "is_anonymous")
     @Builder.Default

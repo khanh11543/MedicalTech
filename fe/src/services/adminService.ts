@@ -87,10 +87,15 @@ export interface PatientProfile {
   emergencyContactPhone: string;
 }
 
+export interface DoctorSpecialtyInfo {
+  id: number;
+  name: string;
+  isPrimary: boolean;
+}
+
 export interface DoctorProfile {
   id: number;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   licenseNumber: string;
   specialization: string;
   yearsOfExperience: number;
@@ -99,6 +104,7 @@ export interface DoctorProfile {
   verificationStatus: string;
   rating: number;
   reviewCount: number;
+  specialties: DoctorSpecialtyInfo[];
 }
 
 export interface CreateUserRequest {
@@ -116,6 +122,8 @@ export interface CreateUserRequest {
   qualification?: string;
   notes?: string;
   sendInvite?: boolean;
+  specialtyIds?: number[];
+  primarySpecialtyId?: number;
 }
 
 export interface CreateUserResponse {
@@ -298,6 +306,10 @@ const adminService = {
 
   deleteUser: async (userId: number): Promise<void> => {
     await api.delete(`/admin/users/${userId}`);
+  },
+
+  updateDoctorSpecialties: async (doctorId: number, data: { specialtyIds: number[]; primarySpecialtyId: number }): Promise<void> => {
+    await api.put(`/admin/doctors/${doctorId}/specialties`, data);
   },
 
   // ============== DOCTOR DOCUMENTS ==============
@@ -587,6 +599,7 @@ const adminService = {
   updateReceptionistStatus: async (id: number, isActive: boolean): Promise<void> => {
     await api.patch(`/admin/receptionists/${id}/status`, { isActive });
   },
+
 };
 
 // Staff Registry Types
@@ -750,13 +763,14 @@ export interface PaymentListParams {
 // ============== REVIEW TYPES ==============
 export interface Review {
   id: number;
-  appointmentId: number;
+  appointmentId: number | null;
   patientId: number;
   patientName: string;
-  doctorId: number;
-  doctorName: string;
+  doctorId: number | null;
+  doctorName: string | null;
   rating: number;
   comment: string;
+  imageUrls?: string[] | null;
   isAnonymous: boolean;
   isVisible: boolean;
   adminResponse: string | null;

@@ -7,6 +7,7 @@ import com.q2k.meditech.entity.AppointmentHistory;
 import com.q2k.meditech.entity.Payment;
 import com.q2k.meditech.entity.User;
 import com.q2k.meditech.repository.PaymentRepository;
+import com.q2k.meditech.repository.ReviewRepository;
 import com.q2k.meditech.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class AppointmentMapper {
     
     private final UserRepository userRepository;
     private final PaymentRepository paymentRepository;
+    private final ReviewRepository reviewRepository;
 
     /**
      * Safely initialize a Hibernate proxy and return the real entity,
@@ -77,6 +79,7 @@ public class AppointmentMapper {
         if (appointment.getDoctor() != null) {
             builder.doctorId(appointment.getDoctor().getId());
             builder.doctorSpecialization(appointment.getDoctor().getSpecialization());
+            builder.consultationFee(appointment.getDoctor().getConsultationFee());
             User doctorUser = safeGet(appointment.getDoctor().getUser());
             if (doctorUser != null) {
                 builder.doctorName(doctorUser.getFullName());
@@ -93,12 +96,20 @@ public class AppointmentMapper {
         // Appointment type
         builder.appointmentType(appointment.getAppointmentType());
         
-        // Payment status (from payments table)
+        // Payment status and paymentId (from payments table)
         try {
             Optional<Payment> payment = paymentRepository.findByAppointmentIdWithDetails(appointment.getId());
             builder.paymentStatus(payment.map(Payment::getPaymentStatus).orElse(null));
+            builder.paymentId(payment.map(Payment::getId).orElse(null));
         } catch (Exception e) {
             log.debug("Could not fetch payment status for appointment {}: {}", appointment.getId(), e.getMessage());
+        }
+
+        // Review status
+        try {
+            builder.hasReview(reviewRepository.existsByAppointmentId(appointment.getId()));
+        } catch (Exception e) {
+            builder.hasReview(false);
         }
         
         return builder.build();
@@ -139,9 +150,13 @@ public class AppointmentMapper {
                     .doctorName(dto.getDoctorName())
                     .doctorEmail(dto.getDoctorEmail())
                     .doctorSpecialization(dto.getDoctorSpecialization())
+                    .consultationFee(dto.getConsultationFee())
                     .bookedByUserName(dto.getBookedByUserName())
                     .appointmentType(dto.getAppointmentType())
                     .paymentStatus(payment.getPaymentStatus())
+                    .paymentId(payment.getId())
+                    .consultationFee(dto.getConsultationFee())
+                    .hasReview(dto.getHasReview())
                     .build();
         }
         return dto;
@@ -185,6 +200,7 @@ public class AppointmentMapper {
         if (appointment.getDoctor() != null) {
             builder.doctorId(appointment.getDoctor().getId());
             builder.doctorSpecialization(appointment.getDoctor().getSpecialization());
+            builder.consultationFee(appointment.getDoctor().getConsultationFee());
             User doctorUser = safeGet(appointment.getDoctor().getUser());
             if (doctorUser != null) {
                 builder.doctorName(doctorUser.getFullName());

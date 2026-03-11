@@ -73,15 +73,25 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     /**
      * Find payments by patient ID with pagination and filters
      */
-    @Query("SELECT DISTINCT p FROM Payment p " +
+    @Query(value = "SELECT DISTINCT p FROM Payment p " +
             "LEFT JOIN FETCH p.appointment a " +
+            "LEFT JOIN FETCH a.doctor d " +
+            "LEFT JOIN FETCH d.user " +
             "LEFT JOIN FETCH p.patient pat " +
+            "LEFT JOIN FETCH pat.user " +
+            "LEFT JOIN FETCH p.processedBy " +
             "WHERE p.patient.id = :patientId " +
             "AND (:status IS NULL OR p.paymentStatus = :status) " +
             "AND (:method IS NULL OR p.paymentMethod = :method) " +
             "AND (:fromDate IS NULL OR p.createdAt >= :fromDate) " +
             "AND (:toDate IS NULL OR p.createdAt <= :toDate) " +
-            "ORDER BY p.createdAt DESC")
+            "ORDER BY p.createdAt DESC",
+            countQuery = "SELECT COUNT(DISTINCT p) FROM Payment p " +
+            "WHERE p.patient.id = :patientId " +
+            "AND (:status IS NULL OR p.paymentStatus = :status) " +
+            "AND (:method IS NULL OR p.paymentMethod = :method) " +
+            "AND (:fromDate IS NULL OR p.createdAt >= :fromDate) " +
+            "AND (:toDate IS NULL OR p.createdAt <= :toDate)")
     Page<Payment> findByPatientIdWithFilters(
             @Param("patientId") Long patientId,
             @Param("status") String status,

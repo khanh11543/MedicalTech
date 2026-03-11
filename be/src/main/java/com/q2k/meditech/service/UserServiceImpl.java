@@ -4,12 +4,10 @@ import com.q2k.meditech.dto.*;
 import com.q2k.meditech.dto.mapper.UserMapper;
 import com.q2k.meditech.entity.*;
 import com.q2k.meditech.entity.enums.VerificationStatus;
-import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.exception.DuplicateResourceException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 
 import com.q2k.meditech.repository.*;
-import com.q2k.meditech.service.UserService;
 import jakarta.persistence.criteria.JoinType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +39,7 @@ public class UserServiceImpl implements UserService {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final DoctorRepository doctorRepository;
+    private final SpecialtyRepository specialtyRepository;
     private final StaffRegistryRepository staffRegistryRepository;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
@@ -64,7 +63,7 @@ public class UserServiceImpl implements UserService {
         // Always eager fetch userRoles and roles to avoid LazyInitializationException
         Specification<User> spec = (root, criteriaQuery, cb) -> {
             // Eager fetch userRoles and roles for all queries
-            if (criteriaQuery.getResultType() != Long.class) {
+            if (criteriaQuery != null && criteriaQuery.getResultType() != Long.class) {
                 root.fetch("userRoles", JoinType.LEFT).fetch("role", JoinType.LEFT);
             }
             return cb.conjunction();
@@ -107,6 +106,36 @@ public class UserServiceImpl implements UserService {
 
         UserDetailDTO dto = userMapper.toDetailDTO(user);
         dto.setRoles(userMapper.mapRolesToDetailDTO(user.getUserRoles()));
+
+        // Enrich with doctor profile if user has DOCTOR role
+        boolean isDoctorRole = user.getUserRoles().stream()
+                .anyMatch(ur -> "DOCTOR".equalsIgnoreCase(ur.getRole().getName()));
+        if (isDoctorRole) {
+            doctorRepository.findByUserId(userId).ifPresent(doctor -> {
+                var specialties = doctor.getDoctorSpecialties().stream()
+                        .map(ds -> UserDetailDTO.DoctorSpecialtyInfo.builder()
+                                .id(ds.getSpecialty().getId())
+                                .name(ds.getSpecialty().getName())
+                                .isPrimary(ds.getIsPrimary())
+                                .build())
+                        .collect(Collectors.toList());
+
+                dto.setDoctorProfile(UserDetailDTO.DoctorProfileInfo.builder()
+                        .id(doctor.getId())
+                        .fullName(doctor.getFullName())
+                        .licenseNumber(doctor.getLicenseNumber())
+                        .specialization(doctor.getSpecialization())
+                        .yearsOfExperience(doctor.getExperienceYears())
+                        .bio(doctor.getBio())
+                        .consultationFee(doctor.getConsultationFee())
+                        .verificationStatus(doctor.getVerificationStatus() != null ? doctor.getVerificationStatus().name() : null)
+                        .rating(doctor.getRatingAvg())
+                        .reviewCount(doctor.getRatingCount())
+                        .specialties(specialties)
+                        .build());
+            });
+        }
+
         return dto;
     }
 
@@ -190,6 +219,12 @@ public class UserServiceImpl implements UserService {
             doctor = doctorRepository.save(doctor);
             log.info("Doctor profile created with ID: {} for user: {}", doctor.getId(), user.getId());
 
+            // Assign specialties if provided
+            if (dto.getSpecialtyIds() != null && !dto.getSpecialtyIds().isEmpty()) {
+                assignSpecialtiesToDoctor(doctor, dto.getSpecialtyIds(), dto.getPrimarySpecialtyId());
+                doctor = doctorRepository.save(doctor);
+            }
+
             response.setDoctorId(doctor.getId());
             response.setSpecialization(doctor.getSpecialization());
             response.setVerificationStatus(doctor.getVerificationStatus().name());
@@ -258,6 +293,46 @@ public class UserServiceImpl implements UserService {
             return Integer.parseInt(yearsStr.trim());
         } catch (NumberFormatException e) {
             return 0;
+        }
+    }
+
+    /**
+     * Assign specialties to a doctor, clearing any existing ones.
+     * Also updates the legacy specialization string field with the primary specialty name.
+     */
+    public void assignSpecialtiesToDoctor(Doctor doctor, Set<Long> specialtyIds, Long primarySpecialtyId) {
+        List<Specialty> specialties = specialtyRepository.findAllById(specialtyIds);
+        if (specialties.isEmpty()) {
+            throw new ResourceNotFoundException("No specialties found for the given IDs");
+        }
+
+        // Validate primarySpecialtyId is in the set
+        if (primarySpecialtyId != null && !specialtyIds.contains(primarySpecialtyId)) {
+            throw new IllegalArgumentException("Primary specialty ID must be one of the selected specialties");
+        }
+
+        // Clear existing
+        doctor.getDoctorSpecialties().clear();
+
+        // Create new join records
+        for (Specialty specialty : specialties) {
+            boolean isPrimary = specialty.getId().equals(primarySpecialtyId);
+            DoctorSpecialty ds = DoctorSpecialty.builder()
+                    .doctor(doctor)
+                    .specialty(specialty)
+                    .isPrimary(isPrimary)
+                    .build();
+            doctor.getDoctorSpecialties().add(ds);
+
+            if (isPrimary) {
+                doctor.setSpecialization(specialty.getName());
+            }
+        }
+
+        // Fallback: if no primary was set, use the first one
+        if (primarySpecialtyId == null && !specialties.isEmpty()) {
+            doctor.getDoctorSpecialties().get(0).setIsPrimary(true);
+            doctor.setSpecialization(specialties.get(0).getName());
         }
     }
 
