@@ -1,19 +1,24 @@
 import { useState, useMemo, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
+import Toast from "../../components/common/Toast";
+import { useToast } from "../../hooks/useToast";
 import PendingConfirmationTable from "../../components/tables/PendingConfirmationTable";
 import appointmentService, {
     AppointmentDTO,
+    CancelDTO,
+    RescheduleDTO,
+    AppointmentStatus,
 } from "../../services/appointmentService";
 
 export default function DoctorAppointmentsPending() {
+    // Toast notification
+    const { toast, showToast, dismissToast } = useToast();
+
     // Data fetching states
     const [appointments, setAppointments] = useState<AppointmentDTO[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [actionInProgress, setActionInProgress] = useState<number | null>(null);
-    const [actionError, setActionError] = useState<string | null>(null);
-    const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
     // Filter states
     const [searchQuery, setSearchQuery] = useState("");
@@ -25,9 +30,10 @@ export default function DoctorAppointmentsPending() {
             try {
                 setLoading(true);
                 setError(null);
-                const response = await getDoctorAppointments({
-                    status: "PENDING",
-                    sort: "createdAt,DESC",
+                const response = await appointmentService.getDoctorAppointments({
+                    status: AppointmentStatus.PENDING,
+                    pageNumber: 0,
+                    pageSize: 100,
                 });
                 setAppointments(response.content || []);
             } catch (err) {
@@ -91,9 +97,10 @@ export default function DoctorAppointmentsPending() {
         try {
             setLoading(true);
             setError(null);
-            const response = await appointmentService.getAppointmentsByDoctor({
-                status: "PENDING",
-                sort: "createdAt,DESC",
+            const response = await appointmentService.getDoctorAppointments({
+                status: AppointmentStatus.PENDING,
+                pageNumber: 0,
+                pageSize: 100,
             });
             setAppointments(response.content || []);
         } catch (err) {
@@ -109,22 +116,17 @@ export default function DoctorAppointmentsPending() {
 
     const handleConfirm = async (appointment: AppointmentDTO) => {
         try {
-            setActionInProgress(appointment.id);
-            setActionError(null);
             await appointmentService.confirmAppointment(appointment.id);
-            setActionSuccess(`Appointment ${appointment.id} confirmed successfully!`);
+            showToast(`Appointment confirmed successfully`, "success");
             // Remove from list
             setAppointments(
                 appointments.filter((apt) => apt.id !== appointment.id)
             );
-            setTimeout(() => setActionSuccess(null), 3000);
         } catch (err) {
             const errorMessage = err instanceof Error
                 ? err.message
                 : "Failed to confirm appointment";
-            setActionError(errorMessage);
-        } finally {
-            setActionInProgress(null);
+            showToast(errorMessage, "error");
         }
     };
 
@@ -135,22 +137,18 @@ export default function DoctorAppointmentsPending() {
         }
 
         try {
-            setActionInProgress(appointment.id);
-            setActionError(null);
-            await appointmentService.cancelAppointment(appointment.id, reason);
-            setActionSuccess(`Appointment ${appointment.id} cancelled successfully!`);
+            const cancelData: CancelDTO = { reason };
+            await appointmentService.cancelAppointment(appointment.id, cancelData);
+            showToast(`Appointment cancelled successfully`, "success");
             // Remove from list
             setAppointments(
                 appointments.filter((apt) => apt.id !== appointment.id)
             );
-            setTimeout(() => setActionSuccess(null), 3000);
         } catch (err) {
             const errorMessage = err instanceof Error
                 ? err.message
                 : "Failed to cancel appointment";
-            setActionError(errorMessage);
-        } finally {
-            setActionInProgress(null);
+            showToast(errorMessage, "error");
         }
     };
 
@@ -162,25 +160,37 @@ export default function DoctorAppointmentsPending() {
             return;
         }
 
+        const reason = prompt("Enter the reason for rescheduling:");
+        if (!reason) {
+            return;
+        }
+
         try {
-            setActionInProgress(appointment.id);
-            setActionError(null);
-            await appointmentService.rescheduleAppointment(appointment.id, newDateTime);
-            setActionSuccess(
-                `Reschedule request sent for appointment ${appointment.id}!`
-            );
+            // Parse the datetime string
+            const [dateStr, timeStr] = newDateTime.trim().split(" ");
+            if (!dateStr || !timeStr) {
+                showToast("Invalid date/time format. Use YYYY-MM-DD HH:mm", "error");
+                return;
+            }
+
+            const rescheduleData: RescheduleDTO = {
+                newDate: dateStr,
+                newStartTime: timeStr,
+                newEndTime: timeStr, // For simple reschedule, use same end time
+                reason,
+            };
+
+            await appointmentService.rescheduleAppointment(appointment.id, rescheduleData);
+            showToast(`Reschedule request sent successfully`, "success");
             // Remove from list
             setAppointments(
                 appointments.filter((apt) => apt.id !== appointment.id)
             );
-            setTimeout(() => setActionSuccess(null), 3000);
         } catch (err) {
             const errorMessage = err instanceof Error
                 ? err.message
-                : "Failed to request reschedule";
-            setActionError(errorMessage);
-        } finally {
-            setActionInProgress(null);
+                : "Failed to reschedule appointment";
+            showToast(errorMessage, "error");
         }
     };
 
@@ -284,56 +294,6 @@ export default function DoctorAppointmentsPending() {
                                     Try Again
                                 </button>
                             </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Action Success Message */}
-                {actionSuccess && (
-                    <div className="rounded-2xl border border-green-200 bg-green-50 dark:border-green-900/30 dark:bg-green-900/10 p-4">
-                        <div className="flex gap-3">
-                            <svg
-                                className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                strokeWidth="1.5"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                            </svg>
-                            <p className="text-sm text-green-800 dark:text-green-300">
-                                {actionSuccess}
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {/* Action Error Message */}
-                {actionError && (
-                    <div className="rounded-2xl border border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-900/10 p-4">
-                        <div className="flex gap-3">
-                            <svg
-                                className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5"
-                                xmlns="http://www.w3.org/2000/xmlns"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                strokeWidth="1.5"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                            </svg>
-                            <p className="text-sm text-red-800 dark:text-red-300">
-                                {actionError}
-                            </p>
                         </div>
                     </div>
                 )}
@@ -460,6 +420,9 @@ export default function DoctorAppointmentsPending() {
                         )}
                     </>
                 )}
+
+            {/* Toast Notifications */}
+            <Toast toast={toast} onDismiss={dismissToast} />
             </div>
         </>
     );
