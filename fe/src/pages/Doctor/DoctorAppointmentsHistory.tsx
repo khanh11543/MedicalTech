@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import PageBreadCrumb from "../../components/common/PageBreadCrumb";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import HistoryAppointmentTable from "../../components/tables/HistoryAppointmentTable";
 import AppointmentSummaryModal from "../../components/modals/AppointmentSummaryModal";
 import AppointmentDetailModal from "../../components/modals/AppointmentDetailModal";
@@ -153,7 +153,7 @@ export default function DoctorAppointmentsHistory() {
                 title="Appointment History | Doctor Panel"
                 description="View your past appointments"
             />
-            <PageBreadCrumb pageTitle="Appointment History" />
+            <PageBreadcrumb pageTitle="Appointment History" />
 
             <div className="space-y-6">
                 {/* Header Section */}

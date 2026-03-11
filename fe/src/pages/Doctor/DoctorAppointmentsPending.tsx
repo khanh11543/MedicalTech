@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import PageMeta from "../../components/common/PageMeta";
-import PageBreadCrumb from "../../components/common/PageBreadCrumb";
+import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PendingConfirmationTable from "../../components/tables/PendingConfirmationTable";
 import appointmentService, {
     AppointmentDTO,
@@ -190,7 +190,7 @@ export default function DoctorAppointmentsPending() {
                 title="Pending Confirm Appointments | Doctor Panel"
                 description="Manage appointments pending your confirmation"
             />
-            <PageBreadCrumb pageTitle="Pending Confirmations" />
+            <PageBreadcrumb pageTitle="Pending Confirmations" />
 
             <div className="space-y-6">
                 {/* Header Section */}
