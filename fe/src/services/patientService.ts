@@ -225,6 +225,324 @@ export interface CreatePatientDTO {
   address?: string;
 }
 
+// ==================== PATIENT SELF-SERVICE TYPES ====================
+
+export type AppointmentStatus =
+  | "PENDING"
+  | "SCHEDULED"
+  | "CONFIRMED"
+  | "CHECKED_IN"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "NO_SHOW"
+  | "RESCHEDULED";
+
+export interface Appointment {
+  id: number;
+  appointmentCode: string;
+  patientId: number;
+  patientName: string;
+  patientEmail: string;
+  patientPhone: string;
+  doctorId: number;
+  doctorName: string;
+  doctorSpecialization: string;
+  doctorEmail: string;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  status: AppointmentStatus;
+  bookedBy: string;
+  bookedByUserName: string;
+  queueNumber: number | null;
+  reasonForVisit: string | null;
+  symptoms: string | null;
+  notes: string | null;
+  cancellationReason: string | null;
+  appointmentType: string | null;
+  paymentStatus: string | null;
+  /** Id of payment for this appointment (for Pay Now) */
+  paymentId?: number | null;
+  /** Consultation fee from doctor (for display) */
+  consultationFee?: number | null;
+  hasReview?: boolean;
+  checkedInAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Payment {
+  id: number;
+  paymentCode: string;
+  appointmentId: number;
+  appointmentCode: string;
+  patientId: number;
+  patientName: string;
+  amount: number;
+  discountAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+  currency: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  status: string;
+  transactionId: string;
+  transactionCode: string;
+  paymentDate: string;
+  paidAt: string | null;
+  refundedAt: string | null;
+  refundAmount: number;
+  refundReason: string | null;
+  processedBy: number | null;
+  processedByName: string | null;
+  doctorName: string;
+  /** Doctor specialty for display (e.g. "Pediatrics") */
+  doctorSpecialty?: string | null;
+  /** Appointment date for display */
+  appointmentDate?: string | null;
+  amountReceived: number;
+  changeGiven: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DashboardStats {
+  totalAppointments: number;
+  upcomingAppointments: number;
+  completedAppointments: number;
+  cancelledAppointments: number;
+  totalPrescriptions: number;
+  activePrescriptions: number;
+  totalMedicalRecords: number;
+  totalPayments: number;
+  pendingPayments: number;
+  nextAppointment: Appointment | null;
+  generatedAt: string;
+}
+
+export interface PatientProfileResponse {
+  userId: number;
+  patientId: number;
+  email: string;
+  fullName: string | null;
+  phone: string | null;
+  avatarUrl: string | null;
+  dateOfBirth: string | null;
+  gender: string | null;
+  address: string | null;
+  idNumber: string | null; // CCCD
+  insuranceNumber: string | null;
+  insuranceProvider: string | null;
+  emergencyContact: string | null;
+  bloodGroup: string | null;
+  allergies: string | null;
+  medicalHistory: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpdatePatientProfileRequest {
+  fullName?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  gender?: string;
+  address?: string;
+  idNumber?: string; // CCCD
+  insuranceNumber?: string;
+  insuranceProvider?: string;
+  emergencyContact?: string;
+  bloodGroup?: string;
+  allergies?: string;
+  medicalHistory?: string;
+}
+
+export interface Specialty {
+  id: number;
+  name: string;
+  description: string;
+  imageUrl: string | null;
+}
+
+export interface DoctorCard {
+  id: number;
+  fullName: string;
+  avatarUrl: string | null;
+  primarySpecialty: string;
+  specialties: string[];
+  experienceYears: number;
+  consultationFee: number;
+  ratingAvg: number;
+  ratingCount: number;
+  hospitalAffiliation: string | null;
+  city: string | null;
+  officeAddress: string | null;
+  isAvailable: boolean;
+}
+
+export interface DoctorDetail {
+  id: number;
+  fullName: string;
+  email: string;
+  phone: string;
+  avatarUrl: string | null;
+  licenseNumber: string;
+  bio: string;
+  education: string;
+  experienceYears: number;
+  primarySpecialty: string;
+  specialties: Specialty[];
+  consultationFee: number;
+  followUpFee: number;
+  ratingAvg: number;
+  ratingCount: number;
+  hospitalAffiliation: string | null;
+  officeAddress: string | null;
+  isAvailable: boolean;
+  verificationStatus: string;
+}
+
+export interface TimeSlot {
+  id: number;
+  doctorId: number;
+  doctorName: string;
+  specialization: string;
+  slotDate: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+  isAvailable: boolean;
+  source: string;
+  note: string | null;
+}
+
+export interface PrescriptionItem {
+  id: number;
+  medicineName: string;
+  dosage: string;
+  frequency: string;
+  duration: string;
+  quantity: number;
+  unit: string;
+  instructions: string;
+  notes: string | null;
+  itemOrder: number;
+}
+
+export interface Prescription {
+  id: number;
+  patientId: number;
+  patientName: string;
+  patientPhone: string;
+  patientDateOfBirth: string;
+  patientGender: string;
+  doctorId: number;
+  doctorName: string;
+  doctorSpecialization: string;
+  appointmentId: number | null;
+  appointmentDate: string | null;
+  prescriptionCode: string;
+  prescriptionDate: string;
+  expiryDate: string | null;
+  status: string;
+  diagnosis: string;
+  notes: string | null;
+  followUpDate: string | null;
+  isActive: boolean;
+  items: PrescriptionItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MedicalRecord {
+  id: number;
+  recordCode: string;
+  doctorId: number;
+  doctorName: string;
+  doctorSpecialization: string | null;
+  appointmentId: number | null;
+  visitDate: string;
+  chiefComplaint: string | null;
+  presentIllness: string | null;
+  vitalSigns: unknown;
+  physicalExam: string | null;
+  diagnosis: string;
+  diagnosisCode: string | null;
+  treatmentPlan: string | null;
+  prescription: string | null;
+  labResults: unknown;
+  followUpDate: string | null;
+  followUpNotes: string | null;
+  attachments: unknown;
+  isConfidential: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewCreateRequest {
+  /** Omit for general review (testimonial); set for appointment-based review */
+  appointmentId?: number;
+  /** Optional: doctor to associate with a general review */
+  doctorId?: number;
+  rating: number;
+  comment?: string;
+  isAnonymous?: boolean;
+  /** Optional: image URLs from upload endpoint (for general review) */
+  imageUrls?: string[];
+}
+
+export interface BookAppointmentRequest {
+  patientId: number;
+  doctorId: number;
+  appointmentDate: string;
+  timeSlotId?: number;
+  startTime: string;
+  endTime: string;
+  reasonForVisit?: string;
+  symptoms?: string;
+  notes?: string;
+}
+
+export interface PaymentQrDTO {
+  id: number;
+  paymentId: number;
+  provider: string;
+  qrPayload: string;
+  payUrl: string;
+  expiresAt: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface PaymentInitDTO {
+  paymentId: number;
+  paymentCode: string;
+  payUrl: string;
+  qrCodeUrl: string;
+  orderId: string;
+  message: string;
+  success: boolean;
+}
+
+export interface InvoiceDTO {
+  id: number;
+  invoiceNumber: string;
+  paymentId: number;
+  paymentCode: string;
+  patientId: number;
+  patientName: string;
+  invoiceDate: string;
+  dueDate: string;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+  status: string;
+  notes: string;
+  createdAt: string;
+}
+
 // ==================== SERVICE ====================
 
 const patientService = {
@@ -432,6 +750,186 @@ const patientService = {
       `/receptionist/patients/${patientId}/appointments/quick-book`,
       data
     );
+    return response.data;
+  },
+
+  // ==================== PATIENT SELF-SERVICE ====================
+
+  // Dashboard stats
+  getDashboardStats: async (): Promise<DashboardStats> => {
+    const response = await api.get("/patient/dashboard/stats");
+    return response.data;
+  },
+
+  // My patient profile (User + Patient fields)
+  getMyProfile: async (): Promise<PatientProfileResponse> => {
+    const response = await api.get("/patient/profile");
+    return response.data;
+  },
+
+  updateMyProfile: async (data: UpdatePatientProfileRequest): Promise<PatientProfileResponse> => {
+    const response = await api.put("/patient/profile", data);
+    return response.data;
+  },
+
+  // Upcoming appointments
+  getUpcomingAppointments: async (): Promise<Appointment[]> => {
+    const response = await api.get("/patient/appointments/upcoming");
+    return response.data;
+  },
+
+  // My appointments (paginated)
+  getMyAppointments: async (params: {
+    status?: string;
+    statuses?: string;
+    from?: string;
+    to?: string;
+    pageNumber?: number;
+    pageSize?: number;
+  }): Promise<PageResponse<Appointment>> => {
+    const response = await api.get("/patient/appointments", { params });
+    return response.data;
+  },
+
+  // Cancel my appointment
+  cancelMyAppointment: async (appointmentId: number, reason?: string): Promise<Appointment> => {
+    const response = await api.patch(`/appointments/${appointmentId}/cancel`, { reason });
+    return response.data;
+  },
+
+  // My payments (paginated)
+  getMyPayments: async (params: {
+    status?: string;
+    pageNumber?: number;
+    pageSize?: number;
+  }): Promise<PageResponse<Payment>> => {
+    const response = await api.get("/patient/payments", { params });
+    return response.data;
+  },
+
+  // Search doctors (public)
+  searchDoctors: async (params: {
+    q?: string;
+    specialtyId?: number;
+    sortBy?: string;
+    pageNumber?: number;
+    pageSize?: number;
+  }): Promise<PageResponse<DoctorCard>> => {
+    const response = await api.get("/public/doctors", { params });
+    return response.data;
+  },
+
+  // Get specialties (public)
+  getSpecialties: async (): Promise<Specialty[]> => {
+    const response = await api.get("/public/specialties");
+    return response.data;
+  },
+
+  // Doctor detail (public)
+  getDoctorDetail: async (id: number): Promise<DoctorDetail> => {
+    const response = await api.get(`/public/doctors/${id}`);
+    return response.data;
+  },
+
+  // Doctor available slots (public)
+  getDoctorSlots: async (
+    doctorId: number,
+    dateFrom: string,
+    dateTo: string
+  ): Promise<TimeSlot[]> => {
+    const response = await api.get(`/public/doctors/${doctorId}/slots`, {
+      params: { dateFrom, dateTo },
+    });
+    // API returns List directly
+    return response.data.content || response.data;
+  },
+
+  // Book appointment (patient)
+  bookAppointment: async (data: BookAppointmentRequest): Promise<Appointment> => {
+    const response = await api.post("/patient/appointments", data);
+    return response.data;
+  },
+
+  // My medical records (paginated)
+  getMyRecords: async (params: {
+    pageNumber?: number;
+    pageSize?: number;
+  }): Promise<PageResponse<MedicalRecord>> => {
+    const response = await api.get("/patient/medical-records", { params });
+    return response.data;
+  },
+
+  // Medical record detail
+  getRecordDetail: async (id: number): Promise<MedicalRecord> => {
+    const response = await api.get(`/patient/medical-records/${id}`);
+    return response.data;
+  },
+
+  // My prescriptions (paginated)
+  getMyPrescriptions: async (params: {
+    pageNumber?: number;
+    pageSize?: number;
+  }): Promise<PageResponse<Prescription>> => {
+    const response = await api.get("/patient/prescriptions", { params });
+    return response.data;
+  },
+
+  // Prescription detail
+  getPrescriptionDetail: async (id: number): Promise<Prescription> => {
+    const response = await api.get(`/patient/prescriptions/${id}`);
+    return response.data;
+  },
+
+  // Payment detail
+  getPaymentDetail: async (id: number): Promise<Payment> => {
+    const response = await api.get(`/patient/payments/${id}`);
+    return response.data;
+  },
+
+  // Get QR code for payment
+  getPaymentQr: async (id: number): Promise<PaymentQrDTO> => {
+    const response = await api.get(`/patient/payments/${id}/qr`);
+    return response.data;
+  },
+
+  // Get invoice by payment ID
+  getInvoiceByPayment: async (paymentId: number): Promise<InvoiceDTO> => {
+    const response = await api.get(`/patient/invoices/by-payment/${paymentId}`);
+    return response.data;
+  },
+
+  // Download invoice PDF
+  downloadInvoicePdf: async (invoiceId: number): Promise<Blob> => {
+    const response = await api.get(`/patient/invoices/${invoiceId}/pdf`, {
+      responseType: "blob",
+    });
+    return response.data;
+  },
+
+  // Init MOMO payment (patient self-service)
+  initMomoPayment: async (paymentId: number): Promise<PaymentInitDTO> => {
+    const response = await api.post(`/patient/payments/${paymentId}/momo/init`, {});
+    return response.data;
+  },
+
+  // Cancel payment (patient self-service)
+  cancelMyPayment: async (paymentId: number, reason?: string): Promise<Payment> => {
+    const response = await api.patch(`/patient/payments/${paymentId}/cancel`, { reason });
+    return response.data;
+  },
+
+  createReview: async (data: ReviewCreateRequest): Promise<any> => {
+    const response = await api.post("/patient/reviews", data);
+    return response.data;
+  },
+
+  /** Upload image for review (general/testimonial). Returns { url: string }. */
+  uploadReviewImage: async (file: File): Promise<{ url: string }> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post("/patient/reviews/upload-image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return response.data;
   },
 };

@@ -24,6 +24,18 @@ public class Specialty extends BaseEntity {
     @Column(name = "icon_url", length = 500)
     private String iconUrl;
 
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
+    @Column(unique = true, length = 100)
+    private String slug;
+
+    @Column(length = 200)
+    private String subtitle;
+
+    @Column(columnDefinition = "TEXT")
+    private String highlights;
+
     @Column(name = "is_active", columnDefinition = "TINYINT(1) DEFAULT 1")
     private Boolean isActive;
 

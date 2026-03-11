@@ -2,10 +2,13 @@ package com.q2k.meditech.controller;
 
 import com.q2k.meditech.dto.InvoiceDTO;
 import com.q2k.meditech.dto.PaymentDTO;
+import com.q2k.meditech.dto.PaymentInitDTO;
 import com.q2k.meditech.dto.PaymentQrDTO;
+import com.q2k.meditech.repository.PatientRepository;
 import com.q2k.meditech.service.InvoiceDeliveryService;
 import com.q2k.meditech.service.InvoiceService;
 import com.q2k.meditech.service.PaymentService;
+import com.q2k.meditech.util.SecurityUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,6 +39,7 @@ public class PatientPaymentController {
     private final PaymentService paymentService;
     private final InvoiceService invoiceService;
     private final InvoiceDeliveryService invoiceDeliveryService;
+    private final PatientRepository patientRepository;
 
     /**
      * GET /api/patient/payments
@@ -57,10 +61,7 @@ public class PatientPaymentController {
         log.info("GET /patient/payments - status: {}, method: {}, from: {}, to: {}", 
                 status, method, from, to);
 
-        // TODO: Get current patient ID from SecurityContext
-        // Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        // Long patientId = getCurrentPatientId(auth);
-        Long patientId = 1L; // Placeholder - replace with actual patient ID from auth
+        Long patientId = getCurrentPatientId();
 
         Page<PaymentDTO> payments = paymentService.getMyPayments(
                 patientId, status, method, from, to, pageNumber, pageSize);
@@ -82,8 +83,7 @@ public class PatientPaymentController {
 
         log.info("GET /patient/payments/{}", id);
 
-        // TODO: Get current patient ID from SecurityContext
-        Long patientId = 1L; // Placeholder
+        Long patientId = getCurrentPatientId();
 
         PaymentDTO payment = paymentService.getPaymentByIdForPatient(id, patientId);
 
@@ -104,12 +104,53 @@ public class PatientPaymentController {
 
         log.info("GET /patient/payments/{}/qr", id);
 
-        // TODO: Get current patient ID from SecurityContext
-        Long patientId = 1L; // Placeholder
+        Long patientId = getCurrentPatientId();
 
         PaymentQrDTO qr = paymentService.getPaymentQrForPatient(id, patientId);
 
         return ResponseEntity.ok(qr);
+    }
+
+    /**
+     * POST /api/patient/payments/{id}/momo/init
+     * Patient initiates MoMo payment (generates QR code)
+     */
+    @PostMapping(value = "/payments/{id}/momo/init", consumes = {"application/json", "text/plain", "*/*"})
+    @Operation(
+        summary = "Init MoMo payment",
+        description = "Patient initiates MoMo payment to get QR code (ownership verified)"
+    )
+    public ResponseEntity<PaymentInitDTO> initMomoPayment(
+            @Parameter(description = "Payment ID") @PathVariable Long id) {
+
+        log.info("POST /patient/payments/{}/momo/init", id);
+
+        Long patientId = getCurrentPatientId();
+        PaymentInitDTO result = paymentService.initMomoPaymentForPatient(id, patientId);
+
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * PATCH /api/patient/payments/{id}/cancel
+     * Patient cancels own pending payment
+     */
+    @PatchMapping(value = "/payments/{id}/cancel", consumes = {"application/json", "text/plain", "*/*"})
+    @Operation(
+        summary = "Cancel my payment",
+        description = "Patient cancels own pending/initiated payment (ownership verified)"
+    )
+    public ResponseEntity<PaymentDTO> cancelMyPayment(
+            @Parameter(description = "Payment ID") @PathVariable Long id,
+            @RequestBody(required = false) java.util.Map<String, String> body) {
+
+        log.info("PATCH /patient/payments/{}/cancel", id);
+
+        Long patientId = getCurrentPatientId();
+        String reason = body != null ? body.get("reason") : null;
+        PaymentDTO result = paymentService.cancelPaymentForPatient(id, patientId, reason);
+
+        return ResponseEntity.ok(result);
     }
 
     /**
@@ -126,8 +167,7 @@ public class PatientPaymentController {
 
         log.info("GET /patient/invoices/by-payment/{}", paymentId);
 
-        // TODO: Get current patient ID from SecurityContext
-        Long patientId = 1L; // Placeholder
+        Long patientId = getCurrentPatientId();
 
         InvoiceDTO invoice = invoiceService.getInvoiceByPaymentIdForPatient(paymentId, patientId);
 
@@ -148,9 +188,7 @@ public class PatientPaymentController {
 
         log.info("GET /patient/invoices/{}/pdf", invoiceId);
 
-        // TODO: Get current patient ID from SecurityContext
-        // First verify ownership
-        Long patientId = 1L; // Placeholder
+        Long patientId = getCurrentPatientId();
         invoiceService.getInvoiceByIdForPatient(invoiceId, patientId);
 
         // Then generate PDF
@@ -160,5 +198,14 @@ public class PatientPaymentController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=invoice-" + invoiceId + ".pdf")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdfBytes);
+    }
+
+    // ==================== HELPER ====================
+
+    private Long getCurrentPatientId() {
+        Long userId = SecurityUtil.getCurrentUserId();
+        return patientRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Patient profile not found for user: " + userId))
+                .getId();
     }
 }

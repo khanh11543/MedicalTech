@@ -192,10 +192,10 @@ public class DoctorTodayService {
     }
 
     /**
-     * Mark patient as no-show.
+     * Mark patient as no-show (reason required for audit).
      */
     @Transactional
-    public void markNoShow(Long doctorId, Long appointmentId, Long userId) {
+    public void markNoShow(Long doctorId, Long appointmentId, String reason, Long userId) {
         Appointment appointment = appointmentRepository.findById(appointmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found: " + appointmentId));
 
@@ -210,10 +210,14 @@ public class DoctorTodayService {
         appointment.setStatus(AppointmentStatus.NO_SHOW);
         appointmentRepository.save(appointment);
 
+        Map<String, Object> newValues = new HashMap<>();
+        newValues.put("newStatus", AppointmentStatus.NO_SHOW.name());
+        newValues.put("reason", reason);
+
         audit(userId, "MARK_NO_SHOW", "APPOINTMENT", appointmentId,
                 Map.of("oldStatus", oldStatus.name()),
-                Map.of("newStatus", AppointmentStatus.NO_SHOW.name()));
-        log.info("Doctor {} marked no-show (appointment {})", doctorId, appointmentId);
+                newValues);
+        log.info("Doctor {} marked no-show (appointment {}) reason: {}", doctorId, appointmentId, reason);
     }
 
     /**

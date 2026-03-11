@@ -1,15 +1,10 @@
-import { useState } from "react";
-
-const userData = {
-  name: "Do Ngoc Vinh",
-  email: "dv15@gmail.com",
-  phone: "0326789145",
-  joinDate: "26/03/2025",
-  cccd: "0123456789028255",
-};
+import { useState, useEffect } from "react";
+import userService, { type UserProfile } from "../../services/userService";
+import patientService from "../../services/patientService";
+import authService from "../../services/authService";
 
 function maskPhone(phone: string) {
-  if (phone.length < 7) return phone;
+  if (!phone || phone.length < 7) return phone || "—";
   return `${phone.slice(0, 4)}***${phone.slice(-3)}`;
 }
 function maskId(id: string) {
@@ -26,6 +21,9 @@ function EyeIcon({ open }: { open: boolean }) {
 }
 
 export default function PatientAccount() {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [patientCccd, setPatientCccd] = useState<string | null>(null); // CCCD from patient profile (Medical Profile)
+  const [loading, setLoading] = useState(true);
   const [showCccd, setShowCccd] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [verifyPassword, setVerifyPassword] = useState("");
@@ -37,6 +35,20 @@ export default function PatientAccount() {
   const [showNewPw, setShowNewPw] = useState(false);
   const [showConfirmPw, setShowConfirmPw] = useState(false);
   const [logoutAll, setLogoutAll] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    Promise.all([
+      userService.getProfile().then((data) => {
+        setProfile(data);
+      }).catch(() => {}),
+      patientService.getMyProfile().then((data) => {
+        setPatientCccd(data.idNumber ?? null);
+      }).catch(() => {}),
+    ]).finally(() => setLoading(false));
+  }, []);
 
   const handleRevealCccd = () => {
     if (!showCccd) {
@@ -50,6 +62,28 @@ export default function PatientAccount() {
     setShowCccd(true);
     setShowVerifyModal(false);
     setVerifyPassword("");
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword) return;
+    setChangingPassword(true);
+    setPasswordMsg(null);
+    try {
+      await authService.changePassword({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
+      setPasswordMsg({ type: "success", text: "Password changed successfully!" });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to change password.";
+      setPasswordMsg({ type: "error", text: msg });
+    } finally {
+      setChangingPassword(false);
+    }
   };
 
   // Password strength
@@ -67,6 +101,25 @@ export default function PatientAccount() {
   };
   const strength = getStrength(newPassword);
 
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-pulse">
+        <div className="h-6 bg-gray-200 rounded w-48 mb-2"></div>
+        <div className="h-4 bg-gray-200 rounded w-72 mb-6"></div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div className="h-64 bg-gray-200 rounded-2xl"></div>
+          <div className="h-64 bg-gray-200 rounded-2xl"></div>
+        </div>
+      </div>
+    );
+  }
+
+  const userName = profile?.fullName || profile?.email || "User";
+  const userEmail = profile?.email || "";
+  const userPhone = profile?.phone || "";
+  const userJoinDate = profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : "";
+  const userCccd = patientCccd ?? ""; // CCCD from patient profile (updated in Medical Profile)
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -78,26 +131,30 @@ export default function PatientAccount() {
       {/* Cards Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Account Info */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
           <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <svg className="w-4 h-4 text-[#049ebb]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
             Account Information
           </h4>
           <div className="flex flex-col items-center mb-4 pb-4 border-b border-gray-100">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#049ebb] to-[#027a94] flex items-center justify-center text-white text-xl font-bold shadow-md shadow-[#049ebb]/20 mb-2">
-              {userData.name.charAt(0)}
-            </div>
-            <h5 className="text-sm font-semibold text-gray-900">{userData.name}</h5>
-            <p className="text-xs text-gray-400">Member since {userData.joinDate}</p>
+            {profile?.avatarUrl ? (
+              <img src={profile.avatarUrl} alt={userName} className="w-16 h-16 rounded-full object-cover shadow-md shadow-[#049ebb]/20 mb-2" />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#049ebb] to-[#027a94] flex items-center justify-center text-white text-xl font-bold shadow-md shadow-[#049ebb]/20 mb-2">
+                {userName.charAt(0)}
+              </div>
+            )}
+            <h5 className="text-sm font-semibold text-gray-900">{userName}</h5>
+            {userJoinDate && <p className="text-xs text-gray-400">Member since {userJoinDate}</p>}
           </div>
           <div className="space-y-2">
-            <InfoField label="Email" value={userData.email} icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>} />
-            <InfoField label="Phone" value={maskPhone(userData.phone)} icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>} />
+            <InfoField label="Email" value={userEmail} icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>} />
+            <InfoField label="Phone" value={maskPhone(userPhone)} icon={<svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>} />
           </div>
         </div>
 
         {/* Identity Info */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
           <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <svg className="w-4 h-4 text-[#049ebb]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" /></svg>
             Identity Information
@@ -106,7 +163,7 @@ export default function PatientAccount() {
             <div className="flex items-center justify-between py-2.5 px-3.5 bg-gray-50 rounded-xl">
               <div>
                 <p className="text-[11px] text-gray-400 mb-0.5">ID Number (CCCD)</p>
-                <p className="text-sm font-medium text-gray-900 font-mono tracking-wide">{showCccd ? userData.cccd : maskId(userData.cccd)}</p>
+                <p className="text-sm font-medium text-gray-900 font-mono tracking-wide">{showCccd ? userCccd || "Not set" : maskId(userCccd)}</p>
               </div>
               <button
                 onClick={handleRevealCccd}
@@ -125,7 +182,7 @@ export default function PatientAccount() {
       </div>
 
       {/* Security */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
         <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <svg className="w-4 h-4 text-[#049ebb]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
           Security
@@ -152,12 +209,20 @@ export default function PatientAccount() {
             <input type="checkbox" checked={logoutAll} onChange={(e) => setLogoutAll(e.target.checked)} className="w-4 h-4 text-[#049ebb] border-gray-300 rounded focus:ring-[#049ebb] accent-[#049ebb] cursor-pointer" />
             <span className="text-xs text-gray-600">Log out from all other devices</span>
           </label>
-          <button
-            disabled={!currentPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword}
-            className="px-5 py-2.5 text-xs font-semibold text-white bg-[#049ebb] rounded-xl hover:bg-[#037a94] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-[#049ebb]/20 border-none cursor-pointer"
-          >
-            Update Password
-          </button>
+          <div className="flex items-center gap-3">
+            {passwordMsg && (
+              <p className={`text-xs font-medium ${passwordMsg.type === "success" ? "text-emerald-600" : "text-red-500"}`}>
+                {passwordMsg.text}
+              </p>
+            )}
+            <button
+              onClick={handleChangePassword}
+              disabled={!currentPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword || changingPassword}
+              className="px-5 py-2.5 text-xs font-semibold text-white bg-[#049ebb] rounded-xl hover:bg-[#037a94] disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md shadow-[#049ebb]/20 border-none cursor-pointer"
+            >
+              {changingPassword ? "Updating..." : "Update Password"}
+            </button>
+          </div>
         </div>
       </div>
 

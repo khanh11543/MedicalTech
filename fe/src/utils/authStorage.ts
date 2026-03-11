@@ -59,9 +59,23 @@ export const authStorage = {
     }
   },
 
+  // ---- remembered account helpers ----
+
+  setRememberedEmail(email: string) {
+    localStorage.setItem("rememberedEmail", email);
+  },
+
+  getRememberedEmail(): string | null {
+    return localStorage.getItem("rememberedEmail");
+  },
+
+  clearRememberedEmail() {
+    localStorage.removeItem("rememberedEmail");
+  },
+
   // ---- cleanup ----
 
-  /** Clear auth data from BOTH storages (safe on logout). */
+  /** Clear auth data from BOTH storages (safe on logout). Keeps remembered email. */
   clear() {
     for (const s of [localStorage, sessionStorage]) {
       s.removeItem("accessToken");

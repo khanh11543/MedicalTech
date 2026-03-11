@@ -15,9 +15,6 @@ public class AdminReviewController {
     @Autowired
     private ReviewService reviewService;
 
-    /**
-     * GET /api/admin/reviews - List all reviews (paginated, with filters)
-     */
     @GetMapping
     public ResponseEntity<Page<ReviewDTO>> getAllReviews(
             @RequestParam(required = false) String keyword,
@@ -25,35 +22,24 @@ public class AdminReviewController {
             @RequestParam(required = false) Integer rating,
             @RequestParam(defaultValue = "0") int pageNumber,
             @RequestParam(defaultValue = "10") int pageSize) {
-
         Page<ReviewDTO> reviews = reviewService.getAllReviews(keyword, isVisible, rating, pageNumber, pageSize);
         return ResponseEntity.ok(reviews);
     }
 
-    /**
-     * GET /api/admin/reviews/{id} - Get review detail
-     */
     @GetMapping("/{id}")
     public ResponseEntity<ReviewDTO> getReviewDetail(@PathVariable Long id) {
         ReviewDTO review = reviewService.getReviewById(id);
         return ResponseEntity.ok(review);
     }
 
-    /**
-     * PATCH /api/admin/reviews/{id}/moderate - Moderate a review (hide/show, admin response)
-     */
     @PatchMapping("/{id}/moderate")
     public ResponseEntity<ReviewDTO> moderateReview(
             @PathVariable Long id,
             @RequestBody ModerateReviewDTO dto) {
-
         ReviewDTO review = reviewService.moderateReview(id, dto);
         return ResponseEntity.ok(review);
     }
 
-    /**
-     * DELETE /api/admin/reviews/{id} - Delete a review
-     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteReview(@PathVariable Long id) {
         reviewService.deleteReview(id);

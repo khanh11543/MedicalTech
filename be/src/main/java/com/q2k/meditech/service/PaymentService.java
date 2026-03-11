@@ -20,6 +20,15 @@ public interface PaymentService {
     PaymentDTO createPayment(PaymentCreateDTO dto, Long currentUserId);
 
     /**
+     * Create a PENDING payment for an appointment (e.g. when patient books).
+     * If a payment already exists for the appointment, returns it. No payment method required.
+     * @param appointmentId Appointment ID
+     * @param processedByUserId User who triggered (e.g. patient who booked)
+     * @return Created or existing payment
+     */
+    PaymentDTO createPaymentForAppointment(Long appointmentId, Long processedByUserId);
+
+    /**
      * Initialize MoMo payment (create order and get pay URL)
      * @param paymentId Payment ID
      * @param dto MoMo init parameters
@@ -119,6 +128,16 @@ public interface PaymentService {
      * @return QR code data
      */
     PaymentQrDTO getPaymentQrForPatient(Long paymentId, Long patientId);
+
+    /**
+     * Patient initiates MoMo payment (with ownership check)
+     */
+    PaymentInitDTO initMomoPaymentForPatient(Long paymentId, Long patientId);
+
+    /**
+     * Patient cancels own PENDING payment (with ownership check)
+     */
+    PaymentDTO cancelPaymentForPatient(Long paymentId, Long patientId, String reason);
 
     // ========== ADMIN METHODS ==========
 

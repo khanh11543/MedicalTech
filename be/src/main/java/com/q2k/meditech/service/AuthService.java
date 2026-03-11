@@ -60,7 +60,7 @@ public class AuthService {
     @Value("${app.otp-expiry-minutes:15}")
     private int otpExpiryMinutes;
 
-    @Value("${app.reset-token-expiry-minutes:60}")
+    @Value("${app.reset-token-expiry-minutes:15}")
     private int resetTokenExpiryMinutes;
 
     private static final SecureRandom secureRandom = new SecureRandom();
@@ -284,6 +284,16 @@ public class AuthService {
                 throw new BadCredentialsException("Invalid email or password");
             }
 
+            // If user is using a temporary (recovery) password, check it hasn't expired
+            if (user.getResetTokenExpiry() != null && LocalDateTime.now().isAfter(user.getResetTokenExpiry())) {
+                user.setResetToken(null);
+                user.setResetTokenExpiry(null);
+                user.setResetTokenUsedAt(null);
+                user.setPasswordHash(passwordEncoder.encode(generateTemporaryPassword())); // invalidate old temp password
+                userRepository.save(user);
+                throw new BadCredentialsException("Password recovery has expired. Please request a new password via Forgot password.");
+            }
+
             // Reset failed attempts on successful login
             user.setFailedLoginCount(0);
             user.setLockedUntil(null);
@@ -448,6 +458,10 @@ public class AuthService {
 
         // Update password
         user.setPasswordHash(passwordEncoder.encode(changePasswordDTO.getNewPassword()));
+        // Clear forgot-password temp state so account is back to normal
+        user.setResetToken(null);
+        user.setResetTokenExpiry(null);
+        user.setResetTokenUsedAt(null);
         userRepository.save(user);
 
         // Revoke all sessions except current (optional - for security)
@@ -463,24 +477,29 @@ public class AuthService {
     }
 
     /**
-     * Forgot password - send reset token
+     * Forgot password - generate temporary password, set on user, send by email.
+     * Temporary password is valid for 15 minutes only; user must login and change password in Profile.
+     * Always returns success message (do not reveal whether email exists).
      */
     @Transactional
     public MessageDTO forgotPassword(ForgotPasswordDTO forgotPasswordDTO, HttpServletRequest request) {
-        User user = userRepository.findByEmail(forgotPasswordDTO.getEmail())
-            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        var optionalUser = userRepository.findByEmail(forgotPasswordDTO.getEmail());
+        if (optionalUser.isEmpty()) {
+            log.info("Forgot password requested for unknown email: {}", forgotPasswordDTO.getEmail());
+            return MessageDTO.success("If this email is registered, a new password has been sent. It is valid for " + resetTokenExpiryMinutes + " minutes. Please sign in and go to Profile to change your password.");
+        }
 
-        // Generate reset token
-        String resetToken = generateSecureToken();
-        user.setResetToken(hashToken(resetToken));
+        User user = optionalUser.get();
+        String tempPassword = generateTemporaryPassword();
+        user.setPasswordHash(passwordEncoder.encode(tempPassword));
+        user.setResetToken(hashToken("temp-" + tempPassword));
         user.setResetTokenExpiry(LocalDateTime.now().plusMinutes(resetTokenExpiryMinutes));
         user.setResetTokenUsedAt(null);
         userRepository.save(user);
 
-        // Send email
-        emailService.sendResetPasswordEmail(user.getEmail(), resetToken);
+        emailService.sendForgotPasswordTempPasswordEmail(user.getEmail(), tempPassword, resetTokenExpiryMinutes);
 
-        return MessageDTO.success("Password reset instructions sent to your email");
+        return MessageDTO.success("A new password has been sent to your email. It is valid for " + resetTokenExpiryMinutes + " minutes. Please sign in and go to Profile to change your password.");
     }
 
     /**
@@ -674,6 +693,16 @@ public class AuthService {
         byte[] randomBytes = new byte[32];
         secureRandom.nextBytes(randomBytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+    }
+
+    /** Generate a readable temporary password (letters + digits, 10 chars) for email recovery */
+    private String generateTemporaryPassword() {
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+        StringBuilder sb = new StringBuilder(10);
+        for (int i = 0; i < 10; i++) {
+            sb.append(chars.charAt(secureRandom.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 
     private String getClientIp(HttpServletRequest request) {

@@ -88,31 +88,6 @@ export default function AboutPage() {
             </div>
           </div>
 
-          {/* Certifications Section */}
-          <div className="certifications-section mt-16 pt-10 border-t border-[rgba(0,0,0,0.08)]">
-            <div className="text-center mb-8">
-              <h3 className="text-[22px] font-bold text-[#18444c] mb-2">
-                Accreditations &amp; Certifications
-              </h3>
-              <p className="text-[15px] text-[#6b7280]">
-                We are proud to be accredited by leading healthcare organizations
-              </p>
-            </div>
-            <div className="flex flex-wrap justify-center items-center gap-8 lg:gap-12">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div
-                  key={i}
-                  className="certification-item flex items-center justify-center py-4 px-6 transition-all hover:opacity-80"
-                >
-                  <img
-                    src={`/images/landing/clients-${i > 4 ? i - 4 : i}.webp`}
-                    alt="Certification"
-                    className="h-[40px] object-contain grayscale hover:grayscale-0 transition-all duration-300"
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
         </div>
       </section>
     </>

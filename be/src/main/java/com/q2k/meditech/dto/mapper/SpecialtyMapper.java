@@ -21,6 +21,10 @@ public class SpecialtyMapper {
                 .name(entity.getName())
                 .description(entity.getDescription())
                 .iconUrl(entity.getIconUrl())
+                .imageUrl(entity.getImageUrl())
+                .slug(entity.getSlug())
+                .subtitle(entity.getSubtitle())
+                .highlights(entity.getHighlights())
                 .isActive(entity.getIsActive())
                 .build();
     }
@@ -40,6 +44,10 @@ public class SpecialtyMapper {
                 .name(dto.getName())
                 .description(dto.getDescription())
                 .iconUrl(dto.getIconUrl())
+                .imageUrl(dto.getImageUrl())
+                .slug(dto.getSlug())
+                .subtitle(dto.getSubtitle())
+                .highlights(dto.getHighlights())
                 .isActive(dto.getIsActive())
                 .build();
     }

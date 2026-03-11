@@ -1,10 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
 import Badge from "../../components/ui/badge/Badge";
-import { DashboardSkeleton } from "../../components/ui/skeleton/Skeleton";
 import {
   getDoctorDashboard,
   DoctorDashboard as DoctorDashboardData,
+  callPatient,
+  callNextPatient,
+  skipPatient,
 } from "../../services/doctorService";
 
 // ============ Helper: format time "HH:mm:ss" → "HH:mm" ============
@@ -64,9 +67,13 @@ function notifIcon(type: string): string {
 }
 
 export default function DoctorDashboard() {
+  const navigate = useNavigate();
   const [data, setData] = useState<DoctorDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [skipModal, setSkipModal] = useState(false);
+  const [skipReason, setSkipReason] = useState("");
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -99,7 +106,12 @@ export default function DoctorDashboard() {
     return (
       <>
         <PageMeta title="Dashboard | Doctor" description="Workday overview" />
-        <DashboardSkeleton />
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-brand-200 border-t-brand-500" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">Loading data...</p>
+          </div>
+        </div>
       </>
     );
   }
@@ -159,7 +171,10 @@ export default function DoctorDashboard() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 md:gap-5">
 
           {/* ===== Card 1: Today's Appointments ===== */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+          <button
+            onClick={() => navigate("/doctor/today")}
+            className="text-left rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 hover:border-brand-300 dark:hover:border-brand-700 hover:shadow-md transition-all group"
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand-50 dark:bg-brand-500/15">
@@ -170,6 +185,7 @@ export default function DoctorDashboard() {
                   <h3 className="text-2xl font-bold text-gray-800 dark:text-white">{today.total}</h3>
                 </div>
               </div>
+              <svg className="w-4 h-4 text-gray-300 group-hover:text-brand-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </div>
             <div className="flex flex-wrap gap-1.5">
               {today.confirmed > 0 && <Badge color="info" size="sm">Confirmed: {today.confirmed}</Badge>}
@@ -182,14 +198,17 @@ export default function DoctorDashboard() {
               {today.rescheduled > 0 && <Badge color="light" size="sm">Rescheduled: {today.rescheduled}</Badge>}
               {today.total === 0 && <span className="text-sm text-gray-400">No appointments today</span>}
             </div>
-          </div>
+          </button>
 
           {/* ===== Card 2: Patients Waiting ===== */}
-          <div className={`rounded-2xl border p-5 md:p-6 ${
-            patientsWaiting.hasLongWaitAlert
-              ? "border-red-300 bg-red-50/50 dark:border-red-500/30 dark:bg-red-500/5"
-              : "border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]"
-          }`}>
+          <button
+            onClick={() => navigate("/doctor/today")}
+            className={`text-left rounded-2xl border p-5 md:p-6 hover:shadow-md transition-all group ${
+              patientsWaiting.hasLongWaitAlert
+                ? "border-red-300 bg-red-50/50 dark:border-red-500/30 dark:bg-red-500/5 hover:border-red-400"
+                : "border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] hover:border-brand-300 dark:hover:border-brand-700"
+            }`}
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${
@@ -204,13 +223,15 @@ export default function DoctorDashboard() {
                   <h3 className="text-2xl font-bold text-gray-800 dark:text-white">{patientsWaiting.waitingCount}</h3>
                 </div>
               </div>
-              {patientsWaiting.hasLongWaitAlert && (
+              {patientsWaiting.hasLongWaitAlert ? (
                 <div className="flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-500/20 rounded-full animate-pulse">
                   <span className="text-xs">🔴</span>
                   <span className="text-xs font-medium text-red-600 dark:text-red-400">
                     {patientsWaiting.longWaitCount} waiting &gt;30m
                   </span>
                 </div>
+              ) : (
+                <svg className="w-4 h-4 text-gray-300 group-hover:text-brand-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               )}
             </div>
             <div className="space-y-1.5">
@@ -231,14 +252,17 @@ export default function DoctorDashboard() {
                 </span>
               </div>
             </div>
-          </div>
+          </button>
 
           {/* ===== Card 3: In Progress ===== */}
-          <div className={`rounded-2xl border p-5 md:p-6 ${
-            inProgress.isExamining
-              ? "border-green-300 bg-green-50/50 dark:border-green-500/30 dark:bg-green-500/5"
-              : "border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]"
-          }`}>
+          <button
+            onClick={() => navigate(inProgress.isExamining ? "/doctor/consultation" : "/doctor/today")}
+            className={`text-left rounded-2xl border p-5 md:p-6 hover:shadow-md transition-all group ${
+              inProgress.isExamining
+                ? "border-green-300 bg-green-50/50 dark:border-green-500/30 dark:bg-green-500/5 hover:border-green-400"
+                : "border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] hover:border-brand-300 dark:hover:border-brand-700"
+            }`}
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${
@@ -255,7 +279,7 @@ export default function DoctorDashboard() {
                   </h3>
                 </div>
               </div>
-              {inProgress.isExamining && (
+              {inProgress.isExamining ? (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-100 dark:bg-green-500/20 rounded-full">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -265,6 +289,8 @@ export default function DoctorDashboard() {
                     {elapsedMinutes} min
                   </span>
                 </div>
+              ) : (
+                <svg className="w-4 h-4 text-gray-300 group-hover:text-brand-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
               )}
             </div>
             {inProgress.isExamining ? (
@@ -283,14 +309,18 @@ export default function DoctorDashboard() {
                   <span className="text-gray-500 dark:text-gray-400">Started at</span>
                   <span className="font-medium text-gray-700 dark:text-gray-300">{fmtTime(inProgress.startedAt)}</span>
                 </div>
+                <p className="text-xs text-green-600 dark:text-green-400 font-medium mt-2">Click to open consultation &rarr;</p>
               </div>
             ) : (
               <p className="text-sm text-gray-400 dark:text-gray-500">No patient currently being examined</p>
             )}
-          </div>
+          </button>
 
           {/* ===== Card 4: Upcoming (Next 2 hours) ===== */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+          <button
+            onClick={() => navigate("/doctor/today")}
+            className="text-left rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 hover:border-brand-300 dark:hover:border-brand-700 hover:shadow-md transition-all group"
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 dark:bg-purple-500/15">
@@ -301,6 +331,7 @@ export default function DoctorDashboard() {
                   <h3 className="text-2xl font-bold text-gray-800 dark:text-white">{upcoming.count}</h3>
                 </div>
               </div>
+              <svg className="w-4 h-4 text-gray-300 group-hover:text-brand-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </div>
             {upcoming.nextAppointment ? (
               <div className="p-3 rounded-xl bg-purple-50/50 dark:bg-purple-500/5 border border-purple-100 dark:border-purple-500/10">
@@ -320,7 +351,7 @@ export default function DoctorDashboard() {
             ) : (
               <p className="text-sm text-gray-400 dark:text-gray-500">No appointments in the next 2 hours</p>
             )}
-          </div>
+          </button>
 
           {/* ===== Card 5: No-show Rate ===== */}
           <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
@@ -354,7 +385,6 @@ export default function DoctorDashboard() {
                 <span className="text-gray-500 dark:text-gray-400">Total this week</span>
                 <span className="font-medium text-gray-700 dark:text-gray-300">{noShowRate.totalWeekAppointments} appts</span>
               </div>
-              {/* Progress bar */}
               <div className="mt-2 h-1.5 w-full rounded-full bg-gray-100 dark:bg-gray-700">
                 <div
                   className={`h-1.5 rounded-full transition-all ${
@@ -367,7 +397,10 @@ export default function DoctorDashboard() {
           </div>
 
           {/* ===== Card 6: Rating ===== */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
+          <button
+            onClick={() => navigate("/doctor/reviews")}
+            className="text-left rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 hover:border-brand-300 dark:hover:border-brand-700 hover:shadow-md transition-all group"
+          >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-yellow-50 dark:bg-yellow-500/15">
@@ -381,9 +414,9 @@ export default function DoctorDashboard() {
                   </h3>
                 </div>
               </div>
+              <svg className="w-4 h-4 text-gray-300 group-hover:text-brand-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </div>
             <div className="space-y-1.5">
-              {/* Star display */}
               <div className="flex items-center gap-0.5 mb-2">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <svg
@@ -409,7 +442,7 @@ export default function DoctorDashboard() {
                 <span className="font-medium text-gray-700 dark:text-gray-300">{rating.recentReviewsCount}</span>
               </div>
             </div>
-          </div>
+          </button>
 
         </div>
 
@@ -464,6 +497,52 @@ export default function DoctorDashboard() {
                       </span>
                     </div>
                   )}
+                </div>
+                {/* Action Buttons */}
+                <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <button
+                    disabled={!!actionLoading || inProgress.isExamining}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      setActionLoading("start");
+                      try {
+                        await callPatient(nextPatient.appointmentId);
+                        await fetchDashboard();
+                        navigate("/doctor/consultation");
+                      } catch { /* refresh will show error state */ }
+                      setActionLoading(null);
+                    }}
+                    className="flex-1 px-3 py-2 text-xs font-semibold text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    title={inProgress.isExamining ? "Complete current consultation first" : "Start consultation"}
+                  >
+                    {actionLoading === "start" ? "Starting..." : "Start Consultation"}
+                  </button>
+                  <button
+                    disabled={!!actionLoading || inProgress.isExamining}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      setActionLoading("call");
+                      try {
+                        await callNextPatient();
+                        await fetchDashboard();
+                      } catch { /* handled by refresh */ }
+                      setActionLoading(null);
+                    }}
+                    className="px-3 py-2 text-xs font-semibold text-brand-600 bg-brand-50 dark:bg-brand-500/10 rounded-lg hover:bg-brand-100 dark:hover:bg-brand-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {actionLoading === "call" ? "Calling..." : "Call Patient"}
+                  </button>
+                  <button
+                    disabled={!!actionLoading}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSkipModal(true);
+                      setSkipReason("");
+                    }}
+                    className="px-3 py-2 text-xs font-semibold text-yellow-700 bg-yellow-50 dark:bg-yellow-500/10 rounded-lg hover:bg-yellow-100 dark:hover:bg-yellow-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Skip
+                  </button>
                 </div>
               </div>
             ) : (
@@ -541,11 +620,14 @@ export default function DoctorDashboard() {
               </div>
             </div>
             <div className="space-y-2.5">
-              <button className="w-full flex items-center justify-between p-3 rounded-xl bg-brand-50 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/20 hover:bg-brand-100 dark:hover:bg-brand-500/20 transition-colors group">
+              <button
+                onClick={() => navigate("/doctor/today")}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-brand-50 dark:bg-brand-500/10 border border-brand-100 dark:border-brand-500/20 hover:bg-brand-100 dark:hover:bg-brand-500/20 transition-colors group"
+              >
                 <div className="flex items-center gap-3">
                   <span className="text-lg">📋</span>
                   <div className="text-left">
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">View Today's Schedule</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">View Today&apos;s Schedule</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{quickActions.todayTotal} appointments</p>
                   </div>
                 </div>
@@ -554,7 +636,10 @@ export default function DoctorDashboard() {
                 </svg>
               </button>
 
-              <button className="w-full flex items-center justify-between p-3 rounded-xl bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 hover:bg-orange-100 dark:hover:bg-orange-500/20 transition-colors group">
+              <button
+                onClick={() => navigate("/doctor/appointments")}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 hover:bg-orange-100 dark:hover:bg-orange-500/20 transition-colors group"
+              >
                 <div className="flex items-center gap-3">
                   <span className="text-lg">✅</span>
                   <div className="text-left">
@@ -567,7 +652,10 @@ export default function DoctorDashboard() {
                 </svg>
               </button>
 
-              <button className="w-full flex items-center justify-between p-3 rounded-xl bg-green-50 dark:bg-green-500/10 border border-green-100 dark:border-green-500/20 hover:bg-green-100 dark:hover:bg-green-500/20 transition-colors group">
+              <button
+                onClick={() => navigate("/doctor/today")}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-green-50 dark:bg-green-500/10 border border-green-100 dark:border-green-500/20 hover:bg-green-100 dark:hover:bg-green-500/20 transition-colors group"
+              >
                 <div className="flex items-center gap-3">
                   <span className="text-lg">🏥</span>
                   <div className="text-left">
@@ -590,6 +678,53 @@ export default function DoctorDashboard() {
           {" · "}Auto-refresh every 60 seconds
         </p>
       </div>
+
+      {/* Skip Modal */}
+      {skipModal && nextPatient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+              Skip Patient
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
+              Skip <strong>{nextPatient.patientName}</strong> (Queue #{nextPatient.queueNumber})
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              A reason is required. This action will be recorded in the audit log.
+            </p>
+            <textarea
+              value={skipReason}
+              onChange={(e) => setSkipReason(e.target.value)}
+              placeholder="Enter reason for skipping..."
+              rows={3}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setSkipModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!skipReason.trim() || !!actionLoading}
+                onClick={async () => {
+                  setActionLoading("skip");
+                  try {
+                    await skipPatient(nextPatient.appointmentId, skipReason.trim());
+                    setSkipModal(false);
+                    await fetchDashboard();
+                  } catch { /* handled by refresh */ }
+                  setActionLoading(null);
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-yellow-500 rounded-lg hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {actionLoading === "skip" ? "Skipping..." : "Confirm Skip"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

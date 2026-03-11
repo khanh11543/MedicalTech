@@ -80,11 +80,17 @@ public class DoctorTodayController {
     }
 
     @PostMapping("/no-show/{appointmentId}")
-    @Operation(summary = "Mark patient as no-show")
-    public ResponseEntity<Map<String, String>> markNoShow(@PathVariable Long appointmentId) {
+    @Operation(summary = "Mark patient as no-show (reason required)")
+    public ResponseEntity<Map<String, String>> markNoShow(
+            @PathVariable Long appointmentId,
+            @RequestBody(required = false) Map<String, String> body) {
         Long userId = requireUserId();
         Doctor doctor = requireDoctor(userId);
-        doctorTodayService.markNoShow(doctor.getId(), appointmentId, userId);
+        String reason = (body != null) ? body.get("reason") : null;
+        if (reason == null || reason.trim().isEmpty()) {
+            throw new BadRequestException("Reason is required to mark a patient as no-show");
+        }
+        doctorTodayService.markNoShow(doctor.getId(), appointmentId, reason.trim(), userId);
         return ResponseEntity.ok(Map.of("message", "Patient marked as no-show"));
     }
 

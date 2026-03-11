@@ -1,242 +1,85 @@
-import { useParams, Link } from "react-router-dom";
-import { PageTitle } from "./components/SharedComponents";
+import { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { PageTitle, StarRating } from "./components/SharedComponents";
+import publicService, { type Specialty, type DoctorCard } from "../../services/publicService";
 import "./landing.css";
 
-/* ── Department Data ── */
-interface ServiceCard {
-  icon: string;
-  title: string;
-  desc: string;
+function parseHighlights(raw: string | null): string[] {
+  if (!raw) return [];
+  try { return JSON.parse(raw); } catch { return []; }
 }
 
-interface DepartmentDetail {
-  slug: string;
-  icon: string;
-  title: string;
-  subtitle: string;
-  description: string;
-  img: string;
-  yearsExperience: string;
-  serviceCards: ServiceCard[];
-  stats: { number: string; label: string; icon: string }[];
-  specializedServices: string[];
-  ctaImg: string;
-}
-
-const departmentDetails: DepartmentDetail[] = [
-  {
-    slug: "cardiology",
-    icon: "bi bi-heart-pulse",
-    title: "Cardiology Department",
-    subtitle: "Heart & Vascular Care",
-    description:
-      "Our Cardiology Department provides comprehensive cardiac care with state-of-the-art technology and experienced specialists. We are committed to delivering exceptional heart care through advanced diagnostics, innovative treatments, and personalized patient care programs.",
-    img: "/images/landing/cardiology-2.webp",
-    yearsExperience: "15+",
-    serviceCards: [
-      {
-        icon: "bi bi-heart-pulse",
-        title: "Comprehensive Cardiac Care",
-        desc: "Complete heart health management including preventive care, diagnosis, and advanced treatment options.",
-      },
-      {
-        icon: "bi bi-activity",
-        title: "Advanced Diagnostics",
-        desc: "State-of-the-art cardiac imaging and diagnostic tools for accurate and early detection of heart conditions.",
-      },
-      {
-        icon: "bi bi-person-heart",
-        title: "Personalized Treatment Plans",
-        desc: "Tailored cardiac treatment programs designed to meet each patient's unique health needs and goals.",
-      },
-    ],
-    stats: [
-      { number: "2500", label: "Patients Treated", icon: "bi bi-people-fill" },
-      { number: "12", label: "Specialized Doctors", icon: "bi bi-person-badge-fill" },
-      { number: "98", label: "Success Rate", icon: "bi bi-graph-up-arrow" },
-      { number: "24", label: "Hours Service", icon: "bi bi-clock-fill" },
-    ],
-    specializedServices: [
-      "Advanced Cardiac Surgery & Bypass",
-      "Interventional Cardiology Procedures",
-      "Heart Rhythm Management & Monitoring",
-      "Cardiac Rehabilitation Programs",
-      "Preventive Cardiology & Screening",
-    ],
-    ctaImg: "/images/user/user-01.jpg",
-  },
-  {
-    slug: "neurology",
-    icon: "bi bi-lightning-fill",
-    title: "Neurology Department",
-    subtitle: "Brain & Nervous System",
-    description:
-      "Our Neurology Department provides comprehensive care for disorders of the brain, spinal cord, and peripheral nerves. With cutting-edge diagnostic tools and treatment options, our team delivers exceptional patient outcomes.",
-    img: "/images/landing/neurology-4.webp",
-    yearsExperience: "12+",
-    serviceCards: [
-      {
-        icon: "bi bi-lightning-fill",
-        title: "Neurodiagnostic Services",
-        desc: "Advanced brain imaging and diagnostic tools for accurate diagnosis of neurological conditions.",
-      },
-      {
-        icon: "bi bi-activity",
-        title: "Stroke Care Center",
-        desc: "24/7 dedicated stroke center with rapid response team and advanced treatment protocols.",
-      },
-      {
-        icon: "bi bi-person-heart",
-        title: "Rehabilitation Programs",
-        desc: "Comprehensive neurorehabilitation programs tailored to each patient's recovery needs.",
-      },
-    ],
-    stats: [
-      { number: "1800", label: "Patients Treated", icon: "bi bi-people-fill" },
-      { number: "10", label: "Specialized Doctors", icon: "bi bi-person-badge-fill" },
-      { number: "97", label: "Success Rate", icon: "bi bi-graph-up-arrow" },
-      { number: "24", label: "Hours Service", icon: "bi bi-clock-fill" },
-    ],
-    specializedServices: [
-      "Brain Imaging & Advanced Diagnostics",
-      "Epilepsy Monitoring & Treatment",
-      "Stroke Treatment & Prevention",
-      "Memory Disorders & Cognitive Care",
-      "Neurosurgery & Rehabilitation",
-    ],
-    ctaImg: "/images/user/user-04.jpg",
-  },
-  {
-    slug: "dermatology",
-    icon: "bi bi-shield-plus",
-    title: "Dermatology Department",
-    subtitle: "Skin Health Experts",
-    description:
-      "Our Dermatology Department offers a full range of services for skin, hair, and nail conditions. From cosmetic procedures to medical dermatology, our specialists provide personalized treatment plans using the latest techniques.",
-    img: "/images/landing/dermatology-3.webp",
-    yearsExperience: "10+",
-    serviceCards: [
-      {
-        icon: "bi bi-shield-plus",
-        title: "Medical Dermatology",
-        desc: "Expert diagnosis and treatment of skin conditions including eczema, psoriasis, and skin cancer.",
-      },
-      {
-        icon: "bi bi-stars",
-        title: "Cosmetic Procedures",
-        desc: "Advanced cosmetic treatments including laser therapy, chemical peels, and anti-aging solutions.",
-      },
-      {
-        icon: "bi bi-person-heart",
-        title: "Personalized Skin Care",
-        desc: "Customized skin care plans designed for your unique skin type and health goals.",
-      },
-    ],
-    stats: [
-      { number: "3200", label: "Patients Treated", icon: "bi bi-people-fill" },
-      { number: "8", label: "Specialized Doctors", icon: "bi bi-person-badge-fill" },
-      { number: "99", label: "Success Rate", icon: "bi bi-graph-up-arrow" },
-      { number: "12", label: "Hours Service", icon: "bi bi-clock-fill" },
-    ],
-    specializedServices: [
-      "Cosmetic Dermatology & Laser Therapy",
-      "Skin Cancer Screening & Treatment",
-      "Acne & Scar Treatment Programs",
-      "Psoriasis & Eczema Management",
-      "Hair Restoration & Nail Care",
-    ],
-    ctaImg: "/images/user/user-02.jpg",
-  },
-  {
-    slug: "orthopedics",
-    icon: "bi bi-bandaid",
-    title: "Orthopedics Department",
-    subtitle: "Bone & Joint Care",
-    description:
-      "The Orthopedics Department specializes in the diagnosis and treatment of musculoskeletal conditions. Our expert team provides comprehensive care for bone, joint, ligament, tendon, and muscle problems.",
-    img: "/images/landing/orthopedics-4.webp",
-    yearsExperience: "18+",
-    serviceCards: [
-      {
-        icon: "bi bi-bandaid",
-        title: "Joint Replacement",
-        desc: "Robotic-assisted joint replacement surgery with minimally invasive techniques for faster recovery.",
-      },
-      {
-        icon: "bi bi-activity",
-        title: "Sports Medicine",
-        desc: "Comprehensive sports injury treatment and prevention programs for athletes of all levels.",
-      },
-      {
-        icon: "bi bi-person-heart",
-        title: "Rehabilitation Services",
-        desc: "Advanced physical therapy and rehabilitation programs for complete musculoskeletal recovery.",
-      },
-    ],
-    stats: [
-      { number: "2100", label: "Patients Treated", icon: "bi bi-people-fill" },
-      { number: "15", label: "Specialized Doctors", icon: "bi bi-person-badge-fill" },
-      { number: "96", label: "Success Rate", icon: "bi bi-graph-up-arrow" },
-      { number: "24", label: "Hours Service", icon: "bi bi-clock-fill" },
-    ],
-    specializedServices: [
-      "Joint Replacement & Reconstruction",
-      "Sports Medicine & Injury Prevention",
-      "Minimally Invasive Spine Surgery",
-      "Fracture Care & Arthroscopy",
-      "Physical Therapy & Rehabilitation",
-    ],
-    ctaImg: "/images/user/user-05.jpg",
-  },
-  {
-    slug: "pediatrics",
-    icon: "bi bi-emoji-smile",
-    title: "Pediatrics Department",
-    subtitle: "Children's Health",
-    description:
-      "Our Pediatrics Department provides comprehensive healthcare for infants, children, and adolescents. From routine check-ups to complex medical conditions, our dedicated pediatricians ensure your child receives the best care.",
-    img: "/images/landing/pediatrics-2.webp",
-    yearsExperience: "20+",
-    serviceCards: [
-      {
-        icon: "bi bi-emoji-smile",
-        title: "Newborn & Infant Care",
-        desc: "Specialized neonatal care and routine check-ups for newborns and infants in a safe environment.",
-      },
-      {
-        icon: "bi bi-activity",
-        title: "Child Development",
-        desc: "Comprehensive developmental screening and support services for growing children.",
-      },
-      {
-        icon: "bi bi-shield-check",
-        title: "Vaccination Programs",
-        desc: "Complete immunization programs following the latest pediatric guidelines and schedules.",
-      },
-    ],
-    stats: [
-      { number: "4500", label: "Patients Treated", icon: "bi bi-people-fill" },
-      { number: "20", label: "Specialized Doctors", icon: "bi bi-person-badge-fill" },
-      { number: "99", label: "Success Rate", icon: "bi bi-graph-up-arrow" },
-      { number: "18", label: "Hours Service", icon: "bi bi-clock-fill" },
-    ],
-    specializedServices: [
-      "Newborn Care & Neonatal Services",
-      "Child Development & Screening",
-      "Vaccination & Immunization Programs",
-      "Pediatric Surgery & Emergency",
-      "Adolescent Medicine & Counseling",
-    ],
-    ctaImg: "/images/user/user-03.jpg",
-  },
-];
-
-/* ── Component ── */
 export default function DepartmentDetailPage() {
   const { slug } = useParams<{ slug: string }>();
-  const dept = departmentDetails.find((d) => d.slug === slug);
+  const navigate = useNavigate();
 
-  if (!dept) {
+  const [specialty, setSpecialty] = useState<Specialty | null>(null);
+  const [doctors, setDoctors] = useState<DoctorCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+
+  useEffect(() => {
+    if (!slug) return;
+
+    setLoading(true);
+    setNotFound(false);
+
+    publicService.getSpecialtyBySlug(slug)
+      .then((data) => {
+        setSpecialty(data);
+        return publicService.getDoctors({ pageSize: 50 });
+      })
+      .then((res) => {
+        const list = res.content;
+        if (specialty) {
+          setDoctors(list.filter((d) => d.primarySpecialty === specialty.name));
+        } else {
+          setDoctors(list);
+        }
+      })
+      .catch((err) => {
+        if (err?.response?.status === 404) {
+          setNotFound(true);
+        }
+      })
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
+
+  // Re-filter doctors once specialty is loaded
+  useEffect(() => {
+    if (!specialty) return;
+    publicService.getDoctors({ pageSize: 50 }).then((res) => {
+      setDoctors(res.content.filter((d) => d.primarySpecialty === specialty.name));
+    }).catch(() => {});
+  }, [specialty]);
+
+  const handleBookAppointment = (doctorId?: number) => {
+    const params = new URLSearchParams();
+    if (specialty) params.set("department", specialty.name);
+    if (doctorId) params.set("doctor", String(doctorId));
+    navigate(`/appointment?${params.toString()}`);
+  };
+
+  if (loading) {
+    return (
+      <>
+        <PageTitle
+          title="Department Details"
+          description="Loading department information..."
+          breadcrumbs={[{ label: "Home", to: "/home" }, { label: "Departments", to: "/departments" }, { label: "Loading..." }]}
+        />
+        <section className="dd-section">
+          <div className="container-landing text-center py-20">
+            <i className="bi bi-arrow-repeat text-4xl text-[#049ebb] animate-spin"></i>
+            <p className="mt-4 text-gray-500">Loading department details...</p>
+          </div>
+        </section>
+      </>
+    );
+  }
+
+  if (notFound || !specialty) {
     return (
       <>
         <PageTitle
@@ -265,117 +108,223 @@ export default function DepartmentDetailPage() {
     );
   }
 
+  const highlights = parseHighlights(specialty.highlights);
+  const icon = specialty.iconUrl || "bi bi-hospital";
+  const img = specialty.imageUrl || "/images/landing/cardiology-2.webp";
+
   return (
     <>
       <PageTitle
-        title="Department Details"
-        description="Discover our specialized medical departments dedicated to providing advanced diagnosis, effective treatment, and compassionate patient care through experienced medical professionals and modern healthcare technology."
+        title={specialty.name}
+        description={specialty.subtitle || specialty.description || "Specialized medical care with experienced professionals."}
         breadcrumbs={[
           { label: "Home", to: "/home" },
-          { label: "Category", to: "/departments" },
-          { label: "Department Details" },
+          { label: "Departments", to: "/departments" },
+          { label: specialty.name },
         ]}
       />
 
-      {/* Department Title Section */}
-      <section className="dd-section" style={{ background: '#ffffff' }}>
+      {/* Department Overview */}
+      <section className="dd-section" style={{ background: "#ffffff" }}>
         <div className="container-landing">
           <div className="dd-title-block">
-            <h2 className="dd-dept-name">{dept.title}</h2>
+            <div className="flex items-center justify-center gap-4 mb-4">
+              <div className="w-[70px] h-[70px] rounded-full bg-[rgba(4,158,187,0.15)] flex items-center justify-center">
+                <i className={`${icon} text-[2rem] text-[#049ebb]`}></i>
+              </div>
+            </div>
+            <h2 className="dd-dept-name">{specialty.name}</h2>
+            {specialty.subtitle && (
+              <p className="text-[1.1rem] text-[#049ebb] font-medium mb-2">{specialty.subtitle}</p>
+            )}
             <div className="dd-divider"></div>
-            <p className="dd-dept-lead">{dept.description}</p>
+            <p className="dd-dept-lead">{specialty.description}</p>
           </div>
         </div>
       </section>
 
-      {/* Overview Section: Image + Service Cards */}
+      {/* Image + Highlights */}
       <section className="dd-section dd-overview-section">
         <div className="container-landing">
           <div className="dd-overview-grid">
             {/* Left: Department Image */}
             <div className="dd-overview-img-wrapper">
-              <img src={dept.img} alt={dept.title} className="dd-overview-img" loading="lazy" />
-              <div className="dd-experience-badge">
-                <span className="dd-exp-number">{dept.yearsExperience}</span>
-                <span className="dd-exp-text">Years of Excellence</span>
-              </div>
+              <img src={img} alt={specialty.name} className="dd-overview-img" loading="lazy" />
             </div>
 
-            {/* Right: Service Cards */}
+            {/* Right: Highlights & CTA */}
             <div className="dd-service-cards">
-              {dept.serviceCards.map((sc) => (
-                <div key={sc.title} className="dd-service-card">
+              {highlights.length > 0 ? (
+                highlights.map((h) => (
+                  <div key={h} className="dd-service-card">
+                    <div className="dd-service-card-icon">
+                      <i className="bi bi-check-circle-fill"></i>
+                    </div>
+                    <div className="dd-service-card-body">
+                      <h4 className="dd-service-card-title">{h}</h4>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="dd-service-card">
                   <div className="dd-service-card-icon">
-                    <i className={sc.icon}></i>
+                    <i className={icon}></i>
                   </div>
                   <div className="dd-service-card-body">
-                    <h4 className="dd-service-card-title">{sc.title}</h4>
-                    <p className="dd-service-card-desc">{sc.desc}</p>
+                    <h4 className="dd-service-card-title">Specialized Medical Care</h4>
+                    <p className="dd-service-card-desc">
+                      Our team of experienced professionals is dedicated to providing the highest quality care
+                      with advanced medical technology and personalized treatment plans.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Book Appointment CTA inside highlights */}
+              <div className="mt-4">
+                <button
+                  onClick={handleBookAppointment}
+                  className="w-full py-4 px-6 rounded-xl font-semibold text-white bg-[#049ebb] border-none cursor-pointer transition-all hover:bg-[#037a94] hover:-translate-y-[2px] hover:shadow-[0_8px_25px_rgba(4,158,187,0.4)] flex items-center justify-center gap-3 text-[1.05rem]"
+                >
+                  <i className="bi bi-calendar-check text-[1.3rem]"></i>
+                  Book Appointment — {specialty.name}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Doctors in this Department */}
+      {doctors.length > 0 && (
+        <section className="py-[60px] bg-[#f8f9fa]">
+          <div className="container-landing">
+            <div className="text-center mb-10">
+              <h2 className="text-[2rem] font-bold text-[#18444c] mb-3">
+                Our {specialty.name} Specialists
+              </h2>
+              <p className="text-gray-500 max-w-[600px] mx-auto">
+                Meet our experienced doctors specializing in {specialty.name}. Choose your preferred doctor and book an appointment.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {doctors.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="bg-white rounded-[15px] overflow-hidden shadow-[0_5px_25px_rgba(44,48,49,0.08)] transition-all hover:-translate-y-[5px] hover:shadow-[0_15px_40px_rgba(44,48,49,0.15)]"
+                >
+                  {/* Doctor Image */}
+                  <div className="relative overflow-hidden h-[250px]">
+                    {doc.avatarUrl ? (
+                      <img
+                        src={doc.avatarUrl}
+                        alt={doc.fullName}
+                        className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-[#049ebb] to-[#037a94] flex items-center justify-center">
+                        <span className="text-[4rem] font-bold text-white">{doc.fullName.replace(/^Dr\.?\s*/i, "").charAt(0)}</span>
+                      </div>
+                    )}
+                    {doc.isAvailable && (
+                      <div className="absolute top-[15px] right-[15px] py-1 px-3 rounded-[20px] text-[0.75rem] font-semibold uppercase tracking-[0.5px] bg-[rgba(40,167,69,0.9)] text-white">
+                        Available
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Doctor Info */}
+                  <div className="p-6">
+                    <h5 className="text-[1.25rem] font-semibold text-[#18444c] mb-2">
+                      {doc.fullName}
+                    </h5>
+                    <p className="text-[#049ebb] font-medium mb-1">{doc.primarySpecialty}</p>
+                    {doc.experienceYears > 0 && (
+                      <p className="text-[0.9rem] text-[rgba(44,48,49,0.7)] mb-1">
+                        {doc.experienceYears}+ years experience
+                      </p>
+                    )}
+                    {doc.consultationFee > 0 && (
+                      <p className="text-[0.9rem] text-[rgba(44,48,49,0.7)] mb-3">
+                        Fee: {doc.consultationFee.toLocaleString()}đ
+                      </p>
+                    )}
+                    <div className="flex items-center mb-4">
+                      <StarRating rating={doc.ratingCount > 0 ? (doc.ratingAvg ?? 0) : 0} showValue={false} />
+                      {doc.ratingCount > 0 ? (
+                        <span className="ml-2 text-[0.8rem] text-gray-400">({doc.ratingCount})</span>
+                      ) : (
+                        <span className="ml-2 text-[0.8rem] text-gray-400">No reviews</span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <Link
+                        to={`/patient/doctors/${doc.id}`}
+                        className="flex-1 py-2 px-4 text-center text-[0.875rem] font-medium rounded-lg border-2 border-[#049ebb] text-[#049ebb] no-underline transition-all hover:bg-[#049ebb] hover:text-white"
+                      >
+                        View Profile
+                      </Link>
+                      <button
+                        onClick={() => handleBookAppointment(doc.id)}
+                        className="flex-1 py-2 px-4 text-center text-[0.875rem] font-medium rounded-lg border-2 border-[#049ebb] bg-[#049ebb] text-white cursor-pointer transition-all hover:bg-[#037a94] hover:border-[#037a94]"
+                      >
+                        Book Now
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* Stats Section */}
-      <section className="dd-stats-section">
-        <div className="container-landing">
-          <div className="dd-stats-grid">
-            {dept.stats.map((s) => (
-              <div key={s.label} className="dd-stat-item">
-                <span className="dd-stat-number">{s.number}</span>
-                <span className="dd-stat-label">{s.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Specialized Services Section */}
+      {/* CTA Section */}
       <section className="dd-section dd-services-section">
         <div className="container-landing">
           <div className="dd-services-grid">
-            {/* Left: Services List */}
             <div className="dd-services-left">
-              <h2 className="dd-services-heading">Our Specialized Services</h2>
+              <h2 className="dd-services-heading">Ready to Get Started?</h2>
               <p className="dd-services-desc">
-                We provide a wide range of specialized medical services designed to meet the unique
-                needs of every patient. Our team of experts uses the latest technology and
-                evidence-based practices.
+                Our {specialty.name} department provides comprehensive care with experienced specialists
+                and advanced medical technology. Book your appointment today and take the first step
+                towards better health.
               </p>
-              <ul className="dd-services-checklist">
-                {dept.specializedServices.map((svc) => (
-                  <li key={svc}>
-                    <i className="bi bi-check-circle-fill"></i>
-                    <span>{svc}</span>
-                  </li>
-                ))}
-              </ul>
+
+              {highlights.length > 0 && (
+                <ul className="dd-services-checklist">
+                  {highlights.map((svc) => (
+                    <li key={svc}>
+                      <i className="bi bi-check-circle-fill"></i>
+                      <span>{svc}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
-            {/* Right: CTA Card */}
             <div className="dd-cta-card">
               <div className="dd-cta-content">
                 <h3 className="dd-cta-title">Expert Care When You Need It Most</h3>
                 <p className="dd-cta-desc">
-                  Our dedicated team of specialists is available around the clock to provide you
-                  with the highest quality medical care. Schedule your appointment today.
+                  Our dedicated team of {specialty.name} specialists is ready to provide you
+                  with the highest quality medical care. You can pay online via MoMo QR or pay at the reception.
                 </p>
                 <div className="dd-cta-actions">
-                  <Link to="/appointment" className="dd-cta-btn-primary">
+                  <button onClick={handleBookAppointment} className="dd-cta-btn-primary">
                     <i className="bi bi-calendar-check"></i>
                     Book Appointment
-                  </Link>
-                  <Link to={`/departments`} className="dd-cta-btn-outline">
-                    Learn More
+                  </button>
+                  <Link to="/departments" className="dd-cta-btn-outline">
+                    Other Departments
                     <i className="bi bi-arrow-right"></i>
                   </Link>
                 </div>
-              </div>
-              <div className="dd-cta-img-side">
-                <img src={dept.ctaImg} alt="Expert Doctor" loading="lazy" />
+                <div className="mt-4 flex items-center gap-2 text-[0.85rem] text-gray-500">
+                  <i className="bi bi-shield-check text-[#049ebb]"></i>
+                  <span>Online payment (MoMo QR) or pay at reception</span>
+                </div>
               </div>
             </div>
           </div>

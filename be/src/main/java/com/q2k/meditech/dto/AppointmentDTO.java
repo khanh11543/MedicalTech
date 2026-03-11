@@ -8,6 +8,7 @@ import com.q2k.meditech.entity.enums.AppointmentStatus;
 import com.q2k.meditech.entity.enums.BookedBy;
 
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -51,6 +52,14 @@ public class AppointmentDTO {
 
     private String appointmentType;
     private String paymentStatus;
+
+    /** Id of the payment for this appointment (if any) — for patient portal Pay Now */
+    private Long paymentId;
+
+    /** Consultation fee (from doctor) for display on patient portal */
+    private BigDecimal consultationFee;
+
+    private Boolean hasReview;
 
     private LocalDateTime checkedInAt;
     private LocalDateTime createdAt;

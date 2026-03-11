@@ -27,4 +27,7 @@ public interface ContentRepository extends JpaRepository<Content, Long> {
     Page<Content> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
     boolean existsBySlug(String slug);
+
+    Page<Content> findByTypeAndStatusOrderByIsPinnedDescCreatedAtDesc(
+            Content.ContentType type, Content.ContentStatus status, Pageable pageable);
 }

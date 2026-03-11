@@ -9,7 +9,7 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 
 @Repository
-public interface SpecialtyRepository extends JpaRepository<Specialty, Integer> {
+public interface SpecialtyRepository extends JpaRepository<Specialty, Long> {
 
     /**
      * Find specialties by name containing keyword (case-insensitive)
@@ -24,4 +24,11 @@ public interface SpecialtyRepository extends JpaRepository<Specialty, Integer> {
      * Find all active specialties
      */
     List<Specialty> findByIsActiveTrueOrderByNameAsc();
+
+    java.util.Optional<Specialty> findByName(String name);
+
+    @Query("SELECT s FROM Specialty s WHERE LOWER(s.name) = LOWER(:name)")
+    java.util.Optional<Specialty> findByNameIgnoreCase(@Param("name") String name);
+
+    java.util.Optional<Specialty> findBySlug(String slug);
 }

@@ -60,7 +60,7 @@ public class EmailService {
     }
 
     /**
-     * Send reset password email
+     * Send reset password email (legacy: token-based reset)
      */
     public void sendResetPasswordEmail(String email, String resetToken) {
         try {
@@ -71,6 +71,23 @@ public class EmailService {
             log.info("✅ Reset password email sent successfully to: {}", email);
         } catch (Exception e) {
             log.error("❌ Failed to send reset password email to: {}", email, e);
+            throw new RuntimeException("Failed to send email", e);
+        }
+    }
+
+    /**
+     * Send forgot-password email with new temporary password.
+     * Temp password is valid for 15 minutes; user must login and change password in Profile.
+     */
+    public void sendForgotPasswordTempPasswordEmail(String email, String tempPassword, int validMinutes) {
+        try {
+            String subject = "Password recovery - Your new password - MedicalTech";
+            String htmlContent = buildForgotPasswordTempPasswordTemplate(tempPassword, validMinutes);
+
+            sendHtmlEmail(email, subject, htmlContent);
+            log.info("✅ Forgot password (temp password) email sent to: {}", email);
+        } catch (Exception e) {
+            log.error("❌ Failed to send forgot password email to: {}", email, e);
             throw new RuntimeException("Failed to send email", e);
         }
     }
@@ -165,6 +182,59 @@ public class EmailService {
                 "        <div class='footer'>\n" +
                 "            <p>© 2026 MedicalTech. All rights reserved.</p>\n" +
                 "            <p>Email này được gửi tự động, vui lòng không trả lời.</p>\n" +
+                "        </div>\n" +
+                "    </div>\n" +
+                "</body>\n" +
+                "</html>";
+    }
+
+    /**
+     * Build Forgot Password (temporary password) email HTML template
+     */
+    private String buildForgotPasswordTempPasswordTemplate(String tempPassword, int validMinutes) {
+        return "<!DOCTYPE html>\n" +
+                "<html>\n" +
+                "<head>\n" +
+                "    <meta charset='UTF-8'>\n" +
+                "    <meta name='viewport' content='width=device-width, initial-scale=1.0'>\n" +
+                "    <style>\n" +
+                "        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }\n" +
+                "        .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n" +
+                "        .header { background: linear-gradient(135deg, #049ebb 0%, #037a94 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }\n" +
+                "        .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }\n" +
+                "        .password-box { background: white; padding: 20px; text-align: center; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }\n" +
+                "        .password-code { font-size: 24px; font-weight: bold; color: #049ebb; letter-spacing: 3px; margin: 10px 0; }\n" +
+                "        .footer { text-align: center; margin-top: 20px; color: #777; font-size: 12px; }\n" +
+                "        .warning { color: #e74c3c; font-size: 14px; margin-top: 15px; }\n" +
+                "        .steps { background: #e8f4f8; padding: 15px; border-radius: 8px; margin: 15px 0; }\n" +
+                "    </style>\n" +
+                "</head>\n" +
+                "<body>\n" +
+                "    <div class='container'>\n" +
+                "        <div class='header'>\n" +
+                "            <h1>MedicalTech</h1>\n" +
+                "            <p>Password recovery</p>\n" +
+                "        </div>\n" +
+                "        <div class='content'>\n" +
+                "            <h2>Your new temporary password</h2>\n" +
+                "            <p>You requested a password reset. Use the temporary password below to sign in:</p>\n" +
+                "            <div class='password-box'>\n" +
+                "                <p>Temporary password:</p>\n" +
+                "                <div class='password-code'>" + tempPassword + "</div>\n" +
+                "                <p class='warning'>This password is valid for <strong>" + validMinutes + " minutes</strong> only. After that, request Forgot password again to receive a new one.</p>\n" +
+                "            </div>\n" +
+                "            <div class='steps'>\n" +
+                "                <p><strong>Next steps:</strong></p>\n" +
+                "                <ol style='text-align: left; margin: 10px 0; padding-left: 20px;'>\n" +
+                "                    <li>Sign in with your email and the temporary password above</li>\n" +
+                "                    <li>Go to <strong>Profile / Account settings</strong> to change your password</li>\n" +
+                "                </ol>\n" +
+                "            </div>\n" +
+                "            <p>Do not share this email. If you did not request a reset, ignore this message and change your password if you are already signed in.</p>\n" +
+                "        </div>\n" +
+                "        <div class='footer'>\n" +
+                "            <p>© 2026 MedicalTech. All rights reserved.</p>\n" +
+                "            <p>This is an automated message; please do not reply.</p>\n" +
                 "        </div>\n" +
                 "    </div>\n" +
                 "</body>\n" +

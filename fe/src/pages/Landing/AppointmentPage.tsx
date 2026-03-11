@@ -1,5 +1,9 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
+import { useSearchParams, Link } from "react-router-dom";
 import { PageTitle } from "./components/SharedComponents";
+import publicService, { type Specialty, type DoctorCard, type TimeSlot } from "../../services/publicService";
+import patientService from "../../services/patientService";
+import { useAuth } from "../../context/AuthContext";
 import "./landing.css";
 
 interface FormData {
@@ -9,6 +13,7 @@ interface FormData {
   department: string;
   date: string;
   doctor: string;
+  timeSlotId: string;
   message: string;
 }
 
@@ -62,29 +67,140 @@ const infoItems = [
 ];
 
 export default function AppointmentPage() {
+  const { user, isAuthenticated } = useAuth();
+  const [searchParams] = useSearchParams();
+  const preselectedDepartment = searchParams.get("department") || "";
+  const preselectedDoctor = searchParams.get("doctor") || "";
+
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
     phone: "",
-    department: "",
+    department: preselectedDepartment,
     date: "",
-    doctor: "",
+    doctor: preselectedDoctor,
+    timeSlotId: "",
     message: "",
   });
   const [submitted, setSubmitted] = useState(false);
+  const [departments, setDepartments] = useState<Specialty[]>([]);
+  const [doctors, setDoctors] = useState<DoctorCard[]>([]);
+  const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    publicService.getSpecialties().then((list) => setDepartments(list)).catch(() => {});
+    publicService.getDoctors({ pageSize: 50 }).then((res) => {
+      const list = Array.isArray(res.content) ? res.content : [];
+      setDoctors(list);
+
+      if (preselectedDoctor && !preselectedDepartment) {
+        const doc = list.find((d) => String(d.id) === preselectedDoctor);
+        if (doc?.primarySpecialty) {
+          setFormData((prev) => ({ ...prev, department: doc.primarySpecialty }));
+        }
+      }
+    }).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Fetch available time slots when doctor + date change
+  useEffect(() => {
+    if (!formData.doctor || !formData.date) {
+      setTimeSlots([]);
+      setFormData((prev) => ({ ...prev, timeSlotId: "" }));
+      return;
+    }
+    setSlotsLoading(true);
+    publicService
+      .getDoctorSlots(Number(formData.doctor), formData.date, formData.date)
+      .then((slots) => {
+        setTimeSlots(slots);
+        setFormData((prev) => ({ ...prev, timeSlotId: "" }));
+      })
+      .catch(() => setTimeSlots([]))
+      .finally(() => setSlotsLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.doctor, formData.date]);
+
+  const filteredDoctors = formData.department
+    ? doctors.filter((d) => d.primarySpecialty === formData.department)
+    : doctors;
+
+  const selectedSlot = timeSlots.find((s) => String(s.id) === formData.timeSlotId);
 
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >
   ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === "department") {
+      const selectedDoc = doctors.find((d) => String(d.id) === formData.doctor);
+      const doctorStillValid = selectedDoc?.primarySpecialty === value;
+      setFormData({ ...formData, department: value, doctor: doctorStillValid ? formData.doctor : "", timeSlotId: "" });
+    } else if (name === "doctor" || name === "date") {
+      setFormData({ ...formData, [name]: value, timeSlotId: "" });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => setSubmitted(false), 5000);
+    setSubmitting(true);
+    setError("");
+    try {
+      if (!isAuthenticated || !user) {
+        setError("Please sign in to book an appointment.");
+        setSubmitting(false);
+        return;
+      }
+      if (!user.roles.includes("PATIENT")) {
+        setError("Only patients can book appointments. Please sign in with a patient account.");
+        setSubmitting(false);
+        return;
+      }
+      if (!formData.doctor || !formData.date) {
+        setError("Please select a doctor and appointment date.");
+        setSubmitting(false);
+        return;
+      }
+      if (!selectedSlot) {
+        setError("Please select a time slot before booking.");
+        setSubmitting(false);
+        return;
+      }
+      await patientService.bookAppointment({
+        patientId: user.userId,
+        doctorId: Number(formData.doctor),
+        appointmentDate: formData.date,
+        timeSlotId: selectedSlot.id,
+        startTime: selectedSlot.startTime,
+        endTime: selectedSlot.endTime,
+        reasonForVisit: formData.message || undefined,
+      });
+      setSubmitted(true);
+      setFormData({ name: "", email: "", phone: "", department: "", date: "", doctor: "", timeSlotId: "", message: "" });
+      setTimeSlots([]);
+      setTimeout(() => setSubmitted(false), 5000);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to submit appointment request. Please try again.";
+      setError(msg);
+      setFormData((prev) => ({ ...prev, timeSlotId: "" }));
+      if (formData.doctor && formData.date) {
+        setSlotsLoading(true);
+        publicService
+          .getDoctorSlots(Number(formData.doctor), formData.date, formData.date)
+          .then((slots) => setTimeSlots(slots))
+          .catch(() => {})
+          .finally(() => setSlotsLoading(false));
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -185,14 +301,12 @@ export default function AppointmentPage() {
                     value={formData.department}
                     onChange={handleChange}
                     className="appt-input appt-select"
+                    aria-label="Select Department"
                   >
                     <option value="">Select Department</option>
-                    <option value="cardiology">Cardiology</option>
-                    <option value="neurology">Neurology</option>
-                    <option value="orthopedics">Orthopedics</option>
-                    <option value="pediatrics">Pediatrics</option>
-                    <option value="dermatology">Dermatology</option>
-                    <option value="general">General Medicine</option>
+                    {departments.map((dep) => (
+                      <option key={dep.id} value={dep.name}>{dep.name}</option>
+                    ))}
                   </select>
                   <input
                     type="date"
@@ -200,7 +314,9 @@ export default function AppointmentPage() {
                     required
                     value={formData.date}
                     onChange={handleChange}
+                    min={(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })()}
                     className="appt-input"
+                    aria-label="Appointment Date"
                   />
                   <select
                     name="doctor"
@@ -208,16 +324,93 @@ export default function AppointmentPage() {
                     value={formData.doctor}
                     onChange={handleChange}
                     className="appt-input appt-select"
+                    aria-label="Select Doctor"
                   >
                     <option value="">Select Doctor</option>
-                    <option value="dr-johnson">Dr. Sarah Johnson</option>
-                    <option value="dr-martinez">Dr. Michael Martinez</option>
-                    <option value="dr-chen">Dr. Lisa Chen</option>
-                    <option value="dr-patel">Dr. Raj Patel</option>
-                    <option value="dr-williams">Dr. Emily Williams</option>
-                    <option value="dr-thompson">Dr. David Thompson</option>
+                    {filteredDoctors.map((doc) => (
+                      <option key={doc.id} value={String(doc.id)}>{doc.fullName}</option>
+                    ))}
                   </select>
                 </div>
+
+                {/* Time Slot Picker */}
+                {formData.doctor && formData.date && (
+                  <div className="appt-timeslot-section">
+                    <label className="appt-timeslot-label">
+                      <i className="bi bi-clock"></i> Available Time Slots
+                      {selectedSlot && (
+                        <span className="appt-timeslot-selected">
+                          Selected: {selectedSlot.startTime.substring(0, 5)} – {selectedSlot.endTime.substring(0, 5)}
+                        </span>
+                      )}
+                    </label>
+                    {slotsLoading ? (
+                      <div className="appt-timeslot-loading">
+                        <div className="appt-timeslot-spinner" />
+                        Loading available slots...
+                      </div>
+                    ) : timeSlots.length === 0 ? (
+                      <div className="appt-timeslot-empty">
+                        <i className="bi bi-calendar-x"></i>
+                        No time slots available for this date. Please choose a different date or doctor.
+                      </div>
+                    ) : (
+                      <div className="appt-timeslot-grid">
+                        {(() => {
+                          const now = new Date();
+                          const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+                          const currentTime = now.toTimeString().slice(0, 5);
+                          const isToday = formData.date === todayStr;
+                          const isPastDate = formData.date < todayStr;
+
+                          return timeSlots.map((slot) => {
+                            const isSelected = formData.timeSlotId === String(slot.id);
+                            const start = slot.startTime.substring(0, 5);
+                            const end = slot.endTime.substring(0, 5);
+                            const isPastSlot = isPastDate || (isToday && start < currentTime);
+                            const isSelectable = slot.isAvailable && !isPastSlot;
+
+                            return (
+                              <button
+                                key={slot.id}
+                                type="button"
+                                disabled={!isSelectable}
+                                onClick={() =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    timeSlotId: String(slot.id),
+                                  }))
+                                }
+                                className={`appt-timeslot-btn ${
+                                  isSelected
+                                    ? "appt-timeslot-btn--selected"
+                                    : isPastSlot
+                                    ? "appt-timeslot-btn--past"
+                                    : slot.isAvailable
+                                    ? "appt-timeslot-btn--available"
+                                    : "appt-timeslot-btn--booked"
+                                }`}
+                              >
+                                <span className="appt-timeslot-btn-time">
+                                  {start} – {end}
+                                </span>
+                                <span className="appt-timeslot-btn-status">
+                                  {isSelected
+                                    ? "✓ Selected"
+                                    : isPastSlot
+                                    ? "Past"
+                                    : slot.isAvailable
+                                    ? "Available"
+                                    : "Booked"}
+                                </span>
+                              </button>
+                            );
+                          });
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <textarea
                   name="message"
@@ -228,9 +421,26 @@ export default function AppointmentPage() {
                   className="appt-input appt-textarea"
                 />
 
-                <button type="submit" className="appt-submit-btn">
+                {error && (
+                  <div className="appt-alert-error">
+                    {error}
+                  </div>
+                )}
+
+                {!isAuthenticated && (
+                  <div className="appt-login-prompt">
+                    <i className="bi bi-info-circle"></i>
+                    You need to{" "}
+                    <Link to="/signin" className="appt-login-link">sign in</Link>
+                    {" "}with a patient account to book an appointment.
+                    Don't have an account?{" "}
+                    <Link to="/signup" className="appt-login-link">Register here</Link>
+                  </div>
+                )}
+
+                <button type="submit" className="appt-submit-btn" disabled={submitting}>
                   <i className="bi bi-calendar-plus"></i>
-                  Book Appointment
+                  {submitting ? "Submitting..." : "Book Appointment"}
                 </button>
               </form>
             </div>

@@ -12,6 +12,11 @@ interface RoleOption {
   name: string;
 }
 
+interface SpecialtyOption {
+  id: number;
+  name: string;
+}
+
 interface FormData {
   role: string;
   fullName: string;
@@ -25,6 +30,8 @@ interface FormData {
   qualification: string;
   notes: string;
   sendInvite: boolean;
+  specialtyIds: number[];
+  primarySpecialtyId: number | null;
 }
 
 interface FormErrors {
@@ -36,31 +43,6 @@ interface CreatedUser {
   email: string;
   roles: string[];
 }
-
-const SPECIALIZATIONS = [
-  "Cardiology",
-  "Dermatology",
-  "Endocrinology",
-  "Gastroenterology",
-  "General Practice",
-  "Gynecology",
-  "Hematology",
-  "Internal Medicine",
-  "Nephrology",
-  "Neurology",
-  "Obstetrics",
-  "Oncology",
-  "Ophthalmology",
-  "Orthopedics",
-  "Otolaryngology (ENT)",
-  "Pediatrics",
-  "Psychiatry",
-  "Pulmonology",
-  "Radiology",
-  "Rheumatology",
-  "Surgery",
-  "Urology",
-];
 
 const generatePassword = (): string => {
   const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -96,6 +78,8 @@ export default function CreateUser() {
   const [inviteStatus, setInviteStatus] = useState<"sent" | "failed" | "not_sent" | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
+  const [specialties, setSpecialties] = useState<SpecialtyOption[]>([]);
+
   const [form, setForm] = useState<FormData>({
     role: "",
     fullName: "",
@@ -108,10 +92,16 @@ export default function CreateUser() {
     qualification: "",
     notes: "",
     sendInvite: true,
+    specialtyIds: [],
+    primarySpecialtyId: null,
   });
 
   useEffect(() => {
     adminService.getRoles().then(setRoles).catch(console.error);
+    fetch("/api/public/specialties")
+      .then((r) => r.json())
+      .then((data: SpecialtyOption[]) => setSpecialties(Array.isArray(data) ? data : []))
+      .catch(console.error);
   }, []);
 
   const updateField = (field: keyof FormData, value: string | boolean) => {
@@ -158,7 +148,7 @@ export default function CreateUser() {
     }
 
     if (isDoctor) {
-      if (!form.specialization) errs.specialization = "Specialization is required for doctor";
+      if (form.specialtyIds.length === 0) errs.specialization = "At least one department is required for doctor";
     }
 
     setErrors(errs);
@@ -192,11 +182,13 @@ export default function CreateUser() {
         roleIds: [roleObj.id],
         // Doctor-specific fields
         ...(isDoctor && {
-          specialization: form.specialization,
+          specialization: form.specialization || undefined,
           subSpecialization: form.subSpecialization || undefined,
           yearsOfExperience: form.yearsOfExperience || undefined,
           qualification: form.qualification || undefined,
           notes: form.notes || undefined,
+          specialtyIds: form.specialtyIds.length > 0 ? form.specialtyIds : undefined,
+          primarySpecialtyId: form.primarySpecialtyId || undefined,
           sendInvite: shouldSendInvite,
         }),
       };
@@ -486,25 +478,84 @@ export default function CreateUser() {
             title="Doctor Setup"
             description="Configure doctor-specific settings"
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Specialization <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={form.specialization}
-                  onChange={(e) => updateField("specialization", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                >
-                  <option value="">Select specialization...</option>
-                  {SPECIALIZATIONS.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
-                {errors.specialization && (
-                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.specialization}</p>
-                )}
+            {/* Department / Specialty Selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Departments <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                {specialties.map((s) => {
+                  const selected = form.specialtyIds.includes(s.id);
+                  return (
+                    <label
+                      key={s.id}
+                      className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all text-sm ${
+                        selected
+                          ? "bg-blue-50 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700"
+                          : "hover:bg-gray-100 dark:hover:bg-gray-700/50 border border-transparent"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => {
+                          const next = selected
+                            ? form.specialtyIds.filter((id) => id !== s.id)
+                            : [...form.specialtyIds, s.id];
+                          setForm((prev) => ({
+                            ...prev,
+                            specialtyIds: next,
+                            primarySpecialtyId:
+                              !selected && next.length === 1
+                                ? s.id
+                                : selected && prev.primarySpecialtyId === s.id
+                                  ? (next[0] ?? null)
+                                  : prev.primarySpecialtyId,
+                            specialization:
+                              !selected && next.length === 1
+                                ? s.name
+                                : prev.specialization,
+                          }));
+                          if (errors.specialization) {
+                            setErrors((prev) => { const n = { ...prev }; delete n.specialization; return n; });
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-gray-700 dark:text-gray-300 truncate">{s.name}</span>
+                    </label>
+                  );
+                })}
               </div>
+              {errors.specialization && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.specialization}</p>
+              )}
+
+              {/* Primary Specialty Picker */}
+              {form.specialtyIds.length > 1 && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Primary Department
+                  </label>
+                  <select
+                    value={form.primarySpecialtyId ?? ""}
+                    onChange={(e) => {
+                      const id = Number(e.target.value);
+                      const name = specialties.find((s) => s.id === id)?.name || "";
+                      setForm((prev) => ({ ...prev, primarySpecialtyId: id, specialization: name }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white text-sm"
+                  >
+                    {form.specialtyIds.map((id) => {
+                      const s = specialties.find((sp) => sp.id === id);
+                      return s ? <option key={s.id} value={s.id}>{s.name}</option> : null;
+                    })}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <InputField
                 label="Sub-specialization"
                 value={form.subSpecialization}

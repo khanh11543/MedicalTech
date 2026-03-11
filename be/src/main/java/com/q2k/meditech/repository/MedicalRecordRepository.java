@@ -19,15 +19,19 @@ public interface MedicalRecordRepository extends JpaRepository<MedicalRecord, Lo
     @Query("SELECT COUNT(m) > 0 FROM MedicalRecord m WHERE m.patient.id = :patientId")
     boolean existsByPatientId(@Param("patientId") Long patientId);
 
-    Page<MedicalRecord> findByPatientId(Long patientId, Pageable pageable);
+    @Query(value = "SELECT m FROM MedicalRecord m LEFT JOIN FETCH m.doctor WHERE m.patient.id = :patientId",
+           countQuery = "SELECT COUNT(m) FROM MedicalRecord m WHERE m.patient.id = :patientId")
+    Page<MedicalRecord> findByPatientId(@Param("patientId") Long patientId, Pageable pageable);
 
-    @Query("SELECT m FROM MedicalRecord m WHERE m.patient.id = :patientId " +
-           "AND m.visitDate BETWEEN :from AND :to")
+    @Query(value = "SELECT m FROM MedicalRecord m LEFT JOIN FETCH m.doctor " +
+           "WHERE m.patient.id = :patientId AND m.visitDate BETWEEN :from AND :to",
+           countQuery = "SELECT COUNT(m) FROM MedicalRecord m WHERE m.patient.id = :patientId AND m.visitDate BETWEEN :from AND :to")
     Page<MedicalRecord> findByPatientIdAndDateRange(
             @Param("patientId") Long patientId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
             Pageable pageable);
 
-    Optional<MedicalRecord> findByIdAndPatientId(Long id, Long patientId);
+    @Query("SELECT m FROM MedicalRecord m LEFT JOIN FETCH m.doctor WHERE m.id = :id AND m.patient.id = :patientId")
+    Optional<MedicalRecord> findByIdAndPatientId(@Param("id") Long id, @Param("patientId") Long patientId);
 }

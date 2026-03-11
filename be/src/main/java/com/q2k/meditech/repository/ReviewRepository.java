@@ -19,42 +19,45 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     boolean existsByAppointmentId(Long appointmentId);
 
-    /**
-     * Find all reviews, ordered by creation date descending (for admin)
-     */
     Page<Review> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
-    /**
-     * Find reviews filtered by visibility status
-     */
     Page<Review> findByIsVisibleOrderByCreatedAtDesc(Boolean isVisible, Pageable pageable);
 
-    /**
-     * Find reviews filtered by rating
-     */
     Page<Review> findByRatingOrderByCreatedAtDesc(Integer rating, Pageable pageable);
 
-    /**
-     * Search reviews by doctor name, patient user name/email
-     */
     @Query("SELECT r FROM Review r " +
            "LEFT JOIN FETCH r.doctor d " +
            "LEFT JOIN FETCH r.patient p " +
            "LEFT JOIN FETCH p.user pu " +
-           "WHERE LOWER(d.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "WHERE (d IS NOT NULL AND LOWER(d.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
            "OR LOWER(pu.fullName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(pu.email) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(r.comment) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "ORDER BY r.createdAt DESC")
     Page<Review> searchByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
-    // ==================== DOCTOR DASHBOARD QUERIES ====================
-
-    /**
-     * Count reviews for a doctor created after a given date (for recent reviews count)
-     */
     @Query("SELECT COUNT(r) FROM Review r WHERE r.doctor.id = :doctorId AND r.createdAt >= :since")
     Long countByDoctorIdAndCreatedAtAfter(
             @Param("doctorId") Long doctorId,
             @Param("since") java.time.LocalDateTime since);
+
+    @Query(value = "SELECT r FROM Review r " +
+           "LEFT JOIN FETCH r.doctor d " +
+           "LEFT JOIN FETCH r.patient p " +
+           "LEFT JOIN FETCH p.user " +
+           "LEFT JOIN FETCH d.doctorSpecialties ds " +
+           "LEFT JOIN FETCH ds.specialty " +
+           "WHERE r.isVisible = true ORDER BY r.createdAt DESC",
+           countQuery = "SELECT COUNT(r) FROM Review r WHERE r.isVisible = true")
+    Page<Review> findByIsVisibleTrueOrderByCreatedAtDesc(Pageable pageable);
+
+    @Query(value = "SELECT r FROM Review r " +
+           "LEFT JOIN FETCH r.doctor d " +
+           "LEFT JOIN FETCH r.patient p " +
+           "LEFT JOIN FETCH p.user " +
+           "LEFT JOIN FETCH d.doctorSpecialties ds " +
+           "LEFT JOIN FETCH ds.specialty " +
+           "WHERE r.doctor.id = :doctorId AND r.isVisible = true ORDER BY r.createdAt DESC",
+           countQuery = "SELECT COUNT(r) FROM Review r WHERE r.doctor.id = :doctorId AND r.isVisible = true")
+    Page<Review> findByDoctorIdAndIsVisibleTrueOrderByCreatedAtDesc(@Param("doctorId") Long doctorId, Pageable pageable);
 }

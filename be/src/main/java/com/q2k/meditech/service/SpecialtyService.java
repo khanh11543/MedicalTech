@@ -28,5 +28,13 @@ public interface SpecialtyService {
      * @param id Specialty ID
      * @return Specialty DTO or null if not found
      */
-    SpecialtyDTO getSpecialtyById(Integer id);
+    SpecialtyDTO getSpecialtyById(Long id);
+
+    /**
+     * Get specialty by slug
+     * @param slug Specialty slug
+     * @return Specialty DTO
+     * @throws ResourceNotFoundException if not found
+     */
+    SpecialtyDTO getSpecialtyBySlug(String slug);
 }

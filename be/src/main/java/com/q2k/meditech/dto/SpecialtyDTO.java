@@ -19,6 +19,10 @@ public class SpecialtyDTO {
     private String name;
     private String description;
     private String iconUrl;
+    private String imageUrl;
+    private String slug;
+    private String subtitle;
+    private String highlights;
     private Boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

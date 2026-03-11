@@ -79,6 +79,13 @@ public class PatientDashboardController {
         long activePrescriptions = prescriptionRepository.countByPatientIdAndIsActiveTrue(patientId);
         long totalRecords = medicalRecordRepository.countByPatientId(patientId);
 
+        // Payment stats
+        var payments = paymentRepository.findByPatientIdOrderByCreatedAtDesc(patientId);
+        long totalPayments = payments.size();
+        long pendingPayments = payments.stream()
+                .filter(p -> "PENDING".equals(p.getPaymentStatus()) || "INITIATED".equals(p.getPaymentStatus()))
+                .count();
+
         PatientDashboardDTO dashboard = PatientDashboardDTO.builder()
                 .totalAppointments(total)
                 .upcomingAppointments(upcoming)
@@ -87,6 +94,8 @@ public class PatientDashboardController {
                 .totalPrescriptions(totalPrescriptions)
                 .activePrescriptions(activePrescriptions)
                 .totalMedicalRecords(totalRecords)
+                .totalPayments(totalPayments)
+                .pendingPayments(pendingPayments)
                 .nextAppointment(nextAppt)
                 .generatedAt(LocalDateTime.now())
                 .build();

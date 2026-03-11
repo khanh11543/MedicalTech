@@ -209,16 +209,9 @@ function RecordDetailModal({ record, onClose }: { record: MedicalRecord; onClose
           </Section>
 
           {/* Vitals */}
-          {record.vitalSigns && Object.keys(record.vitalSigns).length > 0 && (
+          {record.vitalSigns && (
             <Section title="Vital Signs">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {Object.entries(record.vitalSigns).map(([key, value]) => (
-                  <div key={key} className="p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
-                    <p className="text-[10px] text-gray-400 uppercase font-semibold">{formatLabel(key)}</p>
-                    <p className="text-sm font-semibold text-gray-800 dark:text-white mt-0.5">{String(value)}</p>
-                  </div>
-                ))}
-              </div>
+              <VitalSignsDisplay data={record.vitalSigns} />
             </Section>
           )}
 
@@ -230,16 +223,9 @@ function RecordDetailModal({ record, onClose }: { record: MedicalRecord; onClose
           )}
 
           {/* Lab Results */}
-          {record.labResults && Object.keys(record.labResults).length > 0 && (
+          {record.labResults && (
             <Section title="Lab Results">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {Object.entries(record.labResults).map(([key, value]) => (
-                  <div key={key} className="p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30">
-                    <p className="text-[10px] text-gray-400 uppercase font-semibold">{formatLabel(key)}</p>
-                    <p className="text-sm font-semibold text-gray-800 dark:text-white mt-0.5">{String(value)}</p>
-                  </div>
-                ))}
-              </div>
+              <LabResultsDisplay data={record.labResults} />
             </Section>
           )}
 
@@ -292,9 +278,97 @@ function EmptyState() {
   );
 }
 
-function formatLabel(key: string): string {
-  return key
-    .replace(/([A-Z])/g, " $1")
-    .replace(/_/g, " ")
-    .trim();
+const VITAL_META: Record<string, { label: string; unit: string; icon: string; color: string; bg: string }> = {
+  temperature:       { label: "Temperature",       unit: "°C",          icon: "🌡️", color: "text-red-600",    bg: "bg-red-50 dark:bg-red-900/20" },
+  temp:              { label: "Temperature",       unit: "°C",          icon: "🌡️", color: "text-red-600",    bg: "bg-red-50 dark:bg-red-900/20" },
+  bloodPressure:     { label: "Blood Pressure",    unit: "mmHg",        icon: "💓", color: "text-rose-600",   bg: "bg-rose-50 dark:bg-rose-900/20" },
+  bp:                { label: "Blood Pressure",    unit: "mmHg",        icon: "💓", color: "text-rose-600",   bg: "bg-rose-50 dark:bg-rose-900/20" },
+  blood_pressure:    { label: "Blood Pressure",    unit: "mmHg",        icon: "💓", color: "text-rose-600",   bg: "bg-rose-50 dark:bg-rose-900/20" },
+  heartRate:         { label: "Heart Rate",        unit: "bpm",         icon: "❤️", color: "text-pink-600",   bg: "bg-pink-50 dark:bg-pink-900/20" },
+  heart_rate:        { label: "Heart Rate",        unit: "bpm",         icon: "❤️", color: "text-pink-600",   bg: "bg-pink-50 dark:bg-pink-900/20" },
+  pulse:             { label: "Pulse",             unit: "bpm",         icon: "❤️", color: "text-pink-600",   bg: "bg-pink-50 dark:bg-pink-900/20" },
+  respiratoryRate:   { label: "Respiratory Rate",  unit: "breaths/min", icon: "🫁", color: "text-cyan-600",   bg: "bg-cyan-50 dark:bg-cyan-900/20" },
+  respiratory_rate:  { label: "Respiratory Rate",  unit: "breaths/min", icon: "🫁", color: "text-cyan-600",   bg: "bg-cyan-50 dark:bg-cyan-900/20" },
+  spo2:              { label: "SpO₂",             unit: "%",           icon: "🩸", color: "text-blue-600",   bg: "bg-blue-50 dark:bg-blue-900/20" },
+  oxygenSaturation:  { label: "SpO₂",             unit: "%",           icon: "🩸", color: "text-blue-600",   bg: "bg-blue-50 dark:bg-blue-900/20" },
+  oxygen_saturation: { label: "SpO₂",             unit: "%",           icon: "🩸", color: "text-blue-600",   bg: "bg-blue-50 dark:bg-blue-900/20" },
+  weight:            { label: "Weight",            unit: "kg",          icon: "⚖️", color: "text-amber-600",  bg: "bg-amber-50 dark:bg-amber-900/20" },
+  height:            { label: "Height",            unit: "cm",          icon: "📏", color: "text-green-600",  bg: "bg-green-50 dark:bg-green-900/20" },
+  bmi:               { label: "BMI",               unit: "kg/m²",       icon: "📊", color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-900/20" },
+};
+
+function getVitalMeta(key: string) {
+  const lower = key.toLowerCase();
+  const meta = VITAL_META[key] || VITAL_META[lower];
+  if (meta) return meta;
+
+  const label = key.replace(/([A-Z])/g, " $1").replace(/_/g, " ").trim();
+  return { label, unit: "", icon: "📋", color: "text-gray-600", bg: "bg-gray-50 dark:bg-gray-700/30" };
+}
+
+function safeParseJson(raw: unknown): Record<string, unknown> | null {
+  if (raw == null) return null;
+  if (typeof raw === "object" && !Array.isArray(raw)) return raw as Record<string, unknown>;
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) return parsed;
+    } catch { /* not valid JSON */ }
+  }
+  return null;
+}
+
+function VitalSignsDisplay({ data }: { data: unknown }) {
+  const parsed = safeParseJson(data);
+  if (!parsed) return null;
+
+  const entries = Object.entries(parsed);
+  if (entries.length === 0) return null;
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {entries.map(([key, value]) => {
+        const meta = getVitalMeta(key);
+        const displayValue = String(value ?? "—");
+        const hasUnit = meta.unit && !displayValue.includes(meta.unit);
+
+        return (
+          <div key={key} className={`p-3 rounded-xl ${meta.bg} transition-colors`}>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="text-base leading-none">{meta.icon}</span>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold tracking-wide">{meta.label}</p>
+            </div>
+            <p className={`text-lg font-bold ${meta.color} dark:brightness-125`}>
+              {displayValue}
+              {hasUnit && <span className="text-xs font-medium text-gray-400 dark:text-gray-500 ml-1">{meta.unit}</span>}
+            </p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function LabResultsDisplay({ data }: { data: unknown }) {
+  const parsed = safeParseJson(data);
+  if (!parsed) return null;
+
+  const entries = Object.entries(parsed);
+  if (entries.length === 0) return null;
+
+  const formatLabel = (key: string) =>
+    key.replace(/([A-Z])/g, " $1").replace(/_/g, " ").trim().replace(/\b\w/g, (c) => c.toUpperCase());
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {entries.map(([key, value]) => (
+        <div key={key} className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/20">
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold tracking-wide">
+            {formatLabel(key)}
+          </p>
+          <p className="text-sm font-semibold text-gray-800 dark:text-white mt-1">{String(value ?? "—")}</p>
+        </div>
+      ))}
+    </div>
+  );
 }
