@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -298,7 +299,8 @@ public class PublicController {
         List<String> imageUrls = Collections.emptyList();
         if (review.getImageUrls() != null && !review.getImageUrls().isBlank()) {
             try {
-                imageUrls = objectMapper.readValue(review.getImageUrls(), new TypeReference<>() {});
+                List<String> raw = objectMapper.readValue(review.getImageUrls(), new TypeReference<>() {});
+                imageUrls = normalizeReviewImageUrls(raw);
             } catch (Exception ignored) {
             }
         }
@@ -314,5 +316,23 @@ public class PublicController {
                 .isAnonymous(review.getIsAnonymous())
                 .createdAt(review.getCreatedAt() != null ? review.getCreatedAt().toString() : null)
                 .build();
+    }
+
+    private static final String REVIEW_IMAGES_PREFIX = "/uploads/reviews/";
+
+    /** Normalize so image URLs are always full path (fixes legacy DB storing only filename). */
+    private static List<String> normalizeReviewImageUrls(List<String> urls) {
+        if (urls == null || urls.isEmpty()) return Collections.emptyList();
+        List<String> out = new ArrayList<>(urls.size());
+        for (String u : urls) {
+            if (u == null || u.isBlank()) continue;
+            String trimmed = u.trim();
+            if (trimmed.startsWith("http") || trimmed.startsWith("/uploads/")) {
+                out.add(trimmed);
+            } else {
+                out.add(REVIEW_IMAGES_PREFIX + (trimmed.startsWith("/") ? trimmed.substring(1) : trimmed));
+            }
+        }
+        return out;
     }
 }

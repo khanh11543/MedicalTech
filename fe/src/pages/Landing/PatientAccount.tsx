@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import userService, { type UserProfile } from "../../services/userService";
 import patientService from "../../services/patientService";
 import authService from "../../services/authService";
+import { getAvatarUrl } from "../../utils/avatar";
 
 function maskPhone(phone: string) {
   if (!phone || phone.length < 7) return phone || "—";
@@ -138,7 +139,7 @@ export default function PatientAccount() {
           </h4>
           <div className="flex flex-col items-center mb-4 pb-4 border-b border-gray-100">
             {profile?.avatarUrl ? (
-              <img src={profile.avatarUrl} alt={userName} className="w-16 h-16 rounded-full object-cover shadow-md shadow-[#049ebb]/20 mb-2" />
+              <img src={getAvatarUrl(profile.avatarUrl) ?? ""} alt={userName} className="w-16 h-16 rounded-full object-cover shadow-md shadow-[#049ebb]/20 mb-2" />
             ) : (
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#049ebb] to-[#027a94] flex items-center justify-center text-white text-xl font-bold shadow-md shadow-[#049ebb]/20 mb-2">
                 {userName.charAt(0)}

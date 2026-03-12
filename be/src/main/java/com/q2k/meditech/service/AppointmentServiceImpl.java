@@ -11,6 +11,7 @@ import com.q2k.meditech.entity.enums.TimeSlotStatus;
 import com.q2k.meditech.exception.AppointmentException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.dto.mapper.AppointmentMapper;
+import com.q2k.meditech.dto.settings.GeneralSettingsDTO;
 import com.q2k.meditech.repository.*;
 import com.q2k.meditech.util.ExportUtil;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.Locale;
+import java.util.Objects;
 import java.time.temporal.WeekFields;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -57,6 +60,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final EmailService emailService;
     private final PrivacyMaskingService privacyMaskingService;
     private final PaymentService paymentService;
+    private final SystemSettingService systemSettingService;
 
     // ==================== BOOKING ====================
     
@@ -142,6 +146,54 @@ public class AppointmentServiceImpl implements AppointmentService {
             notificationEventService.onNewBooking(appointment);
         } catch (Exception e) {
             log.warn("Failed to send new booking notification: {}", e.getMessage());
+        }
+
+        // Send appointment confirmation email to patient's registered email
+        try {
+            User patientUser = patient.getUser();
+            if (patientUser != null && patientUser.getEmail() != null && !patientUser.getEmail().isBlank()) {
+                String patientName = patient.getFullName() != null ? patient.getFullName() : patientUser.getFullName();
+                if (patientName == null || patientName.isBlank()) {
+                    patientName = patientUser.getEmail();
+                }
+                String dateStr = appointment.getAppointmentDate().format(DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.ENGLISH));
+                String timeStr = appointment.getStartTime().format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH));
+                String department = doctor.getSpecialization() != null ? doctor.getSpecialization() : "";
+                String doctorName = doctor.getFullName() != null ? doctor.getFullName() : (doctor.getUser() != null ? doctor.getUser().getFullName() : "");
+
+                GeneralSettingsDTO settings = systemSettingService.getGeneralSettings();
+                String clinicName = settings != null && settings.getClinicName() != null ? settings.getClinicName() : "MedicalTech Clinic";
+                String hotline = settings != null ? settings.getPhone() : null;
+                String address = null;
+                if (settings != null) {
+                    address = java.util.stream.Stream.of(
+                            settings.getStreet(),
+                            settings.getCity(),
+                            settings.getState(),
+                            settings.getZipCode(),
+                            settings.getCountry()
+                    ).filter(Objects::nonNull).filter(s -> !s.isBlank()).collect(Collectors.joining(", "));
+                    if (address.isBlank()) address = null;
+                }
+
+                emailService.sendAppointmentConfirmationEmail(
+                        patientUser.getEmail(),
+                        patientName,
+                        appointment.getAppointmentCode(),
+                        department,
+                        doctorName,
+                        dateStr,
+                        timeStr,
+                        appointment.getReasonForVisit(),
+                        clinicName,
+                        hotline,
+                        address
+                );
+            } else {
+                log.debug("Patient has no email, skipping appointment confirmation email for appointment {}", appointment.getId());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to send appointment confirmation email: {}", e.getMessage());
         }
 
         // Create PENDING payment so it appears in patient Payment History and can be paid

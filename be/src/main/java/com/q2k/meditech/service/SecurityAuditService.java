@@ -1,5 +1,8 @@
 package com.q2k.meditech.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.q2k.meditech.dto.SecurityAuditDashboardDTO;
 import com.q2k.meditech.dto.SecurityAuditLogDTO;
 import com.q2k.meditech.dto.SecurityEventDTO;
@@ -33,6 +36,7 @@ public class SecurityAuditService {
 
     private final SecurityEventRepository securityEventRepository;
     private final AuditLogRepository auditLogRepository;
+    private final ObjectMapper objectMapper;
 
     /**
      * Get security and audit dashboard statistics
@@ -214,11 +218,21 @@ public class SecurityAuditService {
                 .action(log.getAction())
                 .entityType(log.getEntityType())
                 .entityId(log.getEntityId())
-                .oldValues(log.getOldValues())
-                .newValues(log.getNewValues())
+                .oldValues(parseJsonToMap(log.getOldValues()))
+                .newValues(parseJsonToMap(log.getNewValues()))
                 .ipAddress(log.getIpAddress())
                 .userAgent(log.getUserAgent())
                 .createdAt(log.getCreatedAt())
                 .build();
+    }
+
+    private Object parseJsonToMap(String json) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+        } catch (JsonProcessingException e) {
+            log.warn("Could not parse audit log JSON: {}", e.getMessage());
+            return null;
+        }
     }
 }

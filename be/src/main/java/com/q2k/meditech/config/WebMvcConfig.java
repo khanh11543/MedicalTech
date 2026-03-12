@@ -10,29 +10,20 @@ import java.nio.file.Paths;
 
 /**
  * Web MVC Configuration
- * Configures static resource handlers for serving uploaded files (avatars, etc.)
+ * Serves all uploaded files (avatars, documents, reviews) from a single base directory
+ * so any user/session can view images. Paths must use /uploads/... prefix.
  */
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
-
-    @Value("${app.upload.avatar-dir:uploads/avatars}")
-    private String avatarDir;
 
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        Path avatarPath = Paths.get(avatarDir).toAbsolutePath().normalize();
-        registry.addResourceHandler("/uploads/avatars/**")
-                .addResourceLocations("file:" + avatarPath.toString() + "/");
-
-        Path documentsPath = Paths.get(uploadDir, "documents").toAbsolutePath().normalize();
-        registry.addResourceHandler("/uploads/documents/**")
-                .addResourceLocations("file:" + documentsPath.toString() + "/");
-
-        Path reviewsPath = Paths.get(uploadDir, "reviews").toAbsolutePath().normalize();
-        registry.addResourceHandler("/uploads/reviews/**")
-                .addResourceLocations("file:" + reviewsPath.toString() + "/");
+        Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
+        String location = "file:" + uploadPath.toString() + "/";
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations(location);
     }
 }

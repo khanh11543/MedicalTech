@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
+import { useAuth } from "../../context/AuthContext";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import {
@@ -36,12 +37,23 @@ function formatTimeShort(dateStr: string): string {
   return `${diffDay}d`;
 }
 
+/** Path to "View all notifications" by role */
+function getNotificationsPath(roles: string[] | undefined): string {
+  if (!roles?.length) return "/home";
+  if (roles.includes("ADMIN")) return "/admin/notifications";
+  if (roles.includes("RECEPTIONIST")) return "/receptionist/notifications";
+  if (roles.includes("DOCTOR")) return "/doctor/notifications";
+  return "/home";
+}
+
 export default function NotificationDropdown() {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<NotificationDTO[]>([]);
   const [loadingList, setLoadingList] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const notificationsPath = getNotificationsPath(user?.roles);
 
   const fetchBadge = useCallback(async () => {
     try {
@@ -205,7 +217,7 @@ export default function NotificationDropdown() {
           )}
         </ul>
         <Link
-          to="/notifications"
+          to={notificationsPath}
           onClick={closeDropdown}
           className="block px-4 py-2 mt-3 text-sm font-medium text-center text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
         >

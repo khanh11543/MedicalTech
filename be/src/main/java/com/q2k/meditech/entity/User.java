@@ -27,8 +27,17 @@ public class User extends BaseEntity {
     @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
 
-    @Column(name = "password_hash", nullable = false, length = 255)
+    /** Nullable for OAuth (e.g. Google) users who sign in without password */
+    @Column(name = "password_hash", length = 255)
     private String passwordHash;
+
+    /** OAuth provider: LOCAL, GOOGLE, etc. */
+    @Column(name = "auth_provider", length = 50)
+    private String authProvider;
+
+    /** Provider's user id (e.g. Google sub) */
+    @Column(name = "auth_provider_id", length = 255)
+    private String authProviderId;
 
     @Column(name = "full_name", length = 255)
     private String fullName;

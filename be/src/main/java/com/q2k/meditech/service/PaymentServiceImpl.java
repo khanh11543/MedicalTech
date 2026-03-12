@@ -10,6 +10,8 @@ import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.exception.DuplicateResourceException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.q2k.meditech.util.ExportUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +54,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final EmailService emailService;
     private final SmsService smsService;
     private final PrivacyMaskingService privacyMaskingService;
+    private final ObjectMapper objectMapper;
 
     // QR refresh rate limiting: paymentId -> list of refresh timestamps
     private static final int QR_REFRESH_MAX = 3;
@@ -1191,6 +1194,12 @@ public class PaymentServiceImpl implements PaymentService {
                 details.put("momoRefundTransId", momoRefundTransId);
             }
 
+            String newValuesJson = null;
+            try {
+                newValuesJson = objectMapper.writeValueAsString(details);
+            } catch (JsonProcessingException e) {
+                log.warn("Could not serialize audit newValues: {}", e.getMessage());
+            }
             AuditLog auditLog = AuditLog.builder()
                     .action("PAYMENT_REFUND")
                     .entityType("Payment")
@@ -1198,7 +1207,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .user(adminUser)
                     .ipAddress(ipAddress)
                     .userAgent(userAgent)
-                    .newValues(details)
+                    .newValues(newValuesJson)
                     .createdAt(LocalDateTime.now())
                     .build();
             auditLogRepository.save(auditLog);

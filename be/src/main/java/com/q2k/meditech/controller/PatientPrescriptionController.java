@@ -1,7 +1,7 @@
 package com.q2k.meditech.controller;
 
 import com.q2k.meditech.dto.PrescriptionDTO;
-import com.q2k.meditech.repository.PatientRepository;
+import com.q2k.meditech.service.PatientProfileService;
 import com.q2k.meditech.service.PrescriptionService;
 import com.q2k.meditech.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +22,7 @@ import java.time.LocalDate;
 public class PatientPrescriptionController {
     
     private final PrescriptionService prescriptionService;
-    private final PatientRepository patientRepository;
+    private final PatientProfileService patientProfileService;
     
     /**
      * Lấy danh sách đơn thuốc của patient
@@ -36,7 +36,7 @@ public class PatientPrescriptionController {
             @RequestParam(defaultValue = "10") Integer pageSize,
             @AuthenticationPrincipal UserDetails userDetails) {
         
-        Long patientId = getPatientIdFromUser(userDetails);
+        Long patientId = patientProfileService.getOrCreatePatientForUser(SecurityUtil.getCurrentUserId()).getId();
         
         LocalDate fromDate = from != null ? LocalDate.parse(from) : null;
         LocalDate toDate = to != null ? LocalDate.parse(to) : null;
@@ -61,11 +61,4 @@ public class PatientPrescriptionController {
         return ResponseEntity.ok(result);
     }
     
-    // Helper method
-    private Long getPatientIdFromUser(UserDetails userDetails) {
-        Long userId = SecurityUtil.getCurrentUserId();
-        return patientRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Patient profile not found for user: " + userId))
-                .getId();
-    }
 }

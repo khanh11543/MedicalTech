@@ -313,6 +313,7 @@ export default function App() {
               <Route path="reviews" element={<DoctorReviews />} />
               <Route path="profile-setup" element={<DoctorProfileSetup />} />
               <Route path="verification-center" element={<DoctorVerificationCenter />} />
+              <Route path="notifications" element={<NotificationCenter />} />
               <Route path="settings" element={<DoctorSettings />} />
               {/* Shared Pages */}
               <Route path="profile" element={<EditProfile />} />

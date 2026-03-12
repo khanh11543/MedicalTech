@@ -258,11 +258,27 @@ export default function PatientProfile() {
 
   const handleAddProfile = () => {
     const np: Profile = {
-      id: Date.now(), name: addForm.name, dateOfBirth: addForm.dateOfBirth, gender: addForm.gender,
-      phone: addForm.phone, email: addForm.email, address: addForm.address,
-      mrn: `YMP${Date.now().toString().slice(-9)}`, cccd: "", bhyt: "", ethnicity: "", occupation: "",
+      id: Date.now(),
+      name: addForm.name,
+      dateOfBirth: addForm.dateOfBirth,
+      gender: addForm.gender,
+      phone: addForm.phone,
+      email: addForm.email,
+      address: addForm.address,
+      mrn: `YMP${Date.now().toString().slice(-9)}`,
+      cccd: "",
+      bhyt: "",
+      ethnicity: "",
+      occupation: "",
+      insuranceNumber: "",
+      insuranceProvider: "",
+      emergencyContact: "",
+      bloodGroup: "",
+      allergies: "",
+      medicalHistory: "",
       avatarUrl: null,
-      isSelf: false, isComplete: false,
+      isSelf: false,
+      isComplete: false,
     };
     setProfiles((prev) => [...prev, np]);
     setActiveProfileId(np.id);
@@ -469,17 +485,20 @@ export default function PatientProfile() {
         </div>
       </div>
 
-      {/* Edit Modal */}
+      {/* Edit Modal — đẩy xuống dưới (dính đáy) để phần dưới form + nút không bị che */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowEditModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h3 className="text-base font-semibold text-gray-900">Edit Profile</h3>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto" onClick={() => setShowEditModal(false)}>
+          <div
+            className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-xl flex flex-col max-h-[90vh] sm:max-h-[85vh] mt-auto sm:mt-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 shrink-0">
+              <h3 className="text-sm font-semibold text-gray-900">Edit Profile</h3>
               <button type="button" aria-label="Close edit modal" onClick={() => setShowEditModal(false)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all bg-transparent border-none cursor-pointer">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            <div className="p-5 space-y-3.5">
+            <div className="px-4 sm:px-5 pt-4 pb-6 space-y-3 overflow-y-auto min-h-0 flex-1 overscroll-contain">
               <ModalInput label="Full Name" value={editForm.fullName} onChange={(v) => setEditForm((f) => ({ ...f, fullName: v }))} placeholder="Enter full name" />
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -508,7 +527,7 @@ export default function PatientProfile() {
               <ModalInput label="Phone" value={editForm.phone} onChange={(v) => setEditForm((f) => ({ ...f, phone: v }))} placeholder="Enter phone number" />
               <ModalInput label="Address" value={editForm.address} onChange={(v) => setEditForm((f) => ({ ...f, address: v }))} placeholder="Enter address" />
               <ModalInput label="Email" value={editForm.email} placeholder="Email (from account)" disabled />
-              <h5 className="text-xs font-semibold text-gray-600 mt-2 pt-2 border-t border-gray-100">Additional Information</h5>
+              <h5 className="text-xs font-semibold text-gray-600 mt-3 pt-3 border-t border-gray-100">Additional Information</h5>
               <div className="grid grid-cols-2 gap-3">
                 <ModalInput label="ID Number (CCCD)" value={editForm.cccd} onChange={(v) => setEditForm((f) => ({ ...f, cccd: v }))} placeholder="Số CCCD/CMND" />
                 <ModalInput label="Insurance ID (BHYT)" value={editForm.insuranceNumber || editForm.bhyt} onChange={(v) => setEditForm((f) => ({ ...f, insuranceNumber: v, bhyt: v }))} placeholder="Insurance ID" />
@@ -517,20 +536,20 @@ export default function PatientProfile() {
                 <ModalInput label="Blood Group" value={editForm.bloodGroup} onChange={(v) => setEditForm((f) => ({ ...f, bloodGroup: v }))} placeholder="e.g. A+" />
               </div>
               <ModalInput label="Allergies" value={editForm.allergies} onChange={(v) => setEditForm((f) => ({ ...f, allergies: v }))} placeholder="Allergies (if any)" />
-              <div>
+              <div className="pb-2">
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">Medical History</label>
                 <textarea
                   value={editForm.medicalHistory}
                   onChange={(e) => setEditForm((f) => ({ ...f, medicalHistory: e.target.value }))}
                   placeholder="Brief medical history (optional)"
-                  rows={3}
+                  rows={2}
                   className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#049ebb]/30 focus:border-[#049ebb] resize-none"
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2 p-5 border-t border-gray-100">
-              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all border-none cursor-pointer">Cancel</button>
-              <button onClick={handleSaveEdit} disabled={saving} className="px-4 py-2 text-xs font-medium text-white bg-[#049ebb] rounded-xl hover:bg-[#037a94] disabled:opacity-50 transition-all border-none cursor-pointer">
+            <div className="flex justify-end gap-2 px-4 sm:px-5 py-3 border-t border-gray-100 shrink-0 bg-gray-50/50 rounded-b-2xl">
+              <button onClick={() => setShowEditModal(false)} className="px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all cursor-pointer">Cancel</button>
+              <button onClick={handleSaveEdit} disabled={saving} className="px-4 py-2 text-sm font-medium text-white bg-[#049ebb] rounded-xl hover:bg-[#037a94] disabled:opacity-50 transition-all border-none cursor-pointer">
                 {saving ? "Saving..." : "Save Changes"}
               </button>
             </div>
@@ -538,17 +557,17 @@ export default function PatientProfile() {
         </div>
       )}
 
-      {/* Add Modal */}
+      {/* Add Modal — cùng layout nhỏ gọn như Edit */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowAddModal(false)}>
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h3 className="text-base font-semibold text-gray-900">Add New Profile</h3>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto" onClick={() => setShowAddModal(false)}>
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-xl flex flex-col max-h-[90vh] sm:max-h-[85vh] mt-auto sm:mt-0" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 shrink-0">
+              <h3 className="text-sm font-semibold text-gray-800">Add New Profile</h3>
               <button type="button" aria-label="Close add modal" onClick={() => setShowAddModal(false)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all bg-transparent border-none cursor-pointer">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            <div className="p-5 space-y-3.5">
+            <div className="px-4 sm:px-5 pt-4 pb-6 space-y-3 overflow-y-auto min-h-0 flex-1 overscroll-contain">
               <ModalInput label="Full Name" value={addForm.name} onChange={(v) => setAddForm((f) => ({ ...f, name: v }))} placeholder="Enter full name" required />
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -578,9 +597,9 @@ export default function PatientProfile() {
               </div>
               <ModalInput label="Address" value={addForm.address} onChange={(v) => setAddForm((f) => ({ ...f, address: v }))} placeholder="Enter address" />
             </div>
-            <div className="flex justify-end gap-2 p-5 border-t border-gray-100">
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all border-none cursor-pointer">Cancel</button>
-              <button onClick={handleAddProfile} disabled={!addForm.name || !addForm.dateOfBirth || !addForm.phone} className="px-4 py-2 text-xs font-medium text-white bg-[#049ebb] rounded-xl hover:bg-[#037a94] disabled:opacity-50 disabled:cursor-not-allowed transition-all border-none cursor-pointer">Add Profile</button>
+            <div className="flex justify-end gap-2 px-4 sm:px-5 py-3 border-t border-gray-100 shrink-0 bg-gray-50/50 rounded-b-2xl">
+              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all cursor-pointer">Cancel</button>
+              <button onClick={handleAddProfile} disabled={!addForm.name || !addForm.dateOfBirth || !addForm.phone} className="px-4 py-2 text-sm font-medium text-white bg-[#049ebb] rounded-xl hover:bg-[#037a94] disabled:opacity-50 disabled:cursor-not-allowed transition-all border-none cursor-pointer">Add Profile</button>
             </div>
           </div>
         </div>

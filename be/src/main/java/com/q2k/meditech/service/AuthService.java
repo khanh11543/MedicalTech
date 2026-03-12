@@ -278,8 +278,8 @@ public class AuthService {
                 throw new UnverifiedAccountException("Please verify your email first");
             }
 
-            // Verify password
-            if (!passwordEncoder.matches(loginDTO.getPassword(), user.getPasswordHash())) {
+            // Verify password (passwordHash may be null for legacy OAuth accounts)
+            if (user.getPasswordHash() == null || !passwordEncoder.matches(loginDTO.getPassword(), user.getPasswordHash())) {
                 handleFailedLogin(user, loginDTO.getEmail(), ipAddress, userAgent);
                 throw new BadCredentialsException("Invalid email or password");
             }

@@ -13,6 +13,7 @@ import {
 import Badge from "../../components/ui/badge/Badge";
 import { useWorkstation } from "../../context/WorkstationContext";
 import { maskPhone, maskEmail } from "../../utils/privacyMask";
+import { getAvatarUrl } from "../../utils/avatar";
 import adminService, {
   AdminPatient,
   Page,
@@ -121,7 +122,7 @@ function PatientDetailModal({
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden">
               {patient.avatarUrl ? (
-                <img src={patient.avatarUrl} alt="" className="w-full h-full object-cover" />
+                <img src={getAvatarUrl(patient.avatarUrl) ?? ""} alt="" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-blue-600 dark:text-blue-400 text-lg font-bold">
                   {(patient.fullName || patient.email).charAt(0).toUpperCase()}
@@ -560,7 +561,7 @@ export default function PatientList() {
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden">
                               {p.avatarUrl ? (
-                                <img src={p.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                <img src={getAvatarUrl(p.avatarUrl) ?? ""} alt="" className="w-full h-full object-cover" />
                               ) : (
                                 <span className="text-blue-600 dark:text-blue-400 font-medium">
                                   {(p.fullName || p.email).charAt(0).toUpperCase()}

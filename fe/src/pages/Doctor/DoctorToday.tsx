@@ -19,6 +19,8 @@ import {
   skipPatient,
   markNoShow,
   changeDoctorStatus,
+  sendToReception,
+  reorderQueue,
 } from "../../services/doctorService";
 
 // ===================================================================
@@ -65,6 +67,10 @@ export default function DoctorToday() {
   const [noShowModal, setNoShowModal] = useState<number | null>(null);
   const [noShowReason, setNoShowReason] = useState("");
   const [timelineFilter, setTimelineFilter] = useState<string | null>(null);
+  const [detailsModal, setDetailsModal] = useState<QueueItem | null>(null);
+  const [reorderModal, setReorderModal] = useState(false);
+  const [reorderReason, setReorderReason] = useState("");
+  const [reorderIds, setReorderIds] = useState<number[]>([]);
   const refreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast, showToast, dismissToast } = useToast();
 
@@ -215,6 +221,8 @@ export default function DoctorToday() {
               actionLoading={actionLoading}
               onComplete={(id) => doAction("complete", () => completeConsultation(id))}
               onOpenConsultation={() => navigate("/doctor/consultation")}
+              onSendToReception={currentPatient ? () => doAction("sendToReception", () => sendToReception(currentPatient.appointmentId)) : undefined}
+              onAddAddendum={currentPatient?.hasFinalizedRecord ? () => navigate("/doctor/consultation") : undefined}
             />
 
             {/* Queue actions */}
@@ -226,6 +234,15 @@ export default function DoctorToday() {
               >
                 {actionLoading === "callNext" ? "Calling..." : "Call Next Patient"}
               </button>
+              {waitingQueue.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => { setReorderModal(true); setReorderReason(""); setReorderIds(waitingQueue.map((q) => q.appointmentId)); }}
+                  className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  Reorder Queue
+                </button>
+              )}
             </div>
 
             {/* B) Waiting Queue List */}
@@ -241,6 +258,7 @@ export default function DoctorToday() {
                 setSkipModal(id);
                 setSkipReason("");
               }}
+              onViewDetails={(item) => setDetailsModal(item)}
               hasCurrentPatient={!!currentPatient}
             />
           </div>
@@ -280,7 +298,7 @@ export default function DoctorToday() {
       {noShowModal !== null && (
         <ReasonModal
           title="Mark No-Show"
-          description="A reason is required to mark a patient as no-show. This action will be recorded in the audit log and cannot be undone."
+          description="A reason is required. No-show is only allowed after the patient has waited at least 30 minutes (policy)."
           confirmLabel="Confirm No-Show"
           confirmColor="bg-red-500 hover:bg-red-600"
           onCancel={() => setNoShowModal(null)}
@@ -292,6 +310,104 @@ export default function DoctorToday() {
           reason={noShowReason}
           setReason={setNoShowReason}
         />
+      )}
+      {/* View Details modal */}
+      {detailsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDetailsModal(null)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Appointment Details</h3>
+            <div className="space-y-2 text-sm">
+              <p><span className="text-gray-500 dark:text-gray-400">Code:</span> <span className="font-mono">{detailsModal.appointmentCode}</span></p>
+              <p><span className="text-gray-500 dark:text-gray-400">Patient:</span> {detailsModal.patientName ?? "—"}</p>
+              <p><span className="text-gray-500 dark:text-gray-400">Queue #</span> {detailsModal.queueNumber}</p>
+              <p><span className="text-gray-500 dark:text-gray-400">Scheduled:</span> {fmtSlot(detailsModal.appointmentTime)}</p>
+              {detailsModal.checkedInAt && (
+                <p><span className="text-gray-500 dark:text-gray-400">Check-in:</span> {detailsModal.checkedInAt.substring(11, 16)}</p>
+              )}
+              <p><span className="text-gray-500 dark:text-gray-400">Wait:</span> {detailsModal.waitMinutes} min</p>
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button onClick={() => setDetailsModal(null)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Reorder Queue modal */}
+      {reorderModal && data?.waitingQueue && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setReorderModal(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">Reorder Queue</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Reason required for audit. Use arrows to change order.</p>
+            <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+              {(() => {
+                const orderedIds = reorderIds.length > 0 ? reorderIds : data.waitingQueue.map((q) => q.appointmentId);
+                return orderedIds.map((id, idx) => {
+                const item = data.waitingQueue.find((q) => q.appointmentId === id);
+                if (!item) return null;
+                return (
+                  <div key={item.appointmentId} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                    <span className="text-sm font-medium text-gray-500 w-6">#{idx + 1}</span>
+                    <span className="flex-1 text-sm font-medium truncate">{item.patientName ?? "Unknown"}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => setReorderIds((prev) => {
+                          const list = prev.length > 0 ? prev : data.waitingQueue.map((q) => q.appointmentId);
+                          const next = [...list];
+                          [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+                          return next;
+                        })}
+                        className="p-1 rounded disabled:opacity-30 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600"
+                        aria-label="Move up"
+                      >
+                        &#9650;
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === orderedIds.length - 1}
+                        onClick={() => setReorderIds((prev) => {
+                          const list = prev.length > 0 ? prev : data.waitingQueue.map((q) => q.appointmentId);
+                          const next = [...list];
+                          [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+                          return next;
+                        })}
+                        className="p-1 rounded disabled:opacity-30 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-600"
+                        aria-label="Move down"
+                      >
+                        &#9660;
+                      </button>
+                    </div>
+                  </div>
+                );
+              });
+              })()}
+            </div>
+            <textarea
+              value={reorderReason}
+              onChange={(e) => setReorderReason(e.target.value)}
+              placeholder="Reason for reorder (e.g. EMERGENCY, patient condition)..."
+              rows={2}
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm mb-4"
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setReorderModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">Cancel</button>
+              <button
+                disabled={!reorderReason.trim() || !!actionLoading}
+                onClick={async () => {
+                  const ids = reorderIds.length > 0 ? reorderIds : data.waitingQueue.map((q) => q.appointmentId);
+                  if (!ids.length || !reorderReason.trim()) return;
+                  await doAction("reorder", () => reorderQueue(ids, reorderReason.trim()));
+                  setReorderModal(false);
+                  setReorderReason("");
+                }}
+                className="px-4 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {actionLoading === "reorder" ? "Reordering..." : "Confirm Reorder"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       <Toast toast={toast} onDismiss={dismissToast} />
     </>
@@ -372,13 +488,18 @@ function CurrentPatientCard({
   actionLoading,
   onComplete,
   onOpenConsultation,
+  onSendToReception,
+  onAddAddendum,
 }: {
   patient: CurrentPatient | null;
   actionLoading: string | null;
   onComplete: (id: number) => void;
   onOpenConsultation: () => void;
+  onSendToReception?: () => void;
+  onAddAddendum?: () => void;
 }) {
   const elapsed = useElapsedTimer(patient?.elapsedSeconds ?? null, !!patient);
+  const canComplete = patient?.canComplete ?? false;
 
   if (!patient) {
     return (
@@ -456,13 +577,40 @@ function CurrentPatientCard({
           >
             Open Consultation Notes
           </button>
-          <button
-            onClick={() => onComplete(patient.appointmentId)}
-            disabled={actionLoading === "complete"}
-            className="px-5 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-          >
-            {actionLoading === "complete" ? "Completing..." : "Complete Consultation"}
-          </button>
+          {canComplete ? (
+            <button
+              onClick={() => onComplete(patient.appointmentId)}
+              disabled={actionLoading === "complete"}
+              className="px-5 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+            >
+              {actionLoading === "complete" ? "Completing..." : "Complete Consultation"}
+            </button>
+          ) : (
+            <button
+              onClick={onOpenConsultation}
+              className="px-5 py-2.5 bg-gray-500 text-white text-sm font-medium rounded-lg hover:bg-gray-600 transition-colors"
+              title="Add diagnosis and finalize in Consultation first"
+            >
+              Finalize in Consultation
+            </button>
+          )}
+          {onAddAddendum && (
+            <button
+              onClick={onAddAddendum}
+              className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              Add Addendum
+            </button>
+          )}
+          {onSendToReception && (
+            <button
+              onClick={onSendToReception}
+              disabled={!!actionLoading}
+              className="px-5 py-2.5 border border-indigo-300 dark:border-indigo-600 text-indigo-700 dark:text-indigo-300 text-sm font-medium rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors disabled:opacity-50"
+            >
+              {actionLoading === "sendToReception" ? "Sending..." : "Send to Reception"}
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -476,6 +624,7 @@ function WaitingQueueList({
   onCall,
   onNoShow,
   onSkip,
+  onViewDetails,
   hasCurrentPatient,
 }: {
   queue: QueueItem[];
@@ -483,6 +632,7 @@ function WaitingQueueList({
   onCall: (id: number) => void;
   onNoShow: (id: number) => void;
   onSkip: (id: number) => void;
+  onViewDetails?: (item: QueueItem) => void;
   hasCurrentPatient: boolean;
 }) {
   if (queue.length === 0) {
@@ -552,6 +702,14 @@ function WaitingQueueList({
 
               {/* Actions */}
               <div className="flex items-center gap-2 flex-shrink-0">
+                {onViewDetails && (
+                  <button
+                    onClick={() => onViewDetails(item)}
+                    className="px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    View Details
+                  </button>
+                )}
                 <button
                   onClick={() => onCall(item.appointmentId)}
                   disabled={!!actionLoading || hasCurrentPatient}
@@ -571,6 +729,7 @@ function WaitingQueueList({
                   onClick={() => onNoShow(item.appointmentId)}
                   disabled={!!actionLoading}
                   className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-100 rounded-lg hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 disabled:opacity-50 transition-colors"
+                  title="Allowed after patient has waited at least 30 minutes"
                 >
                   No-show
                 </button>

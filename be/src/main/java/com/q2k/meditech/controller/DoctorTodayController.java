@@ -1,12 +1,14 @@
 package com.q2k.meditech.controller;
 
 import com.q2k.meditech.dto.DoctorTodayDTO;
+import com.q2k.meditech.dto.receptionist.ReorderQueueDTO;
 import com.q2k.meditech.entity.Doctor;
 import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.service.DoctorProfileService;
 import com.q2k.meditech.service.DoctorTodayService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -105,6 +107,27 @@ public class DoctorTodayController {
         }
         doctorTodayService.changeDoctorStatus(doctor.getId(), newStatus, userId);
         return ResponseEntity.ok(Map.of("message", "Status updated to " + newStatus.toUpperCase()));
+    }
+
+    @PostMapping("/reorder")
+    @Operation(summary = "Reorder queue (reason required for audit)")
+    public ResponseEntity<Map<String, String>> reorderQueue(@Valid @RequestBody ReorderQueueDTO dto) {
+        Long userId = requireUserId();
+        Doctor doctor = requireDoctor(userId);
+        doctorTodayService.reorderQueue(doctor.getId(), dto, userId);
+        return ResponseEntity.ok(Map.of("message", "Queue reordered"));
+    }
+
+    @PostMapping("/send-to-reception/{appointmentId}")
+    @Operation(summary = "Send appointment to reception (optional message)")
+    public ResponseEntity<Map<String, String>> sendToReception(
+            @PathVariable Long appointmentId,
+            @RequestBody(required = false) Map<String, String> body) {
+        Long userId = requireUserId();
+        Doctor doctor = requireDoctor(userId);
+        String message = body != null ? body.get("message") : null;
+        doctorTodayService.sendToReception(doctor.getId(), appointmentId, message != null ? message : "", userId);
+        return ResponseEntity.ok(Map.of("message", "Sent to reception"));
     }
 
     // ============================================================

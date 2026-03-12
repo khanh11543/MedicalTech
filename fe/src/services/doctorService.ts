@@ -130,6 +130,9 @@ export interface CurrentPatient {
   elapsedSeconds: number;
   scheduledStart: string;
   scheduledEnd: string;
+  canComplete?: boolean;
+  hasFinalizedRecord?: boolean;
+  medicalRecordId?: number | null;
 }
 
 export interface QueueItem {
@@ -213,6 +216,14 @@ export const markNoShow = async (appointmentId: number, reason: string): Promise
 
 export const changeDoctorStatus = async (status: string): Promise<void> => {
   await api.post("/doctor/today/status", { status });
+};
+
+export const reorderQueue = async (orderedAppointmentIds: number[], reason: string): Promise<void> => {
+  await api.post("/doctor/today/reorder", { orderedAppointmentIds, reason });
+};
+
+export const sendToReception = async (appointmentId: number, message?: string): Promise<void> => {
+  await api.post(`/doctor/today/send-to-reception/${appointmentId}`, message != null ? { message } : {});
 };
 
 // ============== PROFILE SETUP TYPES ==============

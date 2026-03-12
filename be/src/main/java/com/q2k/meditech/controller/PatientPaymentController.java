@@ -4,8 +4,8 @@ import com.q2k.meditech.dto.InvoiceDTO;
 import com.q2k.meditech.dto.PaymentDTO;
 import com.q2k.meditech.dto.PaymentInitDTO;
 import com.q2k.meditech.dto.PaymentQrDTO;
-import com.q2k.meditech.repository.PatientRepository;
 import com.q2k.meditech.service.InvoiceDeliveryService;
+import com.q2k.meditech.service.PatientProfileService;
 import com.q2k.meditech.service.InvoiceService;
 import com.q2k.meditech.service.PaymentService;
 import com.q2k.meditech.util.SecurityUtil;
@@ -39,7 +39,7 @@ public class PatientPaymentController {
     private final PaymentService paymentService;
     private final InvoiceService invoiceService;
     private final InvoiceDeliveryService invoiceDeliveryService;
-    private final PatientRepository patientRepository;
+    private final PatientProfileService patientProfileService;
 
     /**
      * GET /api/patient/payments
@@ -203,9 +203,6 @@ public class PatientPaymentController {
     // ==================== HELPER ====================
 
     private Long getCurrentPatientId() {
-        Long userId = SecurityUtil.getCurrentUserId();
-        return patientRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Patient profile not found for user: " + userId))
-                .getId();
+        return patientProfileService.getOrCreatePatientForUser(SecurityUtil.getCurrentUserId()).getId();
     }
 }

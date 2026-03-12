@@ -2,8 +2,8 @@ package com.q2k.meditech.controller;
 
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.entity.enums.BookedBy;
-import com.q2k.meditech.repository.PatientRepository;
 import com.q2k.meditech.service.AppointmentService;
+import com.q2k.meditech.service.PatientProfileService;
 import com.q2k.meditech.util.SecurityUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,9 +28,9 @@ import com.q2k.meditech.entity.enums.AppointmentStatus;
 @RequestMapping("/patient/appointments")
 @RequiredArgsConstructor
 public class PatientAppointmentController {
-    
+
     private final AppointmentService appointmentService;
-    private final PatientRepository patientRepository;
+    private final PatientProfileService patientProfileService;
     
     /**
      * Patient books an appointment
@@ -44,7 +44,7 @@ public class PatientAppointmentController {
         Long userId = getCurrentUserId(userDetails);
         
         // Override patientId from security context — don't trust client-sent value
-        Long patientId = getPatientIdFromUser(userDetails);
+        Long patientId = patientProfileService.getOrCreatePatientForUser(getCurrentUserId(userDetails)).getId();
         dto.setPatientId(patientId);
         
         AppointmentDTO result = appointmentService.bookAppointment(dto, userId, BookedBy.PATIENT);
@@ -65,7 +65,7 @@ public class PatientAppointmentController {
             @RequestParam(defaultValue = "10") Integer pageSize,
             @AuthenticationPrincipal UserDetails userDetails) {
         
-        Long patientId = getPatientIdFromUser(userDetails);
+        Long patientId = patientProfileService.getOrCreatePatientForUser(getCurrentUserId(userDetails)).getId();
         
         List<AppointmentStatus> statusList = null;
         if (statuses != null && !statuses.isBlank()) {
@@ -98,10 +98,4 @@ public class PatientAppointmentController {
         return SecurityUtil.getCurrentUserId();
     }
     
-    private Long getPatientIdFromUser(UserDetails userDetails) {
-        Long userId = SecurityUtil.getCurrentUserId();
-        return patientRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Patient profile not found for user: " + userId))
-                .getId();
-    }
 }

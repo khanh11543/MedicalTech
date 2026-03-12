@@ -59,6 +59,12 @@ public class DoctorTodayDTO {
         private Long elapsedSeconds;      // live timer base
         private LocalTime scheduledStart;
         private LocalTime scheduledEnd;
+        /** True if appointment has diagnosis (can complete from backend). */
+        private Boolean canComplete;
+        /** True if a medical record exists for this appointment (Add Addendum available). */
+        private Boolean hasFinalizedRecord;
+        /** Medical record ID when hasFinalizedRecord is true. */
+        private Long medicalRecordId;
     }
 
     /**

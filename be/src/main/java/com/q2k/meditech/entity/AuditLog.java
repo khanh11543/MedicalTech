@@ -7,7 +7,6 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
-import java.util.Map;
 
 @Getter
 @Setter
@@ -52,11 +51,11 @@ public class AuditLog {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "old_values", columnDefinition = "json")
-    private Object oldValues;
+    private String oldValues;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "new_values", columnDefinition = "json")
-    private Object newValues;
+    private String newValues;
 
     @Column(name = "ip_address", length = 45)
     private String ipAddress;

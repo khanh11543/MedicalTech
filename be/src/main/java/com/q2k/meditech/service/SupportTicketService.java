@@ -9,12 +9,14 @@ import com.q2k.meditech.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -47,16 +49,19 @@ public class SupportTicketService {
     }
 
     /**
-     * Get tickets for current user
+     * Get tickets for current user (convert in-transaction to avoid LazyInitializationException on User).
      */
+    @Transactional(readOnly = true)
     public Page<SupportTicketDTO> getUserTickets(Long userId, Pageable pageable) {
-        return supportTicketRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
-                .map(this::convertToDTO);
+        Page<SupportTicket> page = supportTicketRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable);
+        List<SupportTicketDTO> list = page.getContent().stream().map(this::convertToDTO).toList();
+        return new PageImpl<>(list, page.getPageable(), page.getTotalElements());
     }
 
     /**
      * Get single ticket (with ownership check for users)
      */
+    @Transactional(readOnly = true)
     public SupportTicketDTO getTicket(Long ticketId, Long userId) {
         SupportTicket ticket = supportTicketRepository.findById(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("SupportTicket", "id", ticketId));

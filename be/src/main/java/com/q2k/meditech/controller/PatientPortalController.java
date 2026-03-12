@@ -5,7 +5,7 @@ import com.q2k.meditech.dto.mapper.AppointmentMapper;
 import com.q2k.meditech.entity.Appointment;
 import com.q2k.meditech.entity.enums.AppointmentStatus;
 import com.q2k.meditech.repository.AppointmentRepository;
-import com.q2k.meditech.repository.PatientRepository;
+import com.q2k.meditech.service.PatientProfileService;
 import com.q2k.meditech.util.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class PatientPortalController {
 
-    private final PatientRepository patientRepository;
+    private final PatientProfileService patientProfileService;
     private final AppointmentRepository appointmentRepository;
     private final AppointmentMapper appointmentMapper;
 
@@ -56,9 +56,6 @@ public class PatientPortalController {
     }
 
     private Long getCurrentPatientId() {
-        Long userId = SecurityUtil.getCurrentUserId();
-        return patientRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Patient profile not found for user: " + userId))
-                .getId();
+        return patientProfileService.getOrCreatePatientForUser(SecurityUtil.getCurrentUserId()).getId();
     }
 }

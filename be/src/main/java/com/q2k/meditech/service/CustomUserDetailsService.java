@@ -30,9 +30,11 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmailWithRoles(email)
             .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + email));
 
+        // OAuth users may have null passwordHash; use placeholder so UserDetails is valid
+        String password = user.getPasswordHash() != null ? user.getPasswordHash() : "[OAUTH_NO_PASSWORD]";
         return new org.springframework.security.core.userdetails.User(
             user.getEmail(),
-            user.getPasswordHash(),
+            password,
             user.getIsActive(),
             true, // accountNonExpired
             true, // credentialsNonExpired

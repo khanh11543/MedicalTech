@@ -175,8 +175,11 @@ public class AdminPatientController {
         if (!usersWithoutProfile.isEmpty()) {
             log.info("Syncing {} users with PATIENT role missing patient profile", usersWithoutProfile.size());
             for (User user : usersWithoutProfile) {
+                String fullName = (user.getFullName() != null && !user.getFullName().isBlank())
+                        ? user.getFullName() : (user.getEmail() != null ? user.getEmail() : "Patient");
                 Patient patient = Patient.builder()
                         .user(user)
+                        .fullName(fullName)
                         .build();
                 patientRepository.save(patient);
             }

@@ -1,5 +1,7 @@
 package com.q2k.meditech.aspect;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.q2k.meditech.annotation.Auditable;
 import com.q2k.meditech.entity.AuditLog;
 import com.q2k.meditech.entity.User;
@@ -40,6 +42,7 @@ public class AuditAspect {
     private final AuditLogRepository auditLogRepository;
     private final UserRepository userRepository;
     private final GeoLocationService geoLocationService;
+    private final ObjectMapper objectMapper;
 
     private final ExpressionParser parser = new SpelExpressionParser();
     private final ParameterNameDiscoverer parameterNameDiscoverer = new DefaultParameterNameDiscoverer();
@@ -86,10 +89,14 @@ public class AuditAspect {
         // Resolve entity ID from SpEL expression
         Long entityId = resolveEntityId(joinPoint, auditable, result);
 
-        // Capture new value if configured
-        Object newValues = null;
+        // Capture new value if configured (serialize to JSON string for JSON column)
+        String newValuesJson = null;
         if (auditable.captureNewValue() && result != null) {
-            newValues = result;
+            try {
+                newValuesJson = objectMapper.writeValueAsString(result);
+            } catch (JsonProcessingException e) {
+                log.warn("Could not serialize audit newValues, skipping: {}", e.getMessage());
+            }
         }
 
         // Geo-location lookup
@@ -110,7 +117,7 @@ public class AuditAspect {
                 .actionType(auditable.actionType())
                 .entityType(auditable.entityType())
                 .entityId(entityId)
-                .newValues(newValues)
+                .newValues(newValuesJson)
                 .ipAddress(ipAddress)
                 .userAgent(userAgent)
                 .requestUrl(requestUrl)

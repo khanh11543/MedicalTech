@@ -512,4 +512,114 @@ public class EmailService {
 
         sendHtmlEmail(to, subject, htmlContent);
     }
+
+    /**
+     * Send appointment confirmation email to the patient's registered email
+     * after a successful booking.
+     */
+    @Async
+    public void sendAppointmentConfirmationEmail(
+            String toEmail,
+            String patientName,
+            String appointmentCode,
+            String department,
+            String doctorName,
+            String dateStr,
+            String timeStr,
+            String reasonForVisit,
+            String clinicName,
+            String hotline,
+            String address) {
+        if (toEmail == null || toEmail.isBlank()) {
+            log.warn("Cannot send appointment confirmation: patient email is empty");
+            return;
+        }
+        try {
+            String subject = "Appointment Confirmation - " + (appointmentCode != null ? appointmentCode : "");
+            String htmlContent = buildAppointmentConfirmationEmailTemplate(
+                    patientName, appointmentCode, department, doctorName,
+                    dateStr, timeStr, reasonForVisit, clinicName, hotline, address);
+            sendHtmlEmail(toEmail, subject, htmlContent);
+            log.info("Appointment confirmation email sent to: {}", toEmail);
+        } catch (Exception e) {
+            log.error("Failed to send appointment confirmation email to: {}", toEmail, e);
+        }
+    }
+
+    private String buildAppointmentConfirmationEmailTemplate(
+            String patientName,
+            String appointmentCode,
+            String department,
+            String doctorName,
+            String dateStr,
+            String timeStr,
+            String reasonForVisit,
+            String clinicName,
+            String hotline,
+            String address) {
+        String pName = safeStr(patientName);
+        String code = safeStr(appointmentCode);
+        String dept = safeStr(department);
+        String doc = safeStr(doctorName);
+        String date = safeStr(dateStr);
+        String time = safeStr(timeStr);
+        String reason = reasonForVisit == null || reasonForVisit.isBlank() ? "—" : reasonForVisit;
+        String clinic = clinicName == null || clinicName.isBlank() ? "MedicalTech Clinic" : clinicName;
+        String phone = safeStr(hotline);
+        String addr = safeStr(address);
+
+        return "<!DOCTYPE html>\n" +
+                "<html>\n" +
+                "<head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>\n" +
+                "<style>\n" +
+                "body{font-family:Arial,sans-serif;line-height:1.6;color:#333;}\n" +
+                ".container{max-width:600px;margin:0 auto;padding:20px;}\n" +
+                ".header{background:linear-gradient(135deg,#049ebb 0%,#037a94 100%);color:#fff;padding:24px;text-align:center;border-radius:10px 10px 0 0;}\n" +
+                ".content{background:#f9f9f9;padding:28px;border-radius:0 0 10px 10px;}\n" +
+                ".details{background:#fff;padding:20px;margin:16px 0;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,0.08);}\n" +
+                ".details p{margin:8px 0;}\n" +
+                ".note{background:#e8f4f8;padding:14px;border-radius:8px;margin:16px 0;}\n" +
+                ".contact{margin-top:20px;padding-top:16px;border-top:1px solid #eee;}\n" +
+                ".footer{text-align:center;margin-top:24px;color:#777;font-size:12px;}\n" +
+                "</style>\n" +
+                "</head>\n" +
+                "<body>\n" +
+                "<div class='container'>\n" +
+                "<div class='header'><h1 style='margin:0;font-size:1.5rem;'>" + escapeHtml(clinic) + "</h1><p style='margin:8px 0 0;opacity:0.9;'>Appointment Confirmation</p></div>\n" +
+                "<div class='content'>\n" +
+                "<p>Dear <strong>" + escapeHtml(pName) + "</strong>,</p>\n" +
+                "<p>Your appointment at <strong>" + escapeHtml(clinic) + "</strong> has been successfully scheduled.</p>\n" +
+                "<div class='details'>\n" +
+                "<p><strong>Appointment Details:</strong></p>\n" +
+                "<p>• Appointment ID: <strong>" + escapeHtml(code) + "</strong></p>\n" +
+                "<p>• Department: " + escapeHtml(dept) + "</p>\n" +
+                "<p>• Doctor: " + escapeHtml(doc) + "</p>\n" +
+                "<p>• Date: " + escapeHtml(date) + "</p>\n" +
+                "<p>• Time: " + escapeHtml(time) + "</p>\n" +
+                "<p><strong>Reason for Visit:</strong><br>" + escapeHtml(reason) + "</p>\n" +
+                "</div>\n" +
+                "<div class='note'>\n" +
+                "<p><strong>Note:</strong> Please arrive <strong>15 minutes early</strong> to complete the check-in process.</p>\n" +
+                "</div>\n" +
+                "<div class='contact'>\n" +
+                "<p>If you need to reschedule or cancel your appointment, please contact us:</p>\n" +
+                "<p><strong>Hotline:</strong> " + escapeHtml(phone) + "</p>\n" +
+                "<p><strong>Address:</strong> " + escapeHtml(addr) + "</p>\n" +
+                "</div>\n" +
+                "<p>Best regards,<br><strong>" + escapeHtml(clinic) + "</strong></p>\n" +
+                "</div>\n" +
+                "<div class='footer'><p>This is an automated message. Please do not reply to this email.</p></div>\n" +
+                "</div>\n" +
+                "</body>\n" +
+                "</html>";
+    }
+
+    private static String safeStr(String s) {
+        return s == null || s.isBlank() ? "—" : s;
+    }
+
+    private static String escapeHtml(String s) {
+        if (s == null) return "";
+        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
 }

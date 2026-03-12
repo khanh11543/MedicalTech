@@ -8,6 +8,8 @@ import com.q2k.meditech.entity.enums.AppointmentStatus;
 import com.q2k.meditech.entity.enums.AuditActionType;
 import com.q2k.meditech.entity.enums.BookedBy;
 import com.q2k.meditech.entity.enums.NotificationType;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.*;
@@ -50,6 +52,7 @@ public class ReceptionistPatientServiceImpl implements ReceptionistPatientServic
     private final EmailService emailService;
     private final PrivacyMaskingService privacyMaskingService;
     private final SmsService smsService;
+    private final ObjectMapper objectMapper;
 
     // ==================== 3.1 ALL PATIENTS ====================
 
@@ -943,6 +946,8 @@ public class ReceptionistPatientServiceImpl implements ReceptionistPatientServic
                                 Object oldValues, Object newValues) {
         try {
             User user = userId != null ? userRepository.findById(userId).orElse(null) : null;
+            String oldJson = toJsonString(oldValues);
+            String newJson = toJsonString(newValues);
 
             AuditLog auditLog = AuditLog.builder()
                     .user(user)
@@ -950,8 +955,8 @@ public class ReceptionistPatientServiceImpl implements ReceptionistPatientServic
                     .actionType(AuditActionType.SENSITIVE_ACCESS)
                     .entityType(entityType)
                     .entityId(entityId)
-                    .oldValues(oldValues)
-                    .newValues(newValues)
+                    .oldValues(oldJson)
+                    .newValues(newJson)
                     .build();
 
             // Set appropriate action type
@@ -966,6 +971,16 @@ public class ReceptionistPatientServiceImpl implements ReceptionistPatientServic
             auditLogRepository.save(auditLog);
         } catch (Exception e) {
             log.error("Failed to log audit event: {} for entity: {}/{}", action, entityType, entityId, e);
+        }
+    }
+
+    private String toJsonString(Object value) {
+        if (value == null) return null;
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            log.warn("Could not serialize audit value: {}", e.getMessage());
+            return null;
         }
     }
 }

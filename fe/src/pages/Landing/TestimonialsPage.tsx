@@ -5,6 +5,7 @@ import { PageTitle, StarRating } from "./components/SharedComponents";
 import publicService, { type PublicReview } from "../../services/publicService";
 import patientService from "../../services/patientService";
 import { authStorage } from "../../utils/authStorage";
+import { getUploadUrl } from "../../utils/avatar";
 import "./landing.css";
 
 interface DisplayReview {
@@ -111,8 +112,6 @@ function ReviewFormModal({
       };
       if (doctorId !== "") payload.doctorId = doctorId as number;
       const result = await patientService.createReview(payload);
-      const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
-      const toFullUrl = (u: string) => (u.startsWith("http") ? u : `${baseUrl}${u.startsWith("/") ? "" : "/"}${u}`);
       onSubmitted({
         id: `r-${result.id}`,
         name: result.patientName ?? "You",
@@ -121,7 +120,7 @@ function ReviewFormModal({
         createdAt: result.createdAt ?? new Date().toISOString(),
         type: "review",
         doctorName: result.doctorName ?? undefined,
-        imageUrls: (result.imageUrls || []).map(toFullUrl),
+        imageUrls: (result.imageUrls || []).map((u) => getUploadUrl(u) ?? u),
       });
       onClose();
     } catch (err: unknown) {
@@ -256,8 +255,6 @@ export default function TestimonialsPage() {
     setLoading(true);
     try {
       const reviewsRes = await publicService.getReviews({ pageSize: 50 });
-      const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
-      const toFullUrl = (u: string) => (u.startsWith("http") ? u : `${apiBase}${u.startsWith("/") ? "" : "/"}${u}`);
       const reviewItems: DisplayReview[] = (reviewsRes.content || []).map((r: PublicReview) => ({
         id: `r-${r.id}`,
         name: r.patientName,
@@ -267,7 +264,7 @@ export default function TestimonialsPage() {
         type: "review" as const,
         doctorName: r.doctorName,
         doctorSpecialty: r.doctorSpecialty,
-        imageUrls: (r.imageUrls || []).map(toFullUrl),
+        imageUrls: (r.imageUrls || []).map((u) => getUploadUrl(u) ?? u),
       }));
       setItems(reviewItems);
     } catch {

@@ -34,4 +34,7 @@ public interface MedicalRecordRepository extends JpaRepository<MedicalRecord, Lo
 
     @Query("SELECT m FROM MedicalRecord m LEFT JOIN FETCH m.doctor WHERE m.id = :id AND m.patient.id = :patientId")
     Optional<MedicalRecord> findByIdAndPatientId(@Param("id") Long id, @Param("patientId") Long patientId);
+
+    @Query("SELECT m FROM MedicalRecord m WHERE m.appointment.id = :appointmentId")
+    Optional<MedicalRecord> findByAppointmentId(@Param("appointmentId") Long appointmentId);
 }

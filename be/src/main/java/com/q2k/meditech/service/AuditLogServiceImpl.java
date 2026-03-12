@@ -6,6 +6,7 @@ import com.q2k.meditech.entity.User;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.AuditLogRepository;
 import com.q2k.meditech.specification.AuditLogSpecification;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -66,8 +67,8 @@ public class AuditLogServiceImpl implements AuditLogService {
                 .actionType(auditLog.getActionType())
                 .entityType(auditLog.getEntityType())
                 .entityId(auditLog.getEntityId())
-                .oldValues(auditLog.getOldValues())
-                .newValues(auditLog.getNewValues())
+                .oldValues(parseJsonToMap(auditLog.getOldValues()))
+                .newValues(parseJsonToMap(auditLog.getNewValues()))
                 .ipAddress(auditLog.getIpAddress())
                 .userAgent(auditLog.getUserAgent())
                 .requestUrl(auditLog.getRequestUrl())
@@ -76,8 +77,10 @@ public class AuditLogServiceImpl implements AuditLogService {
                 .geoCity(auditLog.getGeoCity())
                 .createdAt(auditLog.getCreatedAt());
 
-        // Compute field-level diff
-        builder.changes(computeFieldChanges(auditLog.getOldValues(), auditLog.getNewValues()));
+        // Compute field-level diff (parse JSON strings to Map for comparison)
+        builder.changes(computeFieldChanges(
+                parseJsonToMap(auditLog.getOldValues()),
+                parseJsonToMap(auditLog.getNewValues())));
 
         // Navigation: previous / next for same user
         if (auditLog.getUser() != null) {
@@ -203,6 +206,16 @@ public class AuditLogServiceImpl implements AuditLogService {
                 .email(user.getEmail())
                 .avatarUrl(user.getAvatarUrl())
                 .build();
+    }
+
+    private Map<String, Object> parseJsonToMap(String json) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            return objectMapper.readValue(json, new TypeReference<Map<String, Object>>() {});
+        } catch (JsonProcessingException e) {
+            log.warn("Could not parse audit log JSON: {}", e.getMessage());
+            return null;
+        }
     }
 
     @SuppressWarnings("unchecked")

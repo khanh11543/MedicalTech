@@ -20,12 +20,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 public class ReviewService {
+
+    /** URL prefix for review images — same as WebMvcConfig resource handler. */
+    private static final String REVIEW_IMAGES_PREFIX = "/uploads/reviews/";
 
     @Autowired
     private ReviewRepository reviewRepository;
@@ -105,7 +109,8 @@ public class ReviewService {
         String imageUrlsJson = null;
         if (dto.getImageUrls() != null && !dto.getImageUrls().isEmpty()) {
             try {
-                imageUrlsJson = objectMapper.writeValueAsString(dto.getImageUrls());
+                List<String> normalized = normalizeReviewImageUrls(dto.getImageUrls());
+                imageUrlsJson = objectMapper.writeValueAsString(normalized);
             } catch (Exception ignored) {
             }
         }
@@ -277,7 +282,8 @@ public class ReviewService {
         List<String> imageUrls = Collections.emptyList();
         if (review.getImageUrls() != null && !review.getImageUrls().isBlank()) {
             try {
-                imageUrls = objectMapper.readValue(review.getImageUrls(), new TypeReference<>() {});
+                List<String> raw = objectMapper.readValue(review.getImageUrls(), new TypeReference<>() {});
+                imageUrls = normalizeReviewImageUrls(raw);
             } catch (Exception ignored) {
             }
         }
@@ -289,5 +295,24 @@ public class ReviewService {
         dto.setCreatedAt(review.getCreatedAt());
         dto.setUpdatedAt(review.getUpdatedAt());
         return dto;
+    }
+
+    /**
+     * Normalize review image URLs to full path so all clients (any user/session) can load them.
+     * Handles legacy DB values that store only filename (e.g. "img_xxx.jpg").
+     */
+    private static List<String> normalizeReviewImageUrls(List<String> urls) {
+        if (urls == null || urls.isEmpty()) return Collections.emptyList();
+        List<String> out = new ArrayList<>(urls.size());
+        for (String u : urls) {
+            if (u == null || u.isBlank()) continue;
+            String trimmed = u.trim();
+            if (trimmed.startsWith("http") || trimmed.startsWith("/uploads/")) {
+                out.add(trimmed);
+            } else {
+                out.add(REVIEW_IMAGES_PREFIX + (trimmed.startsWith("/") ? trimmed.substring(1) : trimmed));
+            }
+        }
+        return out;
     }
 }
