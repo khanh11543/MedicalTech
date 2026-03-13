@@ -6,8 +6,8 @@ export default function SignUp() {
   return (
     <>
       <PageMeta
-        title="Sign Up | MedicalTech"
-        description="Create your MedicalTech account - Medical Appointment System"
+        title="Sign Up | MediTech"
+        description="Create your MediTech account - Medical Appointment System"
       />
       <AuthLayout>
         <SignUpForm />

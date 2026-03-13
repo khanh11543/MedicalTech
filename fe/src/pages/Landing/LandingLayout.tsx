@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { getAvatarUrl } from "../../utils/avatar";
 
-// MediTrust Logo SVG
+// MediTech Logo SVG
 function LogoIcon() {
   return (
     <svg className="logo-icon h-8 text-[#049ebb]" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -143,7 +143,7 @@ export default function LandingLayout() {
           {/* Logo */}
           <Link to="/home" className="flex items-center gap-1 no-underline">
             <LogoIcon />
-            <h1 className="text-2xl font-bold text-[#18444c] m-0">MediTrust</h1>
+            <h1 className="text-2xl font-bold text-[#18444c] m-0">MediTech</h1>
           </Link>
 
           {/* Desktop Nav */}
@@ -387,11 +387,11 @@ export default function LandingLayout() {
             <div className="lg:col-span-2">
               <Link to="/home" className="flex items-center gap-1 no-underline mb-4">
                 <LogoIcon />
-                <span className="text-xl font-bold text-[#18444c]">MediTrust</span>
+                <span className="text-xl font-bold text-[#18444c]">MediTech</span>
               </Link>
               <div className="text-sm text-gray-500 space-y-1">
                 <p>11/7 Tang nhan phu A</p>
-                <p>Quan 9_Tp Ho CHi Minh_Vietnam</p>
+                <p>Quan 9_Tp Ho CHi Minh_VietNam</p>
                 <p className="mt-3"><strong className="text-gray-700">Phone:</strong> +84 952123456</p>
                 <p><strong className="text-gray-700">Email:</strong> khanh115432@gmail.com</p>
               </div>
@@ -456,7 +456,7 @@ export default function LandingLayout() {
 
         {/* Copyright */}
         <div className="border-t border-gray-200 mt-10 pt-6 text-center text-sm text-gray-500">
-          <p>© {new Date().getFullYear()} <strong className="text-[#18444c]">MediTrust</strong>. All Rights Reserved.</p>
+          <p>© {new Date().getFullYear()} <strong className="text-[#18444c]">MediTech</strong>. All Rights Reserved.</p>
         </div>
       </footer>
 

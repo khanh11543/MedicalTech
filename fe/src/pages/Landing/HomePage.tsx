@@ -5,7 +5,7 @@ import publicService, { type Specialty } from "../../services/publicService";
 import "./landing.css";
 
 /* ============================================================
-   HomePage — Pixel-accurate match to MediTrust Bootstrap template
+   HomePage — Pixel-accurate match to MediTech Bootstrap template
    ============================================================ */
 
 // ==================== Section Title (Homepage) ====================
@@ -155,7 +155,7 @@ function AboutSection() {
               Committed to Exceptional Patient Care
             </h2>
             <p className="text-[18px] font-medium text-[rgba(24,68,76,0.8)] mb-4 text-justify">
-              At MediTrust Medical Center, our mission is to provide high-quality healthcare through advanced medical technology, experienced physicians, and compassionate patient-centered care.
+              At MediTech Medical Center, our mission is to provide high-quality healthcare through advanced medical technology, experienced physicians, and compassionate patient-centered care.
             </p>
             <p className="text-[#2c3031] mb-4 text-justify">
              We combine modern medical expertise with personalized treatment plans to ensure every patient receives safe, effective, and comfortable healthcare services. Our team is dedicated to improving patient outcomes and supporting long-term health and wellness.
@@ -670,7 +670,7 @@ function EmergencySection() {
       icon: "bi bi-headset",
       title: "Medical Consultation Hotline",
       phone: "1900 9095",
-      address: "Vietnam Ministry of Health Medical Advisory Service",
+      address: "VietNam Ministry of Health Medical Advisory Service",
       hours: "Available 24/7",
     },
     {

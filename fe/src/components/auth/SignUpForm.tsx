@@ -6,12 +6,38 @@ import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
 import authService from "../../services/authService";
 
+const COUNTRY_CODES = [
+  { code: "+84", label: "VietNam (+84)", dial: "84" },
+  { code: "+1", label: "US / Canada (+1)", dial: "1" },
+  { code: "+44", label: "UK (+44)", dial: "44" },
+  { code: "+81", label: "Japan (+81)", dial: "81" },
+  { code: "+82", label: "Korea (+82)", dial: "82" },
+  { code: "+86", label: "China (+86)", dial: "86" },
+  { code: "+65", label: "Singapore (+65)", dial: "65" },
+  { code: "+66", label: "Thailand (+66)", dial: "66" },
+  { code: "+61", label: "Australia (+61)", dial: "61" },
+  { code: "+33", label: "France (+33)", dial: "33" },
+  { code: "+49", label: "Germany (+49)", dial: "49" },
+  { code: "+91", label: "India (+91)", dial: "91" },
+  { code: "+60", label: "Malaysia (+60)", dial: "60" },
+  { code: "+63", label: "Philippines (+63)", dial: "63" },
+  { code: "+39", label: "Italy (+39)", dial: "39" },
+  { code: "+34", label: "Spain (+34)", dial: "34" },
+  { code: "+7", label: "Russia (+7)", dial: "7" },
+  { code: "+55", label: "Brazil (+55)", dial: "55" },
+  { code: "+971", label: "UAE (+971)", dial: "971" },
+  { code: "+ other", label: "Other", dial: "" },
+] as const;
+
+const DEFAULT_COUNTRY = "+84";
+
 export default function SignUpForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_COUNTRY);
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -26,6 +52,48 @@ export default function SignUpForm() {
       return "Password must be at least 8 characters with uppercase, lowercase, number and special character (@$!%*?&#).";
     }
     return null;
+  };
+
+  const normalizePhoneDigits = (raw: string): string =>
+    raw.replace(/\D/g, "").replace(/^0+/, "");
+
+  const validatePhone = (
+    countryCode: string,
+    number: string
+  ): string | null => {
+    if (countryCode === "+ other") {
+      const raw = number.trim();
+      if (!raw) return null;
+      if (!/^\+[1-9]\d{6,14}$/.test(raw.replace(/\s/g, "")))
+        return "Enter full international number, e.g. +1 234 567 8901.";
+      return null;
+    }
+
+    const digits = normalizePhoneDigits(number);
+    if (!digits) return null;
+
+    if (countryCode === "+84") {
+      if (digits.length < 9 || digits.length > 10)
+        return "Vietnamese number: 9–10 digits (e.g. 912 345 678).";
+      if (!/^[3-9]/.test(digits))
+        return "Vietnamese mobile should start with 3, 5, 7, 8, 9.";
+      return null;
+    }
+
+    if (digits.length < 7 || digits.length > 15)
+      return "Phone number should be 7–15 digits.";
+    return null;
+  };
+
+  const getFullPhone = (): string | undefined => {
+    if (phoneCountryCode === "+ other") {
+      const raw = phoneNumber.trim().replace(/\s/g, "");
+      return /^\+[1-9]\d{6,14}$/.test(raw) ? raw : undefined;
+    }
+    const digits = normalizePhoneDigits(phoneNumber);
+    if (!digits) return undefined;
+    const code = phoneCountryCode.replace("+", "");
+    return `+${code}${digits}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -53,13 +121,21 @@ export default function SignUpForm() {
       return;
     }
 
+    const phoneError = validatePhone(phoneCountryCode, phoneNumber);
+    if (phoneError) {
+      setError(phoneError);
+      return;
+    }
+
+    const fullPhone = getFullPhone();
+
     setIsSubmitting(true);
     try {
       await authService.register({
         email,
         password,
         confirmPassword,
-        phone: phone || undefined,
+        phone: fullPhone,
       });
       // Registration success -> redirect to OTP verification page
       navigate("/verify-otp", { state: { email } });
@@ -122,15 +198,45 @@ export default function SignUpForm() {
                 </div>
                 {/* Phone */}
                 <div>
-                  <Label>Phone</Label>
-                  <Input
-                    type="tel"
-                    id="phone"
-                    name="phone"
-                    placeholder="Enter your phone number (e.g. 0912345678)"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
+                  <Label>Phone (optional)</Label>
+                  <div className="flex gap-2">
+                    <select
+                      aria-label="Country code"
+                      value={phoneCountryCode}
+                      onChange={(e) =>
+                        setPhoneCountryCode(e.target.value as typeof phoneCountryCode)
+                      }
+                      className="h-11 shrink-0 w-[140px] rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm shadow-theme-xs focus:outline-none focus:ring-3 focus:ring-brand-500/30 focus:border-brand-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                    <Input
+                      type="tel"
+                      id="phone"
+                      name="phone"
+                      placeholder={
+                        phoneCountryCode === "+84"
+                          ? "912 345 678"
+                          : phoneCountryCode === "+ other"
+                            ? "+1 234 567 8901"
+                            : "Phone number"
+                      }
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      className="flex-1 min-w-0"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    {phoneCountryCode === "+84"
+                      ? "VietNam: 9–10 digits, e.g. 912 345 678."
+                      : phoneCountryCode === "+ other"
+                        ? "Enter full number with + and country code."
+                        : "Enter number without leading 0."}
+                  </p>
                 </div>
                 {/* Password */}
                 <div>

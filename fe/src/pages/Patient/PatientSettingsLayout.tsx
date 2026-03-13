@@ -58,7 +58,7 @@ export default function PatientSettingsLayout() {
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900" style={{ paddingTop: 80 }}>
       {/* Breadcrumb */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-3">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-3 flex justify-center">
           <nav className="flex text-sm text-gray-500 dark:text-gray-400">
             <Link to="/home" className="hover:text-[#049ebb] no-underline">Home</Link>
             <span className="mx-2">/</span>
@@ -69,7 +69,7 @@ export default function PatientSettingsLayout() {
 
       {/* Title section */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-6">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-6 text-center">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">Patient Portal</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Manage your appointments, payments, profiles, and account settings

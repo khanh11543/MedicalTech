@@ -30,6 +30,7 @@ public class AdminDashboardService {
     private final UserRepository userRepository;
     private final DoctorRepository doctorRepository;
     private final PatientRepository patientRepository;
+    private final ReceptionistRepository receptionistRepository;
     private final DoctorDocumentRepository doctorDocumentRepository;
     private final AppointmentRepository appointmentRepository;
     private final StaffRegistryRepository staffRegistryRepository;
@@ -42,10 +43,12 @@ public class AdminDashboardService {
         
         // User statistics
         long totalUsers = userRepository.count();
+        long totalAdmins = userRepository.countDistinctByRoleName("ADMIN");
         long totalDoctors = doctorRepository.count();
         long totalPatients = patientRepository.count();
-        long activeUsers = userRepository.count(); // TODO: Add countByIsActive(true) to UserRepository
-        
+        long totalReceptionists = receptionistRepository.count();
+        long activeUsers = userRepository.countByIsActive(true);
+
         // Doctor verification statistics
         long pendingDocuments = doctorDocumentRepository.countByStatus(ReviewStatus.PENDING);
         long approvedDocuments = doctorDocumentRepository.countByStatus(ReviewStatus.APPROVED);
@@ -70,9 +73,10 @@ public class AdminDashboardService {
         
         return AdminDashboardDTO.builder()
                 .totalUsers(totalUsers)
+                .totalAdmins(totalAdmins)
                 .totalDoctors(totalDoctors)
                 .totalPatients(totalPatients)
-                .totalReceptionists(0L) // TODO: Count receptionists separately if needed
+                .totalReceptionists(totalReceptionists)
                 .activeUsers(activeUsers)
                 .inactiveUsers(totalUsers - activeUsers)
                 .pendingDocuments(pendingDocuments)

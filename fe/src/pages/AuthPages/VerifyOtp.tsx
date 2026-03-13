@@ -6,7 +6,7 @@ export default function VerifyOtp() {
   return (
     <>
       <PageMeta
-        title="Verify OTP | MedicalTech"
+        title="Verify OTP | MediTech"
         description="Verify your email with OTP code to complete registration"
       />
       <AuthLayout>

@@ -16,6 +16,7 @@ public class AdminDashboardDTO {
     
     // User Statistics
     private Long totalUsers;
+    private Long totalAdmins;
     private Long totalDoctors;
     private Long totalPatients;
     private Long totalReceptionists;

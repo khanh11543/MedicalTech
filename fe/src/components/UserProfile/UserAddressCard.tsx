@@ -26,7 +26,7 @@ export default function UserAddressCard() {
                   Country
                 </p>
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  Vietnam
+                  VietNam
                 </p>
               </div>
 
@@ -97,7 +97,7 @@ export default function UserAddressCard() {
               <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                 <div>
                   <Label>Country</Label>
-                  <Input type="text" value="Vietnam" />
+                  <Input type="text" value="VietNam" />
                 </div>
 
                 <div>

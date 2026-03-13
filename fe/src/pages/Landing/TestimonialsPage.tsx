@@ -289,7 +289,7 @@ export default function TestimonialsPage() {
   if (loading) {
     return (
       <>
-        <PageTitle title="Testimonials" description="Hear from our patients about their experiences with MediTrust healthcare." />
+        <PageTitle title="Testimonials" description="Hear from our patients about their experiences with MediTech healthcare." />
         <div className="text-center py-20 text-gray-400">
           <i className="bi bi-arrow-repeat text-3xl animate-spin" />
           <p className="mt-3">Loading testimonials...</p>
@@ -302,7 +302,7 @@ export default function TestimonialsPage() {
     <>
       <PageTitle
         title="Testimonials"
-        description="Hear from our patients about their experiences with MediTrust healthcare."
+        description="Hear from our patients about their experiences with MediTech healthcare."
         breadcrumbs={[{ label: "Home", to: "/home" }, { label: "Testimonials" }]}
       />
 

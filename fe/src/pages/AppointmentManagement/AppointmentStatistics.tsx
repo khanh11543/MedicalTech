@@ -154,6 +154,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ title, subtitle, children, action
 // =========== MAIN COMPONENT ===========
 export default function AppointmentStatistics() {
   const { settings: wsSettings } = useWorkstation();
+  const isDarkMode = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
   // Filter states - user edits this directly
   const defaultFilter: StatisticsFilterDTO = {
     from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -300,9 +301,16 @@ export default function AppointmentStatistics() {
     chart: {
       type: "donut",
       fontFamily: "Outfit, sans-serif",
+      animations: { enabled: false },
+      foreColor: isDarkMode ? "#E5E7EB" : "#111827",
     },
     colors: appointmentsByStatus.map((s) => STATUS_COLORS[s.status] || "#6B7280"),
     labels: appointmentsByStatus.map((s) => s.status),
+    stroke: {
+      show: true,
+      width: 2,
+      colors: ["#ffffff"],
+    },
     legend: {
       position: "bottom",
       horizontalAlign: "center",
@@ -313,9 +321,25 @@ export default function AppointmentStatistics() {
           size: "65%",
           labels: {
             show: true,
+            name: {
+              show: true,
+              fontSize: "14px",
+              fontWeight: 600,
+              color: isDarkMode ? "#D1D5DB" : "#374151",
+            },
+            value: {
+              show: true,
+              fontSize: "20px",
+              fontWeight: 700,
+              color: isDarkMode ? "#F9FAFB" : "#111827",
+              formatter: (val: string) => formatNumber(Number(val)),
+            },
             total: {
               show: true,
               label: "Total",
+              fontSize: "14px",
+              fontWeight: 600,
+              color: isDarkMode ? "#D1D5DB" : "#374151",
               formatter: () => formatNumber(appointmentsByStatus.reduce((sum, s) => sum + s.count, 0)),
             },
           },
@@ -326,18 +350,12 @@ export default function AppointmentStatistics() {
       enabled: true,
       formatter: (val: number) => `${val.toFixed(1)}%`,
       style: {
-        fontSize: "14px",
+        fontSize: "16px",
         fontWeight: "bold",
         colors: ["#FFFFFF"],
       },
-      dropShadow: {
-        enabled: true,
-        top: 1,
-        left: 1,
-        blur: 2,
-        color: "#000000",
-        opacity: 0.6,
-      },
+      // Drop shadow makes labels look blurry on some displays/zoom levels
+      dropShadow: { enabled: false },
     },
     tooltip: {
       y: {

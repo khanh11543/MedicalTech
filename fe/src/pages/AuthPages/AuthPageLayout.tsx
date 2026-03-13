@@ -1,6 +1,6 @@
 import React from "react";
 import GridShape from "../../components/common/GridShape";
-import { Link } from "react-router";
+import MediTechLogo from "../../components/common/MediTechLogo";
 import ThemeTogglerTwo from "../../components/common/ThemeTogglerTwo";
 
 export default function AuthLayout({
@@ -16,15 +16,8 @@ export default function AuthLayout({
           <div className="relative flex items-center justify-center z-1">
             {/* <!-- ===== Common Grid Shape Start ===== --> */}
             <GridShape />
-            <div className="flex flex-col items-center max-w-xs">
-              <Link to="/" className="block mb-4">
-                <img
-                  width={231}
-                  height={48}
-                  src="/images/logo/auth-logo.svg"
-                  alt="Logo"
-                />
-              </Link>
+            <div className="flex flex-col items-center max-w-xs gap-4">
+              <MediTechLogo to="/home" variant="dark" textSize="2xl" />
               <p className="text-center text-gray-400 dark:text-white/60">
                 Medical Appointment Management System
               </p>

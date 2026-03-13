@@ -6,8 +6,8 @@ export default function SignIn() {
   return (
     <>
       <PageMeta
-        title="Sign In | MedicalTech"
-        description="Sign in to MedicalTech Dashboard - Medical Appointment System"
+        title="Sign In | MediTech"
+        description="Sign in to MediTech Dashboard - Medical Appointment System"
       />
       <AuthLayout>
         <SignInForm />

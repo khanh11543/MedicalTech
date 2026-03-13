@@ -44,8 +44,8 @@ export default function ForgotPassword() {
   return (
     <>
       <PageMeta
-        title="Forgot password | MedicalTech"
-        description="Recover password via email - MedicalTech"
+        title="Forgot password | MediTech"
+        description="Recover password via email - MediTech"
       />
       <AuthLayout>
         <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">

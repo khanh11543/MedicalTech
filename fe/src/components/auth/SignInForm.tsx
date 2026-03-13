@@ -62,12 +62,13 @@ export default function SignInForm() {
       const axiosError = err as {
         response?: { data?: { message?: string }; status?: number };
       };
-      if (axiosError.response?.status === 401) {
+      const serverMessage = axiosError.response?.data?.message;
+      if (serverMessage) {
+        setError(serverMessage);
+      } else if (axiosError.response?.status === 401) {
         setError("Invalid email or password.");
       } else if (axiosError.response?.status === 423) {
         setError("Account is locked. Please try again later.");
-      } else if (axiosError.response?.data?.message) {
-        setError(axiosError.response.data.message);
       } else {
         setError("Login failed. Please check your connection and try again.");
       }

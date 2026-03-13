@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import PageMeta from "../../components/common/PageMeta";
+import MediTechLogo from "../../components/common/MediTechLogo";
 import authService from "../../services/authService";
 
 export default function VerifyAccount() {
@@ -50,8 +51,8 @@ export default function VerifyAccount() {
   return (
     <>
       <PageMeta
-        title="Account Verification | MedicalTech"
-        description="Verify your MedicalTech account"
+        title="Account Verification | MediTech"
+        description="Verify your MediTech account"
       />
 
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 px-4 py-12 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
@@ -59,15 +60,8 @@ export default function VerifyAccount() {
           {/* Card */}
           <div className="rounded-2xl bg-white px-8 py-10 shadow-xl ring-1 ring-gray-100 dark:bg-gray-800 dark:ring-gray-700">
             {/* Logo */}
-            <div className="mb-8 flex items-center justify-center gap-2.5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 shadow-md">
-                <svg className="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-              </div>
-              <span className="text-xl font-bold tracking-tight text-gray-800 dark:text-white">
-                Medical<span className="text-blue-600"> Tech</span>
-              </span>
+            <div className="mb-8 flex justify-center">
+              <MediTechLogo textSize="xl" />
             </div>
 
             {/* Loading */}
@@ -138,7 +132,7 @@ export default function VerifyAccount() {
 
           {/* Footer */}
           <p className="mt-6 text-center text-xs text-gray-400 dark:text-gray-500">
-            &copy; {new Date().getFullYear()} MedicalTech. All rights reserved.
+            &copy; {new Date().getFullYear()} MediTech. All rights reserved.
           </p>
         </div>
       </div>

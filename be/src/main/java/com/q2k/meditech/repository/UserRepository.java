@@ -21,6 +21,17 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
     
     /**
+     * Count users by active status
+     */
+    long countByIsActive(Boolean isActive);
+
+    /**
+     * Count distinct users that have the given role (by role name)
+     */
+    @Query("SELECT COUNT(DISTINCT u) FROM User u JOIN u.userRoles ur JOIN ur.role r WHERE r.name = :roleName")
+    long countDistinctByRoleName(@Param("roleName") String roleName);
+
+    /**
      * Find user by email
      */
     Optional<User> findByEmail(String email);
