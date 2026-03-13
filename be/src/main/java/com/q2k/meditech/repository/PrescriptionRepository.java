@@ -17,7 +17,7 @@ import java.util.Optional;
 @Repository
 public interface PrescriptionRepository extends JpaRepository<Prescription, Long>, JpaSpecificationExecutor<Prescription> {
     
-    // Tìm prescription với đầy đủ thông tin
+    // Find prescription with full details
     @Query("SELECT p FROM Prescription p " +
            "JOIN FETCH p.patient pat " +
            "JOIN FETCH pat.user " +
@@ -27,7 +27,7 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
            "WHERE p.id = :id")
     Optional<Prescription> findByIdWithDetails(@Param("id") Long id);
     
-    // Tìm theo patient
+    // Find by patient
     @Query("SELECT DISTINCT p FROM Prescription p " +
            "JOIN FETCH p.patient pat " +
            "JOIN FETCH pat.user " +
@@ -37,10 +37,10 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
            "ORDER BY p.prescriptionDate DESC")
     List<Prescription> findByPatientId(@Param("patientId") Long patientId);
     
-    // Tìm theo patient với pagination
+    // Find by patient with pagination
     Page<Prescription> findByPatientIdOrderByPrescriptionDateDesc(Long patientId, Pageable pageable);
     
-    // Tìm theo patient và khoảng thời gian
+    // Find by patient and date range
     @Query("SELECT p FROM Prescription p " +
            "WHERE p.patient.id = :patientId " +
            "AND p.prescriptionDate BETWEEN :from AND :to " +
@@ -51,7 +51,7 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
             @Param("to") LocalDate to,
             Pageable pageable);
     
-    // Tìm theo doctor
+    // Find by doctor
     @Query("SELECT DISTINCT p FROM Prescription p " +
            "JOIN FETCH p.patient pat " +
            "JOIN FETCH pat.user " +
@@ -61,19 +61,19 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
            "ORDER BY p.prescriptionDate DESC")
     List<Prescription> findByDoctorId(@Param("doctorId") Long doctorId);
     
-    // Tìm theo appointment
+    // Find by appointment
     Optional<Prescription> findByAppointmentId(Long appointmentId);
     
-    // Đếm số đơn thuốc của patient
+    // Count patient's prescriptions
     Long countByPatientId(Long patientId);
 
-    // Đếm số đơn thuốc active của patient
+    // Count patient's active prescriptions
     Long countByPatientIdAndIsActiveTrue(Long patientId);
 
-    // Đếm số đơn thuốc của doctor
+    // Count doctor's prescriptions
     Long countByDoctorId(Long doctorId);
 
-    // Tìm theo khoảng thời gian (for admin statistics)
+    // Find by date range (for admin statistics)
     List<Prescription> findByPrescriptionDateBetween(LocalDate from, LocalDate to);
 
     // Count by status

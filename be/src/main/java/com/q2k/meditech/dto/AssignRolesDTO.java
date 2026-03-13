@@ -10,8 +10,8 @@ import java.util.Set;
 
 /**
  * Assign Roles DTO
- * Dùng cho API PUT /api/admin/users/{userId}/roles
- * Replace toàn bộ roles của user bằng danh sách mới
+ * Used for API PUT /api/admin/users/{userId}/roles
+ * Replaces all user roles with a new list
  */
 @Data
 @NoArgsConstructor

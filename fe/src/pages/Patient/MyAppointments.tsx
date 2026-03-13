@@ -233,7 +233,7 @@ function AppointmentCard({
   const canReview = a.status === "COMPLETED" && !a.hasReview;
   const alreadyReviewed = a.status === "COMPLETED" && a.hasReview;
   const canCancel = a.status === "PENDING" || a.status === "CONFIRMED";
-  const showPayNow = (a.status === "PENDING" || a.status === "CONFIRMED") && a.paymentId && (a.paymentStatus === "PENDING" || a.paymentStatus === "INITIATED");
+  const showPayNow = a.status === "COMPLETED" && a.paymentId && (a.paymentStatus === "PENDING" || a.paymentStatus === "INITIATED");
   const fee = a.consultationFee != null ? Number(a.consultationFee) : null;
   const initial = (a.doctorName || "D").charAt(0).toUpperCase();
 
@@ -261,7 +261,7 @@ function AppointmentCard({
           </p>
           {fee != null && (
             <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-1">
-              {(fee as number).toLocaleString("vi-VN")}₫
+              {(fee as number).toLocaleString("en-US")} VND
             </p>
           )}
         </div>

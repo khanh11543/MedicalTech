@@ -24,8 +24,8 @@ import java.util.stream.Collectors;
 
 /**
  * Global Exception Handler
- * Xử lý tất cả exceptions trong application và trả về response format thống
- * nhất
+ * Handles all exceptions in the application and returns a consistent
+ * response format
  */
 @RestControllerAdvice
 @Slf4j

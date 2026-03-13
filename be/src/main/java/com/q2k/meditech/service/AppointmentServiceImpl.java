@@ -461,9 +461,9 @@ public class AppointmentServiceImpl implements AppointmentService {
                 : patient.getUser().getPhone();
 
         // Build template content
-        String subject = "Nhắc nhở lịch hẹn - " + appointment.getAppointmentCode();
+        String subject = "Appointment Reminder - " + appointment.getAppointmentCode();
         String message = String.format(
-                "Kính gửi %s,\nBạn có lịch hẹn vào ngày %s lúc %s với BS. %s.\nMã lịch hẹn: %s.\nVui lòng đến đúng giờ.",
+                "Dear %s,\nYou have an appointment on %s at %s with Dr. %s.\nAppointment code: %s.\nPlease arrive on time.",
                 patient.getUser().getFullName(),
                 appointment.getAppointmentDate(),
                 appointment.getStartTime(),
@@ -532,7 +532,7 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         // Resolve template content (simplified — in production, load from DB/config)
         String templateContent = resolveTemplate(dto.getTemplateId(), appointment);
-        String subject = "Thông báo lịch hẹn - " + appointment.getAppointmentCode();
+        String subject = "Appointment Notification - " + appointment.getAppointmentCode();
 
         String recipient = "EMAIL".equals(dto.getChannel())
                 ? patient.getUser().getEmail()
@@ -593,30 +593,30 @@ public class AppointmentServiceImpl implements AppointmentService {
         // Check for invoice/receipt (accessible)
         boolean hasPayment = paymentRepository.findByAppointmentIdWithDetails(appointmentId).isPresent();
         docs.add(DocumentSummaryDTO.builder()
-                .type("INVOICE").label("Hóa đơn").exists(hasPayment).accessible(hasPayment)
+                .type("INVOICE").label("Invoice").exists(hasPayment).accessible(hasPayment)
                 .downloadUrl(hasPayment ? "/api/receptionist/payments/invoices/by-appointment/" + appointmentId : null)
                 .build());
         docs.add(DocumentSummaryDTO.builder()
-                .type("RECEIPT").label("Biên lai").exists(hasPayment).accessible(hasPayment)
+                .type("RECEIPT").label("Receipt").exists(hasPayment).accessible(hasPayment)
                 .downloadUrl(hasPayment ? "/api/receptionist/payments/invoices/by-appointment/" + appointmentId : null)
                 .build());
 
         // Check for check-in slip (accessible)
         docs.add(DocumentSummaryDTO.builder()
-                .type("SLIP").label("Phiếu khám").exists(true).accessible(true)
+                .type("SLIP").label("Check-in Slip").exists(true).accessible(true)
                 .downloadUrl("/api/receptionist/appointments/" + appointmentId + "/print-slip")
                 .build());
 
         // Prescription (exists but NOT accessible to receptionist)
         boolean hasPrescription = prescriptionRepository.findByAppointmentId(appointmentId).isPresent();
         docs.add(DocumentSummaryDTO.builder()
-                .type("PRESCRIPTION").label("Đơn thuốc").exists(hasPrescription).accessible(false)
+                .type("PRESCRIPTION").label("Prescription").exists(hasPrescription).accessible(false)
                 .downloadUrl(null)
                 .build());
 
         // Medical record (exists but NOT accessible to receptionist)
         docs.add(DocumentSummaryDTO.builder()
-                .type("MEDICAL_RECORD").label("Hồ sơ bệnh án").exists(false).accessible(false)
+                .type("MEDICAL_RECORD").label("Medical Record").exists(false).accessible(false)
                 .downloadUrl(null)
                 .build());
 
@@ -678,26 +678,26 @@ public class AppointmentServiceImpl implements AppointmentService {
              PrintWriter writer = new PrintWriter(new OutputStreamWriter(baos, StandardCharsets.UTF_8))) {
 
             writer.println("═══════════════════════════════════");
-            writer.println("        PHIẾU KHÁM BỆNH           ");
+            writer.println("        CHECK-IN SLIP               ");
             writer.println("═══════════════════════════════════");
             writer.println();
-            writer.printf("Mã hẹn:   %s%n", appointment.getAppointmentCode());
-            writer.printf("Ngày:     %s%n", appointment.getAppointmentDate());
-            writer.printf("Giờ:      %s - %s%n", appointment.getStartTime(), appointment.getEndTime());
+            writer.printf("Appt Code: %s%n", appointment.getAppointmentCode());
+            writer.printf("Date:      %s%n", appointment.getAppointmentDate());
+            writer.printf("Time:      %s - %s%n", appointment.getStartTime(), appointment.getEndTime());
             writer.println();
-            writer.printf("Bệnh nhân: %s%n", appointment.getPatient().getUser().getFullName());
-            writer.printf("SĐT:      %s%n", maskPhone(appointment.getPatient().getUser().getPhone()));
+            writer.printf("Patient:   %s%n", appointment.getPatient().getUser().getFullName());
+            writer.printf("Phone:     %s%n", maskPhone(appointment.getPatient().getUser().getPhone()));
             writer.println();
-            writer.printf("Bác sĩ:   %s%n", appointment.getDoctor().getUser().getFullName());
-            writer.printf("Chuyên khoa: %s%n", appointment.getDoctor().getSpecialization());
+            writer.printf("Doctor:    %s%n", appointment.getDoctor().getUser().getFullName());
+            writer.printf("Specialty: %s%n", appointment.getDoctor().getSpecialization());
             if (appointment.getQueueNumber() != null) {
-                writer.printf("Số thứ tự: %d%n", appointment.getQueueNumber());
+                writer.printf("Queue No:  %d%n", appointment.getQueueNumber());
             }
             writer.println();
-            writer.printf("Trạng thái: %s%n", appointment.getStatus().name());
+            writer.printf("Status:    %s%n", appointment.getStatus().name());
             writer.println();
             writer.println("═══════════════════════════════════");
-            writer.printf("In lúc: %s%n", LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
+            writer.printf("Printed: %s%n", LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm")));
 
             writer.flush();
             return baos.toByteArray();
@@ -720,44 +720,44 @@ public class AppointmentServiceImpl implements AppointmentService {
         // In production, load from a notification_templates table
         return List.of(
                 NotificationTemplateDTO.builder()
-                        .id("REMINDER_EMAIL").name("Nhắc nhở lịch hẹn (Email)")
+                        .id("REMINDER_EMAIL").name("Appointment Reminder (Email)")
                         .channel("EMAIL").category("REMINDER")
-                        .contentPreview("Kính gửi {patient_name}, bạn có lịch hẹn vào ngày {date}...")
+                        .contentPreview("Dear {patient_name}, you have an appointment on {date}...")
                         .active(true).build(),
                 NotificationTemplateDTO.builder()
-                        .id("REMINDER_SMS").name("Nhắc nhở lịch hẹn (SMS)")
+                        .id("REMINDER_SMS").name("Appointment Reminder (SMS)")
                         .channel("SMS").category("REMINDER")
-                        .contentPreview("Xin chào {patient_name}, nhắc nhở lịch hẹn {code} ngày {date}")
+                        .contentPreview("Hi {patient_name}, reminder for appointment {code} on {date}")
                         .active(true).build(),
                 NotificationTemplateDTO.builder()
-                        .id("CONFIRM_EMAIL").name("Xác nhận lịch hẹn (Email)")
+                        .id("CONFIRM_EMAIL").name("Appointment Confirmation (Email)")
                         .channel("EMAIL").category("CONFIRMATION")
-                        .contentPreview("Lịch hẹn {code} đã được xác nhận, ngày {date} lúc {time}...")
+                        .contentPreview("Appointment {code} has been confirmed, on {date} at {time}...")
                         .active(true).build(),
                 NotificationTemplateDTO.builder()
-                        .id("CONFIRM_SMS").name("Xác nhận lịch hẹn (SMS)")
+                        .id("CONFIRM_SMS").name("Appointment Confirmation (SMS)")
                         .channel("SMS").category("CONFIRMATION")
-                        .contentPreview("Lịch hẹn {code} xác nhận: {date} {time} với BS. {doctor}")
+                        .contentPreview("Appointment {code} confirmed: {date} {time} with Dr. {doctor}")
                         .active(true).build(),
                 NotificationTemplateDTO.builder()
-                        .id("CANCEL_EMAIL").name("Hủy lịch hẹn (Email)")
+                        .id("CANCEL_EMAIL").name("Appointment Cancellation (Email)")
                         .channel("EMAIL").category("CANCELLATION")
-                        .contentPreview("Lịch hẹn {code} đã bị hủy. Lý do: {reason}...")
+                        .contentPreview("Appointment {code} has been cancelled. Reason: {reason}...")
                         .active(true).build(),
                 NotificationTemplateDTO.builder()
-                        .id("CANCEL_SMS").name("Hủy lịch hẹn (SMS)")
+                        .id("CANCEL_SMS").name("Appointment Cancellation (SMS)")
                         .channel("SMS").category("CANCELLATION")
-                        .contentPreview("Lịch hẹn {code} đã hủy. Vui lòng liên hệ để đặt lại.")
+                        .contentPreview("Appointment {code} cancelled. Please contact us to reschedule.")
                         .active(true).build(),
                 NotificationTemplateDTO.builder()
-                        .id("FOLLOWUP_EMAIL").name("Tái khám (Email)")
+                        .id("FOLLOWUP_EMAIL").name("Follow-up (Email)")
                         .channel("EMAIL").category("FOLLOW_UP")
-                        .contentPreview("Kính gửi {patient_name}, BS. {doctor} đề nghị tái khám...")
+                        .contentPreview("Dear {patient_name}, Dr. {doctor} recommends a follow-up...")
                         .active(true).build(),
                 NotificationTemplateDTO.builder()
-                        .id("FOLLOWUP_SMS").name("Tái khám (SMS)")
+                        .id("FOLLOWUP_SMS").name("Follow-up (SMS)")
                         .channel("SMS").category("FOLLOW_UP")
-                        .contentPreview("Nhắc tái khám: {date}. Liên hệ phòng khám để đặt lịch.")
+                        .contentPreview("Follow-up reminder: {date}. Contact the clinic to schedule.")
                         .active(true).build()
         );
     }
@@ -773,14 +773,14 @@ public class AppointmentServiceImpl implements AppointmentService {
         // Return predefined categories
         // In production, load from an appointment_categories table
         return List.of(
-                AppointmentCategoryDTO.builder().id(1L).name("Khám tổng quát").description("General consultation / checkup").active(true).build(),
-                AppointmentCategoryDTO.builder().id(2L).name("Tái khám").description("Follow-up visit").active(true).build(),
-                AppointmentCategoryDTO.builder().id(3L).name("Khám cấp cứu").description("Urgent / Emergency visit").active(true).build(),
-                AppointmentCategoryDTO.builder().id(4L).name("Khám chuyên khoa").description("Specialist consultation").active(true).build(),
-                AppointmentCategoryDTO.builder().id(5L).name("Xét nghiệm").description("Lab test / Diagnostic").active(true).build(),
-                AppointmentCategoryDTO.builder().id(6L).name("Tiêm chủng").description("Vaccination").active(true).build(),
-                AppointmentCategoryDTO.builder().id(7L).name("Tư vấn sức khỏe").description("Health counseling").active(true).build(),
-                AppointmentCategoryDTO.builder().id(8L).name("Khác").description("Other").active(true).build()
+                AppointmentCategoryDTO.builder().id(1L).name("General Checkup").description("General consultation / checkup").active(true).build(),
+                AppointmentCategoryDTO.builder().id(2L).name("Follow-up").description("Follow-up visit").active(true).build(),
+                AppointmentCategoryDTO.builder().id(3L).name("Emergency").description("Urgent / Emergency visit").active(true).build(),
+                AppointmentCategoryDTO.builder().id(4L).name("Specialist").description("Specialist consultation").active(true).build(),
+                AppointmentCategoryDTO.builder().id(5L).name("Lab Test").description("Lab test / Diagnostic").active(true).build(),
+                AppointmentCategoryDTO.builder().id(6L).name("Vaccination").description("Vaccination").active(true).build(),
+                AppointmentCategoryDTO.builder().id(7L).name("Health Counseling").description("Health counseling").active(true).build(),
+                AppointmentCategoryDTO.builder().id(8L).name("Other").description("Other").active(true).build()
         );
     }
 
@@ -814,9 +814,9 @@ public class AppointmentServiceImpl implements AppointmentService {
     private String inferCategory(String title) {
         if (title == null) return "OTHER";
         String lower = title.toLowerCase();
-        if (lower.contains("nhắc nhở") || lower.contains("reminder")) return "REMINDER";
-        if (lower.contains("xác nhận") || lower.contains("confirm")) return "CONFIRMATION";
-        if (lower.contains("hủy") || lower.contains("cancel")) return "CANCELLATION";
+        if (lower.contains("reminder")) return "REMINDER";
+        if (lower.contains("confirm")) return "CONFIRMATION";
+        if (lower.contains("cancel")) return "CANCELLATION";
         return "OTHER";
     }
 
@@ -873,24 +873,24 @@ public class AppointmentServiceImpl implements AppointmentService {
                 "    <div class='container'>\n" +
                 "        <div class='header'>\n" +
                 "            <h1>🏥 MedicalTech</h1>\n" +
-                "            <p>Nhắc nhở lịch hẹn</p>\n" +
+                "            <p>Appointment Reminder</p>\n" +
                 "        </div>\n" +
                 "        <div class='content'>\n" +
                 "            <h2>" + subject + "</h2>\n" +
                 "            <p>" + messageBody.replace("\n", "<br>") + "</p>\n" +
                 "            <div class='info-box'>\n" +
-                "                <p><strong>📋 Chi tiết lịch hẹn:</strong></p>\n" +
-                "                <p>🔖 Mã lịch hẹn: <strong>" + code + "</strong></p>\n" +
-                "                <p>👤 Bệnh nhân: <strong>" + patientName + "</strong></p>\n" +
-                "                <p>👨‍⚕️ Bác sĩ: <strong>" + doctorName + "</strong></p>\n" +
-                "                <p>📅 Ngày: <strong>" + date + "</strong></p>\n" +
-                "                <p>🕐 Giờ: <strong>" + startTime + (endTime.isEmpty() ? "" : " - " + endTime) + "</strong></p>\n" +
+                "                <p><strong>\uD83D\uDCCB Appointment Details:</strong></p>\n" +
+                "                <p>\uD83D\uDD16 Appointment Code: <strong>" + code + "</strong></p>\n" +
+                "                <p>\uD83D\uDC64 Patient: <strong>" + patientName + "</strong></p>\n" +
+                "                <p>\uD83D\uDC68\u200D\u2695\uFE0F Doctor: <strong>" + doctorName + "</strong></p>\n" +
+                "                <p>\uD83D\uDCC5 Date: <strong>" + date + "</strong></p>\n" +
+                "                <p>\uD83D\uDD50 Time: <strong>" + startTime + (endTime.isEmpty() ? "" : " - " + endTime) + "</strong></p>\n" +
                 "            </div>\n" +
-                "            <p>⚠️ <strong>Lưu ý:</strong> Vui lòng đến trước giờ hẹn 15 phút.</p>\n" +
+                "            <p>⚠️ <strong>Note:</strong> Please arrive 15 minutes before your appointment.</p>\n" +
                 "        </div>\n" +
                 "        <div class='footer'>\n" +
                 "            <p>© 2026 MedicalTech. All rights reserved.</p>\n" +
-                "            <p>Email này được gửi tự động, vui lòng không trả lời.</p>\n" +
+                "            <p>This email was sent automatically, please do not reply.</p>\n" +
                 "        </div>\n" +
                 "    </div>\n" +
                 "</body>\n" +
@@ -907,14 +907,14 @@ public class AppointmentServiceImpl implements AppointmentService {
 
         return switch (templateId) {
             case "REMINDER_EMAIL", "REMINDER_SMS" ->
-                    String.format("Kính gửi %s, bạn có lịch hẹn %s vào ngày %s lúc %s với BS. %s.", patientName, code, date, time, doctorName);
+                    String.format("Dear %s, you have appointment %s on %s at %s with Dr. %s.", patientName, code, date, time, doctorName);
             case "CONFIRM_EMAIL", "CONFIRM_SMS" ->
-                    String.format("Lịch hẹn %s đã được xác nhận. Ngày %s lúc %s với BS. %s.", code, date, time, doctorName);
+                    String.format("Appointment %s has been confirmed. Date %s at %s with Dr. %s.", code, date, time, doctorName);
             case "CANCEL_EMAIL", "CANCEL_SMS" ->
-                    String.format("Lịch hẹn %s đã bị hủy. Vui lòng liên hệ phòng khám để đặt lại.", code);
+                    String.format("Appointment %s has been cancelled. Please contact the clinic to reschedule.", code);
             case "FOLLOWUP_EMAIL", "FOLLOWUP_SMS" ->
-                    String.format("Kính gửi %s, BS. %s đề nghị bạn tái khám. Vui lòng liên hệ đặt lịch.", patientName, doctorName);
-            default -> String.format("Thông báo lịch hẹn %s - %s %s.", code, date, time);
+                    String.format("Dear %s, Dr. %s recommends a follow-up visit. Please contact us to schedule.", patientName, doctorName);
+            default -> String.format("Appointment notification %s - %s %s.", code, date, time);
         };
     }
     
@@ -1314,9 +1314,9 @@ public class AppointmentServiceImpl implements AppointmentService {
                 String patientEmail = appointment.getPatient().getUser().getEmail();
                 if (patientEmail != null && !patientEmail.isBlank()) {
                     try {
-                        String reminderSubject = "Nhắc nhở lịch hẹn - " + appointment.getAppointmentCode();
+                        String reminderSubject = "Appointment Reminder - " + appointment.getAppointmentCode();
                         String reminderMessage = String.format(
-                                "Kính gửi %s,\nBạn có lịch hẹn vào ngày %s lúc %s với BS. %s.\nMã lịch hẹn: %s.\nVui lòng đến đúng giờ.",
+                                "Dear %s,\nYou have an appointment on %s at %s with Dr. %s.\nAppointment code: %s.\nPlease arrive on time.",
                                 appointment.getPatient().getUser().getFullName(),
                                 appointment.getAppointmentDate(),
                                 appointment.getStartTime(),
@@ -1993,7 +1993,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         
         String subject = dto.getSubject() != null && !dto.getSubject().isBlank()
                 ? dto.getSubject()
-                : "Thông báo từ MedicalTech - Lịch hẹn #" + appointment.getAppointmentCode();
+                : "Notification from MedicalTech - Appointment #" + appointment.getAppointmentCode();
         
         boolean emailSent = false;
         boolean smsSent = false;
@@ -2004,7 +2004,7 @@ public class AppointmentServiceImpl implements AppointmentService {
             if (patientEmail == null || patientEmail.isBlank()) {
                 return MessageDTO.builder()
                         .success(false)
-                        .message("Bệnh nhân chưa có địa chỉ email")
+                        .message("Patient does not have an email address")
                         .build();
             }
             
@@ -2022,7 +2022,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 log.error("Failed to send custom email to: {}", patientEmail, e);
                 return MessageDTO.builder()
                         .success(false)
-                        .message("Gửi email thất bại: " + e.getMessage())
+                        .message("Failed to send email: " + e.getMessage())
                         .build();
             }
             
@@ -2042,7 +2042,7 @@ public class AppointmentServiceImpl implements AppointmentService {
             if (phoneNumber == null || phoneNumber.isBlank()) {
                 return MessageDTO.builder()
                         .success(false)
-                        .message("Bệnh nhân chưa có số điện thoại")
+                        .message("Patient does not have a phone number")
                         .build();
             }
             
@@ -2067,8 +2067,8 @@ public class AppointmentServiceImpl implements AppointmentService {
         notificationRepository.save(notification);
         
         String successMsg = emailSent
-                ? "Email đã được gửi thành công đến " + patientUser.getEmail()
-                : "Tin nhắn SMS đã được gửi thành công đến " + patientUser.getPhone();
+                ? "Email sent successfully to " + patientUser.getEmail()
+                : "SMS message sent successfully to " + patientUser.getPhone();
         
         return MessageDTO.builder()
                 .success(true)
@@ -2098,19 +2098,19 @@ public class AppointmentServiceImpl implements AppointmentService {
                 "    <div class='container'>\n" +
                 "        <div class='header'>\n" +
                 "            <h1>🏥 MedicalTech</h1>\n" +
-                "            <p>Hệ thống quản lý y tế</p>\n" +
+                "            <p>Healthcare Management System</p>\n" +
                 "        </div>\n" +
                 "        <div class='content'>\n" +
-                "            <h2>Xin chào " + (patientName != null ? patientName : "Quý khách") + ",</h2>\n" +
-                "            <p>Bạn nhận được thông báo liên quan đến lịch hẹn <strong>#" + (appointmentCode != null ? appointmentCode : "") + "</strong>:</p>\n" +
+                "            <h2>Dear " + (patientName != null ? patientName : "Valued Patient") + ",</h2>\n" +
+                "            <p>You have received a notification regarding appointment <strong>#" + (appointmentCode != null ? appointmentCode : "") + "</strong>:</p>\n" +
                 "            <div class='message-box'>\n" +
                 "                <p>" + messageContent.replace("\n", "<br/>") + "</p>\n" +
                 "            </div>\n" +
-                "            <p>Nếu bạn có bất kỳ thắc mắc nào, vui lòng liên hệ với chúng tôi.</p>\n" +
+                "            <p>If you have any questions, please contact us.</p>\n" +
                 "        </div>\n" +
                 "        <div class='footer'>\n" +
                 "            <p>© 2026 MedicalTech. All rights reserved.</p>\n" +
-                "            <p>Email này được gửi tự động, vui lòng không trả lời.</p>\n" +
+                "            <p>This email was sent automatically, please do not reply.</p>\n" +
                 "        </div>\n" +
                 "    </div>\n" +
                 "</body>\n" +

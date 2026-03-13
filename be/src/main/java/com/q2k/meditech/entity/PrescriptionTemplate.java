@@ -20,22 +20,22 @@ public class PrescriptionTemplate extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "doctor_id", nullable = false)
-    private Doctor doctor; // Template thuộc về doctor nào
+    private Doctor doctor; // Which doctor owns this template
 
     @Column(name = "template_name", nullable = false)
-    private String templateName; // Tên template (vd: "Điều trị cảm cúm thông thường")
+    private String templateName; // Template name (e.g., "Common flu treatment")
 
     @Column(name = "description", columnDefinition = "TEXT")
-    private String description; // Mô tả template
+    private String description; // Template description
 
     @Column(name = "diagnosis_template", columnDefinition = "TEXT")
-    private String diagnosisTemplate; // Chẩn đoán mẫu
+    private String diagnosisTemplate; // Diagnosis template
 
     @Column(name = "notes_template", columnDefinition = "TEXT")
-    private String notesTemplate; // Ghi chú mẫu
+    private String notesTemplate; // Notes template
 
     @Column(name = "default_follow_up_days")
-    private Integer defaultFollowUpDays; // Số ngày tái khám mặc định
+    private Integer defaultFollowUpDays; // Default follow-up days
 
     @Column(name = "is_active")
     @Builder.Default
@@ -43,26 +43,26 @@ public class PrescriptionTemplate extends BaseEntity {
 
     @Column(name = "usage_count")
     @Builder.Default
-    private Integer usageCount = 0; // Số lần sử dụng template
+    private Integer usageCount = 0; // Template usage count
 
     @OneToMany(mappedBy = "template", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("itemOrder ASC")
     @Builder.Default
     private List<PrescriptionTemplateItem> items = new ArrayList<>();
 
-    // Helper method để thêm item
+    // Helper method to add item
     public void addItem(PrescriptionTemplateItem item) {
         items.add(item);
         item.setTemplate(this);
     }
 
-    // Helper method để xóa item
+    // Helper method to remove item
     public void removeItem(PrescriptionTemplateItem item) {
         items.remove(item);
         item.setTemplate(null);
     }
 
-    // Helper method để clear và set items
+    // Helper method to clear and set items
     public void setItems(List<PrescriptionTemplateItem> newItems) {
         this.items.clear();
         if (newItems != null) {
@@ -70,7 +70,7 @@ public class PrescriptionTemplate extends BaseEntity {
         }
     }
 
-    // Tăng số lần sử dụng
+    // Increment usage count
     public void incrementUsageCount() {
         this.usageCount++;
     }

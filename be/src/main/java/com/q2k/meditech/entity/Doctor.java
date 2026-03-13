@@ -37,14 +37,14 @@ public class Doctor {
     private Long id;
 
     /**
-     * user_id: tài khoản đăng nhập
+     * user_id: login account
      */
     @OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_doctors_user"))
     private User user;
 
     /**
-     * staff_registry_id: whitelist nội bộ
+     * staff_registry_id: internal staff whitelist
      */
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "staff_registry_id", foreignKey = @ForeignKey(name = "fk_doctors_staff_registry"))
@@ -114,7 +114,7 @@ public class Doctor {
     private LocalDateTime verifiedAt;
 
     /**
-     * admin user duyệt
+     * Admin user who approved
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "verified_by", foreignKey = @ForeignKey(name = "fk_doctors_verified_by"))
@@ -126,7 +126,7 @@ public class Doctor {
     @Column(name="submitted_at")
     private LocalDateTime submittedAt;
 
-    // ===== timestamps (nếu bạn đã có BaseEntity thì có thể bỏ 2 field dưới) =====
+    // ===== timestamps (can be removed if BaseEntity already provides these) =====
     @Builder.Default
     @Column(name="created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

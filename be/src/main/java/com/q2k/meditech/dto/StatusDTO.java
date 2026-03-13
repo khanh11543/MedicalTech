@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * Status DTO
- * Dùng cho API PATCH /api/admin/users/{userId}/status
+ * Used for API PATCH /api/admin/users/{userId}/status
  */
 @Data
 @NoArgsConstructor
@@ -19,5 +19,5 @@ public class StatusDTO {
     @NotNull(message = "isActive is required")
     private Boolean isActive;
     
-    private String reason; // Lý do enable/disable (optional)
+    private String reason; // Reason for enable/disable (optional)
 }

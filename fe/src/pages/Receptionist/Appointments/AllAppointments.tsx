@@ -523,7 +523,7 @@ export default function AllAppointments({ onViewDetail, onCreateNew, onRebook }:
                         <QueueBadge number={apt.queueNumber} />
                       </td>
                       <td className="px-3 py-3 text-right text-sm text-gray-900 dark:text-white">
-                        {apt.fee ? `${apt.fee.toLocaleString()}đ` : "—"}
+                        {apt.fee ? `${apt.fee.toLocaleString()} VND` : "—"}
                       </td>
                       <td className="px-3 py-3 text-center">
                         <PaymentBadge status={apt.paymentStatus} />

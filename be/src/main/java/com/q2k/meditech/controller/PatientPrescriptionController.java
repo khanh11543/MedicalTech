@@ -25,7 +25,7 @@ public class PatientPrescriptionController {
     private final PatientProfileService patientProfileService;
     
     /**
-     * Lấy danh sách đơn thuốc của patient
+     * Get patient's prescription list
      * GET /api/patient/prescriptions
      */
     @GetMapping
@@ -48,7 +48,7 @@ public class PatientPrescriptionController {
     }
     
     /**
-     * Xem chi tiết đơn thuốc
+     * View prescription details
      * GET /api/patient/prescriptions/{id}
      */
     @GetMapping("/{id}")

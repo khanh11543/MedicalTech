@@ -7,7 +7,7 @@ package com.q2k.meditech.entity.enums;
  *   - Overdue payment (> 3 days)
  */
 public enum NotificationPriority {
-    INFO,       // Thông tin thông thường
-    IMPORTANT,  // Quan trọng
-    URGENT      // Khẩn cấp — đỏ, sound, require acknowledge
+    INFO,       // General information
+    IMPORTANT,  // Important
+    URGENT      // Urgent — red, sound, require acknowledge
 }

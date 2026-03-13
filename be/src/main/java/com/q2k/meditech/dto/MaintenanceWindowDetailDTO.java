@@ -21,40 +21,40 @@ public class MaintenanceWindowDetailDTO {
     private String maintenanceType;
     private String status;
 
-    /** Thời gian dự kiến */
+    /** Scheduled time */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime startTime;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime endTime;
 
-    /** Thời gian thực tế */
+    /** Actual time */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime actualStartTime;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime actualEndTime;
 
-    /** Thời gian bảo trì (phút) */
+    /** Maintenance duration (minutes) */
     private Long durationMinutes;
 
-    /** Thông báo hiển thị */
+    /** Display message */
     private String message;
 
-    /** Thông báo trước (phút) */
+    /** Advance notification (minutes) */
     private Integer notifyBeforeMinutes;
 
-    /** Cho phép admin truy cập */
+    /** Allow admin access */
     private Boolean allowAdminAccess;
 
-    /** Danh sách IP whitelist */
+    /** IP whitelist */
     private List<String> whitelistedIps;
 
-    /** Ảnh hưởng */
+    /** Impact */
     private String impact;
     private String affectedServices;
 
-    /** Người tạo */
+    /** Created by */
     private Long createdById;
     private String createdByName;
 

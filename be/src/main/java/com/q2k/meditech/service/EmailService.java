@@ -162,26 +162,26 @@ public class EmailService {
                 "    <div class='container'>\n" +
                 "        <div class='header'>\n" +
                 "            <h1>🏥 MedicalTech</h1>\n" +
-                "            <p>Hệ thống quản lý y tế</p>\n" +
+                "            <p>Healthcare Management System</p>\n" +
                 "        </div>\n" +
                 "        <div class='content'>\n" +
-                "            <h2>Xác thực tài khoản của bạn</h2>\n" +
-                "            <p>Cảm ơn bạn đã đăng ký tài khoản tại MedicalTech. Vui lòng sử dụng mã OTP dưới đây để hoàn tất việc xác thực email:</p>\n" +
+                "            <h2>Verify Your Account</h2>\n" +
+                "            <p>Thank you for registering at MedicalTech. Please use the OTP code below to complete your email verification:</p>\n" +
                 "            <div class='otp-box'>\n" +
-                "                <p>Mã xác thực của bạn:</p>\n" +
+                "                <p>Your verification code:</p>\n" +
                 "                <div class='otp-code'>" + otpCode + "</div>\n" +
-                "                <p class='warning'>⏰ Mã này sẽ hết hạn sau 15 phút</p>\n" +
+                "                <p class='warning'>⏰ This code will expire in 15 minutes</p>\n" +
                 "            </div>\n" +
-                "            <p>⚠️ <strong>Lưu ý:</strong></p>\n" +
+                "            <p>⚠️ <strong>Important:</strong></p>\n" +
                 "            <ul>\n" +
-                "                <li>Không chia sẻ mã này với bất kỳ ai</li>\n" +
-                "                <li>Nếu bạn không yêu cầu mã này, vui lòng bỏ qua email</li>\n" +
-                "                <li>Mã chỉ được sử dụng 1 lần</li>\n" +
+                "                <li>Do not share this code with anyone</li>\n" +
+                "                <li>If you did not request this code, please ignore this email</li>\n" +
+                "                <li>This code can only be used once</li>\n" +
                 "            </ul>\n" +
                 "        </div>\n" +
                 "        <div class='footer'>\n" +
                 "            <p>© 2026 MedicalTech. All rights reserved.</p>\n" +
-                "            <p>Email này được gửi tự động, vui lòng không trả lời.</p>\n" +
+                "            <p>This is an automated email, please do not reply.</p>\n" +
                 "        </div>\n" +
                 "    </div>\n" +
                 "</body>\n" +
@@ -337,27 +337,27 @@ public class EmailService {
                 "            <h1>\uD83C\uDFE5 MedicalTech</h1>\n" +
                 "        </div>\n" +
                 "        <div class='content'>\n" +
-                "            <h2>Chào mừng bạn đến với MedicalTech!</h2>\n" +
-                "            <p>Xin chào <strong>" + name + "</strong>,</p>\n" +
-                "            <p>Tài khoản bác sĩ của bạn đã được tạo thành công. Dưới đây là thông tin đăng nhập:</p>\n" +
+                "            <h2>Welcome to MedicalTech!</h2>\n" +
+                "            <p>Hello <strong>" + name + "</strong>,</p>\n" +
+                "            <p>Your doctor account has been created successfully. Below are your login credentials:</p>\n" +
                 "            <div class='credentials-box'>\n" +
-                "                <p><strong>Email đăng nhập:</strong> " + email + "</p>\n" +
-                "                <p><strong>Mật khẩu:</strong> " + tempPassword + "</p>\n" +
+                "                <p><strong>Login Email:</strong> " + email + "</p>\n" +
+                "                <p><strong>Password:</strong> " + tempPassword + "</p>\n" +
                 "            </div>\n" +
                 "            <div style='text-align: center; margin: 25px 0;'>\n" +
-                "                <a href='" + verifyUrl + "' style='display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;'>Xác thực tài khoản</a>\n" +
+                "                <a href='" + verifyUrl + "' style='display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 30px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;'>Verify Account</a>\n" +
                 "            </div>\n" +
-                "            <p style='text-align: center; color: #888; font-size: 12px;'>Hoặc copy link: <br/>" + verifyUrl + "</p>\n" +
-                "            <p class='warning'>⚠️ <strong>Lưu ý quan trọng:</strong></p>\n" +
+                "            <p style='text-align: center; color: #888; font-size: 12px;'>Or copy this link: <br/>" + verifyUrl + "</p>\n" +
+                "            <p class='warning'>⚠️ <strong>Important Notice:</strong></p>\n" +
                 "            <ul>\n" +
-                "                <li>Vui lòng đổi mật khẩu ngay sau khi đăng nhập lần đầu</li>\n" +
-                "                <li>Không chia sẻ thông tin đăng nhập với bất kỳ ai</li>\n" +
-                "                <li>Nhấn nút \"Xác thực tài khoản\" ở trên để kích hoạt tài khoản</li>\n" +
+                "                <li>Please change your password immediately after your first login</li>\n" +
+                "                <li>Do not share your login credentials with anyone</li>\n" +
+                "                <li>Click the \"Verify Account\" button above to activate your account</li>\n" +
                 "            </ul>\n" +
                 "        </div>\n" +
                 "        <div class='footer'>\n" +
                 "            <p>© 2026 MedicalTech. All rights reserved.</p>\n" +
-                "            <p>Email này được gửi tự động, vui lòng không trả lời.</p>\n" +
+                "            <p>This is an automated email, please do not reply.</p>\n" +
                 "        </div>\n" +
                 "    </div>\n" +
                 "</body>\n" +

@@ -1,0 +1,20 @@
+# Application properties (contains sensitive config)
+be/src/main/resources/application.properties
+be/src/main/resources/application.properties~
+
+# Build outputs
+be/target/
+fe/node_modules/
+fe/dist/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log

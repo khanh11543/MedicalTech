@@ -26,15 +26,15 @@ const statusConfig: Record<Status, { label: string; dot: string; bg: string; tex
 };
 
 const mockAppointments: Appointment[] = [
-  { id: 1, code: "APT-2026030101", doctorName: "BS. Hoàng Thị Mai",  specialization: "Cardiology",       date: "Mar 15, 2026", startTime: "15:30", endTime: "16:00", status: "CONFIRMED",  paymentStatus: "UNPAID", amount: 400000, reasonForVisit: "General checkup" },
-  { id: 2, code: "APT-2026022801", doctorName: "BS. Lê Minh Tuấn",   specialization: "General Medicine", date: "Mar 18, 2026", startTime: "09:00", endTime: "09:30", status: "PENDING",    paymentStatus: "UNPAID", amount: 350000, reasonForVisit: "Follow-up" },
-  { id: 3, code: "APT-2026022501", doctorName: "BS. Nguyễn Văn An",   specialization: "Dermatology",      date: "Feb 20, 2026", startTime: "14:00", endTime: "14:30", status: "COMPLETED",  paymentStatus: "PAID",   amount: 300000, reasonForVisit: "Skin examination" },
-  { id: 4, code: "APT-2026022001", doctorName: "BS. Phạm Thị D",      specialization: "Orthopedics",      date: "Feb 10, 2026", startTime: "08:30", endTime: "09:00", status: "CANCELLED",  paymentStatus: "UNPAID", amount: 250000, reasonForVisit: "Joint pain" },
-  { id: 5, code: "APT-2026031201", doctorName: "BS. Trần Hoàng E",    specialization: "ENT",              date: "Mar 12, 2026", startTime: "11:00", endTime: "11:30", status: "CHECKED_IN", paymentStatus: "PAID",   amount: 380000, reasonForVisit: "Ear infection" },
+  { id: 1, code: "APT-2026030101", doctorName: "Dr. Hoang Thi Mai",   specialization: "Cardiology",       date: "Mar 15, 2026", startTime: "15:30", endTime: "16:00", status: "CONFIRMED",  paymentStatus: "UNPAID", amount: 400000, reasonForVisit: "General checkup" },
+  { id: 2, code: "APT-2026022801", doctorName: "Dr. Le Minh Tuan",    specialization: "General Medicine", date: "Mar 18, 2026", startTime: "09:00", endTime: "09:30", status: "PENDING",    paymentStatus: "UNPAID", amount: 350000, reasonForVisit: "Follow-up" },
+  { id: 3, code: "APT-2026022501", doctorName: "Dr. Nguyen Van An",    specialization: "Dermatology",      date: "Feb 20, 2026", startTime: "14:00", endTime: "14:30", status: "COMPLETED",  paymentStatus: "PAID",   amount: 300000, reasonForVisit: "Skin examination" },
+  { id: 4, code: "APT-2026022001", doctorName: "Dr. Pham Thi D",       specialization: "Orthopedics",      date: "Feb 10, 2026", startTime: "08:30", endTime: "09:00", status: "CANCELLED",  paymentStatus: "UNPAID", amount: 250000, reasonForVisit: "Joint pain" },
+  { id: 5, code: "APT-2026031201", doctorName: "Dr. Tran Hoang E",     specialization: "ENT",              date: "Mar 12, 2026", startTime: "11:00", endTime: "11:30", status: "CHECKED_IN", paymentStatus: "PAID",   amount: 380000, reasonForVisit: "Ear infection" },
 ];
 
 function formatCurrency(amount: number): string {
-  return amount.toLocaleString("vi-VN") + "đ";
+  return amount.toLocaleString("en-US") + " VND";
 }
 
 export default function PatientAppointments() {

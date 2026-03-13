@@ -1,7 +1,7 @@
 package com.q2k.meditech.entity.enums;
 
 public enum StorageLocation {
-    LOCAL,      // Lưu trữ cục bộ
-    CLOUD,      // Lưu trữ đám mây
-    EXTERNAL    // Lưu trữ thiết bị ngoài
+    LOCAL,      // Local storage
+    CLOUD,      // Cloud storage
+    EXTERNAL    // External device storage
 }

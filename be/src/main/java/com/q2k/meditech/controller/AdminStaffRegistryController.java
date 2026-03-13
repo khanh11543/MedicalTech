@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
  * Admin Staff Registry Controller
  * Base path: /api/admin/staff-registry
  * 
- * Quản lý whitelist cho nhân viên nội bộ (DOCTOR, RECEPTIONIST)
+ * Manages whitelist for internal staff (DOCTOR, RECEPTIONIST)
  * All endpoints require ADMIN role
  */
 @RestController

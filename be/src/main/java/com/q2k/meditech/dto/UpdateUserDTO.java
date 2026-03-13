@@ -32,6 +32,6 @@ public class UpdateUserDTO {
     
     private Boolean twoFactorEnabled;
     
-    // Note: isActive được update qua API riêng (PATCH /status)
-    // Note: roles được update qua API riêng (PUT /roles)
+    // Note: isActive is updated via separate API (PATCH /status)
+    // Note: roles are updated via separate API (PUT /roles)
 }

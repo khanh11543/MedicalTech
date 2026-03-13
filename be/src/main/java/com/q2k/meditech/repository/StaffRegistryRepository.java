@@ -13,40 +13,40 @@ import java.util.Optional;
 
 /**
  * Repository for StaffRegistry entity
- * JpaSpecificationExecutor cho phép dynamic filtering
+ * JpaSpecificationExecutor enables dynamic filtering
  */
 @Repository
 public interface StaffRegistryRepository extends JpaRepository<StaffRegistry, Long>, 
                                                   JpaSpecificationExecutor<StaffRegistry> {
     
     /**
-     * Tìm staff registry theo email
+     * Find staff registry by email
      */
     Optional<StaffRegistry> findByEmail(String email);
     
     /**
-     * Tìm staff registry theo phone
+     * Find staff registry by phone
      */
     Optional<StaffRegistry> findByPhone(String phone);
     
     /**
-     * Tìm staff registry theo invitation token
+     * Find staff registry by invitation token
      */
     Optional<StaffRegistry> findByInvitationToken(String invitationToken);
     
     /**
-     * Check email đã tồn tại trong registry chưa
+     * Check if email already exists in registry
      */
     boolean existsByEmail(String email);
     
     /**
-     * Check phone đã tồn tại trong registry chưa
+     * Check if phone already exists in registry
      */
     boolean existsByPhone(String phone);
     
     /**
-     * Tìm staff registry theo ID với eager loading
-     * Để tránh N+1 query khi cần thông tin invitedBy, disabledBy
+     * Find staff registry by ID with eager loading
+     * To avoid N+1 query when needing invitedBy, disabledBy info
      */
     @Query("SELECT sr FROM StaffRegistry sr " +
            "LEFT JOIN FETCH sr.invitedBy " +
@@ -56,8 +56,8 @@ public interface StaffRegistryRepository extends JpaRepository<StaffRegistry, Lo
     Optional<StaffRegistry> findByIdWithDetails(@Param("id") Long id);
     
     /**
-     * Tìm kiếm staff registry với filter động
-     * Search trong email, phone, fullName
+     * Search staff registry with dynamic filter
+     * Search in email, phone, fullName
      */
     @Query("SELECT sr FROM StaffRegistry sr WHERE " +
            "(:query IS NULL OR " +

@@ -30,7 +30,7 @@ public class BackupSchedule extends BaseEntity {
     private BackupType backupType;
 
     @Column(name = "cron_expression", nullable = false, length = 50)
-    private String cronExpression; // e.g. "0 0 2 * * ?" = 2h sáng hàng ngày
+    private String cronExpression; // e.g. "0 0 2 * * ?" = 2 AM daily
 
     @Enumerated(EnumType.STRING)
     @Builder.Default
@@ -60,11 +60,11 @@ public class BackupSchedule extends BaseEntity {
     private LocalDateTime nextRunAt;
 
     @Column(name = "storage_path", length = 500)
-    private String storagePath; // thư mục lưu trữ
+    private String storagePath; // storage directory
 
     @Builder.Default
     @Column(name = "max_backups")
-    private Integer maxBackups = 10; // số lượng backup tối đa giữ lại
+    private Integer maxBackups = 10; // maximum number of backups to retain
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "created_by")

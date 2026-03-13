@@ -8,20 +8,20 @@ import org.springframework.data.domain.Pageable;
 
 /**
  * Staff Registry Service Interface
- * Quản lý whitelist cho nhân viên nội bộ
+ * Manage whitelist for internal staff
  */
 public interface StaffRegistryService {
     
     /**
      * Create staff invite (whitelist entry)
      * @param dto StaffInviteDTO
-     * @param currentUserId ID của admin tạo invite
+     * @param currentUserId ID of the admin creating the invite
      * @return StaffRegistryDTO
      */
     StaffRegistryDTO createStaffInvite(StaffInviteDTO dto, Long currentUserId);
     
     /**
-     * List staff registry với filters và pagination
+     * List staff registry with filters and pagination
      * @param query Search query (email, phone, fullName)
      * @param status Filter by status (PENDING, REGISTERED, DISABLED, EXPIRED)
      * @param pageable Pagination parameters
@@ -40,7 +40,7 @@ public interface StaffRegistryService {
      * Disable staff registry entry
      * @param id Staff registry ID
      * @param noteDTO Optional note/reason
-     * @param currentUserId ID của admin disable
+     * @param currentUserId ID of the admin performing disable
      * @return StaffRegistryDTO
      */
     StaffRegistryDTO disableStaff(Long id, NoteDTO noteDTO, Long currentUserId);
@@ -54,10 +54,10 @@ public interface StaffRegistryService {
     
     /**
      * Helper: Check if email/phone can register
-     * Dùng trong registration process
+     * Used in the registration process
      * @param email Email to check
      * @param phone Phone to check
-     * @return StaffRegistryDTO nếu tìm thấy valid entry, null otherwise
+     * @return StaffRegistryDTO if a valid entry is found, null otherwise
      */
     StaffRegistryDTO findValidInvite(String email, String phone);
 }

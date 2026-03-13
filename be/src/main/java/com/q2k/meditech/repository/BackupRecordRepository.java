@@ -19,22 +19,22 @@ import java.util.Optional;
 public interface BackupRecordRepository extends JpaRepository<BackupRecord, Long> {
 
     /**
-     * Tìm backup gần nhất đã hoàn thành
+     * Find latest completed backup
      */
     Optional<BackupRecord> findTopByStatusOrderByCompletedAtDesc(BackupStatus status);
 
     /**
-     * Tìm backup theo status
+     * Find backups by status
      */
     List<BackupRecord> findByStatusOrderByStartedAtDesc(BackupStatus status);
 
     /**
-     * Tìm backup đang chạy
+     * Find running backups
      */
     List<BackupRecord> findByStatus(BackupStatus status);
 
     /**
-     * Lọc backup theo nhiều tiêu chí
+     * Filter backups by multiple criteria
      */
     @Query("SELECT b FROM BackupRecord b WHERE " +
             "(:type IS NULL OR b.backupType = :type) AND " +
@@ -52,23 +52,23 @@ public interface BackupRecordRepository extends JpaRepository<BackupRecord, Long
             Pageable pageable);
 
     /**
-     * Tổng dung lượng backup
+     * Total backup storage size
      */
     @Query("SELECT COALESCE(SUM(b.size), 0) FROM BackupRecord b WHERE b.status = 'COMPLETED'")
     Long getTotalBackupSize();
 
     /**
-     * Đếm backup theo status
+     * Count backups by status
      */
     Long countByStatus(BackupStatus status);
 
     /**
-     * Tìm backup cũ hơn ngày chỉ định (để cleanup)
+     * Find backups older than specified date (for cleanup)
      */
     List<BackupRecord> findByCompletedAtBeforeAndStatus(LocalDateTime before, BackupStatus status);
 
     /**
-     * Tìm backup theo schedule ID
+     * Find backups by schedule ID
      */
     List<BackupRecord> findByScheduleIdOrderByStartedAtDesc(Long scheduleId);
 }

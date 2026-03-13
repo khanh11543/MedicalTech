@@ -21,27 +21,27 @@ public class RestoreResultDTO {
     private String restoreType;
     private String status;
 
-    /** Items đã được restore */
+    /** Items that were restored */
     private List<String> restoredItems;
 
-    /** ID backup tạo trước khi restore */
+    /** Backup ID created before restore */
     private Long preRestoreBackupId;
 
-    /** Thời gian thực hiện (milliseconds) */
+    /** Execution time (milliseconds) */
     private Long duration;
     private String durationFormatted;
 
-    /** Phần trăm hoàn thành */
+    /** Completion percentage */
     private Integer progressPercent;
     private String currentStep;
 
-    /** Có phải test restore không */
+    /** Whether this is a test restore */
     private Boolean isTestRestore;
 
-    /** Logs chi tiết */
+    /** Detailed logs */
     private String logs;
 
-    /** Thông báo lỗi */
+    /** Error message */
     private String errorMessage;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -50,7 +50,7 @@ public class RestoreResultDTO {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime completedAt;
 
-    /** Người thực hiện */
+    /** Created by */
     private Long createdById;
     private String createdByName;
 }

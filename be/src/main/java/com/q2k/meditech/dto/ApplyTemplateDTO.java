@@ -14,14 +14,14 @@ public class ApplyTemplateDTO {
     @NotNull(message = "Patient ID is required")
     private Long patientId;
     
-    private Long appointmentId; // Optional - liên kết với lần khám
+    private Long appointmentId; // Optional - linked to a visit
     
-    private LocalDate prescriptionDate; // Nếu null sẽ lấy ngày hiện tại
+    private LocalDate prescriptionDate; // If null, uses current date
     
-    // Có thể override các giá trị mặc định từ template
-    private String diagnosis; // Nếu null sẽ dùng diagnosisTemplate
+    // Can override default values from template
+    private String diagnosis; // If null, uses diagnosisTemplate
     
-    private String notes; // Nếu null sẽ dùng notesTemplate
+    private String notes; // If null, uses notesTemplate
     
-    private LocalDate followUpDate; // Nếu null sẽ tính từ defaultFollowUpDays
+    private LocalDate followUpDate; // If null, calculated from defaultFollowUpDays
 }

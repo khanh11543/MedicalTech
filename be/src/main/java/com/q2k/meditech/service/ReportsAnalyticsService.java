@@ -3,6 +3,7 @@ package com.q2k.meditech.service;
 import com.q2k.meditech.dto.ReportsAnalyticsDTO;
 import com.q2k.meditech.entity.Appointment;
 import com.q2k.meditech.entity.Payment;
+import com.q2k.meditech.entity.Specialty;
 import com.q2k.meditech.entity.User;
 import com.q2k.meditech.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -107,7 +108,7 @@ public class ReportsAnalyticsService {
     private Map<String, Long> getAppointmentsByStatus() {
         return appointmentRepository.findAll().stream()
                 .collect(Collectors.groupingBy(
-                        a -> a.getStatus().name(),
+                        a -> a.getStatus() != null ? a.getStatus().name() : "UNKNOWN",
                         Collectors.counting()
                 ));
     }
@@ -116,7 +117,10 @@ public class ReportsAnalyticsService {
         return appointmentRepository.findAll().stream()
                 .filter(a -> a.getDoctor() != null && !a.getDoctor().getSpecialties().isEmpty())
                 .collect(Collectors.groupingBy(
-                        a -> a.getDoctor().getSpecialties().get(0).getName(),
+                        a -> {
+                            Specialty s = a.getDoctor().getSpecialties().get(0);
+                            return s != null && s.getName() != null ? s.getName() : "Unknown";
+                        },
                         Collectors.counting()
                 ));
     }
@@ -148,7 +152,7 @@ public class ReportsAnalyticsService {
         return paymentRepository.findAll().stream()
                 .filter(p -> "COMPLETED".equals(p.getPaymentStatus()))
                 .collect(Collectors.groupingBy(
-                        Payment::getPaymentMethod,
+                        p -> p.getPaymentMethod() != null ? p.getPaymentMethod() : "OTHER",
                         Collectors.summingDouble(p -> p.getAmount() != null ? p.getAmount().doubleValue() : 0.0)
                 ));
     }
@@ -188,9 +192,11 @@ public class ReportsAnalyticsService {
 
     private Map<String, Long> getUsersByRole() {
         return userRepository.findAll().stream()
+                .filter(user -> user.getUserRoles() != null)
                 .flatMap(user -> user.getUserRoles().stream())
+                .filter(userRole -> userRole.getRole() != null)
                 .collect(Collectors.groupingBy(
-                        userRole -> userRole.getRole().getName(),
+                        userRole -> userRole.getRole().getName() != null ? userRole.getRole().getName() : "UNKNOWN",
                         Collectors.counting()
                 ));
     }

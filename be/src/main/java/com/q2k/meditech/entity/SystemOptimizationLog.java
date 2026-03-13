@@ -28,7 +28,7 @@ public class SystemOptimizationLog extends BaseEntity {
     private String status; // IN_PROGRESS, COMPLETED, FAILED
 
     @Column(name = "details", columnDefinition = "TEXT")
-    private String details; // JSON kết quả chi tiết
+    private String details; // JSON detailed results
 
     @Column(name = "size_before")
     private Long sizeBefore; // bytes
@@ -37,7 +37,7 @@ public class SystemOptimizationLog extends BaseEntity {
     private Long sizeAfter; // bytes
 
     @Column(name = "records_affected")
-    private Long recordsAffected; // số bản ghi bị ảnh hưởng
+    private Long recordsAffected; // number of affected records
 
     @Column(name = "duration")
     private Long duration; // milliseconds

@@ -68,11 +68,11 @@ public class Appointment extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "booked_by_user_id")
-    private User bookedByUser; // User đã đặt lịch (receptionist nếu đặt hộ)
+    private User bookedByUser; // User who booked (receptionist if booked on behalf)
 
     @Column(name = "queue_number")
 
-    private Integer queueNumber; // Số thứ tự khi check-in
+    private Integer queueNumber; // Queue number at check-in
 
     @Column(name = "reason_for_visit", columnDefinition = "TEXT")
     private String reasonForVisit;
@@ -87,13 +87,13 @@ public class Appointment extends BaseEntity {
     private String cancellationReason;
 
     @Column(name = "cancelled_by")
-    private Long cancelledBy; // User ID người hủy
+    private Long cancelledBy; // User ID of the canceller
 
     @Column(name = "checked_in_at")
     private java.time.LocalDateTime checkedInAt;
     
     @Column(name = "checked_in_by")
-    private Long checkedInBy; // User ID người check-in (receptionist/admin)
+    private Long checkedInBy; // User ID of check-in staff (receptionist/admin)
     
     @Column(name = "consultation_started_at")
     private java.time.LocalDateTime consultationStartedAt;
@@ -142,7 +142,7 @@ public class Appointment extends BaseEntity {
     @Builder.Default
     private List<AppointmentHistory> histories = new ArrayList<>();
 
-    // Helper method để thêm history
+    // Helper method to add history
     public void addHistory(AppointmentHistory history) {
         histories.add(history);
         history.setAppointment(this);

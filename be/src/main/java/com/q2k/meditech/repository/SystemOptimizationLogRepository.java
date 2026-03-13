@@ -14,22 +14,22 @@ import java.util.Optional;
 public interface SystemOptimizationLogRepository extends JpaRepository<SystemOptimizationLog, Long> {
 
     /**
-     * Lịch sử optimization phân trang
+     * Paginated optimization history
      */
     Page<SystemOptimizationLog> findAllByOrderByStartedAtDesc(Pageable pageable);
 
     /**
-     * Tìm theo loại optimization
+     * Find by optimization type
      */
     List<SystemOptimizationLog> findByOptimizationTypeOrderByStartedAtDesc(OptimizationType type);
 
     /**
-     * Tìm lần optimize gần nhất theo loại
+     * Find the most recent optimization by type
      */
     Optional<SystemOptimizationLog> findTopByOptimizationTypeOrderByStartedAtDesc(OptimizationType type);
 
     /**
-     * Tìm optimization đang chạy
+     * Find running optimizations
      */
     List<SystemOptimizationLog> findByStatus(String status);
 }

@@ -21,29 +21,29 @@ public class PrescriptionItem {
     private Prescription prescription;
 
     @Column(name = "medicine_name", nullable = false)
-    private String medicineName; // Tên thuốc
+    private String medicineName; // Medicine name
 
     @Column(name = "dosage", nullable = false)
-    private String dosage; // Liều lượng (vd: "500mg")
+    private String dosage; // Dosage (e.g., "500mg")
 
     @Column(name = "frequency", nullable = false)
-    private String frequency; // Tần suất (vd: "2 lần/ngày")
+    private String frequency; // Frequency (e.g., "twice daily")
 
     @Column(name = "duration")
-    private String duration; // Thời gian dùng (vd: "7 ngày")
+    private String duration; // Duration (e.g., "7 days")
 
     @Column(name = "quantity")
-    private Integer quantity; // Số lượng
+    private Integer quantity; // Quantity
 
     @Column(name = "unit")
-    private String unit; // Đơn vị (viên, gói, chai...)
+    private String unit; // Unit (tablet, packet, bottle...)
 
     @Column(name = "instructions", columnDefinition = "TEXT")
-    private String instructions; // Hướng dẫn sử dụng (vd: "Uống sau ăn")
+    private String instructions; // Usage instructions (e.g., "Take after meals")
 
     @Column(name = "notes")
-    private String notes; // Ghi chú thêm
+    private String notes; // Additional notes
 
     @Column(name = "item_order")
-    private Integer itemOrder; // Thứ tự hiển thị
+    private Integer itemOrder; // Display order
 }

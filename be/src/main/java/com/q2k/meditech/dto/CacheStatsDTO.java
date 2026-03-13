@@ -13,17 +13,17 @@ import java.util.List;
 @Builder
 public class CacheStatsDTO {
 
-    /** Tổng số cache */
+    /** Total number of caches */
     private Integer totalCaches;
 
-    /** Tổng số entries */
+    /** Total number of entries */
     private Long totalEntries;
 
-    /** Tổng kích thước ước tính (bytes) */
+    /** Total estimated size (bytes) */
     private Long estimatedSize;
     private String estimatedSizeFormatted;
 
-    /** Chi tiết từng cache */
+    /** Detail for each cache */
     private List<CacheDetailDTO> caches;
 
     @Data

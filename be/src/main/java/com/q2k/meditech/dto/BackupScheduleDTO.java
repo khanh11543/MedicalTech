@@ -15,38 +15,38 @@ public class BackupScheduleDTO {
 
     private Long id;
 
-    /** Tên schedule */
+    /** Schedule name */
     private String name;
 
-    /** Loại backup */
+    /** Backup type */
     private BackupType backupType;
 
-    /** Cron expression (vd: "0 0 2 * * ?" = 2h sáng hàng ngày) */
+    /** Cron expression (e.g. "0 0 2 * * ?" = 2 AM daily) */
     private String cronExpression;
 
-    /** Nơi lưu trữ */
+    /** Storage location */
     @Builder.Default
     private StorageLocation storageLocation = StorageLocation.LOCAL;
 
-    /** Số ngày giữ lại backup */
+    /** Number of days to retain backups */
     @Builder.Default
     private Integer retentionDays = 30;
 
-    /** Có mã hóa không */
+    /** Whether to encrypt */
     @Builder.Default
     private Boolean encrypted = false;
 
-    /** Thành phần backup: DATABASE, FILES, CONFIG */
+    /** Backup components: DATABASE, FILES, CONFIG */
     private String includes;
 
-    /** Bật/tắt schedule */
+    /** Enable/disable schedule */
     @Builder.Default
     private Boolean enabled = true;
 
-    /** Đường dẫn lưu trữ */
+    /** Storage path */
     private String storagePath;
 
-    /** Số lượng backup tối đa giữ lại */
+    /** Maximum number of backups to retain */
     @Builder.Default
     private Integer maxBackups = 10;
 }

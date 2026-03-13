@@ -5,8 +5,8 @@ package com.q2k.meditech.entity.enums;
  * Replaces the simple boolean isAvailable for richer queue workflows.
  */
 public enum DoctorQueueStatus {
-    AVAILABLE,   // Sẵn sàng nhận bệnh nhân
-    BUSY,        // Đang khám (tự động khi có IN_PROGRESS)
-    ON_BREAK,    // Nghỉ giải lao
-    OFFLINE      // Không hoạt động hôm nay
+    AVAILABLE,   // Ready to receive patients
+    BUSY,        // In consultation (auto-set when IN_PROGRESS)
+    ON_BREAK,    // On break
+    OFFLINE      // Not active today
 }

@@ -13,7 +13,7 @@ import java.util.Set;
 
 /**
  * Create User Request DTO
- * Dùng cho API POST /api/admin/users (Admin tạo user)
+ * Used for API POST /api/admin/users (Admin creates user)
  */
 @Data
 @NoArgsConstructor
@@ -48,7 +48,7 @@ public class CreateUserDTO {
     @Builder.Default
     private Boolean isVerified = false;
     
-    // Role IDs để assign cho user ngay khi tạo
+    // Role IDs to assign to user upon creation
     private Set<Long> roleIds;
 
     // Doctor-specific fields (only used when role is DOCTOR)

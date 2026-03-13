@@ -308,7 +308,7 @@ public class ReceptionistPaymentController {
         return ResponseEntity.ok(stats);
     }
 
-    // ==================== TAB 5.3 — PENDING PAYMENTS (CÔNG NỢ) ====================
+    // ==================== TAB 5.3 — PENDING PAYMENTS ====================
 
     /**
      * GET /api/receptionist/payments/pending
@@ -357,7 +357,7 @@ public class ReceptionistPaymentController {
         return ResponseEntity.ok(result);
     }
 
-    // ==================== TAB 5.4 — TODAY'S REVENUE (DOANH THU TRONG NGÀY) ====================
+    // ==================== TAB 5.4 — TODAY'S REVENUE ====================
 
     /**
      * GET /api/receptionist/payments/revenue/hourly

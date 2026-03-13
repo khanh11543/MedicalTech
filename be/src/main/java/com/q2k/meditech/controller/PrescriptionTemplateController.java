@@ -25,7 +25,7 @@ public class PrescriptionTemplateController {
     private final PrescriptionTemplateService templateService;
     
     /**
-     * Tạo template mới
+     * Create a new template
      * POST /api/doctor/prescription-templates
      */
     @PostMapping
@@ -39,7 +39,7 @@ public class PrescriptionTemplateController {
     }
     
     /**
-     * Lấy danh sách template
+     * Get template list
      * GET /api/doctor/prescription-templates
      */
     @GetMapping
@@ -53,7 +53,7 @@ public class PrescriptionTemplateController {
     }
     
     /**
-     * Lấy chi tiết template
+     * Get template details
      * GET /api/doctor/prescription-templates/{id}
      */
     @GetMapping("/{id}")
@@ -67,7 +67,7 @@ public class PrescriptionTemplateController {
     }
     
     /**
-     * Cập nhật template
+     * Update template
      * PUT /api/doctor/prescription-templates/{id}
      */
     @PutMapping("/{id}")
@@ -82,7 +82,7 @@ public class PrescriptionTemplateController {
     }
     
     /**
-     * Xóa template (soft delete)
+     * Delete template (soft delete)
      * DELETE /api/doctor/prescription-templates/{id}
      */
     @DeleteMapping("/{id}")
@@ -96,7 +96,7 @@ public class PrescriptionTemplateController {
     }
     
     /**
-     * Apply template để tạo đơn thuốc nhanh
+     * Apply template to quickly create a prescription
      * POST /api/doctor/prescription-templates/{id}/apply
      */
     @PostMapping("/{id}/apply")

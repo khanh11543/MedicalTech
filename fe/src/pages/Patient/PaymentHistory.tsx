@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { toast } from "react-toastify";
 import PageMeta from "../../components/common/PageMeta";
 import patientService, { type Payment, type InvoiceDTO } from "../../services/patientService";
 import MomoQrModal from "../../components/payment/MomoQrModal";
@@ -61,9 +62,10 @@ export default function PaymentHistory() {
   }, [fetchPayments]);
 
   const handlePaymentUpdated = () => {
-    fetchPayments();
+    toast.success("Payment successful! Thank you.", { autoClose: 5000 });
     setQrModalPayment(null);
     setCancelModalPayment(null);
+    fetchPayments();
   };
 
   return (
@@ -170,7 +172,7 @@ export default function PaymentHistory() {
                       </h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</p>
                       <p className="text-base font-bold text-gray-800 dark:text-white mt-1">
-                        {(payment.totalAmount ?? 0).toLocaleString("vi-VN")}₫
+                        {(payment.totalAmount ?? 0).toLocaleString("en-US")} VND
                       </p>
                       {payment.paymentMethod && (
                         <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
@@ -279,7 +281,7 @@ function CancelPaymentModal({
               </svg>
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Hủy thanh toán</h2>
+              <h2 className="text-lg font-bold text-white">Cancel Payment</h2>
               <p className="text-red-100 text-xs">{payment.paymentCode}</p>
             </div>
           </div>
@@ -298,21 +300,21 @@ function CancelPaymentModal({
         <div className="px-6 py-5 space-y-4">
           <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20">
             <p className="text-sm text-red-700 dark:text-red-400 font-medium">
-              Bạn có chắc chắn muốn hủy thanh toán này?
+              Are you sure you want to cancel this payment?
             </p>
             <p className="text-xs text-red-500 dark:text-red-400/70 mt-1">
-              Số tiền: <span className="font-bold">{payment.totalAmount?.toLocaleString("vi-VN")} VND</span>
+              Amount: <span className="font-bold">{payment.totalAmount?.toLocaleString("en-US")} VND</span>
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-              Lý do hủy (không bắt buộc)
+              Cancellation reason (optional)
             </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="Nhập lý do hủy thanh toán..."
+              placeholder="Enter reason for cancellation..."
               rows={3}
               className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-red-300 focus:border-red-300 outline-none resize-none"
             />
@@ -327,14 +329,14 @@ function CancelPaymentModal({
               onClick={onClose}
               className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
-              Quay lại
+              Go Back
             </button>
             <button
               onClick={handleCancel}
               disabled={submitting}
               className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-50 transition-colors"
             >
-              {submitting ? "Đang hủy..." : "Xác nhận hủy"}
+              {submitting ? "Cancelling..." : "Confirm Cancel"}
             </button>
           </div>
         </div>
@@ -412,23 +414,23 @@ function PaymentDetailModal({
           <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-700/30 space-y-2.5">
             <div className="flex justify-between text-sm">
               <span className="text-gray-500">Amount</span>
-              <span className="text-gray-800 dark:text-white">{p.amount?.toLocaleString("vi-VN")} VND</span>
+              <span className="text-gray-800 dark:text-white">{p.amount?.toLocaleString("en-US")} VND</span>
             </div>
             {p.discountAmount > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Discount</span>
-                <span className="text-emerald-500">-{p.discountAmount?.toLocaleString("vi-VN")} VND</span>
+                <span className="text-emerald-500">-{p.discountAmount?.toLocaleString("en-US")} VND</span>
               </div>
             )}
             {p.taxAmount > 0 && (
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Tax</span>
-                <span className="text-gray-800 dark:text-white">{p.taxAmount?.toLocaleString("vi-VN")} VND</span>
+                <span className="text-gray-800 dark:text-white">{p.taxAmount?.toLocaleString("en-US")} VND</span>
               </div>
             )}
             <div className="flex justify-between text-sm font-bold border-t border-gray-200 dark:border-gray-600 pt-2.5">
               <span className="text-gray-800 dark:text-white">Total</span>
-              <span className="text-blue-600 dark:text-blue-400">{p.totalAmount?.toLocaleString("vi-VN")} VND</span>
+              <span className="text-blue-600 dark:text-blue-400">{p.totalAmount?.toLocaleString("en-US")} VND</span>
             </div>
           </div>
 
@@ -451,7 +453,7 @@ function PaymentDetailModal({
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Hủy thanh toán
+                Cancel Payment
               </button>
             </div>
           )}
@@ -509,7 +511,7 @@ function PaymentDetailModal({
             <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-900/20">
               <p className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase mb-1">Refund</p>
               <p className="text-sm text-gray-800 dark:text-white font-medium">
-                {p.refundAmount?.toLocaleString("vi-VN")} VND
+                {p.refundAmount?.toLocaleString("en-US")} VND
               </p>
               {p.refundReason && (
                 <p className="text-xs text-gray-500 mt-1">{p.refundReason}</p>

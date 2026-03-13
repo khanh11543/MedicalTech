@@ -9,57 +9,57 @@ import java.util.Map;
 public interface DatabaseService {
 
     /**
-     * Thực hiện mysqldump để backup database
-     * @param outputPath Đường dẫn file output
-     * @param options Tùy chọn bổ sung
-     * @return Đường dẫn file backup đã tạo
+     * Execute mysqldump to backup database
+     * @param outputPath Output file path
+     * @param options Additional options
+     * @return Created backup file path
      */
     String executeMySQLDump(String outputPath, Map<String, Object> options);
 
     /**
-     * Khôi phục database từ file dump
-     * @param filePath Đường dẫn file backup
+     * Restore database from dump file
+     * @param filePath Backup file path
      */
     void restoreFromDump(String filePath);
 
     /**
-     * Lấy thống kê các bảng trong database
-     * @return Danh sách thông tin bảng: name, rows, dataSize, indexSize, dataFree
+     * Get table statistics in database
+     * @return List of table info: name, rows, dataSize, indexSize, dataFree
      */
     List<Map<String, Object>> getTableStats();
 
     /**
-     * Lấy thông tin phân mảnh database
-     * @return Danh sách bảng bị phân mảnh và mức độ
+     * Get database fragmentation info
+     * @return List of fragmented tables and their levels
      */
     List<Map<String, Object>> getFragmentationInfo();
 
     /**
-     * Optimize (OPTIMIZE TABLE) cho tất cả bảng
-     * @return Kết quả optimize cho từng bảng
+     * Optimize (OPTIMIZE TABLE) for all tables
+     * @return Optimize result for each table
      */
     List<Map<String, Object>> optimizeAllTables();
 
     /**
-     * Analyze (ANALYZE TABLE) cho tất cả bảng
-     * @return Kết quả analyze cho từng bảng
+     * Analyze (ANALYZE TABLE) for all tables
+     * @return Analyze result for each table
      */
     List<Map<String, Object>> analyzeAllTables();
 
     /**
-     * Lấy kích thước database
-     * @return Kích thước tính bằng bytes
+     * Get database size
+     * @return Size in bytes
      */
     Long getDatabaseSize();
 
     /**
-     * Lấy danh sách tên tất cả bảng
+     * Get list of all table names
      */
     List<String> getAllTableNames();
 
     /**
-     * Kiểm tra kết nối database
-     * @return true nếu database hoạt động bình thường
+     * Check database connection
+     * @return true if database is operating normally
      */
     boolean checkConnection();
 }

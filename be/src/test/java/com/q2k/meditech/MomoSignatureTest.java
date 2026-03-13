@@ -67,7 +67,7 @@ public class MomoSignatureTest {
         String requestId = UUID.randomUUID().toString();
         String requestType = "captureWallet";
         String extraData = "";
-        String orderInfo = "Thanh toan TEST123";
+        String orderInfo = "Payment TEST123";
 
         // Build raw signature
         String rawSignature = "accessKey=" + accessKey 

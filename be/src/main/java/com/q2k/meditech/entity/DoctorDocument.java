@@ -42,7 +42,7 @@ public class DoctorDocument {
     private String fileUrl;
 
     /**
-     * Optional: hash file để chống sửa/đổi file sau khi upload (ăn điểm security)
+     * Optional: file hash to prevent tampering after upload (security feature)
      */
     @Column(name="file_hash", length = 128)
     private String fileHash;
@@ -53,7 +53,7 @@ public class DoctorDocument {
     private ReviewStatus status = ReviewStatus.PENDING;
 
     /**
-     * admin duyệt
+     * Admin reviewer
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by", foreignKey = @ForeignKey(name = "fk_doctor_documents_reviewed_by"))

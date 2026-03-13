@@ -18,24 +18,24 @@ public class BackupProgressDTO {
     private String backupName;
     private String status;
 
-    /** Phần trăm tiến trình (0-100) */
+    /** Progress percentage (0-100) */
     private Integer progressPercent;
 
-    /** Bước hiện tại đang thực hiện */
+    /** Current step being executed */
     private String currentStep;
 
-    /** Thời gian còn lại (ước tính, milliseconds) */
+    /** Estimated time remaining (milliseconds) */
     private Long timeRemaining;
 
-    /** Thời gian đã chạy (milliseconds) */
+    /** Elapsed time (milliseconds) */
     private Long elapsedTime;
 
-    /** Kích thước hiện tại (bytes) */
+    /** Current size (bytes) */
     private Long currentSize;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime startedAt;
 
-    /** Thông báo lỗi (nếu failed) */
+    /** Error message (if failed) */
     private String errorMessage;
 }

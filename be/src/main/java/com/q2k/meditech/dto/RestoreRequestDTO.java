@@ -14,20 +14,20 @@ import java.util.List;
 @Builder
 public class RestoreRequestDTO {
 
-    /** ID của backup cần restore */
+    /** ID of the backup to restore */
     private Long backupId;
 
-    /** Loại restore: FULL, PARTIAL, TEST */
+    /** Restore type: FULL, PARTIAL, TEST */
     @Builder.Default
     private RestoreType restoreType = RestoreType.FULL;
 
-    /** Danh sách items cần restore (dùng cho PARTIAL) */
+    /** List of items to restore (used for PARTIAL) */
     private List<String> items;
 
-    /** Mật khẩu giải mã (nếu backup được mã hóa) */
+    /** Decryption password (if backup is encrypted) */
     private String password;
 
-    /** Có tạo backup trước khi restore không */
+    /** Whether to create a backup before restoring */
     @Builder.Default
     private Boolean createPreRestoreBackup = true;
 }

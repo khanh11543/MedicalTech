@@ -1,6 +1,6 @@
 package com.q2k.meditech.entity.enums;
 
 public enum BookedBy {
-    PATIENT,      // Bệnh nhân tự đặt
-    RECEPTIONIST  // Lễ tân đặt hộ
+    PATIENT,      // Booked by patient
+    RECEPTIONIST  // Booked by receptionist on behalf of patient
 }

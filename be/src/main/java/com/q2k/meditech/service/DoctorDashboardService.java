@@ -107,7 +107,7 @@ public class DoctorDashboardService {
     // Card 2: Patients Waiting
     // ==========================================
     private PatientsWaitingCard buildPatientsWaitingCard(List<Appointment> todayAppointments, LocalTime now) {
-        // Patients waiting = CHECKED_IN status (đã check-in, chờ khám)
+        // Patients waiting = CHECKED_IN status (checked in, waiting for consultation)
         List<Appointment> waitingAppointments = todayAppointments.stream()
                 .filter(a -> a.getStatus() == AppointmentStatus.CHECKED_IN)
                 .collect(Collectors.toList());

@@ -87,7 +87,7 @@ public class MaintenanceServiceImpl implements MaintenanceService {
                                                      List<String> whitelistedIps) {
         log.info("Activating maintenance now, duration: {} minutes", durationMinutes);
 
-        // Kiểm tra có maintenance đang active không
+        // Check if maintenance is already active
         if (isMaintenanceActive()) {
             throw new BadRequestException("Maintenance is already active");
         }

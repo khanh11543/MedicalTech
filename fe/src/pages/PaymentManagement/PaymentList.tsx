@@ -285,9 +285,9 @@ const PaymentList: React.FC = () => {
               )}
               <p className="mt-2 font-semibold">Troubleshooting:</p>
               <ul className="list-disc ml-5">
-                <li>Kiểm tra backend server đang chạy tại: <code className="bg-red-100 px-1">http://localhost:8080</code></li>
-                <li>Mở Developer Console (F12) để xem chi tiết lỗi</li>
-                <li>Kiểm tra API endpoint: <code className="bg-red-100 px-1">/api/admin/payments</code></li>
+                <li>Check that the backend server is running at: <code className="bg-red-100 px-1">http://localhost:8080</code></li>
+                <li>Open Developer Console (F12) for error details</li>
+                <li>Check API endpoint: <code className="bg-red-100 px-1">/api/admin/payments</code></li>
               </ul>
             </div>
           </div>

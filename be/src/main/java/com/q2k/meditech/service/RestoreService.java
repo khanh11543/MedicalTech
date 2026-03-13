@@ -15,52 +15,52 @@ import java.util.Map;
 public interface RestoreService {
 
     /**
-     * Khôi phục từ backup có sẵn trong hệ thống
-     * @param backupId ID backup cần restore
-     * @param restoreType Loại restore (FULL/PARTIAL/TEST)
-     * @param items Danh sách thành phần cần restore
-     * @param password Mật khẩu xác nhận
+     * Restore from an existing backup in the system
+     * @param backupId Backup ID to restore
+     * @param restoreType Restore type (FULL/PARTIAL/TEST)
+     * @param items List of components to restore
+     * @param password Confirmation password
      * @return RestoreRecord
      */
     RestoreRecord restoreFromBackup(Long backupId, RestoreType restoreType,
                                      List<String> items, String password);
 
     /**
-     * Khôi phục từ file upload
-     * @param file File backup upload
-     * @param restoreType Loại restore
-     * @param items Danh sách thành phần cần restore
-     * @param password Mật khẩu xác nhận
+     * Restore from uploaded file
+     * @param file Backup upload file
+     * @param restoreType Restore type
+     * @param items List of components to restore
+     * @param password Confirmation password
      * @return RestoreRecord
      */
     RestoreRecord restoreFromUpload(MultipartFile file, RestoreType restoreType,
                                      List<String> items, String password);
 
     /**
-     * Lấy tiến trình restore đang chạy
+     * Get running restore progress
      */
     RestoreRecord getRestoreProgress(Long id);
 
     /**
-     * Chạy test restore (sandbox)
-     * @param backupId ID backup cần test
-     * @return RestoreRecord với kết quả test
+     * Run test restore (sandbox)
+     * @param backupId Backup ID to test
+     * @return RestoreRecord with test results
      */
     RestoreRecord testRestore(Long backupId);
 
     /**
-     * Lấy lịch sử restore phân trang
+     * Get paginated restore history
      */
     Page<RestoreRecord> getRestoreHistory(Pageable pageable);
 
     /**
-     * Lấy chi tiết restore record
+     * Get restore record details
      */
     RestoreRecord getRestoreDetail(Long id);
 
     /**
-     * Lấy thông tin tổng quan restore
-     * @return Map chứa: totalRestores, lastRestore, activeRestores
+     * Get restore overview information
+     * @return Map containing: totalRestores, lastRestore, activeRestores
      */
     Map<String, Object> getRestoreSummary();
 }

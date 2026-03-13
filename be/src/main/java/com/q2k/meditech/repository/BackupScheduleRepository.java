@@ -11,17 +11,17 @@ import java.util.List;
 public interface BackupScheduleRepository extends JpaRepository<BackupSchedule, Long> {
 
     /**
-     * Tìm tất cả schedule đang bật
+     * Find all enabled schedules
      */
     List<BackupSchedule> findByEnabledTrue();
 
     /**
-     * Tìm schedule cần chạy (enabled + nextRunAt <= now)
+     * Find schedules due to run (enabled + nextRunAt <= now)
      */
     List<BackupSchedule> findByEnabledTrueAndNextRunAtBefore(LocalDateTime now);
 
     /**
-     * Tìm theo tên
+     * Find by name
      */
     boolean existsByName(String name);
 }

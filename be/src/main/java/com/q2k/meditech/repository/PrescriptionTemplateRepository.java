@@ -12,7 +12,7 @@ import java.util.Optional;
 @Repository
 public interface PrescriptionTemplateRepository extends JpaRepository<PrescriptionTemplate, Long> {
     
-    // Tìm template với đầy đủ thông tin
+    // Find template with full details
     @Query("SELECT t FROM PrescriptionTemplate t " +
            "JOIN FETCH t.doctor d " +
            "JOIN FETCH d.user " +
@@ -20,7 +20,7 @@ public interface PrescriptionTemplateRepository extends JpaRepository<Prescripti
            "WHERE t.id = :id")
     Optional<PrescriptionTemplate> findByIdWithDetails(@Param("id") Long id);
     
-    // Tìm tất cả template của doctor
+    // Find all templates of a doctor
     @Query("SELECT DISTINCT t FROM PrescriptionTemplate t " +
            "JOIN FETCH t.doctor d " +
            "JOIN FETCH d.user " +
@@ -29,7 +29,7 @@ public interface PrescriptionTemplateRepository extends JpaRepository<Prescripti
            "ORDER BY t.usageCount DESC, t.templateName ASC")
     List<PrescriptionTemplate> findByDoctorId(@Param("doctorId") Long doctorId);
     
-    // Tìm template active của doctor
+    // Find active templates of a doctor
     @Query("SELECT DISTINCT t FROM PrescriptionTemplate t " +
            "JOIN FETCH t.doctor d " +
            "JOIN FETCH d.user " +
@@ -38,15 +38,15 @@ public interface PrescriptionTemplateRepository extends JpaRepository<Prescripti
            "ORDER BY t.usageCount DESC, t.templateName ASC")
     List<PrescriptionTemplate> findByDoctorIdAndIsActiveTrue(@Param("doctorId") Long doctorId);
     
-    // Kiểm tra template có thuộc về doctor không
+    // Check if template belongs to a doctor
     boolean existsByIdAndDoctorId(Long id, Long doctorId);
     
-    // Tìm theo tên (cho việc kiểm tra trùng)
+    // Find by name (for duplicate checking)
     Optional<PrescriptionTemplate> findByDoctorIdAndTemplateName(Long doctorId, String templateName);
     
-    // Đếm số template của doctor
+    // Count doctor's templates
     Long countByDoctorId(Long doctorId);
     
-    // Đếm số template active của doctor
+    // Count doctor's active templates
     Long countByDoctorIdAndIsActiveTrue(Long doctorId);
 }

@@ -15,16 +15,16 @@ import java.util.List;
 @Builder
 public class MaintenanceDashboardDTO {
 
-    /** Trạng thái hệ thống hiện tại */
+    /** Current system status */
     private Boolean isMaintenanceActive;
 
-    /** Thông tin maintenance đang hoạt động */
+    /** Active maintenance information */
     private ActiveMaintenanceInfo activeMaintenance;
 
-    /** Bảo trì sắp tới */
+    /** Upcoming maintenance */
     private List<UpcomingMaintenanceInfo> upcomingMaintenance;
 
-    /** Thống kê */
+    /** Statistics */
     private MaintenanceStatsInfo stats;
 
     @Data
@@ -43,7 +43,7 @@ public class MaintenanceDashboardDTO {
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
         private LocalDateTime endTime;
 
-        /** Thời gian còn lại (phút) */
+        /** Remaining time (minutes) */
         private Long remainingMinutes;
         private Boolean allowAdminAccess;
         private List<String> whitelistedIps;

@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 
 /**
  * Note DTO
- * Dùng cho các actions cần ghi chú (disable, reject, etc.)
+ * Used for actions that require notes (disable, reject, etc.)
  */
 @Data
 @NoArgsConstructor

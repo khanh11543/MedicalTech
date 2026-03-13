@@ -20,27 +20,27 @@ public class RestoreProgressDTO {
     private String restoreType;
     private String status;
 
-    /** Phần trăm tiến trình (0-100) */
+    /** Progress percentage (0-100) */
     private Integer progressPercent;
 
-    /** Bước hiện tại */
+    /** Current step */
     private String currentStep;
 
-    /** Thời gian còn lại (ước tính, milliseconds) */
+    /** Estimated time remaining (milliseconds) */
     private Long timeRemaining;
 
-    /** Thời gian đã chạy (milliseconds) */
+    /** Elapsed time (milliseconds) */
     private Long elapsedTime;
 
-    /** Có phải test restore không */
+    /** Whether this is a test restore */
     private Boolean isTestRestore;
 
-    /** ID backup được tạo trước khi restore */
+    /** Backup ID created before restore */
     private Long preRestoreBackupId;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime startedAt;
 
-    /** Thông báo lỗi (nếu failed) */
+    /** Error message (if failed) */
     private String errorMessage;
 }

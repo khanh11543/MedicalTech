@@ -89,7 +89,7 @@ export default function MomoQrModal({
               </svg>
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Thanh toán MoMo</h2>
+              <h2 className="text-lg font-bold text-white">MoMo Payment</h2>
               <p className="text-blue-100 text-xs">{payment.paymentCode}</p>
             </div>
           </div>
@@ -108,16 +108,16 @@ export default function MomoQrModal({
         <div className="px-6 py-5 space-y-4">
           {/* Amount */}
           <div className="text-center p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Số tiền thanh toán</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Payment Amount</p>
             <p className="text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-              {payment.totalAmount?.toLocaleString("vi-VN")} <span className="text-lg">VND</span>
+              {payment.totalAmount?.toLocaleString("en-US")} <span className="text-lg">VND</span>
             </p>
           </div>
 
           {step === "loading" && (
             <div className="text-center py-10 space-y-3">
               <div className="w-12 h-12 mx-auto border-4 border-blue-200 border-t-blue-500 rounded-full animate-spin" />
-              <p className="text-sm text-gray-500">Đang tạo mã QR MoMo...</p>
+              <p className="text-sm text-gray-500">Generating MoMo QR code...</p>
             </div>
           )}
 
@@ -140,15 +140,15 @@ export default function MomoQrModal({
                 ) : (
                   <div className="mx-auto w-56 h-56 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg">
                     <p className="text-xs text-gray-400 text-center px-4">
-                      QR code không khả dụng.
-                      <br />Vui lòng sử dụng link bên dưới.
+                      QR code unavailable.
+                      <br />Please use the link below.
                     </p>
                   </div>
                 )}
               </div>
 
               <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                Mở app <span className="font-semibold text-pink-500">MoMo</span> và quét mã QR để thanh toán
+                Open <span className="font-semibold text-pink-500">MoMo</span> app and scan the QR code to pay
               </p>
 
               {/* Pay URL link */}
@@ -159,14 +159,14 @@ export default function MomoQrModal({
                   rel="noopener noreferrer"
                   className="block w-full text-center px-4 py-2.5 rounded-xl bg-pink-500 text-white text-sm font-semibold hover:bg-pink-600 transition-colors"
                 >
-                  Mở MoMo để thanh toán
+                  Open MoMo to Pay
                 </a>
               )}
 
               {/* Expiry */}
               {qrData?.expiresAt && (
                 <p className="text-xs text-center text-gray-400">
-                  Hết hạn: {new Date(qrData.expiresAt).toLocaleString("vi-VN", {
+                  Expires: {new Date(qrData.expiresAt).toLocaleString("en-US", {
                     month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
                   })}
                 </p>
@@ -175,7 +175,7 @@ export default function MomoQrModal({
               {/* Polling indicator */}
               <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
                 <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                Đang chờ xác nhận thanh toán...
+                Waiting for payment confirmation...
               </div>
             </div>
           )}
@@ -187,8 +187,8 @@ export default function MomoQrModal({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="text-lg font-bold text-emerald-600 dark:text-emerald-400">Thanh toán thành công!</h3>
-              <p className="text-sm text-gray-500">Đang cập nhật...</p>
+              <h3 className="text-lg font-bold text-emerald-600 dark:text-emerald-400">Payment Successful!</h3>
+              <p className="text-sm text-gray-500">Updating...</p>
             </div>
           )}
 
@@ -204,7 +204,7 @@ export default function MomoQrModal({
                 onClick={initMomo}
                 className="px-6 py-2 rounded-xl bg-blue-500 text-white text-sm font-medium hover:bg-blue-600 transition-colors"
               >
-                Thử lại
+                Retry
               </button>
             </div>
           )}

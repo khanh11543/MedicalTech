@@ -251,7 +251,7 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
     private void sendEmailInvoice(Payment payment, Invoice invoice, String email, String customMessage) {
         log.info("Sending invoice email to: {}", email);
         
-        String subject = "Hóa đơn #" + invoice.getInvoiceNumber() + " - Medical Tech";
+        String subject = "Invoice #" + invoice.getInvoiceNumber() + " - Medical Tech";
         String htmlBody = buildEmailBody(payment, invoice, customMessage);
         
         // Generate PDF and send with attachment
@@ -275,7 +275,7 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
         log.info("Sending invoice SMS to: {}", phone);
         
         String smsBody = String.format(
-                "MediTech: Hoa don %s - So tien: %s VND - Trang thai: DA THANH TOAN. Cam on ban!",
+                "MediTech: Invoice %s - Amount: %s VND - Status: PAID. Thank you!",
                 invoice.getInvoiceNumber(),
                 formatCurrency(invoice.getTotal())
         );
@@ -306,18 +306,18 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
         html.append("<h1 style='color: white; margin: 0;'>Medical Tech</h1>");
         html.append("</div>");
         html.append("<div style='padding: 20px;'>");
-        html.append("<h2 style='color: #333;'>Hóa đơn #").append(invoice.getInvoiceNumber()).append("</h2>");
-        html.append("<p>Kính gửi <strong>").append(payment.getPatient().getUser().getFullName()).append("</strong>,</p>");
-        html.append("<p>Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi. Dưới đây là chi tiết hóa đơn của bạn:</p>");
+        html.append("<h2 style='color: #333;'>Invoice #").append(invoice.getInvoiceNumber()).append("</h2>");
+        html.append("<p>Dear <strong>").append(payment.getPatient().getUser().getFullName()).append("</strong>,</p>");
+        html.append("<p>Thank you for using our services. Below are your invoice details:</p>");
         html.append("<table style='width: 100%; border-collapse: collapse; margin: 20px 0;'>");
-        html.append("<tr style='background: #f5f5f5;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Mã hóa đơn</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(invoice.getInvoiceNumber()).append("</td></tr>");
-        html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Mã thanh toán</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(payment.getPaymentCode()).append("</td></tr>");
-        html.append("<tr style='background: #f5f5f5;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Ngày</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(invoice.getInvoiceDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))).append("</td></tr>");
-        html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Tạm tính</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(formatCurrency(invoice.getSubtotal())).append(" VND</td></tr>");
-        html.append("<tr style='background: #f5f5f5;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Giảm giá</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(formatCurrency(invoice.getDiscount())).append(" VND</td></tr>");
-        html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Thuế</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(formatCurrency(invoice.getTax())).append(" VND</td></tr>");
-        html.append("<tr style='background: #667eea; color: white;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Tổng cộng</th><td style='padding: 10px; border: 1px solid #ddd;'><strong>").append(formatCurrency(invoice.getTotal())).append(" VND</strong></td></tr>");
-        html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Trạng thái</th><td style='padding: 10px; border: 1px solid #ddd;'><span style='background: #4caf50; color: white; padding: 3px 10px; border-radius: 3px;'>").append(invoice.getStatus()).append("</span></td></tr>");
+        html.append("<tr style='background: #f5f5f5;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Invoice Number</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(invoice.getInvoiceNumber()).append("</td></tr>");
+        html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Payment Code</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(payment.getPaymentCode()).append("</td></tr>");
+        html.append("<tr style='background: #f5f5f5;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Date</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(invoice.getInvoiceDate().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))).append("</td></tr>");
+        html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Subtotal</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(formatCurrency(invoice.getSubtotal())).append(" VND</td></tr>");
+        html.append("<tr style='background: #f5f5f5;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Discount</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(formatCurrency(invoice.getDiscount())).append(" VND</td></tr>");
+        html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Tax</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(formatCurrency(invoice.getTax())).append(" VND</td></tr>");
+        html.append("<tr style='background: #667eea; color: white;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Total</th><td style='padding: 10px; border: 1px solid #ddd;'><strong>").append(formatCurrency(invoice.getTotal())).append(" VND</strong></td></tr>");
+        html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Status</th><td style='padding: 10px; border: 1px solid #ddd;'><span style='background: #4caf50; color: white; padding: 3px 10px; border-radius: 3px;'>").append(invoice.getStatus()).append("</span></td></tr>");
         html.append("</table>");
         
         if (customMessage != null && !customMessage.isBlank()) {
@@ -326,9 +326,9 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
             html.append("</div>");
         }
         
-        html.append("<p style='color: #666;'>File PDF hóa đơn được đính kèm trong email này.</p>");
+        html.append("<p style='color: #666;'>The invoice PDF is attached to this email.</p>");
         html.append("<hr style='border: none; border-top: 1px solid #ddd; margin: 20px 0;'>");
-        html.append("<p style='color: #999; font-size: 12px;'>Trân trọng,<br><strong>Medical Tech Clinic</strong><br>Hotline: 1900-xxxx</p>");
+        html.append("<p style='color: #999; font-size: 12px;'>Best regards,<br><strong>Medical Tech Clinic</strong><br>Hotline: 1900-xxxx</p>");
         html.append("</div></body></html>");
         
         return html.toString();
@@ -409,7 +409,7 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
                     .sendSms(phone != null && !phone.isEmpty())
                     .email(email)
                     .phone(phone)
-                    .message("Cảm ơn bạn đã thanh toán! Hóa đơn của bạn đã được xử lý thành công.")
+                    .message("Thank you for your payment! Your invoice has been processed successfully.")
                     .build();
 
             // Send using existing method (currentUserId = null for auto-send)
@@ -506,7 +506,7 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
     private void sendRefundEmail(Payment payment, String email) {
         log.info("Sending refund email to: {}", email);
 
-        String subject = "Thông báo hoàn tiền - " + payment.getPaymentCode();
+        String subject = "Refund Notification - " + payment.getPaymentCode();
         String htmlBody = buildRefundEmailBody(payment);
         
         emailService.sendHtmlEmail(email, subject, htmlBody);
@@ -523,21 +523,21 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
         html.append("<h1 style='color: white; margin: 0;'>Medical Tech</h1>");
         html.append("</div>");
         html.append("<div style='padding: 20px;'>");
-        html.append("<h2 style='color: #f5576c;'>🔄 Thông báo hoàn tiền</h2>");
-        html.append("<p>Kính gửi <strong>").append(payment.getPatient().getUser().getFullName()).append("</strong>,</p>");
-        html.append("<p>Chúng tôi xin thông báo yêu cầu hoàn tiền của bạn đã được xử lý thành công.</p>");
+        html.append("<h2 style='color: #f5576c;'>🔄 Refund Notification</h2>");
+        html.append("<p>Dear <strong>").append(payment.getPatient().getUser().getFullName()).append("</strong>,</p>");
+        html.append("<p>We would like to inform you that your refund request has been processed successfully.</p>");
         html.append("<table style='width: 100%; border-collapse: collapse; margin: 20px 0;'>");
-        html.append("<tr style='background: #fff3e0;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Mã thanh toán</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(payment.getPaymentCode()).append("</td></tr>");
-        html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Số tiền hoàn</th><td style='padding: 10px; border: 1px solid #ddd; color: #f5576c; font-weight: bold;'>").append(formatCurrency(payment.getRefundAmount())).append(" VND</td></tr>");
-        html.append("<tr style='background: #fff3e0;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Lý do</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(payment.getRefundReason() != null ? payment.getRefundReason() : "Không có").append("</td></tr>");
-        html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Thời gian xử lý</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))).append("</td></tr>");
+        html.append("<tr style='background: #fff3e0;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Payment Code</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(payment.getPaymentCode()).append("</td></tr>");
+        html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Refund Amount</th><td style='padding: 10px; border: 1px solid #ddd; color: #f5576c; font-weight: bold;'>").append(formatCurrency(payment.getRefundAmount())).append(" VND</td></tr>");
+        html.append("<tr style='background: #fff3e0;'><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Reason</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(payment.getRefundReason() != null ? payment.getRefundReason() : "N/A").append("</td></tr>");
+        html.append("<tr><th style='padding: 10px; border: 1px solid #ddd; text-align: left;'>Processing Time</th><td style='padding: 10px; border: 1px solid #ddd;'>").append(LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))).append("</td></tr>");
         html.append("</table>");
         html.append("<div style='background: #e3f2fd; padding: 15px; border-radius: 5px; margin: 20px 0;'>");
-        html.append("<p style='margin: 0;'>💡 <strong>Lưu ý:</strong> Số tiền sẽ được hoàn về tài khoản/phương thức thanh toán ban đầu của bạn trong vòng <strong>3-5 ngày làm việc</strong>.</p>");
+        html.append("<p style='margin: 0;'>💡 <strong>Note:</strong> The refund will be returned to your original payment method/account within <strong>3-5 business days</strong>.</p>");
         html.append("</div>");
         html.append("<hr style='border: none; border-top: 1px solid #ddd; margin: 20px 0;'>");
-        html.append("<p style='color: #999; font-size: 12px;'>Nếu có thắc mắc, vui lòng liên hệ:<br><strong>Hotline: 1900-xxxx</strong><br>Email: support@meditech.vn</p>");
-        html.append("<p style='color: #999; font-size: 12px;'>Trân trọng,<br><strong>Medical Tech Clinic</strong></p>");
+        html.append("<p style='color: #999; font-size: 12px;'>If you have any questions, please contact us:<br><strong>Hotline: 1900-xxxx</strong><br>Email: support@meditech.vn</p>");
+        html.append("<p style='color: #999; font-size: 12px;'>Best regards,<br><strong>Medical Tech Clinic</strong></p>");
         html.append("</div></body></html>");
         
         return html.toString();
@@ -550,7 +550,7 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
         log.info("Sending refund SMS to: {}", phone);
 
         String message = String.format(
-                "MediTech: Hoan tien %s VND cho ma %s da duoc xu ly. So tien se duoc hoan trong 3-5 ngay lam viec. Hotline: 1900-xxxx",
+                "MediTech: Refund of %s VND for payment %s has been processed. The amount will be returned within 3-5 business days. Hotline: 1900-xxxx",
                 formatCurrency(payment.getRefundAmount()),
                 payment.getPaymentCode()
         );

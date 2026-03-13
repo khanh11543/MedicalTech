@@ -37,7 +37,7 @@ public class RestoreRecord extends BaseEntity {
     private RestoreStatus status = RestoreStatus.IN_PROGRESS;
 
     @Column(name = "pre_restore_backup_id")
-    private Long preRestoreBackupId; // ID backup tự động tạo trước khi restore
+    private Long preRestoreBackupId; // Auto-created backup ID before restore
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "restored_items", columnDefinition = "json")
@@ -53,7 +53,7 @@ public class RestoreRecord extends BaseEntity {
     private Long duration; // milliseconds
 
     @Column(name = "logs", columnDefinition = "TEXT")
-    private String logs; // chi tiết từng bước thực hiện
+    private String logs; // Step-by-step execution details
 
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
