@@ -73,7 +73,7 @@ export default function CreatePatientModal({ isOpen, onClose, onCreated }: Creat
 
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={handleClose} />
+      <div className="absolute inset-0 bg-black/50" />
       <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-lg w-full mx-4 overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">

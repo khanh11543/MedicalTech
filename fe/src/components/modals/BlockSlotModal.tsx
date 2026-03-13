@@ -53,7 +53,7 @@ export default function BlockSlotModal({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50 z-40" onClick={handleCancel} />
+      <div className="fixed inset-0 bg-black/50 z-40" />
 
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

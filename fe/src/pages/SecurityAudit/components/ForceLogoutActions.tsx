@@ -121,7 +121,7 @@ export default function ForceLogoutActions({
       {/* Confirmation Modal */}
       {modalType && (
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={closeModal} />
+          <div className="absolute inset-0 bg-black/50" />
           <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
             {/* Header */}
             <div

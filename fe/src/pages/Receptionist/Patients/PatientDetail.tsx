@@ -133,7 +133,7 @@ export default function PatientDetail({ patientId, isOpen, onClose, onUpdated }:
   return (
     <div className="fixed inset-0 z-[99999] flex">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" />
 
       {/* Slide-over panel */}
       <div className="relative ml-auto w-full max-w-4xl bg-white dark:bg-gray-900 shadow-2xl overflow-y-auto animate-slide-left">

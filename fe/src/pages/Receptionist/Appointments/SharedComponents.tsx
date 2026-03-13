@@ -145,7 +145,7 @@ export function ConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
+      <div className="absolute inset-0 bg-black/50" />
       <div className="relative bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{title}</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{message}</p>

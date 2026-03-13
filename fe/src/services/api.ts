@@ -54,7 +54,7 @@ api.interceptors.response.use(
     // Detect auth failure: either explicit 401 or "Network Error" (CORS-blocked 401/403)
     const isAuthError =
       error.response?.status === 401 ||
-      (!error.response && error.message === "Network Error" && localStorage.getItem("accessToken"));
+      (!error.response && error.message === "Network Error" && authStorage.getAccessToken());
 
     if (isAuthError && !originalRequest._retry) {
       originalRequest._retry = true;
@@ -71,15 +71,14 @@ api.interceptors.response.use(
 
       const refreshToken = authStorage.getRefreshToken();
       if (!refreshToken) {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("user");
+        authStorage.clear();
         window.location.href = "/signin";
         return Promise.reject(error);
       }
 
       isRefreshing = true;
       try {
-        const response = await api.post("/auth/refresh-token", { refreshToken });
+        const response = await api.post("/auth/refresh", { refreshToken });
         const accessToken = response.data.accessToken;
         authStorage.setTokens(accessToken, refreshToken);
         onTokenRefreshed(accessToken);
@@ -87,9 +86,7 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (refreshError) {
         // Refresh failed — clear tokens and redirect to login
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("user");
+        authStorage.clear();
         window.location.href = "/signin";
         return Promise.reject(refreshError);
       } finally {

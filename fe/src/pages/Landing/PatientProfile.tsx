@@ -487,7 +487,7 @@ export default function PatientProfile() {
 
       {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto" onClick={() => setShowEditModal(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
           <div
             className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-xl flex flex-col max-h-[90vh] sm:max-h-[85vh] mt-auto sm:mt-0"
             onClick={(e) => e.stopPropagation()}
@@ -559,7 +559,7 @@ export default function PatientProfile() {
 
       {/* Add Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto" onClick={() => setShowAddModal(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
           <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-xl flex flex-col max-h-[90vh] sm:max-h-[85vh] mt-auto sm:mt-0" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 shrink-0">
               <h3 className="text-sm font-semibold text-gray-800">Add New Profile</h3>

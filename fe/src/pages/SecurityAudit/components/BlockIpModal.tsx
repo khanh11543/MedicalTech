@@ -53,7 +53,7 @@ export default function BlockIpModal({
 
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative z-10 mx-4 w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-900">
         <div className="mb-5 flex items-center gap-3">
           <div className="rounded-xl bg-red-50 p-2.5 text-red-600 dark:bg-red-900/20 dark:text-red-400">

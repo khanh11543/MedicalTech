@@ -85,7 +85,7 @@ export default function ActivityDetailModal({ log, isOpen, onClose, onFilterByUs
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" />
 
       {/* Modal */}
       <div className="relative mx-4 w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-gray-900">

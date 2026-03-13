@@ -33,14 +33,22 @@ export default function VerifyOtpForm() {
   const handleChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return; // Only allow digits
 
-    const newOtp = [...otp];
-    newOtp[index] = value.slice(-1); // Only keep last digit
-    setOtp(newOtp);
+    const digits = value.replace(/\D/g, "");
+    const next = [...otp];
 
-    // Auto-focus next input
-    if (value && index < 5) {
-      inputRefs.current[index + 1]?.focus();
+    // Support fast typing / autofill that may deliver multiple chars at once
+    if (digits.length <= 1) {
+      next[index] = digits;
+      setOtp(next);
+      if (digits && index < 5) inputRefs.current[index + 1]?.focus();
+      return;
     }
+
+    for (let i = 0; i < digits.length && index + i < 6; i++) {
+      next[index + i] = digits[i];
+    }
+    setOtp(next);
+    inputRefs.current[Math.min(index + digits.length, 5)]?.focus();
   };
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent) => {

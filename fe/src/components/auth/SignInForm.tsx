@@ -32,7 +32,7 @@ export default function SignInForm() {
 
     setIsSubmitting(true);
     try {
-      const tokenData = await login(
+      const res = await login(
         {
           email,
           password,
@@ -42,6 +42,18 @@ export default function SignInForm() {
         isChecked
       );
 
+      if (res.mfaRequired) {
+        navigate("/mfa-verify", {
+          state: {
+            email,
+            mfaToken: res.mfaToken,
+            rememberMe: isChecked,
+          },
+        });
+        return;
+      }
+
+      const tokenData = res.token!;
       if (isChecked) {
         authStorage.setRememberedEmail(email);
       } else {

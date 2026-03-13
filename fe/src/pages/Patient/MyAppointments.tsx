@@ -366,7 +366,7 @@ function CancelModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" />
       <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-6">
         <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Cancel appointment</h3>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
@@ -446,7 +446,7 @@ function ReviewModal({ appointment, onClose, onSubmitted }: {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-0 overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-[#049ebb] to-[#037a94] p-6 text-white">

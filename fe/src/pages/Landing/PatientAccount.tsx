@@ -3,6 +3,7 @@ import userService, { type UserProfile } from "../../services/userService";
 import patientService from "../../services/patientService";
 import authService from "../../services/authService";
 import { getAvatarUrl } from "../../utils/avatar";
+import QRCode from "qrcode";
 
 function maskPhone(phone: string) {
   if (!phone || phone.length < 7) return phone || "—";
@@ -39,6 +40,16 @@ export default function PatientAccount() {
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordMsg, setPasswordMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // MFA (Authenticator) state
+  const [mfaSetupOpen, setMfaSetupOpen] = useState(false);
+  const [mfaDisableOpen, setMfaDisableOpen] = useState(false);
+  const [mfaQr, setMfaQr] = useState<string>("");
+  const [mfaSecretInfo, setMfaSecretInfo] = useState<{ issuer: string; accountName: string; otpauthUrl: string } | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaError, setMfaError] = useState<string | null>(null);
+  const [mfaLoading, setMfaLoading] = useState(false);
+  const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+
   useEffect(() => {
     setLoading(true);
     Promise.all([
@@ -50,6 +61,75 @@ export default function PatientAccount() {
       }).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, []);
+
+  const refreshProfile = async () => {
+    try {
+      const data = await userService.getProfile();
+      setProfile(data);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleStartMfaSetup = async () => {
+    setMfaError(null);
+    setBackupCodes(null);
+    setMfaCode("");
+    setMfaQr("");
+    setMfaSecretInfo(null);
+    setMfaLoading(true);
+    try {
+      const setup = await authService.mfaSetup();
+      setMfaSecretInfo({ issuer: setup.issuer, accountName: setup.accountName, otpauthUrl: setup.otpauthUrl });
+      const dataUrl = await QRCode.toDataURL(setup.otpauthUrl, { margin: 1, width: 220 });
+      setMfaQr(dataUrl);
+      setMfaSetupOpen(true);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to start MFA setup.";
+      setMfaError(msg);
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const handleEnableMfa = async () => {
+    if (!/^\d{6}$/.test(mfaCode)) {
+      setMfaError("Please enter a valid 6-digit code.");
+      return;
+    }
+    setMfaError(null);
+    setMfaLoading(true);
+    try {
+      const res = await authService.mfaEnable(mfaCode);
+      setBackupCodes(res.backupCodes || []);
+      await refreshProfile();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to enable MFA.";
+      setMfaError(msg);
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const handleDisableMfa = async () => {
+    if (!/^\d{6}$/.test(mfaCode)) {
+      setMfaError("Please enter a valid 6-digit code.");
+      return;
+    }
+    setMfaError(null);
+    setMfaLoading(true);
+    try {
+      await authService.mfaDisable(mfaCode);
+      setMfaDisableOpen(false);
+      setMfaCode("");
+      await refreshProfile();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to disable MFA.";
+      setMfaError(msg);
+    } finally {
+      setMfaLoading(false);
+    }
+  };
 
   const handleRevealCccd = () => {
     if (!showCccd) {
@@ -227,9 +307,86 @@ export default function PatientAccount() {
         </div>
       </div>
 
+      {/* Two-Factor Authentication */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h4 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+              <svg className="w-4 h-4 text-[#049ebb]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c1.657 0 3-1.343 3-3S13.657 5 12 5 9 6.343 9 8s1.343 3 3 3z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 19v-1a4 4 0 014-4h4a4 4 0 014 4v1" />
+              </svg>
+              Authenticator (Two-Factor Authentication)
+            </h4>
+            <p className="text-xs text-gray-500">
+              Use an Authenticator app (Google Authenticator, Microsoft Authenticator, Authy) to secure your account.
+            </p>
+          </div>
+
+          <div className="shrink-0 flex items-center gap-2">
+            {profile?.twoFactorEnabled ? (
+              <>
+                <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200">
+                  Enabled
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMfaError(null);
+                    setMfaCode("");
+                    setBackupCodes(null);
+                    setMfaDisableOpen(true);
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 transition-all shadow-md shadow-red-500/20 border-none cursor-pointer disabled:opacity-50"
+                  disabled={mfaLoading}
+                >
+                  Disable
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="inline-flex items-center rounded-full bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-600 border border-gray-200">
+                  Disabled
+                </span>
+                <button
+                  type="button"
+                  onClick={handleStartMfaSetup}
+                  className="px-4 py-2 text-xs font-semibold text-white bg-[#049ebb] rounded-xl hover:bg-[#037a94] transition-all shadow-md shadow-[#049ebb]/20 border-none cursor-pointer disabled:opacity-50"
+                  disabled={mfaLoading}
+                >
+                  {mfaLoading ? "Loading..." : "Enable"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {mfaError && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+            {mfaError}
+          </div>
+        )}
+
+        {backupCodes && backupCodes.length > 0 && (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4">
+            <p className="text-xs font-semibold text-amber-900 mb-2">Backup codes (save these now)</p>
+            <p className="text-[11px] text-amber-800 mb-3">
+              These codes are shown once. Store them somewhere safe. Each code can be used once if you lose access to your Authenticator.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {backupCodes.map((c) => (
+                <div key={c} className="font-mono text-xs bg-white border border-amber-200 rounded-lg px-3 py-2 text-amber-900">
+                  {c}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Verify Modal */}
       {showVerifyModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowVerifyModal(false); setVerifyPassword(""); }}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <h3 className="text-base font-semibold text-gray-900">Identity Verification</h3>
@@ -251,6 +408,138 @@ export default function PatientAccount() {
             <div className="flex justify-end gap-2 p-5 border-t border-gray-100">
               <button onClick={() => { setShowVerifyModal(false); setVerifyPassword(""); }} className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all border-none cursor-pointer">Cancel</button>
               <button disabled={!verifyPassword} onClick={handleVerify} className="px-4 py-2 text-xs font-medium text-white bg-[#049ebb] rounded-xl hover:bg-[#037a94] disabled:opacity-50 disabled:cursor-not-allowed transition-all border-none cursor-pointer">Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MFA Setup Modal */}
+      {mfaSetupOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        >
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <h3 className="text-base font-semibold text-gray-900">Set up Authenticator</h3>
+              <button
+                onClick={() => {
+                  setMfaSetupOpen(false);
+                  setMfaCode("");
+                  setMfaError(null);
+                }}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all bg-transparent border-none cursor-pointer"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-gray-600">
+                Scan this QR code with your Authenticator app, then enter the 6-digit code to confirm.
+              </p>
+
+              {mfaSecretInfo && (
+                <div className="text-[11px] text-gray-500">
+                  <div><span className="font-medium text-gray-700">Issuer:</span> {mfaSecretInfo.issuer}</div>
+                  <div><span className="font-medium text-gray-700">Account:</span> {mfaSecretInfo.accountName}</div>
+                </div>
+              )}
+
+              <div className="flex justify-center">
+                {mfaQr ? (
+                  <img src={mfaQr} alt="MFA QR" className="w-[220px] h-[220px] rounded-xl border border-gray-200 bg-white p-2" />
+                ) : (
+                  <div className="w-[220px] h-[220px] rounded-xl border border-gray-200 bg-gray-50 animate-pulse" />
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">6-digit code</label>
+                <input
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="123456"
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#049ebb]/30 focus:border-[#049ebb] font-mono tracking-widest"
+                />
+              </div>
+
+              {mfaError && <p className="text-xs text-red-600">{mfaError}</p>}
+            </div>
+
+            <div className="flex justify-end gap-2 p-5 border-t border-gray-100">
+              <button
+                onClick={() => {
+                  setMfaSetupOpen(false);
+                  setMfaCode("");
+                  setMfaError(null);
+                }}
+                className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all border-none cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={mfaLoading || !/^\d{6}$/.test(mfaCode)}
+                onClick={handleEnableMfa}
+                className="px-4 py-2 text-xs font-medium text-white bg-[#049ebb] rounded-xl hover:bg-[#037a94] disabled:opacity-50 disabled:cursor-not-allowed transition-all border-none cursor-pointer"
+              >
+                {mfaLoading ? "Enabling..." : "Enable"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MFA Disable Modal */}
+      {mfaDisableOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        >
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <h3 className="text-base font-semibold text-gray-900">Disable Authenticator</h3>
+              <button
+                onClick={() => {
+                  setMfaDisableOpen(false);
+                  setMfaCode("");
+                  setMfaError(null);
+                }}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all bg-transparent border-none cursor-pointer"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3">
+              <p className="text-xs text-gray-600">
+                Enter the 6-digit code from your Authenticator app to disable MFA.
+              </p>
+              <input
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="123456"
+                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#049ebb]/30 focus:border-[#049ebb] font-mono tracking-widest"
+              />
+              {mfaError && <p className="text-xs text-red-600">{mfaError}</p>}
+            </div>
+
+            <div className="flex justify-end gap-2 p-5 border-t border-gray-100">
+              <button
+                onClick={() => {
+                  setMfaDisableOpen(false);
+                  setMfaCode("");
+                  setMfaError(null);
+                }}
+                className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all border-none cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={mfaLoading || !/^\d{6}$/.test(mfaCode)}
+                onClick={handleDisableMfa}
+                className="px-4 py-2 text-xs font-medium text-white bg-red-500 rounded-xl hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all border-none cursor-pointer"
+              >
+                {mfaLoading ? "Disabling..." : "Disable"}
+              </button>
             </div>
           </div>
         </div>

@@ -49,6 +49,30 @@ export interface TokenResponse {
   roles: string[];
 }
 
+export interface LoginResponse {
+  mfaRequired: boolean;
+  mfaToken?: string;
+  mfaExpiresAt?: string;
+  token?: TokenResponse;
+}
+
+export interface MfaVerifyLoginRequest {
+  mfaToken: string;
+  code: string;
+}
+
+export interface MfaSetupResponse {
+  twoFactorEnabled: boolean;
+  issuer: string;
+  accountName: string;
+  otpauthUrl: string;
+}
+
+export interface MfaEnableResponse {
+  twoFactorEnabled: boolean;
+  backupCodes: string[];
+}
+
 export interface UserResponse {
   id: number;
   email: string;
@@ -87,8 +111,29 @@ const authService = {
     return response.data;
   },
 
-  login: async (data: LoginRequest): Promise<TokenResponse> => {
+  login: async (data: LoginRequest): Promise<LoginResponse> => {
     const response = await api.post("/auth/login", data);
+    return response.data;
+  },
+
+  verifyMfaLogin: async (data: MfaVerifyLoginRequest): Promise<TokenResponse> => {
+    const response = await api.post("/auth/mfa/verify-login", data);
+    return response.data;
+  },
+
+  // Authenticator MFA (Patient)
+  mfaSetup: async (): Promise<MfaSetupResponse> => {
+    const response = await api.post("/me/mfa/setup");
+    return response.data;
+  },
+
+  mfaEnable: async (code: string): Promise<MfaEnableResponse> => {
+    const response = await api.post("/me/mfa/enable", { code });
+    return response.data;
+  },
+
+  mfaDisable: async (code: string): Promise<MessageResponse> => {
+    const response = await api.post("/me/mfa/disable", { code });
     return response.data;
   },
 

@@ -79,11 +79,26 @@ public class AuthController {
     @PostMapping("/login")
     @Operation(summary = "Login", 
                description = "Authenticate user and return access token and refresh token")
-    public ResponseEntity<TokenDTO> login(
+    public ResponseEntity<LoginResponseDTO> login(
             @Valid @RequestBody LoginDTO loginDTO,
             HttpServletRequest request) {
         log.info("Login request for email: {}", loginDTO.getEmail());
-        TokenDTO tokenDTO = authService.login(loginDTO, request);
+        LoginResponseDTO loginResponse = authService.login(loginDTO, request);
+        return ResponseEntity.ok(loginResponse);
+    }
+
+    /**
+     * Complete login with Authenticator code (MFA)
+     * POST /api/auth/mfa/verify-login
+     */
+    @PostMapping("/mfa/verify-login")
+    @Operation(summary = "Verify MFA to complete login",
+            description = "Verify Authenticator (TOTP) code using the short-lived mfaToken returned from /auth/login")
+    public ResponseEntity<TokenDTO> verifyMfaLogin(
+            @Valid @RequestBody MfaVerifyLoginDTO dto,
+            HttpServletRequest request
+    ) {
+        TokenDTO tokenDTO = authService.verifyMfaLogin(dto, request);
         return ResponseEntity.ok(tokenDTO);
     }
 
