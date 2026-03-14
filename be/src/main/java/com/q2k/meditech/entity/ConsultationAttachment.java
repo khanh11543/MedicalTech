@@ -33,7 +33,7 @@ public class ConsultationAttachment extends BaseEntity {
     @Column(name = "file_size")
     private Long fileSize;
 
-    @Column(name = "file_path", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "file_path", nullable = false, length = 500)
     private String filePath;
 
     @Column(name = "mime_type", length = 100)

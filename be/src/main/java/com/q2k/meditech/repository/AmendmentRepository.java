@@ -16,11 +16,6 @@ import java.util.Optional;
 public interface AmendmentRepository extends JpaRepository<Amendment, Long> {
 
     /**
-     * Find amendment by ID (supports String ID lookup)
-     */
-    Optional<Amendment> findById(String id);
-
-    /**
      * Find all amendments for a consultation, ordered by creation date
      */
     @Query("SELECT a FROM Amendment a " +

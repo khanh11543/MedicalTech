@@ -76,8 +76,7 @@ public class DoctorConsultationController {
      * Add amendment to finalized consultation
      * POST /api/appointments/{appointmentId}/consultation/amendments
      */
-    @PostMapping
-    @RequestMapping("/{appointmentId}/amendments")
+    @PostMapping("/{appointmentId}/amendments")
     public ResponseEntity<AmendmentDTO> addAmendment(
             @PathVariable Long appointmentId,
             @RequestBody AmendmentCreateDTO amendmentData) {
@@ -89,8 +88,7 @@ public class DoctorConsultationController {
      * Get all amendments for a consultation
      * GET /api/appointments/{appointmentId}/consultation/amendments
      */
-    @GetMapping
-    @RequestMapping("/{appointmentId}/amendments")
+    @GetMapping("/{appointmentId}/amendments")
     public ResponseEntity<List<AmendmentDTO>> getAmendments(@PathVariable Long appointmentId) {
         List<AmendmentDTO> amendments = consultationService.getAmendmentsByAppointmentId(appointmentId);
         return ResponseEntity.ok(amendments);

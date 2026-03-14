@@ -71,8 +71,8 @@ public interface ConsultationRepository extends JpaRepository<Consultation, Long
      */
     @Query("SELECT COUNT(c) FROM Consultation c " +
            "WHERE c.doctor.id = :doctorId " +
-           "AND c.status = 'DRAFT'")
-    long countDraftsByDoctorId(@Param("doctorId") Long doctorId);
+           "AND c.status = :status")
+    long countDraftsByDoctorId(@Param("doctorId") Long doctorId, @Param("status") ConsultationStatus status);
 
     /**
      * Find all consultations for a doctor with pagination
@@ -102,8 +102,8 @@ public interface ConsultationRepository extends JpaRepository<Consultation, Long
      * Find draft consultations for a doctor
      */
     @Query("SELECT c FROM Consultation c " +
-           "WHERE c.doctorId = :doctorId " +
+           "WHERE c.doctor.id = :doctorId " +
            "AND c.status = :status " +
-           "ORDER BY c.lastSavedAt DESC")
+           "ORDER BY c.updatedAt DESC")
     List<Consultation> findByDoctorIdAndStatus(@Param("doctorId") Long doctorId, @Param("status") ConsultationStatus status);
 }
