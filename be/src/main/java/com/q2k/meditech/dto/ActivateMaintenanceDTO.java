@@ -13,16 +13,16 @@ import java.util.List;
 @Builder
 public class ActivateMaintenanceDTO {
 
-    /** Thông báo hiển thị cho người dùng */
+    /** Message displayed to users */
     private String message;
 
-    /** Thời gian bảo trì (phút) */
+    /** Maintenance duration (minutes) */
     private Integer durationMinutes;
 
-    /** Danh sách IP được phép truy cập */
+    /** List of whitelisted IPs */
     private List<String> whitelistedIps;
 
-    /** Cho phép admin truy cập */
+    /** Allow admin access */
     @Builder.Default
     private Boolean allowAdminAccess = true;
 }

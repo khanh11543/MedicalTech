@@ -64,7 +64,7 @@ public class BackupRecord extends BaseEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "metadata", columnDefinition = "json")
-    private String metadata; // JSON: thông tin bổ sung
+    private String metadata; // JSON: additional information
 
     @Column(name = "started_at")
     private LocalDateTime startedAt;
@@ -87,5 +87,5 @@ public class BackupRecord extends BaseEntity {
     private String currentStep;
 
     @Column(name = "schedule_id")
-    private Long scheduleId; // FK logic tới BackupSchedule (nếu từ scheduled)
+    private Long scheduleId; // Logical FK to BackupSchedule (if from scheduled backup)
 }

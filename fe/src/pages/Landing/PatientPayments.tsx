@@ -31,7 +31,7 @@ const mockPayments: Payment[] = [
 ];
 
 function formatCurrency(amount: number): string {
-  return amount.toLocaleString("vi-VN") + "đ";
+  return amount.toLocaleString("en-US") + " VND";
 }
 
 export default function PatientPayments() {

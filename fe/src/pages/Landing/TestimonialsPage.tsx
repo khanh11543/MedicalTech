@@ -139,7 +139,7 @@ function ReviewFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" />
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold text-[#18444c]">Write a review</h2>
@@ -289,7 +289,7 @@ export default function TestimonialsPage() {
   if (loading) {
     return (
       <>
-        <PageTitle title="Testimonials" description="Hear from our patients about their experiences with MediTrust healthcare." />
+        <PageTitle title="Testimonials" description="Hear from our patients about their experiences with MediTech healthcare." />
         <div className="text-center py-20 text-gray-400">
           <i className="bi bi-arrow-repeat text-3xl animate-spin" />
           <p className="mt-3">Loading testimonials...</p>
@@ -302,7 +302,7 @@ export default function TestimonialsPage() {
     <>
       <PageTitle
         title="Testimonials"
-        description="Hear from our patients about their experiences with MediTrust healthcare."
+        description="Hear from our patients about their experiences with MediTech healthcare."
         breadcrumbs={[{ label: "Home", to: "/home" }, { label: "Testimonials" }]}
       />
 

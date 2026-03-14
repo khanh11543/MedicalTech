@@ -133,7 +133,7 @@ export default function PatientDetail({ patientId, isOpen, onClose, onUpdated }:
   return (
     <div className="fixed inset-0 z-[99999] flex">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" />
 
       {/* Slide-over panel */}
       <div className="relative ml-auto w-full max-w-4xl bg-white dark:bg-gray-900 shadow-2xl overflow-y-auto animate-slide-left">
@@ -1024,7 +1024,7 @@ function PaymentsTab({ patientId }: { patientId: number }) {
                 <td className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400">{p.appointmentCode || "—"}</td>
                 <td className="px-3 py-2 text-sm text-gray-900 dark:text-white">{p.doctorName || "—"}</td>
                 <td className="px-3 py-2 text-sm text-right font-medium text-gray-900 dark:text-white">
-                  {p.totalAmount.toLocaleString()}{p.currency === "VND" ? "đ" : ` ${p.currency}`}
+                  {p.totalAmount.toLocaleString()} {p.currency || "VND"}
                 </td>
                 <td className="px-3 py-2 text-center text-xs text-gray-600 dark:text-gray-400">{p.paymentMethod}</td>
                 <td className="px-3 py-2 text-center">

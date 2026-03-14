@@ -456,7 +456,7 @@ public class ReceptionistPatientServiceImpl implements ReceptionistPatientServic
                         .name("Appointment Reminder (SMS)")
                         .channel("SMS")
                         .category("REMINDER")
-                        .contentPreview("MediTech: Nhac lich hen kham benh cua ban...")
+                        .contentPreview("MediTech: Reminder for your upcoming appointment...")
                         .active(true)
                         .build(),
                 NotificationTemplateDTO.builder()
@@ -472,7 +472,7 @@ public class ReceptionistPatientServiceImpl implements ReceptionistPatientServic
                         .name("Payment Reminder (SMS)")
                         .channel("SMS")
                         .category("REMINDER")
-                        .contentPreview("MediTech: Ban co hoa don chua thanh toan...")
+                        .contentPreview("MediTech: You have a pending payment...")
                         .active(true)
                         .build(),
                 NotificationTemplateDTO.builder()
@@ -488,7 +488,7 @@ public class ReceptionistPatientServiceImpl implements ReceptionistPatientServic
                         .name("Follow-up Reminder (SMS)")
                         .channel("SMS")
                         .category("FOLLOW_UP")
-                        .contentPreview("MediTech: Lich tai kham cua ban sap toi...")
+                        .contentPreview("MediTech: Your follow-up visit is coming up...")
                         .active(true)
                         .build(),
                 NotificationTemplateDTO.builder()
@@ -920,17 +920,17 @@ public class ReceptionistPatientServiceImpl implements ReceptionistPatientServic
                     String.format("Dear %s,\n\nThis is a reminder for your upcoming appointment at MediTech. " +
                             "Please arrive 15 minutes early.\n\nBest regards,\nMediTech Team", patientName);
             case "APPOINTMENT_REMINDER_SMS" ->
-                    String.format("MediTech: Nhac lich hen kham benh cua ban %s. Vui long den truoc 15 phut.", patientName);
+                    String.format("MediTech: Reminder for your appointment, %s. Please arrive 15 minutes early.", patientName);
             case "PAYMENT_REMINDER" ->
                     String.format("Dear %s,\n\nYou have a pending payment at MediTech. " +
                             "Please complete your payment at your earliest convenience.\n\nBest regards,\nMediTech Team", patientName);
             case "PAYMENT_REMINDER_SMS" ->
-                    String.format("MediTech: %s, ban co hoa don chua thanh toan. Vui long thanh toan som.", patientName);
+                    String.format("MediTech: %s, you have a pending payment. Please complete your payment soon.", patientName);
             case "FOLLOW_UP_REMINDER" ->
                     String.format("Dear %s,\n\nYour follow-up visit is approaching. " +
                             "Please schedule your next appointment.\n\nBest regards,\nMediTech Team", patientName);
             case "FOLLOW_UP_REMINDER_SMS" ->
-                    String.format("MediTech: %s, lich tai kham cua ban sap toi. Vui long dat lich hen.", patientName);
+                    String.format("MediTech: %s, your follow-up visit is coming up. Please schedule your appointment.", patientName);
             case "WELCOME_NEW_PATIENT" ->
                     String.format("Welcome to MediTech, %s!\n\nWe're glad to have you as our patient. " +
                             "If you have any questions, please don't hesitate to contact us.\n\nBest regards,\nMediTech Team", patientName);

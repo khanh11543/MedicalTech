@@ -1,12 +1,12 @@
 package com.q2k.meditech.entity.enums;
 
 public enum OptimizationType {
-    DB_DEFRAGMENT,      // Chống phân mảnh database
+    DB_DEFRAGMENT,      // Database defragmentation
     INDEX_REBUILD,      // Rebuild indexes
-    CACHE_CLEAR,        // Xóa cache
-    ORPHAN_CLEANUP,     // Dọn dẹp dữ liệu orphan
+    CACHE_CLEAR,        // Clear cache
+    ORPHAN_CLEANUP,     // Clean up orphaned data
     VACUUM,             // Vacuum database
-    DUPLICATE_REMOVE,   // Xóa file trùng lặp
-    LOG_ARCHIVE,        // Lưu trữ log cũ
-    OLD_DATA_CLEANUP    // Dọn dẹp dữ liệu cũ
+    DUPLICATE_REMOVE,   // Remove duplicate files
+    LOG_ARCHIVE,        // Archive old logs
+    OLD_DATA_CLEANUP    // Clean up old data
 }

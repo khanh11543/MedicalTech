@@ -79,7 +79,7 @@ public class SmsService {
     @Async
     public void sendInvoiceSms(String phoneNumber, String invoiceNumber, String amount) {
         String message = String.format(
-                "MediTech: Hoa don #%s, so tien %s VND da duoc xu ly. Cam on ban!",
+                "MediTech: Invoice #%s, amount %s VND has been processed. Thank you!",
                 invoiceNumber, amount);
         sendSms(phoneNumber, message);
     }
@@ -90,7 +90,7 @@ public class SmsService {
     @Async
     public void sendPaymentConfirmationSms(String phoneNumber, String paymentCode, String amount) {
         String message = String.format(
-                "MediTech: Thanh toan thanh cong. Ma: %s, So tien: %s VND. Cam on ban!",
+                "MediTech: Payment successful. Code: %s, Amount: %s VND. Thank you!",
                 paymentCode, amount);
         sendSms(phoneNumber, message);
     }
@@ -101,7 +101,7 @@ public class SmsService {
     @Async
     public void sendRefundSms(String phoneNumber, String paymentCode, String refundAmount) {
         String message = String.format(
-                "MediTech: Hoan tien thanh cong. Ma: %s, So tien: %s VND. Tien se ve trong 3-5 ngay.",
+                "MediTech: Refund successful. Code: %s, Amount: %s VND. Funds will arrive in 3-5 days.",
                 paymentCode, refundAmount);
         sendSms(phoneNumber, message);
     }
@@ -159,7 +159,7 @@ public class SmsService {
      * API: http://rest.esms.vn/MainService.svc/json/SendMultipleMessage_V4_post_json/
      * SmsType: 2 = Customer Care (CSKH) - requires registered brandname
      *          4 = Brandname Advertising - requires registered brandname
-     *          8 = Fixed number (đầu số cố định) - no brandname needed
+     *          8 = Fixed number (fixed number prefix) - no brandname needed
      */
     private void sendEsmsSms(String phoneNumber, String message) {
         try {

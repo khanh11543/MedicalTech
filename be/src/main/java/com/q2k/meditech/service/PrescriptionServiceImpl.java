@@ -52,13 +52,13 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         Patient patient = patientRepository.findByIdWithUser(dto.getPatientId())
                 .orElseThrow(() -> new ResourceNotFoundException("Patient", "id", dto.getPatientId()));
 
-        // Validate appointment nếu có
+        // Validate appointment if provided
         Appointment appointment = null;
         if (dto.getAppointmentId() != null) {
             appointment = appointmentRepository.findById(dto.getAppointmentId())
                     .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", dto.getAppointmentId()));
 
-            // Kiểm tra appointment có thuộc về doctor và patient không
+            // Check if appointment belongs to this doctor and patient
             if (!appointment.getDoctor().getId().equals(doctor.getId())) {
                 throw new AppException("Appointment does not belong to this doctor", HttpStatus.FORBIDDEN);
             }
@@ -67,7 +67,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
             }
         }
 
-        // Tạo prescription
+        // Create prescription
         Prescription prescription = Prescription.builder()
                 .patient(patient)
                 .doctor(doctor)
@@ -81,7 +81,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 .isActive(true)
                 .build();
 
-        // Thêm items
+        // Add items
         AtomicInteger order = new AtomicInteger(1);
         dto.getItems().forEach(itemDto -> {
             PrescriptionItem item = prescriptionMapper.toItemEntity(itemDto);

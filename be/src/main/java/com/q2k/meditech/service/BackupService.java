@@ -21,15 +21,15 @@ public interface BackupService {
     // ==================== DASHBOARD (FR-BACK-001) ====================
 
     /**
-     * Lấy thông tin dashboard backup
-     * @return Map chứa: lastBackup, nextScheduled, health, storageInfo
+     * Get backup dashboard info
+     * @return Map containing: lastBackup, nextScheduled, health, storageInfo
      */
     Map<String, Object> getDashboard();
 
     // ==================== HISTORY (FR-BACK-002) ====================
 
     /**
-     * Lấy lịch sử backup có phân trang và lọc
+     * Get backup history with pagination and filtering
      */
     Page<BackupRecord> getHistory(BackupType type, BackupStatus status,
                                    StorageLocation location,
@@ -37,17 +37,17 @@ public interface BackupService {
                                    Pageable pageable);
 
     /**
-     * Lấy chi tiết backup theo ID
+     * Get backup detail by ID
      */
     BackupRecord getDetail(Long id);
 
     /**
-     * Xác minh tính toàn vẹn backup (checksum)
+     * Verify backup integrity (checksum)
      */
     Map<String, Object> verifyBackup(Long id);
 
     /**
-     * Xóa backup
+     * Delete backup
      */
     void deleteBackup(Long id);
 
@@ -59,52 +59,52 @@ public interface BackupService {
     // ==================== MANUAL BACKUP (FR-BACK-003) ====================
 
     /**
-     * Chạy backup thủ công
-     * @param backupName Tên backup
-     * @param backupType Loại backup
-     * @param includes Danh sách thành phần backup ["DATABASE","FILES","CONFIG"]
-     * @param storageLocation Nơi lưu trữ
-     * @param encrypted Có mã hóa không
-     * @return BackupRecord đã tạo
+     * Run manual backup
+     * @param backupName Backup name
+     * @param backupType Backup type
+     * @param includes List of backup components ["DATABASE","FILES","CONFIG"]
+     * @param storageLocation Storage location
+     * @param encrypted Whether to encrypt
+     * @return Created BackupRecord
      */
     BackupRecord runManualBackup(String backupName, BackupType backupType,
                                   List<String> includes, StorageLocation storageLocation,
                                   Boolean encrypted);
 
     /**
-     * Lấy tiến trình backup đang chạy
+     * Get running backup progress
      */
     BackupRecord getBackupProgress(Long id);
 
     /**
-     * Hủy backup đang chạy
+     * Cancel running backup
      */
     void cancelBackup(Long id);
 
     // ==================== SCHEDULE ====================
 
     /**
-     * Lấy tất cả schedule
+     * Get all schedules
      */
     List<BackupSchedule> getSchedules();
 
     /**
-     * Tạo schedule mới
+     * Create new schedule
      */
     BackupSchedule createSchedule(BackupSchedule schedule);
 
     /**
-     * Cập nhật schedule
+     * Update schedule
      */
     BackupSchedule updateSchedule(Long id, BackupSchedule schedule);
 
     /**
-     * Xóa schedule
+     * Delete schedule
      */
     void deleteSchedule(Long id);
 
     /**
-     * Bật/tắt schedule
+     * Enable/disable schedule
      */
     BackupSchedule toggleSchedule(Long id, boolean enabled);
 }

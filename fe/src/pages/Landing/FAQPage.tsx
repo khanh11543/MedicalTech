@@ -32,7 +32,7 @@ const fallbackFaqs: FaqItem[] = [
 ];
 
 const contactOptions = [
-  { icon: "bi bi-envelope", label: "Email Support", href: "mailto:support@meditrust.com" },
+  { icon: "bi bi-envelope", label: "Email Support", href: "mailto:support@meditech.com" },
   { icon: "bi bi-chat-dots", label: "Live Chat", href: "#" },
   { icon: "bi bi-telephone", label: "Call Us", href: "tel:+15551234567" },
 ];

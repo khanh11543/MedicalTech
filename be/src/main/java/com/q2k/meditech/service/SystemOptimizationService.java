@@ -17,25 +17,25 @@ public interface SystemOptimizationService {
     // ==================== DATABASE HEALTH ====================
 
     /**
-     * Kiểm tra sức khỏe database: table stats, fragmentation, health score
-     * @return Map chứa: tables, totalSize, fragmentation, healthScore, recommendations
+     * Check database health: table stats, fragmentation, health score
+     * @return Map containing: tables, totalSize, fragmentation, healthScore, recommendations
      */
     Map<String, Object> getDatabaseHealth();
 
     // ==================== OPTIMIZE ====================
 
     /**
-     * Chống phân mảnh database
+     * Defragment database
      */
     SystemOptimizationLog defragmentDatabase();
 
     /**
-     * Rebuild tất cả indexes
+     * Rebuild all indexes
      */
     SystemOptimizationLog rebuildIndexes();
 
     /**
-     * Dọn dẹp bản ghi orphan/mồ côi
+     * Clean up orphaned records
      */
     SystemOptimizationLog cleanOrphanedRecords();
 
@@ -47,52 +47,52 @@ public interface SystemOptimizationService {
     // ==================== CACHE MANAGEMENT ====================
 
     /**
-     * Lấy thống kê cache
-     * @return Map chứa: cacheNames, totalEntries, hitRate, missRate
+     * Get cache statistics
+     * @return Map containing: cacheNames, totalEntries, hitRate, missRate
      */
     Map<String, Object> getCacheStats();
 
     /**
-     * Xóa cache theo loại
-     * @param cacheTypes Danh sách loại cache cần xóa (null = xóa tất cả)
+     * Clear cache by type
+     * @param cacheTypes List of cache types to clear (null = clear all)
      */
     SystemOptimizationLog clearCache(List<String> cacheTypes);
 
     // ==================== CLEANUP ====================
 
     /**
-     * Xem trước dữ liệu sẽ bị xóa
-     * @param dataTypes Loại dữ liệu: audit_logs, login_attempts, notifications, sessions...
-     * @param beforeDate Xóa dữ liệu trước ngày này
-     * @return Map chứa: dataTypes -> {count, size}
+     * Preview data to be deleted
+     * @param dataTypes Data types: audit_logs, login_attempts, notifications, sessions...
+     * @param beforeDate Delete data before this date
+     * @return Map containing: dataTypes -> {count, size}
      */
     Map<String, Object> previewCleanup(List<String> dataTypes, LocalDateTime beforeDate);
 
     /**
-     * Thực hiện dọn dẹp dữ liệu cũ
-     * @param dataTypes Loại dữ liệu cần dọn
-     * @param beforeDate Xóa dữ liệu trước ngày
-     * @return SystemOptimizationLog kết quả
+     * Execute old data cleanup
+     * @param dataTypes Data types to clean
+     * @param beforeDate Delete data before this date
+     * @return SystemOptimizationLog result
      */
     SystemOptimizationLog executeCleanup(List<String> dataTypes, LocalDateTime beforeDate);
 
     // ==================== FILE SYSTEM ====================
 
     /**
-     * Lấy thông tin disk usage
-     * @return Map chứa: totalSpace, usedSpace, freeSpace, backupSize, logSize, tempSize
+     * Get disk usage information
+     * @return Map containing: totalSpace, usedSpace, freeSpace, backupSize, logSize, tempSize
      */
     Map<String, Object> getDiskUsage();
 
     /**
-     * Tìm file trùng lặp
-     * @return Danh sách nhóm file trùng
+     * Find duplicate files
+     * @return List of duplicate file groups
      */
     List<Map<String, Object>> findDuplicateFiles();
 
     /**
-     * Lưu trữ (archive) log cũ
-     * @param beforeDate Archive log trước ngày
+     * Archive old logs
+     * @param beforeDate Archive logs before this date
      * @return SystemOptimizationLog
      */
     SystemOptimizationLog archiveLogs(LocalDateTime beforeDate);
@@ -100,7 +100,7 @@ public interface SystemOptimizationService {
     // ==================== HISTORY ====================
 
     /**
-     * Lấy lịch sử optimization phân trang
+     * Get paginated optimization history
      */
     Page<SystemOptimizationLog> getOptimizationHistory(Pageable pageable);
 }

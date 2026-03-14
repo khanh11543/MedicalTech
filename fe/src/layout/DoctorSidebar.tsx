@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router";
 
+import MediTechLogo from "../components/common/MediTechLogo";
 import {
     GridIcon,
     CalenderIcon,
@@ -266,33 +267,11 @@ const DoctorSidebar: React.FC = () => {
                 className={`py-8 flex ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
                     }`}
             >
-                <Link to="/doctor">
-                    {isExpanded || isHovered || isMobileOpen ? (
-                        <>
-                            <img
-                                className="dark:hidden"
-                                src="/images/logo/logo.svg"
-                                alt="Logo"
-                                width={150}
-                                height={40}
-                            />
-                            <img
-                                className="hidden dark:block"
-                                src="/images/logo/logo-dark.svg"
-                                alt="Logo"
-                                width={150}
-                                height={40}
-                            />
-                        </>
-                    ) : (
-                        <img
-                            src="/images/logo/logo-icon.svg"
-                            alt="Logo"
-                            width={32}
-                            height={32}
-                        />
-                    )}
-                </Link>
+                <MediTechLogo
+                    to="/doctor"
+                    iconOnly={!isExpanded && !isHovered && !isMobileOpen}
+                    textSize={isExpanded || isHovered || isMobileOpen ? "xl" : "2xl"}
+                />
             </div>
             <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
                 <nav className="mb-6">

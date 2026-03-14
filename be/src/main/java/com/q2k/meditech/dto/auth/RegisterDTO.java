@@ -36,8 +36,8 @@ public class RegisterDTO {
     private String confirmPassword;
 
     @Pattern(
-        regexp = "^(\\+84|0)[0-9]{9,10}$",
-        message = "Invalid Vietnamese phone number format"
+        regexp = "^\\+[1-9]\\d{6,14}$",
+        message = "Invalid international phone format (E.164: +country + number, 7–15 digits)"
     )
     private String phone;
 }

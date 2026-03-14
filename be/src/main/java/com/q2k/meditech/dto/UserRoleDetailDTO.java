@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 
 /**
  * User Role Detail DTO
- * Dùng trong UserDetailDTO để show chi tiết về role assignment
+ * Used in UserDetailDTO to show role assignment details
  */
 @Data
 @NoArgsConstructor
@@ -25,5 +25,5 @@ public class UserRoleDetailDTO {
     private LocalDateTime assignedAt;
     
     private Long assignedBy;
-    private String assignedByEmail; // Email của người assign role
+    private String assignedByEmail; // Email of the person who assigned the role
 }

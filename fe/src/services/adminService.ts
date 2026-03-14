@@ -5,6 +5,7 @@ import api from "./api";
 // Dashboard Types
 export interface DashboardStatistics {
   totalUsers: number;
+  totalAdmins?: number;
   totalDoctors: number;
   totalPatients: number;
   totalReceptionists: number;

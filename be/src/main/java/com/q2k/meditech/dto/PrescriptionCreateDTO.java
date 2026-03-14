@@ -17,17 +17,17 @@ public class PrescriptionCreateDTO {
     @NotNull(message = "Patient ID is required")
     private Long patientId;
     
-    private Long appointmentId; // Optional - liên kết với lần khám
+    private Long appointmentId; // Optional - linked to the appointment
     
-    private LocalDate prescriptionDate; // Nếu null sẽ lấy ngày hiện tại
+    private LocalDate prescriptionDate; // If null, current date will be used
     
-    private String diagnosis; // Chẩn đoán
+    private String diagnosis; // Diagnosis
     
-    private String notes; // Ghi chú
+    private String notes; // Notes
     
-    private LocalDate followUpDate; // Ngày tái khám
+    private LocalDate followUpDate; // Follow-up date
     
     @NotEmpty(message = "Prescription must have at least one item")
     @Valid
-    private List<PrescriptionItemDTO> items; // Danh sách thuốc
+    private List<PrescriptionItemDTO> items; // List of medicines
 }

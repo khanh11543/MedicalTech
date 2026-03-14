@@ -53,25 +53,25 @@ public class MaintenanceWindow extends BaseEntity {
 
     @Lob
     @Column(name = "message")
-    private String message; // thông báo hiển thị cho user khi hệ thống bảo trì
+    private String message; // Message displayed to users during maintenance
 
     @Column(name = "notify_before_minutes")
-    private Integer notifyBeforeMinutes; // thông báo trước bao nhiêu phút
+    private Integer notifyBeforeMinutes; // Notify before how many minutes
 
     @Builder.Default
     @Column(name = "allow_admin_access", nullable = false)
-    private Boolean allowAdminAccess = true; // admin có thể truy cập trong lúc bảo trì
+    private Boolean allowAdminAccess = true; // Admin can access during maintenance
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "whitelisted_ips", columnDefinition = "json")
-    private String whitelistedIps; // JSON array IP được phép truy cập
+    private String whitelistedIps; // JSON array of allowed IPs
 
     @Lob
     @Column(name = "impact")
-    private String impact; // mô tả ảnh hưởng đến hệ thống
+    private String impact; // Description of system impact
 
     @Column(name = "affected_services", length = 500)
-    private String affectedServices; // CSV hoặc JSON các service bị ảnh hưởng
+    private String affectedServices; // CSV or JSON of affected services
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "created_by")

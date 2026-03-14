@@ -37,6 +37,9 @@ public class JwtService {
     @Value("${jwt.refresh-expiration}")
     private Long refreshExpiration; // milliseconds
 
+    @Value("${jwt.mfa-expiration:300000}")
+    private Long mfaExpiration; // milliseconds (default 5 minutes)
+
     private SecretKey secretKey;
 
     @PostConstruct
@@ -66,6 +69,26 @@ public class JwtService {
         claims.put("type", "refresh");
         
         return createToken(claims, username, refreshExpiration);
+    }
+
+    /**
+     * Generate a short-lived token used only to complete MFA login.
+     */
+    public String generateMfaLoginToken(String username, Long userId) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("userId", userId);
+        claims.put("type", "mfa_login");
+        return createToken(claims, username, mfaExpiration);
+    }
+
+    public boolean validateMfaLoginToken(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            String type = claims.get("type", String.class);
+            return "mfa_login".equals(type) && !isTokenExpired(token);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**

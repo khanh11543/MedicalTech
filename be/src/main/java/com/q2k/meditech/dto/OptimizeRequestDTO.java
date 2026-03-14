@@ -14,15 +14,15 @@ import java.util.List;
 @Builder
 public class OptimizeRequestDTO {
 
-    /** Loại tối ưu hóa */
+    /** Optimization type */
     private OptimizationType optimizationType;
 
-    /** Danh sách bảng cần tối ưu (null = tất cả) */
+    /** List of tables to optimize (null = all) */
     private List<String> targetTables;
 
-    /** Các loại cache cần xóa */
+    /** Cache types to clear */
     private List<String> cacheTypes;
 
-    /** Ghi chú */
+    /** Notes */
     private String notes;
 }

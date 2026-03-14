@@ -27,9 +27,69 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { Bar, Pie, Doughnut } from "react-chartjs-2";
+import { Doughnut } from "react-chartjs-2";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
+
+/** Plugin: draw "Total" + sum in doughnut center and percentage on each segment */
+const doughnutCenterAndPercentPlugin = {
+  id: "doughnutCenterAndPercent",
+  afterDraw(chart: ChartJS) {
+    const { ctx } = chart;
+    if (chart.config.type !== "doughnut") return;
+    const meta = chart.getDatasetMeta(0);
+    if (!meta?.data?.length) return;
+    const data = chart.data.datasets[0]?.data as number[];
+    const total = data.reduce((a, b) => a + b, 0);
+    const firstArc = meta.data[0] as unknown as {
+      x?: number;
+      y?: number;
+      innerRadius?: number;
+      outerRadius?: number;
+    };
+    const centerX = firstArc.x ?? chart.width / 2;
+    const centerY = firstArc.y ?? chart.height / 2;
+    const innerRadius = firstArc.innerRadius ?? 0;
+    const outerRadius = firstArc.outerRadius ?? 0;
+    const ringWidth = Math.max(1, outerRadius - innerRadius);
+
+    // Center text: "Total" + number (scale with donut size to avoid zoom misalignment)
+    const opts = (chart.options.plugins as Record<string, unknown>)?.doughnutCenter as { label?: string } | undefined;
+    const label = opts?.label ?? "Total";
+    const labelFontPx = Math.max(12, Math.round(ringWidth * 0.55));
+    const valueFontPx = Math.max(18, Math.round(ringWidth * 0.95));
+    const labelOffsetY = Math.max(10, Math.round(ringWidth * 0.55));
+    ctx.save();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = chart.options.color ? String(chart.options.color) : "#374151";
+    ctx.font = `600 ${labelFontPx}px sans-serif`;
+    ctx.fillText(label, centerX, centerY - labelOffsetY);
+    ctx.font = `700 ${valueFontPx}px sans-serif`;
+    ctx.fillText(String(total), centerX, centerY + Math.round(valueFontPx * 0.15));
+    ctx.restore();
+
+    // Percentage on each segment (use arc.tooltipPosition() for accurate placement across zoom / DPR)
+    meta.data.forEach((arc: { tooltipPosition?: () => { x: number; y: number } }, i: number) => {
+      const value = Number(data[i] ?? 0);
+      if (total === 0 || value === 0) return;
+      const pct = (value / total) * 100;
+      if (pct < 2) return; // skip tiny slices to avoid clutter
+      const pos = arc.tooltipPosition ? arc.tooltipPosition() : { x: centerX, y: centerY };
+      const x = pos.x;
+      const y = pos.y;
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#fff";
+      const pctFontPx = Math.max(11, Math.round(ringWidth * 0.45));
+      ctx.font = `600 ${pctFontPx}px sans-serif`;
+      ctx.fillText(`${pct.toFixed(1)}%`, x, y);
+      ctx.restore();
+    });
+  },
+};
+ChartJS.register(doughnutCenterAndPercentPlugin);
 
 const StatCard = ({
   title,
@@ -160,80 +220,133 @@ export default function Home() {
           />
         </div>
 
-        {/* Charts Section */}
+        {/* Charts Section - Donut with Total in center & % on segments (real data from API) */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Bar Chart - Users by Role */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-            <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white">Users by Role</h3>
-            <Bar
+          {/* Users by Role */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 min-h-[400px] flex flex-col">
+            <h3 className="mb-4 text-xl font-semibold text-gray-800 dark:text-white">Users by Role</h3>
+            <div className="flex-1 min-h-[320px]">
+            <Doughnut
               data={{
                 labels: ["Admin", "Doctor", "Patient", "Receptionist"],
                 datasets: [{
-                  label: "Users",
                   data: [
-                    stats?.totalUsers ? Math.max(1, Math.floor((stats.totalUsers - (stats.totalDoctors || 0) - (stats.totalPatients || 0) - (stats.totalReceptionists || 0)))) : 1,
-                    stats?.totalDoctors || 0,
-                    stats?.totalPatients || 0,
-                    stats?.totalReceptionists || 0,
+                    stats?.totalAdmins ?? 0,
+                    stats?.totalDoctors ?? 0,
+                    stats?.totalPatients ?? 0,
+                    stats?.totalReceptionists ?? 0,
                   ],
-                  backgroundColor: ["rgba(59,130,246,0.7)", "rgba(34,197,94,0.7)", "rgba(6,182,212,0.7)", "rgba(234,179,8,0.7)"],
-                  borderRadius: 8,
-                }],
-              }}
-              options={{
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
-              }}
-            />
-          </div>
-
-          {/* Pie Chart - Appointment Status */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-            <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white">Appointment Status</h3>
-            <Pie
-              data={{
-                labels: ["Pending", "Completed", "Cancelled"],
-                datasets: [{
-                  data: [
-                    stats?.pendingAppointments || 0,
-                    stats?.completedAppointments || 0,
-                    stats?.cancelledAppointments || 0,
-                  ],
-                  backgroundColor: ["rgba(234,179,8,0.8)", "rgba(34,197,94,0.8)", "rgba(239,68,68,0.8)"],
+                  backgroundColor: ["#3b82f6", "#22c55e", "#06b6d4", "#eab308"],
                   borderWidth: 2,
                   borderColor: "#fff",
                 }],
               }}
               options={{
                 responsive: true,
-                plugins: { legend: { position: "bottom" } },
+                maintainAspectRatio: true,
+                aspectRatio: 1.1,
+                cutout: "65%",
+                plugins: {
+                  legend: { position: "bottom", labels: { font: { size: 14 }, padding: 16 } },
+                  doughnutCenter: { label: "Total" },
+                  tooltip: {
+                    bodyFont: { size: 14 },
+                    callbacks: {
+                      label: (ctx) => {
+                        const total = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0);
+                        const pct = total ? ((Number(ctx.raw) / total) * 100).toFixed(1) : "0";
+                        return `${ctx.label}: ${ctx.raw} (${pct}%)`;
+                      },
+                    },
+                  },
+                },
               }}
             />
+            </div>
           </div>
 
-          {/* Doughnut Chart - Document Verification */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6">
-            <h3 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white">Document Verification</h3>
+          {/* Appointment Status */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 min-h-[400px] flex flex-col">
+            <h3 className="mb-4 text-xl font-semibold text-gray-800 dark:text-white">Appointment Status</h3>
+            <div className="flex-1 min-h-[320px]">
+            <Doughnut
+              data={{
+                labels: ["Pending", "Completed", "Cancelled"],
+                datasets: [{
+                  data: [
+                    stats?.pendingAppointments ?? 0,
+                    stats?.completedAppointments ?? 0,
+                    stats?.cancelledAppointments ?? 0,
+                  ],
+                  backgroundColor: ["#eab308", "#22c55e", "#ef4444"],
+                  borderWidth: 2,
+                  borderColor: "#fff",
+                }],
+              }}
+              options={{
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1.1,
+                cutout: "65%",
+                plugins: {
+                  legend: { position: "bottom", labels: { font: { size: 14 }, padding: 16 } },
+                  doughnutCenter: { label: "Total" },
+                  tooltip: {
+                    bodyFont: { size: 14 },
+                    callbacks: {
+                      label: (ctx) => {
+                        const total = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0);
+                        const pct = total ? ((Number(ctx.raw) / total) * 100).toFixed(1) : "0";
+                        return `${ctx.label}: ${ctx.raw} (${pct}%)`;
+                      },
+                    },
+                  },
+                },
+              }}
+            />
+            </div>
+          </div>
+
+          {/* Document Verification */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 min-h-[400px] flex flex-col">
+            <h3 className="mb-4 text-xl font-semibold text-gray-800 dark:text-white">Document Verification</h3>
+            <div className="flex-1 min-h-[320px]">
             <Doughnut
               data={{
                 labels: ["Pending", "Approved", "Rejected"],
                 datasets: [{
                   data: [
-                    stats?.pendingDocuments || 0,
-                    stats?.approvedDocuments || 0,
-                    stats?.rejectedDocuments || 0,
+                    stats?.pendingDocuments ?? 0,
+                    stats?.approvedDocuments ?? 0,
+                    stats?.rejectedDocuments ?? 0,
                   ],
-                  backgroundColor: ["rgba(234,179,8,0.8)", "rgba(34,197,94,0.8)", "rgba(239,68,68,0.8)"],
+                  backgroundColor: ["#eab308", "#22c55e", "#ef4444"],
                   borderWidth: 2,
                   borderColor: "#fff",
                 }],
               }}
               options={{
                 responsive: true,
-                plugins: { legend: { position: "bottom" } },
+                maintainAspectRatio: true,
+                aspectRatio: 1.1,
+                cutout: "65%",
+                plugins: {
+                  legend: { position: "bottom", labels: { font: { size: 14 }, padding: 16 } },
+                  doughnutCenter: { label: "Total" },
+                  tooltip: {
+                    bodyFont: { size: 14 },
+                    callbacks: {
+                      label: (ctx) => {
+                        const total = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0);
+                        const pct = total ? ((Number(ctx.raw) / total) * 100).toFixed(1) : "0";
+                        return `${ctx.label}: ${ctx.raw} (${pct}%)`;
+                      },
+                    },
+                  },
+                },
               }}
             />
+            </div>
           </div>
         </div>
 

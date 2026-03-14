@@ -15,21 +15,21 @@ import java.util.List;
 @Builder
 public class ManualBackupRequestDTO {
 
-    /** Tên backup (vd: "daily_backup_2026-02-17") */
+    /** Backup name (e.g., "daily_backup_2026-02-17") */
     private String backupName;
 
-    /** Loại backup */
+    /** Backup type */
     @Builder.Default
     private BackupType backupType = BackupType.MANUAL;
 
-    /** Thành phần cần backup: DATABASE, FILES, CONFIG */
+    /** Components to back up: DATABASE, FILES, CONFIG */
     private List<String> includes;
 
-    /** Nơi lưu trữ */
+    /** Storage location */
     @Builder.Default
     private StorageLocation storageLocation = StorageLocation.LOCAL;
 
-    /** Có mã hóa backup không */
+    /** Whether to encrypt the backup */
     @Builder.Default
     private Boolean encrypted = false;
 }

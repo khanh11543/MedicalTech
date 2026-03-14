@@ -14,8 +14,8 @@ import java.time.LocalDateTime;
 
 /**
  * Staff Invite Request DTO
- * Dùng cho API POST /api/admin/staff-registry
- * Admin tạo lời mời cho nhân viên nội bộ
+ * Used for API POST /api/admin/staff-registry
+ * Admin creates invitation for internal staff
  */
 @Data
 @NoArgsConstructor

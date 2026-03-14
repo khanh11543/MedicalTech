@@ -41,8 +41,13 @@ public class AdminReportsAnalyticsController {
     })
     public ResponseEntity<ReportsAnalyticsDTO> getReportsAnalytics() {
         log.info("GET /admin/reports-analytics");
-        ReportsAnalyticsDTO analytics = reportsAnalyticsService.getReportsAnalytics();
-        return ResponseEntity.ok(analytics);
+        try {
+            ReportsAnalyticsDTO analytics = reportsAnalyticsService.getReportsAnalytics();
+            return ResponseEntity.ok(analytics);
+        } catch (Exception e) {
+            log.error("Error generating reports analytics", e);
+            throw e;
+        }
     }
 
     /**

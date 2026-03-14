@@ -116,7 +116,7 @@ export default function ReorderModal({
 
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={handleClose}></div>
+      <div className="absolute inset-0 bg-black/50"></div>
       <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">

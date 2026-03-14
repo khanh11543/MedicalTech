@@ -1,8 +1,9 @@
 import { useState } from "react";
 
-import { Link } from "react-router";
 import { useSidebar } from "../context/SidebarContext";
+import { useAuth } from "../context/AuthContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
+import MediTechLogo from "../components/common/MediTechLogo";
 import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 
@@ -10,6 +11,18 @@ const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
+  const { user } = useAuth();
+  const userRoles = user?.roles ?? [];
+  const isReceptionist = userRoles.includes("RECEPTIONIST") && !userRoles.includes("ADMIN");
+  const isAdmin = userRoles.includes("ADMIN");
+  const isDoctor = userRoles.includes("DOCTOR");
+  const logoTo = isReceptionist
+    ? "/receptionist/dashboard"
+    : isAdmin
+      ? "/admin"
+      : isDoctor
+        ? "/doctor"
+        : "/home";
 
   const handleToggle = () => {
     if (window.innerWidth >= 1024) {
@@ -66,18 +79,7 @@ const AppHeader: React.FC = () => {
             {/* Cross Icon */}
           </button>
 
-          <Link to="/" className="lg:hidden">
-            <img
-              className="dark:hidden"
-              src="./images/logo/logo.svg"
-              alt="Logo"
-            />
-            <img
-              className="hidden dark:block"
-              src="./images/logo/logo-dark.svg"
-              alt="Logo"
-            />
-          </Link>
+          <MediTechLogo to={logoTo} className="lg:hidden" textSize="xl" />
 
           <button
             onClick={toggleApplicationMenu}

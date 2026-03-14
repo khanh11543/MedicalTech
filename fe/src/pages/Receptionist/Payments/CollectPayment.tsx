@@ -596,7 +596,7 @@ export default function CollectPayment() {
                       );
                     }
 
-                    // COMPLETED + 0đ → no charge
+                    // COMPLETED + 0 VND → no charge
                     if (!hasAmount && isPending) {
                       return (
                         <span className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-lg">

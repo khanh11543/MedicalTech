@@ -313,7 +313,7 @@ export default function DoctorToday() {
       )}
       {/* View Details modal */}
       {detailsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setDetailsModal(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Appointment Details</h3>
             <div className="space-y-2 text-sm">
@@ -334,7 +334,7 @@ export default function DoctorToday() {
       )}
       {/* Reorder Queue modal */}
       {reorderModal && data?.waitingQueue && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setReorderModal(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">Reorder Queue</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Reason required for audit. Use arrows to change order.</p>

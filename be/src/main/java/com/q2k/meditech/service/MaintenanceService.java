@@ -15,64 +15,64 @@ import java.util.Map;
 public interface MaintenanceService {
 
     /**
-     * Lấy dashboard bảo trì: trạng thái hiện tại, lịch sắp tới
+     * Get maintenance dashboard: current status, upcoming schedule
      */
     Map<String, Object> getMaintenanceDashboard();
 
     /**
-     * Lên lịch bảo trì
-     * @param maintenanceWindow Thông tin bảo trì
-     * @return MaintenanceWindow đã tạo
+     * Schedule maintenance
+     * @param maintenanceWindow Maintenance info
+     * @return Created MaintenanceWindow
      */
     MaintenanceWindow scheduleMaintenance(MaintenanceWindow maintenanceWindow);
 
     /**
-     * Kích hoạt bảo trì ngay lập tức
-     * @param message Thông báo bảo trì
-     * @param durationMinutes Thời gian bảo trì (phút)
-     * @param whitelistedIps Danh sách IP được phép truy cập
-     * @return MaintenanceWindow đang active
+     * Activate maintenance immediately
+     * @param message Maintenance notification message
+     * @param durationMinutes Maintenance duration (minutes)
+     * @param whitelistedIps List of IPs allowed to access
+     * @return Active MaintenanceWindow
      */
     MaintenanceWindow activateMaintenanceNow(String message, Integer durationMinutes,
                                               List<String> whitelistedIps);
 
     /**
-     * Hủy kích hoạt bảo trì
+     * Deactivate maintenance
      */
     MaintenanceWindow deactivateMaintenance(Long id);
 
     /**
-     * Cập nhật maintenance window
+     * Update maintenance window
      */
     MaintenanceWindow updateMaintenance(Long id, MaintenanceWindow maintenanceWindow);
 
     /**
-     * Hủy maintenance đã lên lịch
+     * Cancel scheduled maintenance
      */
     void cancelMaintenance(Long id);
 
     /**
-     * Lấy lịch sử bảo trì phân trang
+     * Get paginated maintenance history
      */
     Page<MaintenanceWindow> getMaintenanceHistory(Pageable pageable);
 
     /**
-     * Kiểm tra hệ thống có đang trong chế độ bảo trì không
+     * Check if the system is in maintenance mode
      */
     boolean isMaintenanceActive();
 
     /**
-     * Lấy thông tin maintenance đang active (nếu có)
+     * Get active maintenance info (if any)
      */
     MaintenanceWindow getActiveMaintenance();
 
     /**
-     * Lấy maintenance sắp tới
+     * Get upcoming maintenance
      */
     List<MaintenanceWindow> getUpcomingMaintenance();
 
     /**
-     * Lấy chi tiết maintenance
+     * Get maintenance detail
      */
     MaintenanceWindow getMaintenanceDetail(Long id);
 }

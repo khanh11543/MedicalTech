@@ -140,16 +140,16 @@ public class DataSeeder implements CommandLineRunner {
         }
 
         String[] comments = {
-                "Bác sĩ rất tận tâm và chu đáo. Tôi rất hài lòng với dịch vụ khám bệnh tại đây.",
-                "Quy trình khám nhanh gọn, bác sĩ giải thích rõ ràng về tình trạng sức khỏe của tôi.",
-                "Nhân viên thân thiện, phòng khám sạch sẽ. Bác sĩ có chuyên môn cao và rất nhiệt tình.",
-                "Tôi đã được tư vấn rất kỹ về phác đồ điều trị. Cảm ơn bác sĩ rất nhiều!",
-                "Dịch vụ chuyên nghiệp, thời gian chờ đợi hợp lý. Sẽ quay lại khám lần sau.",
-                "Bác sĩ rất kiên nhẫn lắng nghe và trả lời mọi thắc mắc của tôi. Rất đáng tin cậy.",
-                "Trải nghiệm khám bệnh tuyệt vời. Bác sĩ chẩn đoán chính xác và điều trị hiệu quả.",
-                "Cơ sở vật chất hiện đại, đội ngũ y tế chuyên nghiệp. Tôi rất an tâm khi khám tại đây.",
-                "Bác sĩ tư vấn rất chi tiết, giúp tôi hiểu rõ tình trạng bệnh và cách phòng ngừa.",
-                "Rất hài lòng với chất lượng dịch vụ. Bác sĩ giỏi, nhân viên nhiệt tình và chu đáo.",
+                "The doctor was very dedicated and thorough. I'm very satisfied with the medical service here.",
+                "Quick and efficient examination process, the doctor explained my health condition clearly.",
+                "Friendly staff, clean clinic. The doctor is highly skilled and very enthusiastic.",
+                "I received very detailed consultation on the treatment plan. Thank you so much, doctor!",
+                "Professional service, reasonable waiting time. Will come back for future check-ups.",
+                "The doctor patiently listened and answered all my questions. Very trustworthy.",
+                "Wonderful medical examination experience. The doctor diagnosed accurately and treated effectively.",
+                "Modern facilities, professional medical team. I feel very confident being treated here.",
+                "The doctor provided very detailed advice, helping me understand my condition and how to prevent it.",
+                "Very satisfied with the quality of service. Skilled doctor, enthusiastic and caring staff.",
         };
         int[] ratings = {5, 5, 5, 4, 5, 5, 4, 5, 5, 4};
 

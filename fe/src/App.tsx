@@ -17,6 +17,7 @@ const SignUp = lazy(() => import("./pages/AuthPages/SignUp"));
 const VerifyOtp = lazy(() => import("./pages/AuthPages/VerifyOtp"));
 const VerifyAccount = lazy(() => import("./pages/AuthPages/VerifyAccount"));
 const ForgotPassword = lazy(() => import("./pages/AuthPages/ForgotPassword"));
+const MfaVerify = lazy(() => import("./pages/AuthPages/MfaVerify"));
 const NotFound = lazy(() => import("./pages/OtherPage/NotFound"));
 
 // Admin Pages
@@ -328,6 +329,7 @@ export default function App() {
 
           {/* Auth Layout */}
           <Route path="/signin" element={<SignIn />} />
+          <Route path="/mfa-verify" element={<MfaVerify />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/verify-otp" element={<VerifyOtp />} />

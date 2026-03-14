@@ -15,46 +15,57 @@ import java.util.Optional;
 
 /**
  * Repository for User entity
- * JpaSpecificationExecutor cho phép sử dụng Specification để filter động
+ * JpaSpecificationExecutor enables the use of Specification for dynamic filtering
  */
 @Repository
 public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
     
     /**
-     * Tìm user theo email
+     * Count users by active status
+     */
+    long countByIsActive(Boolean isActive);
+
+    /**
+     * Count distinct users that have the given role (by role name)
+     */
+    @Query("SELECT COUNT(DISTINCT u) FROM User u JOIN u.userRoles ur JOIN ur.role r WHERE r.name = :roleName")
+    long countDistinctByRoleName(@Param("roleName") String roleName);
+
+    /**
+     * Find user by email
      */
     Optional<User> findByEmail(String email);
     
     /**
-     * Tìm user theo phone
+     * Find user by phone
      */
     Optional<User> findByPhone(String phone);
     
     /**
-     * Check email đã tồn tại chưa
+     * Check if email already exists
      */
     boolean existsByEmail(String email);
     
     /**
-     * Check phone đã tồn tại chưa
+     * Check if phone already exists
      */
     boolean existsByPhone(String phone);
     
     /**
-     * Tìm user theo email và fetch roles cùng lúc (để tránh N+1 query)
+     * Find user by email and fetch roles eagerly (to avoid N+1 query)
      */
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.userRoles ur LEFT JOIN FETCH ur.role WHERE u.email = :email")
     Optional<User> findByEmailWithRoles(@Param("email") String email);
     
     /**
-     * Tìm user theo ID và fetch roles
+     * Find user by ID and fetch roles
      */
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.userRoles ur LEFT JOIN FETCH ur.role WHERE u.id = :id")
     Optional<User> findByIdWithRoles(@Param("id") Long id);
     
     /**
-     * Tìm kiếm users với filter động
-     * Search trong email, phone
+     * Search users with dynamic filter
+     * Search in email, phone
      */
     @Query("SELECT u FROM User u WHERE " +
            "(:query IS NULL OR " +

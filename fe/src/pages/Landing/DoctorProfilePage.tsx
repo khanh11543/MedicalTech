@@ -266,14 +266,14 @@ export default function DoctorProfilePage() {
                   <div className="flex justify-between items-center">
                     <span className="text-[rgba(44,48,49,0.7)]">Initial Consultation</span>
                     <span className="font-bold text-[#18444c] text-[1.1rem]">
-                      {doctor.consultationFee?.toLocaleString("vi-VN")}đ
+                      {doctor.consultationFee?.toLocaleString("en-US")} VND
                     </span>
                   </div>
                   {doctor.followUpFee > 0 && (
                     <div className="flex justify-between items-center">
                       <span className="text-[rgba(44,48,49,0.7)]">Follow-up</span>
                       <span className="font-bold text-[#18444c] text-[1.1rem]">
-                        {doctor.followUpFee?.toLocaleString("vi-VN")}đ
+                        {doctor.followUpFee?.toLocaleString("en-US")} VND
                       </span>
                     </div>
                   )}

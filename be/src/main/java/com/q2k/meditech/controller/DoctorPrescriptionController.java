@@ -22,7 +22,7 @@ public class DoctorPrescriptionController {
     private final PrescriptionService prescriptionService;
     
     /**
-     * Tạo đơn thuốc mới
+     * Create a new prescription
      * POST /api/doctor/prescriptions
      */
     @PostMapping
@@ -36,7 +36,7 @@ public class DoctorPrescriptionController {
     }
     
     /**
-     * Xem chi tiết đơn thuốc
+     * View prescription details
      * GET /api/doctor/prescriptions/{id}
      */
     @GetMapping("/{id}")

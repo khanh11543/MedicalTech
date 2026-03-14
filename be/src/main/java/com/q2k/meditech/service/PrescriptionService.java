@@ -11,24 +11,24 @@ public interface PrescriptionService {
     // ==================== PRESCRIPTION ====================
 
     /**
-     * Tạo đơn thuốc mới
-     * @param dto thông tin đơn thuốc
-     * @param doctorUserId ID user của doctor đang đăng nhập
+     * Create a new prescription
+     * @param dto prescription information
+     * @param doctorUserId user ID of the logged-in doctor
      */
     PrescriptionDTO createPrescription(PrescriptionCreateDTO dto, Long doctorUserId);
 
     /**
-     * Lấy đơn thuốc theo ID
+     * Get prescription by ID
      */
     PrescriptionDTO getPrescriptionById(Long id);
 
     /**
-     * Lấy danh sách đơn thuốc của patient
+     * Get prescriptions for a patient
      */
     Page<PrescriptionDTO> getPatientPrescriptions(Long patientId, LocalDate from, LocalDate to, int pageNumber, int pageSize);
 
     /**
-     * Lấy danh sách đơn thuốc của doctor
+     * Get prescriptions for a doctor
      */
     Page<PrescriptionDTO> getDoctorPrescriptions(Long doctorId, LocalDate from, LocalDate to, int pageNumber, int pageSize);
 

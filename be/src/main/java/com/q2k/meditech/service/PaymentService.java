@@ -329,7 +329,7 @@ public interface PaymentService {
 
     /**
      * Get pending payments list (appointment COMPLETED + payment PENDING)
-     * Tab 5.3 — Công nợ
+     * Tab 5.3 — Pending debts
      */
     org.springframework.data.domain.Page<PendingPaymentDTO> getPendingPayments(
             String search, int pageNumber, int pageSize, String sortBy, String sortDir);

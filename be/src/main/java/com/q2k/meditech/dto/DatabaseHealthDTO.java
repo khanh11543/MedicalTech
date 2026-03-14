@@ -13,26 +13,26 @@ import java.util.List;
 @Builder
 public class DatabaseHealthDTO {
 
-    /** Điểm số sức khỏe tổng thể (0-100) */
+    /** Overall health score (0-100) */
     private Integer healthScore;
 
-    /** Trạng thái: HEALTHY, WARNING, CRITICAL */
+    /** Status: HEALTHY, WARNING, CRITICAL */
     private String status;
 
-    /** Tổng kích thước database */
+    /** Total database size */
     private Long totalSize;
     private String totalSizeFormatted;
 
-    /** Số bảng */
+    /** Number of tables */
     private Integer tableCount;
 
-    /** Thông tin chi tiết các bảng */
+    /** Detailed table information */
     private List<TableStatDTO> tableStats;
 
-    /** Thông tin phân mảnh */
+    /** Fragmentation information */
     private List<FragmentationInfoDTO> fragmentationInfo;
 
-    /** Đề xuất tối ưu hóa */
+    /** Optimization recommendations */
     private List<String> recommendations;
 
     @Data

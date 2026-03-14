@@ -7,7 +7,7 @@ export default function AboutPage() {
     <>
       <PageTitle
         title="About"
-        description="MediTrust Medical Center is committed to delivering high-quality healthcare through advanced medical technology, experienced physicians, and compassionate patient care. Our mission is to improve the health and well-being of every patient we serve."
+        description="MediTech Medical Center is committed to delivering high-quality healthcare through advanced medical technology, experienced physicians, and compassionate patient care. Our mission is to improve the health and well-being of every patient we serve."
         breadcrumbs={[
           { label: "Home", to: "/home" },
           { label: "Category", to: "/home" },
@@ -26,7 +26,7 @@ export default function AboutPage() {
                 Committed to Excellence in Healthcare
               </h2>
               <p className="text-[15px] text-[#444] leading-[1.8] mb-6 text-justify">
-                At MediTrust Medical Center, we believe that exceptional healthcare begins with trust, expertise, and compassion. Our team of experienced physicians, nurses, and healthcare professionals works together to provide personalized medical care tailored to the needs of every patient.
+                At MediTech Medical Center, we believe that exceptional healthcare begins with trust, expertise, and compassion. Our team of experienced physicians, nurses, and healthcare professionals works together to provide personalized medical care tailored to the needs of every patient.
               </p>
               <p className="text-[15px] text-[#444] leading-[1.8] mb-6 text-justify">
                 Using modern medical technology and evidence-based treatment methods, we deliver comprehensive healthcare services ranging from preventive care and diagnostics to specialized treatments and emergency services. Our commitment is to ensure every patient receives safe, effective, and compassionate care.

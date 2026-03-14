@@ -31,7 +31,7 @@ public class Prescription extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "appointment_id")
-    private Appointment appointment; // Liên kết với lần khám (optional)
+    private Appointment appointment; // Linked to a visit (optional)
 
     @Column(name = "prescription_code", unique = true)
     private String prescriptionCode; // Auto-generated: PRE-{id} or UUID
@@ -48,13 +48,13 @@ public class Prescription extends BaseEntity {
     private PrescriptionStatus status = PrescriptionStatus.ACTIVE;
 
     @Column(name = "diagnosis", columnDefinition = "TEXT")
-    private String diagnosis; // Chẩn đoán
+    private String diagnosis; // Diagnosis
 
     @Column(name = "notes", columnDefinition = "TEXT")
-    private String notes; // Ghi chú thêm
+    private String notes; // Additional notes
 
     @Column(name = "follow_up_date")
-    private LocalDate followUpDate; // Ngày tái khám
+    private LocalDate followUpDate; // Follow-up date
 
     @Column(name = "is_active")
     @Builder.Default
@@ -65,19 +65,19 @@ public class Prescription extends BaseEntity {
     @Builder.Default
     private List<PrescriptionItem> items = new ArrayList<>();
 
-    // Helper method để thêm item
+    // Helper method to add item
     public void addItem(PrescriptionItem item) {
         items.add(item);
         item.setPrescription(this);
     }
 
-    // Helper method để xóa item
+    // Helper method to remove item
     public void removeItem(PrescriptionItem item) {
         items.remove(item);
         item.setPrescription(null);
     }
 
-    // Helper method để clear và set items
+    // Helper method to clear and set items
     public void setItems(List<PrescriptionItem> newItems) {
         this.items.clear();
         if (newItems != null) {

@@ -15,17 +15,17 @@ import java.util.List;
 @Builder
 public class CleanupRequestDTO {
 
-    /** Loại dữ liệu cần xóa: audit_logs, notifications, sessions, login_attempts */
+    /** Data types to delete: audit_logs, notifications, sessions, login_attempts */
     private List<String> dataTypes;
 
-    /** Xóa dữ liệu trước ngày này */
+    /** Delete data before this date */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime beforeDate;
 
-    /** Có tạo backup trước khi xóa không */
+    /** Whether to create a backup before deletion */
     @Builder.Default
     private Boolean createBackupFirst = true;
 
-    /** Ghi chú */
+    /** Notes */
     private String notes;
 }

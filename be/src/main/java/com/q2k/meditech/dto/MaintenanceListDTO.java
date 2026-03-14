@@ -25,14 +25,14 @@ public class MaintenanceListDTO {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime endTime;
 
-    /** Thời gian dự kiến (phút) */
+    /** Estimated duration (minutes) */
     private Long durationMinutes;
 
-    /** Ảnh hưởng */
+    /** Impact */
     private String impact;
     private String affectedServices;
 
-    /** Người tạo */
+    /** Created by */
     private String createdByName;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

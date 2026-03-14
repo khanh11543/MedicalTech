@@ -50,6 +50,7 @@ public class AuthService {
     private final CustomUserDetailsService userDetailsService;
     private final NotificationEventService notificationEventService;
     private final ActivityLoggingService activityLoggingService;
+    private final MfaService mfaService;
 
     @Value("${app.account-lock-duration:30}") // minutes
     private int accountLockDuration;
@@ -241,7 +242,7 @@ public class AuthService {
      * Login
      */
     @Transactional
-    public TokenDTO login(LoginDTO loginDTO, HttpServletRequest request) {
+    public LoginResponseDTO login(LoginDTO loginDTO, HttpServletRequest request) {
         String ipAddress = getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
 
@@ -307,9 +308,24 @@ public class AuthService {
             activityLoggingService.log(user, com.q2k.meditech.entity.enums.ActivityType.LOGIN,
                     "User logged in", ipAddress, userAgent);
 
-            // Generate tokens
-            return generateTokens(user, loginDTO.getDeviceId(), loginDTO.getDeviceName(), 
-                ipAddress, userAgent);
+            // If MFA enabled, return a short-lived MFA token instead of session tokens
+            if (Boolean.TRUE.equals(user.getTwoFactorEnabled())) {
+                String mfaToken = jwtService.generateMfaLoginToken(user.getEmail(), user.getId());
+                return LoginResponseDTO.builder()
+                        .mfaRequired(true)
+                        .mfaToken(mfaToken)
+                        .mfaExpiresAt(jwtService.getExpirationAsLocalDateTime(mfaToken))
+                        .token(null)
+                        .build();
+            }
+
+            // Generate tokens (normal login)
+            TokenDTO token = generateTokens(user, loginDTO.getDeviceId(), loginDTO.getDeviceName(),
+                    ipAddress, userAgent);
+            return LoginResponseDTO.builder()
+                    .mfaRequired(false)
+                    .token(token)
+                    .build();
 
         } catch (Exception ex) {
             // Log any unexpected errors
@@ -801,5 +817,49 @@ public class AuthService {
             return bearerToken.substring(7);
         }
         return null;
+    }
+
+    /**
+     * Verify MFA token + Authenticator code to complete login.
+     */
+    @Transactional
+    public TokenDTO verifyMfaLogin(MfaVerifyLoginDTO dto, HttpServletRequest request) {
+        if (!jwtService.validateMfaLoginToken(dto.getMfaToken())) {
+            throw new InvalidTokenException("Invalid or expired MFA token");
+        }
+
+        String email = jwtService.extractUsername(dto.getMfaToken());
+        Long userId = jwtService.extractUserId(dto.getMfaToken());
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (!user.getEmail().equalsIgnoreCase(email)) {
+            throw new InvalidTokenException("Invalid MFA token");
+        }
+
+        // Must have MFA enabled to use this endpoint
+        if (!Boolean.TRUE.equals(user.getTwoFactorEnabled())) {
+            throw new BadRequestException("Two-factor authentication is not enabled for this account");
+        }
+
+        String ipAddress = getClientIp(request);
+        String userAgent = request.getHeader("User-Agent");
+
+        boolean ok = mfaService.verifyAuthenticatorCode(user, dto.getCode());
+        if (!ok) {
+            recordLoginAttempt(user, user.getEmail(), false,
+                    "Invalid MFA code", ipAddress, userAgent);
+            throw new InvalidOtpException("Invalid Authenticator code");
+        }
+
+        // Successful MFA completion — issue tokens
+        recordLoginAttempt(user, user.getEmail(), true, null, ipAddress, userAgent);
+        return generateTokens(
+                user,
+                request.getHeader("User-Agent"),
+                "MFA Verified (Web)",
+                ipAddress,
+                userAgent
+        );
     }
 }

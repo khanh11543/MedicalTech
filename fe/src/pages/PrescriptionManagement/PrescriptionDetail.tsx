@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -563,7 +563,7 @@ export default function PrescriptionDetail() {
 
       {/* Email Modal - with patient requested confirmation */}
       {showEmailModal && (
-        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50" onClick={() => setShowEmailModal(false)}>
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/50">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 dark:bg-gray-900 shadow-xl" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Send Prescription via Email</h3>
             {/* COPY watermark notice */}

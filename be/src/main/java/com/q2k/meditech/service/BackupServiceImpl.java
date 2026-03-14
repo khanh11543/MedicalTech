@@ -215,24 +215,24 @@ public class BackupServiceImpl implements BackupService {
                                          Boolean encrypted) {
         log.info("Starting manual backup: name={}, type={}, includes={}", backupName, backupType, includes);
 
-        // Kiểm tra có backup đang chạy không
+        // Check if a backup is already running
         List<BackupRecord> inProgress = backupRecordRepository.findByStatus(BackupStatus.IN_PROGRESS);
         if (!inProgress.isEmpty()) {
             throw new BadRequestException("Another backup is already in progress");
         }
 
-        // Tạo thư mục backup nếu chưa có
+        // Create backup directory if it doesn't exist
         ensureStorageDirectory();
 
-        // Tạo tên file backup
+        // Create backup filename
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String fileName = (backupName != null ? backupName : "backup") + "_" + timestamp + ".sql";
         String fullPath = Paths.get(storagePath, fileName).toString();
 
-        // Lấy current user
+        // Get current user
         User currentUser = getCurrentUser();
 
-        // Tạo backup record
+        // Create backup record
         BackupRecord record = BackupRecord.builder()
                 .backupName(backupName != null ? backupName : "Manual Backup " + timestamp)
                 .backupType(backupType != null ? backupType : BackupType.MANUAL)
@@ -248,7 +248,7 @@ public class BackupServiceImpl implements BackupService {
                 .build();
         record = backupRecordRepository.save(record);
 
-        // Thực hiện backup bất đồng bộ (run after transaction commits)
+        // Execute backup asynchronously (run after transaction commits)
         final Long recordId = record.getId();
         final String backupPath = fullPath;
         final List<String> backupIncludes = includes;

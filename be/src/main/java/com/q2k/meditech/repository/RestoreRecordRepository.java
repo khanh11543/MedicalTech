@@ -13,22 +13,22 @@ import java.util.List;
 public interface RestoreRecordRepository extends JpaRepository<RestoreRecord, Long> {
 
     /**
-     * Lịch sử restore phân trang
+     * Paginated restore history
      */
     Page<RestoreRecord> findAllByOrderByStartedAtDesc(Pageable pageable);
 
     /**
-     * Tìm restore đang chạy
+     * Find running restores
      */
     List<RestoreRecord> findByStatus(RestoreStatus status);
 
     /**
-     * Tìm restore theo backup ID
+     * Find restore by backup ID
      */
     List<RestoreRecord> findByBackupRecordIdOrderByStartedAtDesc(Long backupRecordId);
 
     /**
-     * Đếm restore theo status
+     * Count restore by status
      */
     Long countByStatus(RestoreStatus status);
 }

@@ -32,7 +32,7 @@ public class UserRole {
             foreignKey = @ForeignKey(name = "fk_user_roles_user"))
     private User user;
 
-    @ManyToOne(fetch = FetchType.EAGER) // EAGER để load role name khi query user
+    @ManyToOne(fetch = FetchType.EAGER) // EAGER to load role name when querying user
     @JoinColumn(name = "role_id", nullable = false,
             foreignKey = @ForeignKey(name = "fk_user_roles_role"))
     private Role role;

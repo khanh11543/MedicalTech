@@ -18,11 +18,11 @@ public class TemplateCreateDTO {
     
     private String description;
     
-    private String diagnosisTemplate; // Chẩn đoán mẫu
+    private String diagnosisTemplate; // Diagnosis template
     
-    private String notesTemplate; // Ghi chú mẫu
+    private String notesTemplate; // Notes template
     
-    private Integer defaultFollowUpDays; // Số ngày tái khám mặc định
+    private Integer defaultFollowUpDays; // Default follow-up days
     
     @NotEmpty(message = "Template must have at least one item")
     @Valid

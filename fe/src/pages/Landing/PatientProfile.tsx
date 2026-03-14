@@ -485,9 +485,9 @@ export default function PatientProfile() {
         </div>
       </div>
 
-      {/* Edit Modal — đẩy xuống dưới (dính đáy) để phần dưới form + nút không bị che */}
+      {/* Edit Modal */}
       {showEditModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto" onClick={() => setShowEditModal(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
           <div
             className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-xl flex flex-col max-h-[90vh] sm:max-h-[85vh] mt-auto sm:mt-0"
             onClick={(e) => e.stopPropagation()}
@@ -529,7 +529,7 @@ export default function PatientProfile() {
               <ModalInput label="Email" value={editForm.email} placeholder="Email (from account)" disabled />
               <h5 className="text-xs font-semibold text-gray-600 mt-3 pt-3 border-t border-gray-100">Additional Information</h5>
               <div className="grid grid-cols-2 gap-3">
-                <ModalInput label="ID Number (CCCD)" value={editForm.cccd} onChange={(v) => setEditForm((f) => ({ ...f, cccd: v }))} placeholder="Số CCCD/CMND" />
+                <ModalInput label="ID Number (CCCD)" value={editForm.cccd} onChange={(v) => setEditForm((f) => ({ ...f, cccd: v }))} placeholder="ID / Passport number" />
                 <ModalInput label="Insurance ID (BHYT)" value={editForm.insuranceNumber || editForm.bhyt} onChange={(v) => setEditForm((f) => ({ ...f, insuranceNumber: v, bhyt: v }))} placeholder="Insurance ID" />
                 <ModalInput label="Insurance Provider" value={editForm.insuranceProvider} onChange={(v) => setEditForm((f) => ({ ...f, insuranceProvider: v }))} placeholder="Provider" />
                 <ModalInput label="Emergency Contact" value={editForm.emergencyContact} onChange={(v) => setEditForm((f) => ({ ...f, emergencyContact: v }))} placeholder="Phone" />
@@ -557,9 +557,9 @@ export default function PatientProfile() {
         </div>
       )}
 
-      {/* Add Modal — cùng layout nhỏ gọn như Edit */}
+      {/* Add Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto" onClick={() => setShowAddModal(false)}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
           <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-xl flex flex-col max-h-[90vh] sm:max-h-[85vh] mt-auto sm:mt-0" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 shrink-0">
               <h3 className="text-sm font-semibold text-gray-800">Add New Profile</h3>

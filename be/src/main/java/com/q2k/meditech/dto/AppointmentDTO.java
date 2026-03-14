@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 
 /**
- * DTO trả về thông tin lịch hẹn
+ * DTO for appointment information
  */
 @Data
 @NoArgsConstructor

@@ -13,25 +13,25 @@ import java.util.List;
 @Builder
 public class DiskUsageDTO {
 
-    /** Tổng dung lượng ổ đĩa (bytes) */
+    /** Total disk space (bytes) */
     private Long totalSpace;
     private String totalSpaceFormatted;
 
-    /** Dung lượng đã sử dụng (bytes) */
+    /** Used space (bytes) */
     private Long usedSpace;
     private String usedSpaceFormatted;
 
-    /** Dung lượng còn trống (bytes) */
+    /** Free space (bytes) */
     private Long freeSpace;
     private String freeSpaceFormatted;
 
-    /** Phần trăm sử dụng */
+    /** Usage percentage */
     private Double usagePercent;
 
-    /** Trạng thái: OK, WARNING (>80%), CRITICAL (>90%) */
+    /** Status: OK, WARNING (>80%), CRITICAL (>90%) */
     private String status;
 
-    /** Chi tiết theo thư mục */
+    /** Details by directory */
     private List<DirectoryUsageDTO> directories;
 
     @Data

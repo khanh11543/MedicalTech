@@ -361,7 +361,7 @@ public class SystemSettingServiceImpl implements SystemSettingService {
                 .tagline("")
                 .email("")
                 .phone("")
-                .country("Vietnam")
+                .country("VietNam")
                 .timezone("Asia/Ho_Chi_Minh")
                 .language("vi")
                 .dateFormat("DD/MM/YYYY")

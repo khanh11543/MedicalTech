@@ -1,9 +1,9 @@
 /* ============================================================
-   MediTrust Landing Pages - Custom CSS
+   MediTech Landing Pages - Custom CSS
    Converted from Bootstrap template to work with Tailwind CSS
    ============================================================ */
 
-/* --- CSS Variables (matching MediTrust theme) --- */
+/* --- CSS Variables (matching MediTech theme) --- */
 :root {
   --mt-primary: #049ebb;
   --mt-primary-dark: #037a94;
@@ -246,7 +246,7 @@
 }
 
 /* ============================================================
-   Departments Page (pixel-match MediTrust template)
+   Departments Page (pixel-match MediTech template)
    ============================================================ */
 .dept-section {
   padding: 60px 0 80px;
@@ -1976,7 +1976,7 @@
 .animation-delay-500 { animation-delay: 0.5s; }
 
 /* ============================================================
-   About Page Styles (pixel-match MediTrust template)
+   About Page Styles (pixel-match MediTech template)
    ============================================================ */
 
 .about-section {
@@ -2004,7 +2004,7 @@
 }
 
 /* ============================================================
-   Homepage-Specific Overrides (pixel-match MediTrust template)
+   Homepage-Specific Overrides (pixel-match MediTech template)
    ============================================================ */
 
 /* --- Bootstrap-like Container --- */

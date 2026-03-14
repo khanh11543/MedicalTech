@@ -95,7 +95,7 @@ const ExportReportModal: React.FC<ExportReportModalProps> = ({ isOpen, onClose, 
 
   return (
     <>
-      <div className="fixed inset-0 z-[99999] bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-[99999] bg-black/40 backdrop-blur-sm" />
       <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
           {/* Header */}

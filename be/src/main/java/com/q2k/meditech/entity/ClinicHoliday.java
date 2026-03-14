@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalDate;
 
 /**
- * ClinicHoliday - ngày lễ / nghỉ lễ toàn phòng khám.
+ * ClinicHoliday - clinic-wide holidays / days off.
  * Slots on holiday dates are auto-blocked during bulk creation.
  */
 @Entity

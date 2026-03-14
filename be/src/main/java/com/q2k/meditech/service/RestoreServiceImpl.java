@@ -64,21 +64,21 @@ public class RestoreServiceImpl implements RestoreService {
             throw new BadRequestException("Can only restore from completed backups");
         }
 
-        // Kiểm tra file backup tồn tại
+        // Check if backup file exists
         if (backup.getStoragePath() == null || !new File(backup.getStoragePath()).exists()) {
             throw new BadRequestException("Backup file not found");
         }
 
-        // Kiểm tra có restore đang chạy không
+        // Check if a restore is already running
         List<RestoreRecord> inProgress = restoreRecordRepository.findByStatus(RestoreStatus.IN_PROGRESS);
         if (!inProgress.isEmpty()) {
             throw new BadRequestException("Another restore operation is already in progress");
         }
 
-        // Tạo auto-backup trước khi restore
+        // Create auto-backup before restore
         Long preRestoreBackupId = createPreRestoreBackup();
 
-        // Tạo restore record
+        // Create restore record
         User currentUser = getCurrentUser();
         RestoreRecord record = RestoreRecord.builder()
                 .backupRecord(backup)
@@ -94,7 +94,7 @@ public class RestoreServiceImpl implements RestoreService {
                 .build();
         record = restoreRecordRepository.save(record);
 
-        // Thực hiện restore bất đồng bộ
+        // Execute restore asynchronously
         executeRestoreAsync(record.getId(), backup.getStoragePath());
 
         return record;
@@ -122,7 +122,7 @@ public class RestoreServiceImpl implements RestoreService {
             throw new BadRequestException("Failed to save uploaded file: " + e.getMessage());
         }
 
-        // Tạo backup record cho file upload
+        // Create backup record for file upload
         BackupRecord uploadBackup = BackupRecord.builder()
                 .backupName("Uploaded: " + file.getOriginalFilename())
                 .backupType(BackupType.MANUAL)

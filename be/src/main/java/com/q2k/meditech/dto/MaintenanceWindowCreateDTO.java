@@ -16,40 +16,40 @@ import java.util.List;
 @Builder
 public class MaintenanceWindowCreateDTO {
 
-    /** Tiêu đề bảo trì */
+    /** Maintenance title */
     private String title;
 
-    /** Mô tả chi tiết */
+    /** Detailed description */
     private String description;
 
-    /** Loại bảo trì */
+    /** Maintenance type */
     private MaintenanceType maintenanceType;
 
-    /** Thời gian bắt đầu */
+    /** Start time */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime startTime;
 
-    /** Thời gian kết thúc */
+    /** End time */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime endTime;
 
-    /** Thông báo hiển thị cho người dùng */
+    /** Message displayed to users */
     private String message;
 
-    /** Số phút thông báo trước khi bắt đầu */
+    /** Minutes of advance notification before start */
     @Builder.Default
     private Integer notifyBeforeMinutes = 30;
 
-    /** Cho phép admin truy cập trong thời gian bảo trì */
+    /** Allow admin access during maintenance */
     @Builder.Default
     private Boolean allowAdminAccess = true;
 
-    /** Danh sách IP được phép truy cập */
+    /** List of IPs allowed to access */
     private List<String> whitelistedIps;
 
-    /** Mức độ ảnh hưởng */
+    /** Impact level */
     private String impact;
 
-    /** Các dịch vụ bị ảnh hưởng */
+    /** Affected services */
     private String affectedServices;
 }

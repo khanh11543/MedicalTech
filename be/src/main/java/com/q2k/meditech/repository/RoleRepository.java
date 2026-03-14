@@ -17,23 +17,23 @@ import java.util.Set;
 public interface RoleRepository extends JpaRepository<Role, Long> {
     
     /**
-     * Tìm role theo tên
+     * Find role by name
      */
     Optional<Role> findByName(String name);
     
     /**
-     * Tìm nhiều roles theo tên
+     * Find multiple roles by name
      */
     List<Role> findByNameIn(Set<String> names);
     
     /**
-     * TÌm nhiều roles theo IDs
+     * Find multiple roles by IDs
      */
     @Query("SELECT r FROM Role r WHERE r.id IN :ids")
     List<Role> findByIdIn(@Param("ids") Set<Long> ids);
     
     /**
-     * Check role name đã tồn tại chưa
+     * Check if role name already exists
      */
     boolean existsByName(String name);
 }

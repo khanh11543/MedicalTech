@@ -158,7 +158,7 @@ export default function FrequentPatients({ onViewDetail, onQuickBook, onSendRemi
         />
         <StatsCard
           label="Total Spending"
-          value={`${totalSpending.toLocaleString()}đ`}
+          value={`${totalSpending.toLocaleString()} VND`}
           icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
           color="text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30 dark:text-emerald-400"
           subLabel={vipCount > 0 ? `${vipCount} VIP patients` : "Current page total"}
@@ -344,7 +344,7 @@ export default function FrequentPatients({ onViewDetail, onQuickBook, onSendRemi
                         )}
                       </td>
                       <td className="px-3 py-3 text-right text-sm font-medium text-gray-900 dark:text-white">
-                        {p.lifetimeSpending ? `${p.lifetimeSpending.toLocaleString()}đ` : "0đ"}
+                        {p.lifetimeSpending ? `${p.lifetimeSpending.toLocaleString()} VND` : "0 VND"}
                       </td>
                       <td className="px-3 py-3 text-center">
                         <InsuranceBadge status={p.insuranceStatus} />

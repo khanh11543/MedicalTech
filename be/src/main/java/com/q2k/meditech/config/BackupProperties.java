@@ -13,37 +13,37 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "app.backup")
 public class BackupProperties {
 
-    /** Đường dẫn lưu trữ backup files */
+    /** Storage path for backup files */
     private String storagePath = "./backups";
 
-    /** Số ngày giữ lại backup tối đa */
+    /** Maximum number of days to retain backups */
     private int maxRetentionDays = 90;
 
-    /** Đường dẫn tới lệnh mysqldump */
+    /** Path to mysqldump command */
     private String mysqlDumpPath = "mysqldump";
 
-    /** Đường dẫn tới lệnh mysql (để restore) */
+    /** Path to mysql command (for restore) */
     private String mysqlRestorePath = "mysql";
 
-    /** Kích thước backup tối đa (GB) */
+    /** Maximum backup size (GB) */
     private int maxBackupSizeGb = 10;
 
-    /** Thuật toán checksum */
+    /** Checksum algorithm */
     private String checksumAlgorithm = "SHA-256";
 
-    /** Cấu hình schedule */
+    /** Schedule configuration */
     private Schedule schedule = new Schedule();
 
     @Data
     public static class Schedule {
 
-        /** Có bật schedule tự động không */
+        /** Whether automatic scheduling is enabled */
         private boolean enabled = true;
 
-        /** Cron expression cho backup tự động (default: 2h sáng hàng ngày) */
+        /** Cron expression for automatic backup (default: 2 AM daily) */
         private String cron = "0 0 2 * * ?";
 
-        /** Cron expression cho cleanup backup cũ (default: 3h sáng Chủ Nhật) */
+        /** Cron expression for old backup cleanup (default: 3 AM Sunday) */
         private String cleanupCron = "0 0 3 * * SUN";
     }
 }

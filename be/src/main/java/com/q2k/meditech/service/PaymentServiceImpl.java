@@ -221,7 +221,7 @@ public class PaymentServiceImpl implements PaymentService {
         // Build order info (simple, no special characters)
         String orderInfo = dto.getOrderInfo() != null
                 ? dto.getOrderInfo()
-                : "Thanh toan " + payment.getPaymentCode();
+                : "Payment " + payment.getPaymentCode();
 
         // Generate MoMo order ID
         // Always append timestamp if payment was previously sent to MoMo (prevents duplicate orderId error)
@@ -912,7 +912,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public PaymentDTO getPaymentByIdForPatient(Long paymentId, Long patientId) {
         log.info("Getting payment ID: {} for patient ID: {}", paymentId, patientId);
 
@@ -930,6 +930,49 @@ public class PaymentServiceImpl implements PaymentService {
         // Check ownership
         if (!payment.getPatient().getId().equals(patientId)) {
             throw new BadRequestException("You can only view your own payments");
+        }
+
+        // If payment is INITIATED/PROCESSING with MoMo, actively query MoMo for real-time status
+        // This is essential because MoMo IPN webhook cannot reach localhost in dev
+        if ("MOMO".equals(payment.getPaymentMethod())
+                && ("INITIATED".equals(payment.getPaymentStatus()) || "PROCESSING".equals(payment.getPaymentStatus()))
+                && payment.getMomoOrderId() != null) {
+            try {
+                MomoClient.MomoQueryResponse queryResult = momoClient.queryPaymentStatus(payment.getMomoOrderId());
+                log.info("MoMo query for patient payment {}: resultCode={}, message={}",
+                        paymentId, queryResult.resultCode, queryResult.message);
+
+                if (queryResult.resultCode != null && queryResult.resultCode == 0) {
+                    // Payment successful — update status
+                    String transId = queryResult.transId != null ? String.valueOf(queryResult.transId) : "MOMO-" + payment.getMomoOrderId();
+                    payment = updatePaymentStatusSuccess(payment.getId(), transId);
+
+                    // Create invoice & send notification (don't fail on error)
+                    try {
+                        invoiceService.createInvoiceForPayment(payment.getId());
+                    } catch (Exception e) {
+                        log.error("Failed to create invoice for payment {}: {}", payment.getId(), e.getMessage());
+                    }
+                    try {
+                        invoiceDeliveryService.autoSendInvoiceOnPaymentSuccess(payment.getId());
+                    } catch (Exception e) {
+                        log.error("Failed to send invoice notification for payment {}: {}", payment.getId(), e.getMessage());
+                    }
+
+                    // Re-fetch with details after update
+                    payment = paymentRepository.findByIdWithDetails(paymentId)
+                            .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
+                } else if (queryResult.resultCode != null && queryResult.resultCode == 1006) {
+                    // MoMo: User denied / cancelled the transaction
+                    payment = updatePaymentStatusFailed(payment.getId(), queryResult.message);
+                    payment = paymentRepository.findByIdWithDetails(paymentId)
+                            .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
+                }
+                // Other resultCodes (1000=pending, etc.) → keep polling
+            } catch (Exception e) {
+                log.warn("MoMo query failed for patient payment {} (will retry on next poll): {}", paymentId, e.getMessage());
+                // Don't fail the GET request — just return current DB status
+            }
         }
 
         return mapToDTO(payment);
@@ -2484,7 +2527,7 @@ public class PaymentServiceImpl implements PaymentService {
                 log.info("Sending payment link email to: {} - message: {}", patientEmail, emailBody);
 
                 String htmlContent = buildPaymentLinkEmailTemplate(patientName, payment.getTotalAmount(), payment.getCurrency(), paymentLink, payment.getPaymentCode());
-                String subject = "Thanh toán hóa đơn - MediTech (#" + payment.getPaymentCode() + ")";
+                String subject = "Invoice Payment - MediTech (#" + payment.getPaymentCode() + ")";
                 emailService.sendHtmlEmail(patientEmail, subject, htmlContent);
 
                 resultMessage.append("Email sent to ").append(patientEmail).append(". ");
@@ -2499,7 +2542,7 @@ public class PaymentServiceImpl implements PaymentService {
             try {
                 String smsMessage = dto.getCustomMessage() != null
                         ? dto.getCustomMessage()
-                        : String.format("MediTech: Vui long thanh toan %s VND. Link: %s",
+                        : String.format("MediTech: Please complete your payment of %s VND. Link: %s",
                                 payment.getTotalAmount(), paymentLink);
                 log.info("Sending payment link SMS to: {} - message: {}", patientPhone, smsMessage);
                 smsService.sendSms(patientPhone, smsMessage);
@@ -2806,17 +2849,17 @@ public class PaymentServiceImpl implements PaymentService {
                 ".pay-btn { display: inline-block; background: #667eea; color: white; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 15px; }\n" +
                 ".footer { text-align: center; margin-top: 20px; color: #777; font-size: 12px; }\n" +
                 "</style>\n</head>\n<body>\n<div class='container'>\n" +
-                "<div class='header'>\n<h1>MediTech</h1>\n<p>Thông báo thanh toán</p>\n</div>\n" +
+                "<div class='header'>\n<h1>MediTech</h1>\n<p>Payment Notification</p>\n</div>\n" +
                 "<div class='content'>\n" +
-                "<h2>Xin chào " + (patientName != null ? patientName : "Quý khách") + ",</h2>\n" +
-                "<p>Bạn có một hóa đơn cần thanh toán tại MediTech.</p>\n" +
+                "<h2>Hello " + (patientName != null ? patientName : "Valued Customer") + ",</h2>\n" +
+                "<p>You have an invoice pending payment at MediTech.</p>\n" +
                 "<div class='amount-box'>\n" +
-                "<p>Mã thanh toán: <strong>" + (paymentCode != null ? paymentCode : "") + "</strong></p>\n" +
+                "<p>Payment Code: <strong>" + (paymentCode != null ? paymentCode : "") + "</strong></p>\n" +
                 "<p class='amount'>" + formattedAmount + "</p>\n" +
-                "<a href='" + paymentLink + "' class='pay-btn'>Thanh toán ngay</a>\n" +
+                "<a href='" + paymentLink + "' class='pay-btn'>Pay Now</a>\n" +
                 "</div>\n" +
-                "<p>Hoặc sao chép link thanh toán: <br/><a href='" + paymentLink + "'>" + paymentLink + "</a></p>\n" +
-                "<p style='color: #999; font-size: 13px;'>Nếu bạn đã thanh toán, vui lòng bỏ qua email này.</p>\n" +
+                "<p>Or copy the payment link: <br/><a href='" + paymentLink + "'>" + paymentLink + "</a></p>\n" +
+                "<p style='color: #999; font-size: 13px;'>If you have already made the payment, please disregard this email.</p>\n" +
                 "</div>\n" +
                 "<div class='footer'>\n<p>© 2026 MediTech. All rights reserved.</p>\n</div>\n" +
                 "</div>\n</body>\n</html>";

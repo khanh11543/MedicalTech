@@ -247,7 +247,7 @@ export default function DepartmentDetailPage() {
                     )}
                     {doc.consultationFee > 0 && (
                       <p className="text-[0.9rem] text-[rgba(44,48,49,0.7)] mb-3">
-                        Fee: {doc.consultationFee.toLocaleString()}đ
+                        Fee: {doc.consultationFee.toLocaleString()} VND
                       </p>
                     )}
                     <div className="flex items-center mb-4">

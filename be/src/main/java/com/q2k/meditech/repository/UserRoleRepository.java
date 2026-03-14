@@ -16,27 +16,27 @@ import java.util.List;
 public interface UserRoleRepository extends JpaRepository<UserRole, Long> {
 
     /**
-     * Tìm tất cả UserRoles của một user
+     * Find all UserRoles for a user
      */
     @Query("SELECT ur FROM UserRole ur JOIN FETCH ur.role WHERE ur.user.id = :userId")
     List<UserRole> findByUserId(@Param("userId") Long userId);
 
     /**
-     * Xóa tất cả roles của một user
+     * Delete all roles of a user
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM UserRole ur WHERE ur.user.id = :userId")
     void deleteByUserId(@Param("userId") Long userId);
 
     /**
-     * Xóa role cụ thể của user
+     * Delete a specific role of a user
      */
     @Modifying
     @Query("DELETE FROM UserRole ur WHERE ur.user.id = :userId AND ur.role.id = :roleId")
     void deleteByUserIdAndRoleId(@Param("userId") Long userId, @Param("roleId") Integer roleId);
 
     /**
-     * Check user đã có role này chưa
+     * Check if user already has this role
      */
     @Query("SELECT CASE WHEN COUNT(ur) > 0 THEN true ELSE false END " +
             "FROM UserRole ur WHERE ur.user.id = :userId AND ur.role.id = :roleId")

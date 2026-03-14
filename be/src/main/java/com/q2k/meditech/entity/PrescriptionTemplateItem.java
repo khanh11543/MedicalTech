@@ -21,29 +21,29 @@ public class PrescriptionTemplateItem {
     private PrescriptionTemplate template;
 
     @Column(name = "medicine_name", nullable = false)
-    private String medicineName; // Tên thuốc
+    private String medicineName; // Medicine name
 
     @Column(name = "default_dosage", nullable = false)
-    private String defaultDosage; // Liều lượng mặc định
+    private String defaultDosage; // Default dosage
 
     @Column(name = "default_frequency", nullable = false)
-    private String defaultFrequency; // Tần suất mặc định
+    private String defaultFrequency; // Default frequency
 
     @Column(name = "default_duration")
-    private String defaultDuration; // Thời gian dùng mặc định
+    private String defaultDuration; // Default duration
 
     @Column(name = "default_quantity")
-    private Integer defaultQuantity; // Số lượng mặc định
+    private Integer defaultQuantity; // Default quantity
 
     @Column(name = "unit")
-    private String unit; // Đơn vị
+    private String unit; // Unit
 
     @Column(name = "default_instructions", columnDefinition = "TEXT")
-    private String defaultInstructions; // Hướng dẫn mặc định
+    private String defaultInstructions; // Default instructions
 
     @Column(name = "notes")
     private String notes;
 
     @Column(name = "item_order")
-    private Integer itemOrder; // Thứ tự hiển thị
+    private Integer itemOrder; // Display order
 }

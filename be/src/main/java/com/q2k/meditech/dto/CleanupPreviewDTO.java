@@ -8,7 +8,7 @@ import java.util.List;
 
 /**
  * DTO for Cleanup preview (FR-BACK-006)
- * Hiển thị dữ liệu sẽ bị xóa trước khi thực hiện
+ * Preview data to be deleted before execution
  */
 @Data
 @NoArgsConstructor
@@ -16,18 +16,18 @@ import java.util.List;
 @Builder
 public class CleanupPreviewDTO {
 
-    /** Tổng số bản ghi sẽ bị xóa */
+    /** Total number of records to be deleted */
     private Long totalRecords;
 
-    /** Tổng dung lượng sẽ được giải phóng (bytes) */
+    /** Total space to be freed (bytes) */
     private Long estimatedSpaceSaved;
     private String estimatedSpaceSavedFormatted;
 
-    /** Xóa dữ liệu trước ngày này */
+    /** Delete data before this date */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime beforeDate;
 
-    /** Chi tiết từng loại dữ liệu */
+    /** Details for each data type */
     private List<CleanupItemDTO> items;
 
     @Data
@@ -35,16 +35,16 @@ public class CleanupPreviewDTO {
     @AllArgsConstructor
     @Builder
     public static class CleanupItemDTO {
-        /** Loại dữ liệu: audit_logs, notifications, sessions, login_attempts */
+        /** Data type: audit_logs, notifications, sessions, login_attempts */
         private String dataType;
         private String displayName;
         private Long recordCount;
         private Long estimatedSize;
         private String estimatedSizeFormatted;
-        /** Bản ghi cũ nhất */
+        /** Oldest record */
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
         private LocalDateTime oldestRecord;
-        /** Bản ghi mới nhất trong phạm vi xóa */
+        /** Newest record within deletion range */
         @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
         private LocalDateTime newestRecord;
     }

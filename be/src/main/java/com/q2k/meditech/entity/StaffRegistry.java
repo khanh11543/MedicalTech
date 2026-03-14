@@ -6,8 +6,8 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 /**
- * StaffRegistry Entity - Whitelist cho nhân viên nội bộ
- * Admin tạo entry này để cho phép nhân viên đăng ký
+ * StaffRegistry Entity - Whitelist for internal staff
+ * Admin creates this entry to allow staff to register
  * Maps to 'staff_registry' table in database
  */
 @Entity
@@ -25,75 +25,75 @@ import java.time.LocalDateTime;
 public class StaffRegistry extends BaseEntity {
 
     /**
-     * Staff code - Mã nhân viên duy nhất
+     * Staff code - Unique staff code
      */
     @Column(name = "staff_code", nullable = false, unique = true, length = 50)
     private String staffCode;
 
     /**
-     * Email của nhân viên được mời
+     * Email of the invited staff member
      */
     @Column(name = "email", nullable = false, unique = true, length = 255)
     private String email;
 
     /**
-     * Phone của nhân viên (optional)
+     * Phone of the staff member (optional)
      */
     @Column(name = "phone", length = 20)
     private String phone;
 
     /**
-     * Tên đầy đủ của nhân viên
+     * Full name of the staff member
      */
     @Column(name = "full_name", nullable = false, length = 255)
     private String fullName;
 
     /**
-     * Role mong đợi khi nhân viên đăng ký (DOCTOR, RECEPTIONIST)
-     * KHÔNG bao gồm PATIENT (chỉ staff nội bộ)
+     * Expected role when the staff member registers (DOCTOR, RECEPTIONIST)
+     * Does NOT include PATIENT (internal staff only)
      */
     @Column(name = "expected_role", nullable = false, length = 50)
     private String expectedRole;
 
     /**
-     * Department (phòng ban)
+     * Department
      */
     @Column(name = "department", length = 100)
     private String department;
 
     /**
-     * Status của registry entry
-     * PENDING - Chưa đăng ký
-     * REGISTERED - Đã đăng ký thành công
-     * DISABLED - Đã vô hiệu hóa
-     * EXPIRED - Hết hạn (nếu có expiry)
+     * Status of the registry entry
+     * PENDING - Not yet registered
+     * REGISTERED - Successfully registered
+     * DISABLED - Deactivated
+     * EXPIRED - Expired (if applicable)
      */
     @Builder.Default
     @Column(name = "status", nullable = false, length = 20)
     private String status = "PENDING";
 
     /**
-     * Ngày hết hạn lời mời (optional)
-     * Nếu null = không giới hạn
+     * Invitation expiry date (optional)
+     * If null = no time limit
      */
     @Column(name = "invite_expires_at")
     private LocalDateTime inviteExpiresAt;
 
     /**
-     * User ID sau khi đăng ký thành công
+     * User ID after successful registration
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "registered_user_id", foreignKey = @ForeignKey(name = "fk_staff_registry_user"))
     private User registeredUser;
 
     /**
-     * Ngày đăng ký thành công
+     * Successful registration date
      */
     @Column(name = "registered_at")
     private LocalDateTime registeredAt;
 
     /**
-     * Admin tạo lời mời
+     * Admin who created the invitation
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invited_by", foreignKey = @ForeignKey(name = "fk_staff_registry_invited_by"))

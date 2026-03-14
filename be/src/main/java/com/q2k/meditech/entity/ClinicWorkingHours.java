@@ -6,7 +6,7 @@ import lombok.*;
 import java.time.LocalTime;
 
 /**
- * ClinicWorkingHours - giờ mở cửa phòng khám theo ngày trong tuần.
+ * ClinicWorkingHours - clinic opening hours by day of week.
  * Used to validate that slots are within clinic operating hours.
  */
 @Entity

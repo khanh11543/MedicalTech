@@ -11,7 +11,7 @@ import java.util.Set;
 
 /**
  * Basic User Response DTO
- * Dùng cho list users và các response đơn giản
+ * Used for user lists and simple responses
  */
 @Data
 @NoArgsConstructor
@@ -40,6 +40,6 @@ public class UserDTO {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updatedAt;
     
-    // Danh sách roles của user (chỉ trả tên role)
+    // List of user roles (returns only role names)
     private Set<String> roles;
 }
