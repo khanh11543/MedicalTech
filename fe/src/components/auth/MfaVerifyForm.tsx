@@ -1,8 +1,14 @@
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate, Link } from "react-router";
 import authService from "../../services/authService";
 import Button from "../ui/button/Button";
 import { useAuth } from "../../context/AuthContext";
+
+/** Accept 6-digit TOTP or alphanumeric backup code (8–32 chars). */
+const isValidCode = (value: string): boolean => {
+  const trimmed = value.trim();
+  return /^[0-9]{6}$/.test(trimmed) || /^[A-Za-z0-9]{8,32}$/.test(trimmed);
+};
 
 export default function MfaVerifyForm() {
   const location = useLocation();
@@ -13,12 +19,9 @@ export default function MfaVerifyForm() {
   const email = state.email || "";
   const mfaToken = state.mfaToken || "";
 
-  const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-  const codeValue = useMemo(() => code.join(""), [code]);
 
   useEffect(() => {
     if (!email || !mfaToken) {
@@ -26,40 +29,12 @@ export default function MfaVerifyForm() {
     }
   }, [email, mfaToken, navigate]);
 
-  const handleChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return;
-    const digits = value.replace(/\D/g, "");
-    const next = [...code];
-
-    // Support fast typing / autofill that may deliver multiple chars at once
-    if (digits.length <= 1) {
-      next[index] = digits;
-      setCode(next);
-      if (digits && index < 5) inputRefs.current[index + 1]?.focus();
-      return;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === "" || /^[A-Za-z0-9]*$/.test(value)) {
+      setCode(value);
+      setError("");
     }
-
-    for (let i = 0; i < digits.length && index + i < 6; i++) {
-      next[index + i] = digits[i];
-    }
-    setCode(next);
-    inputRefs.current[Math.min(index + digits.length, 5)]?.focus();
-  };
-
-  const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !code[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent) => {
-    e.preventDefault();
-    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
-    if (!pasted) return;
-    const next = [...code];
-    for (let i = 0; i < pasted.length && i < 6; i++) next[i] = pasted[i];
-    setCode(next);
-    inputRefs.current[Math.min(pasted.length, 5)]?.focus();
   };
 
   const redirectByRole = (roles: string[]) => {
@@ -72,14 +47,19 @@ export default function MfaVerifyForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (codeValue.length !== 6) {
-      setError("Please enter the complete 6-digit code.");
+    const trimmed = code.trim();
+    if (!trimmed) {
+      setError("Please enter your 6-digit Authenticator code or backup code.");
+      return;
+    }
+    if (!isValidCode(trimmed)) {
+      setError("Enter a 6-digit code from your Authenticator app, or a backup code (8–32 letters and numbers).");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const tokenData = await authService.verifyMfaLogin({ mfaToken, code: codeValue });
+      const tokenData = await authService.verifyMfaLogin({ mfaToken, code: trimmed });
       setAuthFromToken(tokenData);
       redirectByRole(tokenData.roles || []);
     } catch (err: unknown) {
@@ -107,7 +87,7 @@ export default function MfaVerifyForm() {
               Two-Factor Verification
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Enter the 6-digit code from your Authenticator app.
+              Enter the 6-digit code from your Authenticator app, or a backup code.
             </p>
             <p className="mt-1 text-sm font-medium text-gray-800 dark:text-white/90">{email}</p>
           </div>
@@ -120,25 +100,22 @@ export default function MfaVerifyForm() {
 
           <form onSubmit={handleSubmit}>
             <div className="space-y-6">
-              <div className="flex justify-center gap-3">
-                {code.map((digit, index) => (
-                  <input
-                    key={index}
-                    ref={(el) => {
-                      inputRefs.current[index] = el;
-                    }}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleChange(index, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(index, e)}
-                    onPaste={index === 0 ? handlePaste : undefined}
-                    className="w-12 h-14 text-center text-lg font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white transition-colors"
-                    placeholder="-"
-                    title={`Digit ${index + 1}`}
-                  />
-                ))}
+              <div>
+                <label htmlFor="mfa-code" className="sr-only">
+                  Verification code
+                </label>
+                <input
+                  id="mfa-code"
+                  type="text"
+                  inputMode="text"
+                  autoComplete="one-time-code"
+                  maxLength={32}
+                  value={code}
+                  onChange={handleChange}
+                  placeholder="6-digit code or backup code"
+                  className="w-full h-14 px-4 text-center text-lg font-semibold border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white transition-colors font-mono tracking-wider"
+                  title="Enter 6-digit Authenticator code or backup code"
+                />
               </div>
 
               <div>
@@ -159,4 +136,3 @@ export default function MfaVerifyForm() {
     </div>
   );
 }
-

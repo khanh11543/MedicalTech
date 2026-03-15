@@ -49,6 +49,8 @@ export default function PatientAccount() {
   const [mfaError, setMfaError] = useState<string | null>(null);
   const [mfaLoading, setMfaLoading] = useState(false);
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+  const [emailBackupCodesLoading, setEmailBackupCodesLoading] = useState(false);
+  const [emailBackupCodesMessage, setEmailBackupCodesMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -74,6 +76,7 @@ export default function PatientAccount() {
   const handleStartMfaSetup = async () => {
     setMfaError(null);
     setBackupCodes(null);
+    setEmailBackupCodesMessage(null);
     setMfaCode("");
     setMfaQr("");
     setMfaSecretInfo(null);
@@ -335,6 +338,7 @@ export default function PatientAccount() {
                     setMfaError(null);
                     setMfaCode("");
                     setBackupCodes(null);
+                    setEmailBackupCodesMessage(null);
                     setMfaDisableOpen(true);
                   }}
                   className="px-4 py-2 text-xs font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 transition-all shadow-md shadow-red-500/20 border-none cursor-pointer disabled:opacity-50"
@@ -373,13 +377,58 @@ export default function PatientAccount() {
             <p className="text-[11px] text-amber-800 mb-3">
               These codes are shown once. Store them somewhere safe. Each code can be used once if you lose access to your Authenticator.
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 mb-3">
               {backupCodes.map((c) => (
                 <div key={c} className="font-mono text-xs bg-white border border-amber-200 rounded-lg px-3 py-2 text-amber-900">
                   {c}
                 </div>
               ))}
             </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const text = "MedicalTech – Two-Factor Backup Codes\n\nSave these codes. Each can be used once to sign in if you lose your Authenticator app.\n\n" + backupCodes.join("\n");
+                  const blob = new Blob([text], { type: "text/plain" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "MedicalTech-backup-codes.txt";
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-amber-900 bg-white border border-amber-300 rounded-xl hover:bg-amber-50 transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                Download to device
+              </button>
+              <button
+                type="button"
+                disabled={emailBackupCodesLoading}
+                onClick={async () => {
+                  setEmailBackupCodesMessage(null);
+                  setEmailBackupCodesLoading(true);
+                  try {
+                    await authService.emailBackupCodes(backupCodes);
+                    setEmailBackupCodesMessage({ type: "success", text: "Backup codes sent to your email." });
+                  } catch (err: unknown) {
+                    const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to send email.";
+                    setEmailBackupCodesMessage({ type: "error", text: msg });
+                  } finally {
+                    setEmailBackupCodesLoading(false);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-amber-900 bg-white border border-amber-300 rounded-xl hover:bg-amber-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                {emailBackupCodesLoading ? "Sending..." : "Send to my email"}
+              </button>
+            </div>
+            {emailBackupCodesMessage && (
+              <p className={`mt-2 text-xs ${emailBackupCodesMessage.type === "success" ? "text-green-700" : "text-red-700"}`}>
+                {emailBackupCodesMessage.text}
+              </p>
+            )}
           </div>
         )}
       </div>

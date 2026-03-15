@@ -844,12 +844,18 @@ public class AuthService {
 
         String ipAddress = getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
+        String code = dto.getCode().trim();
 
-        boolean ok = mfaService.verifyAuthenticatorCode(user, dto.getCode());
+        boolean ok;
+        if (code.matches("^[0-9]{6}$")) {
+            ok = mfaService.verifyAuthenticatorCode(user, code);
+        } else {
+            ok = mfaService.tryUseBackupCode(user, code, ipAddress);
+        }
         if (!ok) {
             recordLoginAttempt(user, user.getEmail(), false,
-                    "Invalid MFA code", ipAddress, userAgent);
-            throw new InvalidOtpException("Invalid Authenticator code");
+                    "Invalid MFA or backup code", ipAddress, userAgent);
+            throw new InvalidOtpException("Invalid Authenticator code or backup code");
         }
 
         // Successful MFA completion — issue tokens

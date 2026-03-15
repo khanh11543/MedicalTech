@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.UnsupportedEncodingException;
 import java.security.SecureRandom;
+import java.util.List;
 
 /**
  * Email Service for sending emails via SMTP
@@ -136,6 +137,48 @@ public class EmailService {
             log.error("❌ Failed to send account locked email to: {}", email, e);
             // Don't throw exception for notification email
         }
+    }
+
+    /**
+     * Send two-factor backup codes to the user's email (e.g. after enabling Authenticator).
+     */
+    public void sendBackupCodesEmail(String email, List<String> backupCodes) {
+        if (email == null || backupCodes == null || backupCodes.isEmpty()) return;
+        try {
+            String subject = "Your Two-Factor Backup Codes - MedicalTech";
+            String htmlContent = buildBackupCodesEmailTemplate(backupCodes);
+            sendHtmlEmail(email, subject, htmlContent);
+            log.info("Backup codes email sent to: {}", email);
+        } catch (Exception e) {
+            log.error("Failed to send backup codes email to: {}", email, e);
+            throw new RuntimeException("Failed to send backup codes email. Please try again or download the codes.", e);
+        }
+    }
+
+    private String buildBackupCodesEmailTemplate(List<String> backupCodes) {
+        StringBuilder codesHtml = new StringBuilder();
+        for (String code : backupCodes) {
+            codesHtml.append("<div style='font-family:monospace;font-size:14px;padding:8px 12px;margin:4px 0;background:#f5f5f5;border-radius:6px;'>").append(code).append("</div>");
+        }
+        return "<!DOCTYPE html>\n" +
+                "<html>\n" +
+                "<head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'></head>\n" +
+                "<body style='font-family:Arial,sans-serif;line-height:1.6;color:#333;'>\n" +
+                "    <div style='max-width:600px;margin:0 auto;padding:20px;'>\n" +
+                "        <div style='background:linear-gradient(135deg,#049ebb 0%,#037a94 100%);color:white;padding:24px;text-align:center;border-radius:10px 10px 0 0;'>\n" +
+                "            <h1 style='margin:0;'>MedicalTech</h1>\n" +
+                "            <p style='margin:8px 0 0;'>Two-Factor Authentication</p>\n" +
+                "        </div>\n" +
+                "        <div style='background:#f9f9f9;padding:24px;border-radius:0 0 10px 10px;'>\n" +
+                "            <h2>Your backup codes</h2>\n" +
+                "            <p>Store these codes in a safe place. Each code can be used once to sign in if you lose access to your Authenticator app.</p>\n" +
+                "            <p><strong>These codes are shown only once.</strong> If you did not enable two-factor authentication, please secure your account immediately.</p>\n" +
+                "            <div style='margin:16px 0;'>" + codesHtml + "</div>\n" +
+                "        </div>\n" +
+                "        <p style='text-align:center;margin-top:20px;color:#777;font-size:12px;'>© 2026 MedicalTech. This is an automated email; please do not reply.</p>\n" +
+                "    </div>\n" +
+                "</body>\n" +
+                "</html>";
     }
 
     /**
