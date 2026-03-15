@@ -502,7 +502,7 @@ public class AuthService {
         var optionalUser = userRepository.findByEmail(forgotPasswordDTO.getEmail());
         if (optionalUser.isEmpty()) {
             log.info("Forgot password requested for unknown email: {}", forgotPasswordDTO.getEmail());
-            return MessageDTO.success("If this email is registered, a new password has been sent. It is valid for " + resetTokenExpiryMinutes + " minutes. Please sign in and go to Profile to change your password.");
+            throw new ResourceNotFoundException("Email is not registered.");
         }
 
         User user = optionalUser.get();
