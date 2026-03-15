@@ -89,6 +89,7 @@ export default function AppointmentPage() {
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     publicService.getSpecialties().then((list) => setDepartments(list)).catch(() => {});
@@ -131,12 +132,21 @@ export default function AppointmentPage() {
 
   const selectedSlot = timeSlots.find((s) => String(s.id) === formData.timeSlotId);
 
+  const validatePhone = (phone: string): string | null => {
+    const digits = phone.replace(/\D/g, "").replace(/^0+/, "") || phone.replace(/\D/g, "");
+    if (!digits) return "Please enter your phone number.";
+    if (digits.length !== 10 && digits.length !== 11) return "Phone number should be 10–11 digits.";
+    if (digits.length === 10 && !/^[3-9]/.test(digits)) return "Vietnamese number should start with 3, 5, 7, 8, or 9.";
+    return null;
+  };
+
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >
   ) => {
     const { name, value } = e.target;
+    setFieldErrors((prev) => ({ ...prev, [name]: "" }));
     if (name === "department") {
       const selectedDoc = doctors.find((d) => String(d.id) === formData.doctor);
       const doctorStillValid = selectedDoc?.primarySpecialty === value;
@@ -150,29 +160,45 @@ export default function AppointmentPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setSubmitting(true);
     setError("");
+    setFieldErrors({});
+
+    if (!isAuthenticated || !user) {
+      setError("Please sign in to book an appointment.");
+      return;
+    }
+    if (!user.roles.includes("PATIENT")) {
+      setError("Only patients can book appointments. Please sign in with a patient account.");
+      return;
+    }
+
+    const err: Record<string, string> = {};
+    if (!formData.name?.trim()) err.name = "Please enter your full name.";
+    if (!formData.email?.trim()) err.email = "Please enter your email.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      err.email = "Please enter a valid email address (e.g. name@example.com).";
+    }
+    if (!formData.phone?.trim()) err.phone = "Please enter your phone number.";
+    else {
+      const phoneErr = validatePhone(formData.phone);
+      if (phoneErr) err.phone = phoneErr;
+    }
+    if (!formData.department) err.department = "Please select a department.";
+    if (!formData.date) err.date = "Please select appointment date.";
+    if (!formData.doctor) err.doctor = "Please select a doctor.";
+    if (Object.keys(err).length > 0) {
+      setFieldErrors(err);
+      setError("Please fill in all required fields correctly.");
+      return;
+    }
+    if (!selectedSlot) {
+      setError("Please select a time slot before booking.");
+      setFieldErrors((prev) => ({ ...prev, timeSlotId: "Please select a time slot." }));
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      if (!isAuthenticated || !user) {
-        setError("Please sign in to book an appointment.");
-        setSubmitting(false);
-        return;
-      }
-      if (!user.roles.includes("PATIENT")) {
-        setError("Only patients can book appointments. Please sign in with a patient account.");
-        setSubmitting(false);
-        return;
-      }
-      if (!formData.doctor || !formData.date) {
-        setError("Please select a doctor and appointment date.");
-        setSubmitting(false);
-        return;
-      }
-      if (!selectedSlot) {
-        setError("Please select a time slot before booking.");
-        setSubmitting(false);
-        return;
-      }
       await patientService.bookAppointment({
         patientId: user.userId,
         doctorId: Number(formData.doctor),
@@ -266,71 +292,89 @@ export default function AppointmentPage() {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit} noValidate>
                 <div className="appt-form-grid">
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="Your Full Name"
-                    required
-                    value={formData.name}
-                    onChange={handleChange}
-                    className="appt-input"
-                  />
-                  <input
-                    type="email"
-                    name="email"
-                    placeholder="Your Email"
-                    required
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="appt-input"
-                  />
-                  <input
-                    type="tel"
-                    name="phone"
-                    placeholder="Your Phone Number"
-                    required
-                    value={formData.phone}
-                    onChange={handleChange}
-                    className="appt-input"
-                  />
-                  <select
-                    name="department"
-                    required
-                    value={formData.department}
-                    onChange={handleChange}
-                    className="appt-input appt-select"
-                    aria-label="Select Department"
-                  >
-                    <option value="">Select Department</option>
-                    {departments.map((dep) => (
-                      <option key={dep.id} value={dep.name}>{dep.name}</option>
-                    ))}
-                  </select>
-                  <input
-                    type="date"
-                    name="date"
-                    required
-                    value={formData.date}
-                    onChange={handleChange}
-                    min={(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })()}
-                    className="appt-input"
-                    aria-label="Appointment Date"
-                  />
-                  <select
-                    name="doctor"
-                    required
-                    value={formData.doctor}
-                    onChange={handleChange}
-                    className="appt-input appt-select"
-                    aria-label="Select Doctor"
-                  >
-                    <option value="">Select Doctor</option>
-                    {filteredDoctors.map((doc) => (
-                      <option key={doc.id} value={String(doc.id)}>{doc.fullName}</option>
-                    ))}
-                  </select>
+                  <div className="appt-field-wrap">
+                    <input
+                      type="text"
+                      name="name"
+                      placeholder="Your Full Name"
+                      required
+                      value={formData.name}
+                      onChange={handleChange}
+                      className={`appt-input ${fieldErrors.name ? "appt-input--error" : ""}`}
+                    />
+                    {fieldErrors.name && <p className="appt-field-error">{fieldErrors.name}</p>}
+                  </div>
+                  <div className="appt-field-wrap">
+                    <input
+                      type="email"
+                      name="email"
+                      placeholder="Your Email"
+                      required
+                      value={formData.email}
+                      onChange={handleChange}
+                      className={`appt-input ${fieldErrors.email ? "appt-input--error" : ""}`}
+                    />
+                    {fieldErrors.email && <p className="appt-field-error">{fieldErrors.email}</p>}
+                  </div>
+                  <div className="appt-field-wrap">
+                    <input
+                      type="tel"
+                      name="phone"
+                      placeholder="Your Phone Number"
+                      required
+                      value={formData.phone}
+                      onChange={handleChange}
+                      className={`appt-input ${fieldErrors.phone ? "appt-input--error" : ""}`}
+                    />
+                    {fieldErrors.phone && <p className="appt-field-error">{fieldErrors.phone}</p>}
+                  </div>
+                  <div className="appt-field-wrap">
+                    <select
+                      name="department"
+                      required
+                      value={formData.department}
+                      onChange={handleChange}
+                      className={`appt-input appt-select ${fieldErrors.department ? "appt-input--error" : ""}`}
+                      aria-label="Select Department"
+                    >
+                      <option value="">Select Department</option>
+                      {departments.map((dep) => (
+                        <option key={dep.id} value={dep.name}>{dep.name}</option>
+                      ))}
+                    </select>
+                    {fieldErrors.department && <p className="appt-field-error">{fieldErrors.department}</p>}
+                  </div>
+                  <div className="appt-field-wrap">
+                    <input
+                      type="date"
+                      name="date"
+                      required
+                      value={formData.date}
+                      onChange={handleChange}
+                      min={(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })()}
+                      className={`appt-input ${fieldErrors.date ? "appt-input--error" : ""}`}
+                      aria-label="Appointment Date"
+                    />
+                    {fieldErrors.date && <p className="appt-field-error">{fieldErrors.date}</p>}
+                  </div>
+                  <div className="appt-field-wrap">
+                    <select
+                      name="doctor"
+                      required
+                      value={formData.doctor}
+                      onChange={handleChange}
+                      className={`appt-input appt-select ${fieldErrors.doctor ? "appt-input--error" : ""}`}
+                      aria-label="Select Doctor"
+                    >
+                      <option value="">Select Doctor</option>
+                      {filteredDoctors.map((doc) => (
+                        <option key={doc.id} value={String(doc.id)}>{doc.fullName}</option>
+                      ))}
+                    </select>
+                    {fieldErrors.doctor && <p className="appt-field-error">{fieldErrors.doctor}</p>}
+                  </div>
                 </div>
 
                 {/* Time Slot Picker */}
@@ -344,6 +388,9 @@ export default function AppointmentPage() {
                         </span>
                       )}
                     </label>
+                    {fieldErrors.timeSlotId && (
+                      <p className="appt-field-error" style={{ marginTop: "4px" }}>{fieldErrors.timeSlotId}</p>
+                    )}
                     {slotsLoading ? (
                       <div className="appt-timeslot-loading">
                         <div className="appt-timeslot-spinner" />
@@ -375,12 +422,13 @@ export default function AppointmentPage() {
                                 key={slot.id}
                                 type="button"
                                 disabled={!isSelectable}
-                                onClick={() =>
+                                onClick={() => {
                                   setFormData((prev) => ({
                                     ...prev,
                                     timeSlotId: String(slot.id),
-                                  }))
-                                }
+                                  }));
+                                  setFieldErrors((prev) => ({ ...prev, timeSlotId: "" }));
+                                }}
                                 className={`appt-timeslot-btn ${
                                   isSelected
                                     ? "appt-timeslot-btn--selected"

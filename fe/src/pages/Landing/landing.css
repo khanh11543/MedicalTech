@@ -2245,6 +2245,28 @@
   box-shadow: 0 0 0 3px rgba(4, 158, 187, 0.12);
 }
 
+.appt-input.appt-input--error {
+  border-color: #dc2626;
+  background-color: #fef2f2;
+}
+
+.appt-input.appt-input--error:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.appt-field-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.appt-field-error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: #dc2626;
+}
+
 .appt-select {
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8.825a.5.5 0 0 1-.354-.146l-4-4a.5.5 0 0 1 .708-.708L6 7.617l3.646-3.646a.5.5 0 0 1 .708.708l-4 4A.5.5 0 0 1 6 8.825Z'/%3E%3C/svg%3E");
@@ -2704,6 +2726,22 @@
 .ct-input:focus {
   border-color: var(--mt-primary);
   box-shadow: 0 0 0 3px rgba(4, 158, 187, 0.15);
+}
+
+.ct-input.ct-input--error {
+  border-color: #dc2626;
+  background-color: #fef2f2;
+}
+
+.ct-input.ct-input--error:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.ct-field-error {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: #dc2626;
 }
 
 .ct-textarea {

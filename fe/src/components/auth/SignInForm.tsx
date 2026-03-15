@@ -16,6 +16,8 @@ export default function SignInForm() {
   const [email, setEmail] = useState(rememberedEmail || "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { login } = useAuth();
@@ -24,9 +26,15 @@ export default function SignInForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setEmailError("");
+    setPasswordError("");
 
-    if (!email || !password) {
+    const missingEmail = !email?.trim();
+    const missingPassword = !password?.trim();
+    if (missingEmail || missingPassword) {
       setError("Please enter both email and password.");
+      if (missingEmail) setEmailError("Please enter your email.");
+      if (missingPassword) setPasswordError("Please enter your password.");
       return;
     }
 
@@ -126,7 +134,12 @@ export default function SignInForm() {
                     type="email"
                     placeholder="Enter your email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (emailError) setEmailError("");
+                    }}
+                    error={!!emailError}
+                    hint={emailError}
                   />
                 </div>
                 <div>
@@ -138,7 +151,12 @@ export default function SignInForm() {
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (passwordError) setPasswordError("");
+                      }}
+                      error={!!passwordError}
+                      hint={passwordError}
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}

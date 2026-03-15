@@ -44,17 +44,36 @@ export default function ContactPage() {
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    setForm({ ...form, [name]: value });
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setSending(true);
     setError("");
+    setFieldErrors({});
+
+    const err: Record<string, string> = {};
+    if (!form.name?.trim()) err.name = "Please enter your full name.";
+    if (!form.email?.trim()) err.email = "Please enter your email.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      err.email = "Please enter a valid email address (e.g. name@example.com).";
+    }
+    if (!form.subject?.trim()) err.subject = "Please enter a subject.";
+    if (!form.message?.trim()) err.message = "Please enter your message.";
+    if (Object.keys(err).length > 0) {
+      setFieldErrors(err);
+      setError("Please fill in all required fields correctly.");
+      return;
+    }
+
+    setSending(true);
     try {
       await publicService.submitContact(form);
       setSent(true);
@@ -151,19 +170,19 @@ export default function ContactPage() {
                   </div>
                 )}
 
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} noValidate>
                   <div className="ct-form-group">
                     <input
                       id="contact-name"
                       type="text"
                       name="name"
-                      required
                       placeholder=" "
                       value={form.name}
                       onChange={handleChange}
-                      className="ct-input"
+                      className={`ct-input ${fieldErrors.name ? "ct-input--error" : ""}`}
                     />
                     <label htmlFor="contact-name" className="ct-label">Full Name</label>
+                    {fieldErrors.name && <p className="ct-field-error">{fieldErrors.name}</p>}
                   </div>
 
                   <div className="ct-form-group">
@@ -171,13 +190,13 @@ export default function ContactPage() {
                       id="contact-email"
                       type="email"
                       name="email"
-                      required
                       placeholder=" "
                       value={form.email}
                       onChange={handleChange}
-                      className="ct-input"
+                      className={`ct-input ${fieldErrors.email ? "ct-input--error" : ""}`}
                     />
                     <label htmlFor="contact-email" className="ct-label">Email Address</label>
+                    {fieldErrors.email && <p className="ct-field-error">{fieldErrors.email}</p>}
                   </div>
 
                   <div className="ct-form-group">
@@ -185,27 +204,27 @@ export default function ContactPage() {
                       id="contact-subject"
                       type="text"
                       name="subject"
-                      required
                       placeholder=" "
                       value={form.subject}
                       onChange={handleChange}
-                      className="ct-input"
+                      className={`ct-input ${fieldErrors.subject ? "ct-input--error" : ""}`}
                     />
                     <label htmlFor="contact-subject" className="ct-label">Subject</label>
+                    {fieldErrors.subject && <p className="ct-field-error">{fieldErrors.subject}</p>}
                   </div>
 
                   <div className="ct-form-group">
                     <textarea
                       id="contact-message"
                       name="message"
-                      required
                       placeholder=" "
                       rows={4}
                       value={form.message}
                       onChange={handleChange}
-                      className="ct-input ct-textarea"
+                      className={`ct-input ct-textarea ${fieldErrors.message ? "ct-input--error" : ""}`}
                     />
                     <label htmlFor="contact-message" className="ct-label">Your Message</label>
+                    {fieldErrors.message && <p className="ct-field-error">{fieldErrors.message}</p>}
                   </div>
 
                   <button type="submit" className="ct-submit-btn" disabled={sending}>
