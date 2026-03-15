@@ -23,17 +23,29 @@ export default function SignInForm() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const validateEmail = (value: string): string | null => {
+    const trimmed = value?.trim() ?? "";
+    if (!trimmed) return "Please enter your email.";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      if (trimmed.includes("@") && !trimmed.split("@")[1]?.includes("."))
+        return "Please enter a part following '@'. Email is incomplete.";
+      return "Please enter a valid email address.";
+    }
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setEmailError("");
     setPasswordError("");
 
-    const missingEmail = !email?.trim();
+    const emailErr = validateEmail(email);
     const missingPassword = !password?.trim();
-    if (missingEmail || missingPassword) {
-      setError("Please enter both email and password.");
-      if (missingEmail) setEmailError("Please enter your email.");
+    if (emailErr || missingPassword) {
+      setError(emailErr || "Please enter both email and password.");
+      if (emailErr) setEmailError(emailErr);
       if (missingPassword) setPasswordError("Please enter your password.");
       return;
     }
@@ -124,7 +136,7 @@ export default function SignInForm() {
                 {error}
               </div>
             )}
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
               <div className="space-y-6">
                 <div>
                   <Label>

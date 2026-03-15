@@ -50,6 +50,18 @@ export default function SignUpForm() {
 
   const navigate = useNavigate();
 
+  const validateEmail = (value: string): string | null => {
+    const trimmed = value?.trim() ?? "";
+    if (!trimmed) return "Please enter your email.";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      if (trimmed.includes("@") && !trimmed.split("@")[1]?.includes("."))
+        return "Please enter a part following '@'. Email is incomplete.";
+      return "Please enter a valid email address.";
+    }
+    return null;
+  };
+
   const validatePassword = (pwd: string): string | null => {
     const pattern =
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
@@ -110,16 +122,16 @@ export default function SignUpForm() {
     setConfirmPasswordError("");
     setTermsError("");
 
-    const missingEmail = !email?.trim();
+    const emailErr = validateEmail(email);
     const missingPhone =
       phoneCountryCode === "+ other"
         ? !phoneNumber.trim()
         : !normalizePhoneDigits(phoneNumber);
     const missingPassword = !password;
     const missingConfirm = !confirmPassword;
-    if (missingEmail || missingPhone || missingPassword || missingConfirm) {
+    if (emailErr || missingPhone || missingPassword || missingConfirm) {
       setError("Please fill in all required fields.");
-      if (missingEmail) setEmailError("Please enter your email.");
+      if (emailErr) setEmailError(emailErr);
       if (missingPhone) setPhoneError("Please enter your phone number.");
       if (missingPassword) setPasswordError("Please enter your password.");
       if (missingConfirm) setConfirmPasswordError("Please confirm your password.");
@@ -205,7 +217,7 @@ export default function SignUpForm() {
                 {error}
               </div>
             )}
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
               <div className="space-y-5">
                 {/* Email */}
                 <div>
