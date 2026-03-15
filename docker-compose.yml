@@ -1,0 +1,41 @@
+# Ports tránh trùng server: 80, 8080, 8000, 9443, 1776, 6379, 25565
+# MedicalTech: FE 3000, BE 8081. MySQL dùng sẵn trên server (port 1776).
+services:
+  be:
+    build:
+      context: ./be
+      dockerfile: Dockerfile
+    container_name: meditech-be
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://${MYSQL_HOST:-host.docker.internal}:${MYSQL_PORT:-1776}/${MYSQL_DATABASE:-medical_appointment_system}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&rewriteBatchedStatements=true
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+      SPRING_DATASOURCE_HIKARI_INITIALIZATION_FAIL_TIMEOUT: 60000
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SERVER_ADDRESS: 0.0.0.0
+      APP_CORS_ALLOWED_ORIGINS: "${APP_CORS_ALLOWED_ORIGINS:-http://localhost,http://localhost:80,http://localhost:3000,http://localhost:5173,http://127.0.0.1:80,http://127.0.0.1:3000,http://192.168.1.69,http://192.168.1.69:3000,http://192.168.1.120,http://192.168.1.120:3000}"
+    ports:
+      - "8081:8080"
+    volumes:
+      - be_uploads:/app/uploads
+      - be_backups:/app/backups
+
+  fe:
+    build:
+      context: ./fe
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    container_name: meditech-fe
+    restart: unless-stopped
+    depends_on:
+      - be
+    ports:
+      - "3000:80"
+
+volumes:
+  be_uploads:
+  be_backups:
