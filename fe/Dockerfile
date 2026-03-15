@@ -8,10 +8,9 @@ WORKDIR /app
 ARG VITE_API_BASE_URL=/api
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 
-COPY package.json package-lock.json ./
-# npm ci: nhanh hơn npm install, dùng đúng version trong lock file (cần có package-lock.json)
+COPY package.json ./
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline --no-audit
+    npm install --prefer-offline --no-audit
 
 COPY . .
 RUN npm run build:docker
