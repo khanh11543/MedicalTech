@@ -65,6 +65,37 @@ public class DoctorAppointmentController {
         return ResponseEntity.ok(result);
     }
     
+    /**
+     * Doctor views their appointment history (completed, cancelled, no-show, rescheduled)
+     * GET /api/doctor/appointments/history
+     */
+    @GetMapping("/history")
+    public ResponseEntity<Page<AppointmentDTO>> getAppointmentHistory(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo,
+            @RequestParam(defaultValue = "0") Integer pageNumber,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        Long doctorId = getDoctorIdFromUser(userDetails);
+        
+        // Parse dates outside builder to avoid type inference issues
+        LocalDate parsedFrom = dateFrom != null && !dateFrom.isBlank() ? LocalDate.parse(dateFrom) : null;
+        LocalDate parsedTo = dateTo != null && !dateTo.isBlank() ? LocalDate.parse(dateTo) : null;
+        
+        AppointmentFilterDTO filter = AppointmentFilterDTO.builder()
+                .status(status != null ? AppointmentStatus.valueOf(status.toUpperCase()) : null)
+                .from(parsedFrom)
+                .to(parsedTo)
+                .pageNumber(pageNumber)
+                .pageSize(pageSize)
+                .build();
+        
+        Page<AppointmentDTO> result = appointmentService.getDoctorAppointmentHistory(doctorId, filter);
+        return ResponseEntity.ok(result);
+    }
+    
     // Helper methods
     private Long getCurrentUserId(UserDetails userDetails) {
         return SecurityUtil.getCurrentUserId();

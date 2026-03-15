@@ -242,6 +242,30 @@ public class AppointmentServiceImpl implements AppointmentService {
         return appointments.map(appointmentMapper::toDTO);
     }
     
+    @Override
+    @Transactional(readOnly = true)
+    public Page<AppointmentDTO> getDoctorAppointmentHistory(Long doctorId, AppointmentFilterDTO filter) {
+        log.info("Getting appointment history for doctor {}", doctorId);
+        
+        filter.setDoctorId(doctorId);
+        // Set statuses to only include history statuses
+        filter.setStatuses(Arrays.asList(
+                AppointmentStatus.COMPLETED,
+                AppointmentStatus.CANCELLED,
+                AppointmentStatus.NO_SHOW,
+                AppointmentStatus.RESCHEDULED
+        ));
+        
+        Pageable pageable = createPageable(filter);
+        
+        Page<Appointment> appointments = appointmentRepository.findAll(
+                AppointmentSpecification.withFilter(filter), 
+                pageable
+        );
+        
+        return appointments.map(appointmentMapper::toDTO);
+    }
+    
     /**
      * SHARED confirm appointment — role-aware.
      * DOCTOR: verifies ownership. RECEPTIONIST/ADMIN: can confirm any PENDING appointment.

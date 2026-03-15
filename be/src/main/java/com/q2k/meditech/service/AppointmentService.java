@@ -29,6 +29,11 @@ public interface AppointmentService {
      */
     Page<AppointmentDTO> getDoctorAppointments(Long doctorId, AppointmentFilterDTO filter);
     
+    /**
+     * Get doctor's appointment history (completed, cancelled, no-show, rescheduled)
+     */
+    Page<AppointmentDTO> getDoctorAppointmentHistory(Long doctorId, AppointmentFilterDTO filter);
+    
     // === RECEPTIONIST APIs ===
     /**
      * Check-in a patient and assign queue number

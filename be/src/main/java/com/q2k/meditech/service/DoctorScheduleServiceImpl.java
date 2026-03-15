@@ -3,6 +3,7 @@ package com.q2k.meditech.service;
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.dto.mapper.DoctorScheduleMapper;
 import com.q2k.meditech.entity.*;
+import com.q2k.meditech.entity.enums.SlotSource;
 import com.q2k.meditech.entity.enums.TimeSlotStatus;
 import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
@@ -361,6 +362,116 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
 
         log.info("Slot unblocked successfully: {}", slotId);
         return mapper.toTimeSlotDTO(slot);
+    }
+
+    @Override
+    public List<TimeSlotDTO> listTimeSlots(Long doctorId, String startDate, String endDate) {
+        log.info("Listing time slots for doctor ID: {} from {} to {}",
+                doctorId, startDate, endDate);
+
+        LocalDate start = LocalDate.parse(startDate);
+        LocalDate end = LocalDate.parse(endDate);
+
+        List<TimeSlot> slots = timeSlotRepository.findByDoctorIdAndDateRange(doctorId, start, end);
+
+        return mapper.toTimeSlotDTOList(slots);
+    }
+
+    @Override
+    @Transactional
+    public TimeSlotDTO createTimeSlot(Long doctorId, TimeSlotDTO dto) {
+        log.info("Creating time slot for doctor ID: {}, date: {}, time: {}-{}",
+                doctorId, dto.getSlotDate(), dto.getStartTime(), dto.getEndTime());
+
+        // Validate doctor exists
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + doctorId));
+
+        // Validate time range
+        validateTimeRange(dto.getStartTime(), dto.getEndTime());
+
+        // Check for overlap
+        List<TimeSlot> overlapping = timeSlotRepository.findOverlappingSlots(
+                doctorId, dto.getSlotDate(), dto.getStartTime(), dto.getEndTime(), null);
+
+        if (!overlapping.isEmpty()) {
+            throw new BadRequestException("Time slot overlaps with existing slots");
+        }
+
+        // Create entity
+        TimeSlot slot = new TimeSlot();
+        slot.setDoctor(doctor);
+        slot.setSlotDate(dto.getSlotDate());
+        slot.setStartTime(dto.getStartTime());
+        slot.setEndTime(dto.getEndTime());
+        slot.setStatus(TimeSlotStatus.AVAILABLE);
+        slot.setSource(SlotSource.MANUAL);
+
+        slot = timeSlotRepository.save(slot);
+        log.info("Time slot created successfully with ID: {}", slot.getId());
+
+        return mapper.toTimeSlotDTO(slot);
+    }
+
+    @Override
+    @Transactional
+    public TimeSlotDTO updateTimeSlot(Long doctorId, Long slotId, TimeSlotDTO dto) {
+        log.info("Updating time slot ID: {} for doctor ID: {}", slotId, doctorId);
+
+        TimeSlot slot = timeSlotRepository.findByIdWithDoctor(slotId)
+                .orElseThrow(() -> new ResourceNotFoundException("Time slot not found with id: " + slotId));
+
+        // Verify ownership
+        if (!slot.getDoctor().getId().equals(doctorId)) {
+            throw new BadRequestException("You can only update your own time slots");
+        }
+
+        // Can only update AVAILABLE or BLOCKED slots
+        if (!slot.isEditable()) {
+            throw new BadRequestException("Cannot update a " + slot.getStatus() + " time slot");
+        }
+
+        // Validate new time range
+        validateTimeRange(dto.getStartTime(), dto.getEndTime());
+
+        // Check for overlap (excluding current slot)
+        List<TimeSlot> overlapping = timeSlotRepository.findOverlappingSlots(
+                doctorId, slot.getSlotDate(), dto.getStartTime(), dto.getEndTime(), slotId);
+
+        if (!overlapping.isEmpty()) {
+            throw new BadRequestException("Updated times would overlap with existing slots");
+        }
+
+        // Update fields
+        slot.setStartTime(dto.getStartTime());
+        slot.setEndTime(dto.getEndTime());
+
+        slot = timeSlotRepository.save(slot);
+        log.info("Time slot updated successfully: {}", slotId);
+
+        return mapper.toTimeSlotDTO(slot);
+    }
+
+    @Override
+    @Transactional
+    public void deleteTimeSlot(Long doctorId, Long slotId) {
+        log.info("Deleting time slot ID: {} for doctor ID: {}", slotId, doctorId);
+
+        TimeSlot slot = timeSlotRepository.findByIdWithDoctor(slotId)
+                .orElseThrow(() -> new ResourceNotFoundException("Time slot not found with id: " + slotId));
+
+        // Verify ownership
+        if (!slot.getDoctor().getId().equals(doctorId)) {
+            throw new BadRequestException("You can only delete your own time slots");
+        }
+
+        // Can only delete AVAILABLE slots
+        if (!slot.isDeletable()) {
+            throw new BadRequestException("Cannot delete a " + slot.getStatus() + " time slot");
+        }
+
+        timeSlotRepository.delete(slot);
+        log.info("Time slot deleted successfully: {}", slotId);
     }
 
     @Override
