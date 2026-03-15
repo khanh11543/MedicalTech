@@ -12,7 +12,6 @@ import {
   DocsIcon,
   DollarLineIcon,
   DownloadIcon,
-  FileIcon,
   GridIcon,
   GroupIcon,
   HorizontaLDots,
@@ -145,11 +144,6 @@ const navItems: NavItem[] = [
     icon: <ShootingStarIcon />,
     name: "Review Management",
     path: "/admin/review-list",
-  },
-  {
-    icon: <FileIcon />,
-    name: "Content Management",
-    subItems: [{ name: "Content List", path: "/admin/content-list", pro: false }],
   },
   {
     icon: <UserCircleIcon />,

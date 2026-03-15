@@ -208,7 +208,11 @@ export default function ReportsAnalyticsPage() {
                   borderColor: "#fff",
                 }],
               }}
-              options={{ responsive: true, plugins: { legend: { position: "bottom" } } }}
+              options={{
+                responsive: true,
+                layout: { padding: 20 },
+                plugins: { legend: { position: "bottom" } },
+              }}
             />
           </div>
 
@@ -243,7 +247,15 @@ export default function ReportsAnalyticsPage() {
                     borderColor: "#fff",
                   }],
                 }}
-                options={{ responsive: true, plugins: { legend: { position: "bottom" } } }}
+                options={{
+                  responsive: true,
+                  layout: { padding: 20 },
+                  cutout: "55%",
+                  plugins: {
+                    legend: { position: "bottom" },
+                    doughnutCenter: { label: "Total" },
+                  },
+                }}
               />
             ) : (
               <p className="text-gray-500 dark:text-gray-400 text-center py-8">No specialty data</p>

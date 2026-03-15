@@ -31,7 +31,7 @@ import { Doughnut } from "react-chartjs-2";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
-/** Plugin: draw "Total" + sum in doughnut center and percentage on each segment */
+/** Plugin: draw "Total" + sum in doughnut center and percentage on each segment. Respects legend toggle (hidden segments excluded). */
 const doughnutCenterAndPercentPlugin = {
   id: "doughnutCenterAndPercent",
   afterDraw(chart: ChartJS) {
@@ -40,7 +40,9 @@ const doughnutCenterAndPercentPlugin = {
     const meta = chart.getDatasetMeta(0);
     if (!meta?.data?.length) return;
     const data = chart.data.datasets[0]?.data as number[];
-    const total = data.reduce((a, b) => a + b, 0);
+    const arcs = meta.data as Array<{ hidden?: boolean; tooltipPosition?: () => { x: number; y: number } }>;
+    const visibleTotal = data.reduce((sum, val, i) => sum + (arcs[i]?.hidden ? 0 : Number(val ?? 0)), 0);
+
     const firstArc = meta.data[0] as unknown as {
       x?: number;
       y?: number;
@@ -53,12 +55,12 @@ const doughnutCenterAndPercentPlugin = {
     const outerRadius = firstArc.outerRadius ?? 0;
     const ringWidth = Math.max(1, outerRadius - innerRadius);
 
-    // Center text: "Total" + number (scale with donut size to avoid zoom misalignment)
+    // Center text: "Total" + number (smaller font)
     const opts = (chart.options.plugins as Record<string, unknown>)?.doughnutCenter as { label?: string } | undefined;
     const label = opts?.label ?? "Total";
-    const labelFontPx = Math.max(12, Math.round(ringWidth * 0.55));
-    const valueFontPx = Math.max(18, Math.round(ringWidth * 0.95));
-    const labelOffsetY = Math.max(10, Math.round(ringWidth * 0.55));
+    const labelFontPx = Math.max(10, Math.round(ringWidth * 0.42));
+    const valueFontPx = Math.max(14, Math.round(ringWidth * 0.72));
+    const labelOffsetY = Math.max(8, Math.round(ringWidth * 0.42));
     ctx.save();
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -66,25 +68,36 @@ const doughnutCenterAndPercentPlugin = {
     ctx.font = `600 ${labelFontPx}px sans-serif`;
     ctx.fillText(label, centerX, centerY - labelOffsetY);
     ctx.font = `700 ${valueFontPx}px sans-serif`;
-    ctx.fillText(String(total), centerX, centerY + Math.round(valueFontPx * 0.15));
+    ctx.fillText(String(visibleTotal), centerX, centerY + Math.round(valueFontPx * 0.15));
     ctx.restore();
 
-    // Percentage on each segment (use arc.tooltipPosition() for accurate placement across zoom / DPR)
-    meta.data.forEach((arc: { tooltipPosition?: () => { x: number; y: number } }, i: number) => {
+    // Percentage on each segment – only for visible segments, smaller font, keep inside chart area
+    const chartArea = chart.chartArea || { left: 0, right: chart.width, top: 0, bottom: chart.height };
+    const padding = 4;
+    const minX = chartArea.left + padding;
+    const maxX = chartArea.right - padding;
+    const minY = chartArea.top + padding;
+    const maxY = chartArea.bottom - padding;
+
+    arcs.forEach((arc, i) => {
+      if (arc.hidden || visibleTotal === 0) return;
       const value = Number(data[i] ?? 0);
-      if (total === 0 || value === 0) return;
-      const pct = (value / total) * 100;
-      if (pct < 2) return; // skip tiny slices to avoid clutter
+      if (value === 0) return;
+      const pct = (value / visibleTotal) * 100;
+      if (pct < 2) return;
       const pos = arc.tooltipPosition ? arc.tooltipPosition() : { x: centerX, y: centerY };
-      const x = pos.x;
-      const y = pos.y;
+      const pctFontPx = Math.max(9, Math.round(ringWidth * 0.30));
+      ctx.font = `600 ${pctFontPx}px sans-serif`;
+      const text = `${pct.toFixed(1)}%`;
+      const textWidth = ctx.measureText(text).width;
+      const halfW = textWidth / 2;
+      const x = Math.max(minX + halfW, Math.min(maxX - halfW, pos.x));
+      const y = Math.max(minY + pctFontPx / 2, Math.min(maxY - pctFontPx / 2, pos.y));
       ctx.save();
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = "#fff";
-      const pctFontPx = Math.max(11, Math.round(ringWidth * 0.45));
-      ctx.font = `600 ${pctFontPx}px sans-serif`;
-      ctx.fillText(`${pct.toFixed(1)}%`, x, y);
+      ctx.fillText(text, x, y);
       ctx.restore();
     });
   },
@@ -245,6 +258,7 @@ export default function Home() {
                 responsive: true,
                 maintainAspectRatio: true,
                 aspectRatio: 1.1,
+                layout: { padding: 20 },
                 cutout: "65%",
                 plugins: {
                   legend: { position: "bottom", labels: { font: { size: 14 }, padding: 16 } },
@@ -287,6 +301,7 @@ export default function Home() {
                 responsive: true,
                 maintainAspectRatio: true,
                 aspectRatio: 1.1,
+                layout: { padding: 20 },
                 cutout: "65%",
                 plugins: {
                   legend: { position: "bottom", labels: { font: { size: 14 }, padding: 16 } },
@@ -329,6 +344,7 @@ export default function Home() {
                 responsive: true,
                 maintainAspectRatio: true,
                 aspectRatio: 1.1,
+                layout: { padding: 20 },
                 cutout: "65%",
                 plugins: {
                   legend: { position: "bottom", labels: { font: { size: 14 }, padding: 16 } },

@@ -253,7 +253,6 @@
   background: #f2f8f9;
 }
 
-/* 3-column grid */
 .dept-grid {
   display: grid;
   grid-template-columns: 1fr;

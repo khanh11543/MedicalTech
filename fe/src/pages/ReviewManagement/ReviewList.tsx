@@ -319,6 +319,62 @@ export default function ReviewList() {
               </table>
             </div>
 
+            {/* Moderate modal */}
+            {moderateModal.open && moderateModal.review && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={() => setModerateModal((m) => ({ ...m, open: false }))}>
+                <div
+                  className="w-full max-w-lg rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Moderate Review #{moderateModal.review.id}</h3>
+                  </div>
+                  <div className="px-6 py-4 space-y-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {moderateModal.review.comment || "No comment"}
+                    </p>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Visibility</label>
+                      <select
+                        value={moderateModal.isVisible ? "true" : "false"}
+                        onChange={(e) => setModerateModal((m) => ({ ...m, isVisible: e.target.value === "true" }))}
+                        className="w-full rounded border border-gray-300 dark:border-white/[0.1] bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white"
+                      >
+                        <option value="true">Visible</option>
+                        <option value="false">Hidden</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Admin response (optional)</label>
+                      <textarea
+                        value={moderateModal.adminResponse}
+                        onChange={(e) => setModerateModal((m) => ({ ...m, adminResponse: e.target.value }))}
+                        rows={3}
+                        placeholder="Reply to the patient..."
+                        className="w-full rounded border border-gray-300 dark:border-white/[0.1] bg-white dark:bg-gray-800 px-4 py-2 text-gray-900 dark:text-white placeholder-gray-400"
+                      />
+                    </div>
+                  </div>
+                  <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setModerateModal((m) => ({ ...m, open: false }))}
+                      className="rounded bg-gray-100 dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleModerate}
+                      className="rounded bg-teal-500 px-4 py-2 text-sm font-medium text-white hover:bg-teal-600"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Pagination */}
             {reviews && reviews.totalPages > 1 && (
               <div className="flex items-center justify-between border-t border-gray-200 dark:border-white/[0.05] px-4 py-4">
