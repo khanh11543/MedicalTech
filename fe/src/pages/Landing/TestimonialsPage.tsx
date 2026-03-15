@@ -66,6 +66,8 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
 }
 
 // ==================== Review Form Modal ====================
+const REVIEW_MIN_LENGTH = 10;
+
 function ReviewFormModal({
   onClose,
   onSubmitted,
@@ -80,6 +82,8 @@ function ReviewFormModal({
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [ratingError, setRatingError] = useState("");
+  const [commentError, setCommentError] = useState("");
 
   useEffect(() => {
     publicService
@@ -89,15 +93,28 @@ function ReviewFormModal({
   }, []);
 
   const handleSubmit = async () => {
-    if (rating === 0) {
-      setError("Please select a star rating.");
-      return;
-    }
-    if (!comment.trim()) {
-      setError("Please enter your review.");
-      return;
-    }
     setError("");
+    setRatingError("");
+    setCommentError("");
+
+    let hasError = false;
+    if (rating === 0) {
+      setRatingError("Please select a star rating.");
+      setError("Please select a star rating.");
+      hasError = true;
+    }
+    const trimmed = comment.trim();
+    if (!trimmed) {
+      setCommentError("Please enter your review.");
+      setError("Please enter your review.");
+      hasError = true;
+    } else if (trimmed.length < REVIEW_MIN_LENGTH) {
+      setCommentError(`Review must be at least ${REVIEW_MIN_LENGTH} characters.`);
+      setError(`Review must be at least ${REVIEW_MIN_LENGTH} characters.`);
+      hasError = true;
+    }
+    if (hasError) return;
+
     setSubmitting(true);
     try {
       const imageUrls: string[] = [];
@@ -128,6 +145,7 @@ function ReviewFormModal({
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
         "Something went wrong. Please try again.";
       setError(msg);
+      setCommentError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -166,21 +184,54 @@ function ReviewFormModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Your rating</label>
-            <StarPicker value={rating} onChange={setRating} />
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Your rating <span className="text-red-500">*</span>
+            </label>
+            <StarPicker
+              value={rating}
+              onChange={(v) => {
+                setRating(v);
+                if (ratingError) {
+                  setRatingError("");
+                  setError("");
+                }
+              }}
+            />
+            {ratingError && (
+              <p className="mt-1.5 text-xs text-red-500">{ratingError}</p>
+            )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Your review</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Your review <span className="text-red-500">*</span>
+            </label>
             <textarea
               value={comment}
-              onChange={(e) => setComment(e.target.value)}
+              onChange={(e) => {
+                setComment(e.target.value);
+                if (commentError) {
+                  setCommentError("");
+                  setError("");
+                }
+              }}
               rows={4}
               maxLength={1000}
               placeholder="Share your experience..."
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-[#049ebb] focus:ring-1 focus:ring-[#049ebb] outline-none resize-none transition-colors"
+              className={`w-full rounded-xl border px-4 py-3 text-sm outline-none resize-none transition-colors ${
+                commentError
+                  ? "border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                  : "border-gray-200 focus:border-[#049ebb] focus:ring-1 focus:ring-[#049ebb]"
+              }`}
             />
-            <p className="text-xs text-gray-400 text-right mt-1">{comment.length}/1000</p>
+            <div className="flex justify-between items-baseline mt-1">
+              {commentError ? (
+                <p className="text-xs text-red-500">{commentError}</p>
+              ) : (
+                <span />
+              )}
+              <p className="text-xs text-gray-400">{comment.length}/1000</p>
+            </div>
           </div>
 
           <div>
