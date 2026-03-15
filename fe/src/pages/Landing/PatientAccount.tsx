@@ -27,8 +27,6 @@ export default function PatientAccount() {
   const [patientCccd, setPatientCccd] = useState<string | null>(null); // CCCD from patient profile (Medical Profile)
   const [loading, setLoading] = useState(true);
   const [showCccd, setShowCccd] = useState(false);
-  const [showVerifyModal, setShowVerifyModal] = useState(false);
-  const [verifyPassword, setVerifyPassword] = useState("");
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -134,19 +132,7 @@ export default function PatientAccount() {
     }
   };
 
-  const handleRevealCccd = () => {
-    if (!showCccd) {
-      setShowVerifyModal(true);
-    } else {
-      setShowCccd(false);
-    }
-  };
-
-  const handleVerify = () => {
-    setShowCccd(true);
-    setShowVerifyModal(false);
-    setVerifyPassword("");
-  };
+  const handleToggleCccd = () => setShowCccd((prev) => !prev);
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword) return;
@@ -250,8 +236,10 @@ export default function PatientAccount() {
                 <p className="text-sm font-medium text-gray-900 font-mono tracking-wide">{showCccd ? userCccd || "Not set" : maskId(userCccd)}</p>
               </div>
               <button
-                onClick={handleRevealCccd}
+                type="button"
+                onClick={handleToggleCccd}
                 className="p-2 rounded-lg text-gray-400 hover:text-[#049ebb] hover:bg-[#049ebb]/10 transition-all bg-transparent border-none cursor-pointer"
+                title={showCccd ? "Hide ID number" : "Show ID number"}
               >
                 <EyeIcon open={showCccd} />
               </button>
@@ -432,35 +420,6 @@ export default function PatientAccount() {
           </div>
         )}
       </div>
-
-      {/* Verify Modal */}
-      {showVerifyModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h3 className="text-base font-semibold text-gray-900">Identity Verification</h3>
-              <button onClick={() => { setShowVerifyModal(false); setVerifyPassword(""); }} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all bg-transparent border-none cursor-pointer">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <div className="p-5">
-              <p className="text-xs text-gray-500 mb-3">Enter your password to view your ID number.</p>
-              <input
-                type="password"
-                value={verifyPassword}
-                onChange={(e) => setVerifyPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#049ebb]/30 focus:border-[#049ebb]"
-                autoFocus
-              />
-            </div>
-            <div className="flex justify-end gap-2 p-5 border-t border-gray-100">
-              <button onClick={() => { setShowVerifyModal(false); setVerifyPassword(""); }} className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all border-none cursor-pointer">Cancel</button>
-              <button disabled={!verifyPassword} onClick={handleVerify} className="px-4 py-2 text-xs font-medium text-white bg-[#049ebb] rounded-xl hover:bg-[#037a94] disabled:opacity-50 disabled:cursor-not-allowed transition-all border-none cursor-pointer">Confirm</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* MFA Setup Modal */}
       {mfaSetupOpen && (

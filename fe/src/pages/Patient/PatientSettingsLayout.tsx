@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { getAvatarUrl } from "../../utils/avatar";
 
@@ -43,6 +43,7 @@ const sidebarItems = [
 
 export default function PatientSettingsLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
 
   const displayName = user?.fullName || user?.email?.split("@")[0] || "User";
@@ -101,25 +102,26 @@ export default function PatientSettingsLayout() {
                   </div>
                 </div>
 
-                {/* Navigation */}
+                {/* Navigation - use pathname so active state is correct on reload */}
                 <ul className="list-none m-0 p-2 space-y-0.5">
-                  {sidebarItems.map((item) => (
-                    <li key={item.path}>
-                      <NavLink
-                        to={item.path}
-                        className={({ isActive }) =>
-                          `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium no-underline transition-all ${
+                  {sidebarItems.map((item) => {
+                    const isActive = location.pathname === item.path;
+                    return (
+                      <li key={item.path}>
+                        <Link
+                          to={item.path}
+                          className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium no-underline transition-all ${
                             isActive
                               ? "bg-[#049ebb]/10 text-[#049ebb]"
                               : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-800 dark:hover:text-white"
-                          }`
-                        }
-                      >
-                        {item.icon}
-                        {item.label}
-                      </NavLink>
-                    </li>
-                  ))}
+                          }`}
+                        >
+                          {item.icon}
+                          {item.label}
+                        </Link>
+                      </li>
+                    );
+                  })}
                 </ul>
 
                 {/* Log out */}
