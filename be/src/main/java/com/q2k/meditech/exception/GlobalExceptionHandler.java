@@ -174,6 +174,24 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handle duplicate resource (e.g. email or phone already registered) — return 409 with message for UI
+     */
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<ApiErrorResponse> handleDuplicateResourceException(
+            DuplicateResourceException ex,
+            WebRequest request) {
+        log.warn("Duplicate resource: {}", ex.getMessage());
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(getCurrentTimestamp())
+                .status(HttpStatus.CONFLICT.value())
+                .error(HttpStatus.CONFLICT.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+    }
+
+    /**
      * Handle bad credentials (wrong email/password) — return 401 so frontend shows correct message
      */
     @ExceptionHandler(BadCredentialsException.class)

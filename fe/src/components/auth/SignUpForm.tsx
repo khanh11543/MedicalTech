@@ -180,8 +180,26 @@ export default function SignUpForm() {
       const axiosError = err as {
         response?: { data?: { message?: string }; status?: number };
       };
-      if (axiosError.response?.data?.message) {
-        setError(axiosError.response.data.message);
+      const msg = axiosError.response?.data?.message ?? "";
+      const isDuplicate =
+        axiosError.response?.status === 409 ||
+        msg.toLowerCase().includes("already registered");
+      if (isDuplicate) {
+        const warningText = "Email or phone number already exists.";
+        setError(warningText);
+        if (msg.toLowerCase().includes("email")) {
+          setEmailError(warningText);
+        }
+        if (msg.toLowerCase().includes("phone")) {
+          setPhoneError(warningText);
+        }
+        // If generic duplicate, highlight both
+        if (!msg.toLowerCase().includes("email") && !msg.toLowerCase().includes("phone")) {
+          setEmailError(warningText);
+          setPhoneError(warningText);
+        }
+      } else if (msg) {
+        setError(msg);
       } else {
         setError("Registration failed. Please try again.");
       }
