@@ -465,7 +465,7 @@ export default function PatientProfile() {
               <InfoField label="Insurance Provider" value={activeProfile.insuranceProvider || "Not updated"} muted={!activeProfile.insuranceProvider} />
               <InfoField label="Emergency Contact" value={activeProfile.emergencyContact || "Not updated"} muted={!activeProfile.emergencyContact} />
               <InfoField label="Blood Group" value={activeProfile.bloodGroup || "Not updated"} muted={!activeProfile.bloodGroup} />
-              <InfoField label="ID Number (CCCD)" value={activeProfile.cccd ? maskCccd(activeProfile.cccd) : "Not updated"} muted={!activeProfile.cccd} />
+              <InfoField label="ID Number (CCCD)" value={activeProfile.cccd ? (activeProfile.cccd.startsWith("*") ? activeProfile.cccd : maskCccd(activeProfile.cccd)) : "Not updated"} muted={!activeProfile.cccd} />
               <InfoField label="Occupation" value={activeProfile.occupation || "Not updated"} muted={!activeProfile.occupation} />
               {activeProfile.allergies && (
                 <div className="sm:col-span-2">

@@ -9,11 +9,6 @@ function maskPhone(phone: string) {
   if (!phone || phone.length < 7) return phone || "—";
   return `${phone.slice(0, 4)}***${phone.slice(-3)}`;
 }
-function maskId(id: string) {
-  if (!id || id.length < 4) return "—";
-  return `${"*".repeat(id.length - 4)}${id.slice(-4)}`;
-}
-
 function EyeIcon({ open }: { open: boolean }) {
   return open ? (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -26,7 +21,6 @@ export default function PatientAccount() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [patientCccd, setPatientCccd] = useState<string | null>(null); // CCCD from patient profile (Medical Profile)
   const [loading, setLoading] = useState(true);
-  const [showCccd, setShowCccd] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -49,6 +43,7 @@ export default function PatientAccount() {
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
   const [emailBackupCodesLoading, setEmailBackupCodesLoading] = useState(false);
   const [emailBackupCodesMessage, setEmailBackupCodesMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [showCccd, setShowCccd] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -131,8 +126,6 @@ export default function PatientAccount() {
       setMfaLoading(false);
     }
   };
-
-  const handleToggleCccd = () => setShowCccd((prev) => !prev);
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword || newPassword !== confirmPassword) return;
@@ -233,21 +226,25 @@ export default function PatientAccount() {
             <div className="flex items-center justify-between py-2.5 px-3.5 bg-gray-50 rounded-xl">
               <div>
                 <p className="text-[11px] text-gray-400 mb-0.5">ID Number (CCCD)</p>
-                <p className="text-sm font-medium text-gray-900 font-mono tracking-wide">{showCccd ? userCccd || "Not set" : maskId(userCccd)}</p>
+                <p className="text-sm font-medium text-gray-900 font-mono tracking-wide">
+                  {userCccd ? (showCccd ? userCccd : "••••••••") : "Not set"}
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={handleToggleCccd}
-                className="p-2 rounded-lg text-gray-400 hover:text-[#049ebb] hover:bg-[#049ebb]/10 transition-all bg-transparent border-none cursor-pointer"
-                title={showCccd ? "Hide ID number" : "Show ID number"}
-              >
-                <EyeIcon open={showCccd} />
-              </button>
+              {userCccd && (
+                <button
+                  type="button"
+                  onClick={() => setShowCccd((prev) => !prev)}
+                  className="p-2 rounded-lg text-gray-400 hover:text-[#049ebb] hover:bg-[#049ebb]/10 transition-all bg-transparent border-none cursor-pointer"
+                  title={showCccd ? "Hide ID number" : "Show last 4 digits"}
+                >
+                  <EyeIcon open={showCccd} />
+                </button>
+              )}
             </div>
 
             <div className="flex items-start gap-2.5 p-3 bg-blue-50 border border-blue-200 rounded-xl">
               <svg className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <p className="text-xs text-blue-700 leading-relaxed">Your identity information is securely encrypted and only visible to authorized personnel during medical procedures.</p>
+              <p className="text-xs text-blue-700 leading-relaxed">Your ID number is stored as a hash in the database. Only the last 4 digits are shown for reference. Update it in Medical Profile if needed.</p>
             </div>
           </div>
         </div>

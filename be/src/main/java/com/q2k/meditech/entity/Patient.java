@@ -32,8 +32,13 @@ public class Patient extends BaseEntity {
     @Column(name = "address", columnDefinition = "TEXT")
     private String address;
 
-    @Column(name = "id_number", length = 20)
-    private String idNumber; // CCCD / CMND
+    /** SHA-256 hash (hex 64 chars) of CCCD/CMND; never store plain. */
+    @Column(name = "id_number", length = 64)
+    private String idNumber;
+
+    /** Last 4 digits for display only (e.g. ****1234). */
+    @Column(name = "id_number_last4", length = 4)
+    private String idNumberLast4;
 
     @Column(name = "insurance_number")
     private String insuranceNumber;

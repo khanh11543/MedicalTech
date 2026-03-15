@@ -6,6 +6,7 @@ import com.q2k.meditech.entity.Patient;
 import com.q2k.meditech.entity.User;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.PatientRepository;
+import com.q2k.meditech.util.CccdHashUtil;
 import com.q2k.meditech.util.SecurityUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,6 +32,7 @@ public class PatientProfileController {
         Long userId = SecurityUtil.getCurrentUserId();
         Patient patient = patientRepository.findByUserIdWithUser(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Patient profile not found for user: " + userId));
+        migrateCccdToHashIfNeeded(patient);
         return ResponseEntity.ok(toDTO(patient));
     }
 
@@ -60,7 +62,14 @@ public class PatientProfileController {
             patient.setAddress(dto.getAddress());
         }
         if (dto.getIdNumber() != null) {
-            patient.setIdNumber(dto.getIdNumber());
+            String raw = dto.getIdNumber().trim();
+            if (raw.isBlank()) {
+                patient.setIdNumber(null);
+                patient.setIdNumberLast4(null);
+            } else if (!raw.startsWith("****") && raw.length() >= 4) {
+                patient.setIdNumber(CccdHashUtil.hash(raw));
+                patient.setIdNumberLast4(CccdHashUtil.last4(raw));
+            }
         }
         if (dto.getInsuranceNumber() != null) {
             patient.setInsuranceNumber(dto.getInsuranceNumber());
@@ -86,6 +95,27 @@ public class PatientProfileController {
         return ResponseEntity.ok(toDTO(patient));
     }
 
+    /** One-time migration: if id_number is legacy plain text, hash it and set last4. */
+    private void migrateCccdToHashIfNeeded(Patient patient) {
+        String idNum = patient.getIdNumber();
+        if (idNum == null || idNum.isBlank()) return;
+        if (CccdHashUtil.isStoredHash(idNum)) return;
+        patient.setIdNumber(CccdHashUtil.hash(idNum));
+        patient.setIdNumberLast4(CccdHashUtil.last4(idNum));
+        patientRepository.save(patient);
+        log.info("Migrated CCCD to hash for patient {}", patient.getId());
+    }
+
+    /** Return masked CCCD for API (****1234) or null; never return hash or plain. */
+    private String maskIdNumber(Patient patient) {
+        String last4 = patient.getIdNumberLast4();
+        if (last4 != null && !last4.isBlank()) return "****" + last4;
+        String idNum = patient.getIdNumber();
+        if (idNum != null && !idNum.isBlank() && !CccdHashUtil.isStoredHash(idNum) && idNum.length() >= 4)
+            return "****" + idNum.substring(idNum.length() - 4);
+        return null;
+    }
+
     private PatientProfileDTO toDTO(Patient patient) {
         User user = patient.getUser();
         return PatientProfileDTO.builder()
@@ -98,7 +128,7 @@ public class PatientProfileController {
                 .dateOfBirth(patient.getDateOfBirth())
                 .gender(patient.getGender())
                 .address(patient.getAddress())
-                .idNumber(patient.getIdNumber())
+                .idNumber(maskIdNumber(patient))
                 .insuranceNumber(patient.getInsuranceNumber())
                 .insuranceProvider(patient.getInsuranceProvider())
                 .emergencyContact(patient.getEmergencyContact())
