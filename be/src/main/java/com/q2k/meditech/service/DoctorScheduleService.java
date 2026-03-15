@@ -68,6 +68,39 @@ public interface DoctorScheduleService {
     void deleteScheduleException(Long doctorId, Long exceptionId);
 
     // ========== TIME SLOTS ==========
+
+    /**
+     * List time slots for a doctor in date range
+     * @param doctorId Doctor ID
+     * @param startDate Start date (YYYY-MM-DD)
+     * @param endDate End date (YYYY-MM-DD)
+     * @return List of time slots
+     */
+    List<TimeSlotDTO> listTimeSlots(Long doctorId, String startDate, String endDate);
+
+    /**
+     * Create a new time slot
+     * @param doctorId Doctor ID
+     * @param dto Time slot data
+     * @return Created time slot
+     */
+    TimeSlotDTO createTimeSlot(Long doctorId, TimeSlotDTO dto);
+
+    /**
+     * Update an existing time slot
+     * @param doctorId Doctor ID
+     * @param slotId Slot ID
+     * @param dto Updated slot data
+     * @return Updated time slot
+     */
+    TimeSlotDTO updateTimeSlot(Long doctorId, Long slotId, TimeSlotDTO dto);
+
+    /**
+     * Delete a time slot
+     * @param doctorId Doctor ID
+     * @param slotId Slot ID
+     */
+    void deleteTimeSlot(Long doctorId, Long slotId);
     
     /**
      * Generate time slots based on schedule and exceptions

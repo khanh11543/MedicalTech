@@ -243,21 +243,90 @@ public class DoctorScheduleController {
             @ApiResponse(responseCode = "401", description = "Unauthorized"),
             @ApiResponse(responseCode = "403", description = "Forbidden - Not a doctor")
     })
-    public ResponseEntity<List<TimeSlotDTO>> listMyTimeSlots(
-            @Parameter(description = "Start date") @RequestParam String startDate,
-            @Parameter(description = "End date") @RequestParam String endDate) {
+    public ResponseEntity<List<TimeSlotDTO>> listTimeSlots(
+            @Parameter(description = "Start date (YYYY-MM-DD)") @RequestParam String startDate,
+            @Parameter(description = "End date (YYYY-MM-DD)") @RequestParam String endDate) {
 
         Long doctorId = getCurrentDoctorId();
         log.info("GET /api/doctor/time-slots - doctorId: {}, from: {}, to: {}", doctorId, startDate, endDate);
 
-        GenerateSlotsDTO dto = GenerateSlotsDTO.builder()
-                .startDate(java.time.LocalDate.parse(startDate))
-                .endDate(java.time.LocalDate.parse(endDate))
-                .build();
-
-        List<TimeSlotDTO> slots = scheduleService.listMyTimeSlots(doctorId, dto);
+        List<TimeSlotDTO> slots = scheduleService.listTimeSlots(doctorId, startDate, endDate);
 
         return ResponseEntity.ok(slots);
+    }
+
+    /**
+     * POST /api/doctor/time-slots
+     * Create a new time slot
+     */
+    @PostMapping("/time-slots")
+    @Operation(summary = "Create time slot", description = "Create a new time slot for your schedule")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Time slot created successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid input or overlapping times"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - Not a doctor")
+    })
+    public ResponseEntity<TimeSlotDTO> createTimeSlot(
+            @Valid @RequestBody TimeSlotDTO dto) {
+
+        Long doctorId = getCurrentDoctorId();
+        log.info("POST /api/doctor/time-slots - doctorId: {}, date: {}, time: {}-{}",
+                doctorId, dto.getSlotDate(), dto.getStartTime(), dto.getEndTime());
+
+        TimeSlotDTO result = scheduleService.createTimeSlot(doctorId, dto);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    /**
+     * PUT /api/doctor/time-slots/{id}
+     * Update an existing time slot
+     */
+    @PutMapping("/time-slots/{id}")
+    @Operation(summary = "Update time slot", description = "Update an existing time slot's times")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Time slot updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid input, slot not editable, or overlapping times"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - Not your slot"),
+            @ApiResponse(responseCode = "404", description = "Time slot not found")
+    })
+    public ResponseEntity<TimeSlotDTO> updateTimeSlot(
+            @Parameter(description = "Slot ID") @PathVariable Long id,
+            @Valid @RequestBody TimeSlotDTO dto) {
+
+        Long doctorId = getCurrentDoctorId();
+        log.info("PUT /api/doctor/time-slots/{} - doctorId: {}, time: {}-{}",
+                id, doctorId, dto.getStartTime(), dto.getEndTime());
+
+        TimeSlotDTO result = scheduleService.updateTimeSlot(doctorId, id, dto);
+
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * DELETE /api/doctor/time-slots/{id}
+     * Delete a time slot
+     */
+    @DeleteMapping("/time-slots/{id}")
+    @Operation(summary = "Delete time slot", description = "Delete a time slot (only AVAILABLE slots can be deleted)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "204", description = "Time slot deleted successfully"),
+            @ApiResponse(responseCode = "400", description = "Slot is not available to delete"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - Not your slot"),
+            @ApiResponse(responseCode = "404", description = "Time slot not found")
+    })
+    public ResponseEntity<Void> deleteTimeSlot(
+            @Parameter(description = "Slot ID") @PathVariable Long id) {
+
+        Long doctorId = getCurrentDoctorId();
+        log.info("DELETE /api/doctor/time-slots/{} - doctorId: {}", id, doctorId);
+
+        scheduleService.deleteTimeSlot(doctorId, id);
+
+        return ResponseEntity.noContent().build();
     }
 
     /**

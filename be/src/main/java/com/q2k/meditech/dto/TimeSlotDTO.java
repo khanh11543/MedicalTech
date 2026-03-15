@@ -1,5 +1,6 @@
 package com.q2k.meditech.dto;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -19,9 +20,16 @@ public class TimeSlotDTO {
     private Long doctorId;
     private String doctorName;
     private String specialization;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate slotDate;
+    
+    @JsonFormat(pattern = "HH:mm")
     private LocalTime startTime;
+    
+    @JsonFormat(pattern = "HH:mm")
     private LocalTime endTime;
+    
     private String status;       // AVAILABLE, BOOKED, BLOCKED, COMPLETED, RESERVED
     private Boolean isAvailable;
 

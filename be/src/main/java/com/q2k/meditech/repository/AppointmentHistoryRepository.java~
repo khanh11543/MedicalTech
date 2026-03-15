@@ -10,7 +10,6 @@ import java.util.List;
 
 @Repository
 public interface AppointmentHistoryRepository extends JpaRepository<AppointmentHistory, Long> {
-<<<<<<< HEAD
     
     @Query("SELECT h FROM AppointmentHistory h " +
            "WHERE h.appointment.id = :appointmentId " +
@@ -22,8 +21,3 @@ public interface AppointmentHistoryRepository extends JpaRepository<AppointmentH
            "ORDER BY h.changedAt DESC")
     List<AppointmentHistory> findByChangedByUserId(@Param("userId") Long userId);
 }
-=======
-
-    List<AppointmentHistory> findByAppointmentIdOrderByCreatedAtDesc(Long appointmentId);
-}
->>>>>>> origin/Dev
