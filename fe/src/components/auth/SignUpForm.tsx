@@ -111,11 +111,16 @@ export default function SignUpForm() {
     setTermsError("");
 
     const missingEmail = !email?.trim();
+    const missingPhone =
+      phoneCountryCode === "+ other"
+        ? !phoneNumber.trim()
+        : !normalizePhoneDigits(phoneNumber);
     const missingPassword = !password;
     const missingConfirm = !confirmPassword;
-    if (missingEmail || missingPassword || missingConfirm) {
+    if (missingEmail || missingPhone || missingPassword || missingConfirm) {
       setError("Please fill in all required fields.");
       if (missingEmail) setEmailError("Please enter your email.");
+      if (missingPhone) setPhoneError("Please enter your phone number.");
       if (missingPassword) setPasswordError("Please enter your password.");
       if (missingConfirm) setConfirmPasswordError("Please confirm your password.");
       return;
@@ -223,7 +228,9 @@ export default function SignUpForm() {
                 </div>
                 {/* Phone */}
                 <div>
-                  <Label>Phone (optional)</Label>
+                  <Label>
+                    Phone<span className="text-error-500">*</span>
+                  </Label>
                   <div className="flex gap-2">
                     <select
                       aria-label="Country code"
