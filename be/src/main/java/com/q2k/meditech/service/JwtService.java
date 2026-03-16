@@ -67,6 +67,7 @@ public class JwtService {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("type", "refresh");
+        claims.put("jti", java.util.UUID.randomUUID().toString());
         
         return createToken(claims, username, refreshExpiration);
     }

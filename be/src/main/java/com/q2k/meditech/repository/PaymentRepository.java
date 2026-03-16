@@ -100,6 +100,45 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             @Param("toDate") LocalDateTime toDate,
             Pageable pageable
     );
+
+    /**
+     * Find payments by patient ID with multiple payment statuses and optional appointment status filter
+     */
+    @Query(value = "SELECT DISTINCT p FROM Payment p " +
+            "LEFT JOIN FETCH p.appointment a " +
+            "LEFT JOIN FETCH a.doctor d " +
+            "LEFT JOIN FETCH d.user " +
+            "LEFT JOIN FETCH p.patient pat " +
+            "LEFT JOIN FETCH pat.user " +
+            "LEFT JOIN FETCH p.processedBy " +
+            "WHERE p.patient.id = :patientId " +
+            "AND (:statuses IS NULL OR p.paymentStatus IN :statuses) " +
+            "AND (:appointmentStatus IS NULL OR a.status = :appointmentStatus) " +
+            "AND (:excludeAppointmentStatuses IS NULL OR a.status NOT IN :excludeAppointmentStatuses) " +
+            "AND (:method IS NULL OR p.paymentMethod = :method) " +
+            "AND (:fromDate IS NULL OR p.createdAt >= :fromDate) " +
+            "AND (:toDate IS NULL OR p.createdAt <= :toDate) " +
+            "ORDER BY p.createdAt DESC",
+            countQuery = "SELECT COUNT(DISTINCT p) FROM Payment p " +
+            "LEFT JOIN p.appointment a " +
+            "WHERE p.patient.id = :patientId " +
+            "AND (:statuses IS NULL OR p.paymentStatus IN :statuses) " +
+            "AND (:appointmentStatus IS NULL OR a.status = :appointmentStatus) " +
+            "AND (:excludeAppointmentStatuses IS NULL OR a.status NOT IN :excludeAppointmentStatuses) " +
+            "AND (:method IS NULL OR p.paymentMethod = :method) " +
+            "AND (:fromDate IS NULL OR p.createdAt >= :fromDate) " +
+            "AND (:toDate IS NULL OR p.createdAt <= :toDate)")
+    Page<Payment> findByPatientIdWithAdvancedFilters(
+            @Param("patientId") Long patientId,
+            @Param("statuses") java.util.List<String> statuses,
+            @Param("appointmentStatus") com.q2k.meditech.entity.enums.AppointmentStatus appointmentStatus,
+            @Param("excludeAppointmentStatuses") java.util.List<com.q2k.meditech.entity.enums.AppointmentStatus> excludeAppointmentStatuses,
+            @Param("method") String method,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("toDate") LocalDateTime toDate,
+            Pageable pageable
+    );
+
     /**
      * Find all payments with filters (admin)
      */

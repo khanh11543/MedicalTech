@@ -227,9 +227,11 @@ public class MaintenanceController {
 
         log.info("GET /admin/maintenance/history - page: {}, size: {}", pageNumber, pageSize);
 
+        String safeSortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                sortBy, java.util.Set.of("startTime", "id"), "startTime");
         Sort sort = sortDir.equalsIgnoreCase("ASC")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
+                ? Sort.by(safeSortBy).ascending()
+                : Sort.by(safeSortBy).descending();
         Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
 
         Page<MaintenanceWindow> history = maintenanceService.getMaintenanceHistory(pageable);

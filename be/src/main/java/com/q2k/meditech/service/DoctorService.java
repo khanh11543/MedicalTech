@@ -52,9 +52,11 @@ public class DoctorService {
                 .and(DoctorSpecification.hasFeeInRange(minFee, maxFee));
 
         // Build pagination and sorting
+        String safeSortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                sortBy, java.util.Set.of("id", "consultationFee", "createdAt", "averageRating"), "id");
         Sort sort = Sort.by(
                 sortOrder != null && sortOrder.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC,
-                sortBy != null && !sortBy.isEmpty() ? sortBy : "id"
+                safeSortBy
         );
 
         Pageable pageable = PageRequest.of(

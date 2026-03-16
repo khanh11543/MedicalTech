@@ -1,5 +1,7 @@
 package com.q2k.meditech.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.q2k.meditech.dto.MessageDTO;
 import com.q2k.meditech.dto.UserDTO;
 import com.q2k.meditech.dto.auth.*;
@@ -8,16 +10,21 @@ import com.q2k.meditech.entity.enums.VerificationStatus;
 import com.q2k.meditech.exception.*;
 import com.q2k.meditech.repository.*;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -51,6 +58,54 @@ public class AuthService {
     private final NotificationEventService notificationEventService;
     private final ActivityLoggingService activityLoggingService;
     private final MfaService mfaService;
+    private final ObjectMapper objectMapper;
+    private final LoginRateLimiterService loginRateLimiterService;
+
+    // Google OAuth2 configuration
+    @Value("${google.oauth2.client-id}")
+    private String googleClientId;
+
+    @Value("${google.oauth2.client-secret}")
+    private String googleClientSecret;
+
+    @Value("${google.oauth2.redirect-uri}")
+    private String googleRedirectUri;
+
+    @Value("${google.oauth2.auth-url}")
+    private String googleAuthUrl;
+
+    @Value("${google.oauth2.token-url}")
+    private String googleTokenUrl;
+
+    @Value("${google.oauth2.userinfo-url}")
+    private String googleUserinfoUrl;
+
+    @Value("${google.oauth2.scope}")
+    private String googleScope;
+
+    // Facebook OAuth2 configuration
+    @Value("${facebook.oauth2.app-id}")
+    private String facebookAppId;
+
+    @Value("${facebook.oauth2.app-secret}")
+    private String facebookAppSecret;
+
+    @Value("${facebook.oauth2.redirect-uri}")
+    private String facebookRedirectUri;
+
+    @Value("${facebook.oauth2.auth-url}")
+    private String facebookAuthUrl;
+
+    @Value("${facebook.oauth2.token-url}")
+    private String facebookTokenUrl;
+
+    @Value("${facebook.oauth2.userinfo-url}")
+    private String facebookUserinfoUrl;
+
+    @Value("${facebook.oauth2.scope}")
+    private String facebookScope;
+
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${app.account-lock-duration:30}") // minutes
     private int accountLockDuration;
@@ -241,10 +296,18 @@ public class AuthService {
     /**
      * Login
      */
-    @Transactional
+    @Transactional(noRollbackFor = {BadCredentialsException.class, AccountLockedException.class, UnverifiedAccountException.class})
     public LoginResponseDTO login(LoginDTO loginDTO, HttpServletRequest request) {
         String ipAddress = getClientIp(request);
         String userAgent = request.getHeader("User-Agent");
+
+        // Layer 2: Check IP rate limit
+        if (loginRateLimiterService.isIpBlocked(ipAddress)) {
+            LocalDateTime blockedUntil = loginRateLimiterService.getBlockedUntil(ipAddress);
+            log.warn("IP {} is blocked until {}", ipAddress, blockedUntil);
+            throw new AccountLockedException(
+                "Too many login attempts from this IP. Please try again after " + blockedUntil);
+        }
 
         User user = userRepository.findByEmail(loginDTO.getEmail())
             .orElse(null);
@@ -252,8 +315,15 @@ public class AuthService {
         try {
             // Check if user exists
             if (user == null) {
+                loginRateLimiterService.recordFailedAttempt(ipAddress);
                 recordLoginAttempt(null, loginDTO.getEmail(), false, 
                     "User not found", ipAddress, userAgent);
+                // Check if IP just got blocked after this attempt
+                if (loginRateLimiterService.isIpBlocked(ipAddress)) {
+                    LocalDateTime ipBlockedUntil = loginRateLimiterService.getBlockedUntil(ipAddress);
+                    throw new AccountLockedException(
+                        "Too many login attempts from this IP. Please try again after " + ipBlockedUntil);
+                }
                 throw new BadCredentialsException("Invalid email or password");
             }
 
@@ -282,6 +352,18 @@ public class AuthService {
             // Verify password (passwordHash may be null for legacy OAuth accounts)
             if (user.getPasswordHash() == null || !passwordEncoder.matches(loginDTO.getPassword(), user.getPasswordHash())) {
                 handleFailedLogin(user, loginDTO.getEmail(), ipAddress, userAgent);
+                loginRateLimiterService.recordFailedAttempt(ipAddress);
+                // Check if account just got locked after this attempt
+                if (user.isAccountLocked()) {
+                    throw new AccountLockedException(
+                        "Account is locked until " + user.getLockedUntil());
+                }
+                // Check if IP just got blocked after this attempt
+                if (loginRateLimiterService.isIpBlocked(ipAddress)) {
+                    LocalDateTime ipBlockedUntil = loginRateLimiterService.getBlockedUntil(ipAddress);
+                    throw new AccountLockedException(
+                        "Too many login attempts from this IP. Please try again after " + ipBlockedUntil);
+                }
                 throw new BadCredentialsException("Invalid email or password");
             }
 
@@ -295,11 +377,14 @@ public class AuthService {
                 throw new BadCredentialsException("Password recovery has expired. Please request a new password via Forgot password.");
             }
 
-            // Reset failed attempts on successful login
+            // Layer 3: Reset failed attempts on successful login
             user.setFailedLoginCount(0);
             user.setLockedUntil(null);
             user.setLastLogin(LocalDateTime.now());
             userRepository.save(user);
+
+            // Reset IP rate limit on successful login
+            loginRateLimiterService.resetIp(ipAddress);
 
             // Record successful login
             recordLoginAttempt(user, loginDTO.getEmail(), true, null, ipAddress, userAgent);
@@ -617,15 +702,28 @@ public class AuthService {
     }
 
     private void handleFailedLogin(User user, String email, String ipAddress, String userAgent) {
-        user.setFailedLoginCount(user.getFailedLoginCount() + 1);
+        int currentCount = user.getFailedLoginCount() != null ? user.getFailedLoginCount() : 0;
+        user.setFailedLoginCount(currentCount + 1);
+
+        log.warn("Failed login attempt for {}: count={}/{}", email, user.getFailedLoginCount(), maxFailedAttempts);
 
         if (user.getFailedLoginCount() >= maxFailedAttempts) {
             user.setLockedUntil(LocalDateTime.now().plusMinutes(accountLockDuration));
-            emailService.sendAccountLockedEmail(user.getEmail());
+            log.warn("Account {} LOCKED until {}", email, user.getLockedUntil());
         }
 
         userRepository.save(user);
+        userRepository.flush(); // Force immediate DB write
         recordLoginAttempt(user, email, false, "Invalid password", ipAddress, userAgent);
+
+        // Send lock notification after DB save to avoid blocking persistence
+        if (user.getFailedLoginCount() >= maxFailedAttempts) {
+            try {
+                emailService.sendAccountLockedEmail(user.getEmail());
+            } catch (Exception e) {
+                log.warn("Failed to send account locked email to {}: {}", user.getEmail(), e.getMessage());
+            }
+        }
     }
 
     private void recordLoginAttempt(User user, String email, boolean success, 
@@ -861,5 +959,267 @@ public class AuthService {
                 ipAddress,
                 userAgent
         );
+    }
+
+    // ==================== Google OAuth2 Methods ====================
+
+    /**
+     * Build Google OAuth2 authorization URL for redirect
+     */
+    public String buildGoogleAuthorizationUrl() {
+        return UriComponentsBuilder.fromUriString(googleAuthUrl)
+                .queryParam("client_id", googleClientId)
+                .queryParam("redirect_uri", googleRedirectUri)
+                .queryParam("response_type", "code")
+                .queryParam("scope", googleScope)
+                .queryParam("access_type", "offline")
+                .queryParam("prompt", "consent")
+                .build()
+                .toUriString();
+    }
+
+    /**
+     * Exchange Google authorization code for access token
+     */
+    public JsonNode exchangeGoogleCode(String code) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("client_id", googleClientId);
+        params.add("client_secret", googleClientSecret);
+        params.add("code", code);
+        params.add("grant_type", "authorization_code");
+        params.add("redirect_uri", googleRedirectUri);
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
+        ResponseEntity<String> response = restTemplate.postForEntity(googleTokenUrl, request, String.class);
+
+        try {
+            return objectMapper.readTree(response.getBody());
+        } catch (Exception e) {
+            log.error("Failed to parse Google token response", e);
+            throw new RuntimeException("Failed to parse Google token response");
+        }
+    }
+
+    /**
+     * Fetch Google user info using access token
+     */
+    public JsonNode fetchGoogleUserInfo(String accessToken) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+
+        HttpEntity<Void> request = new HttpEntity<>(headers);
+        ResponseEntity<String> response = restTemplate.exchange(
+                googleUserinfoUrl, HttpMethod.GET, request, String.class);
+
+        try {
+            return objectMapper.readTree(response.getBody());
+        } catch (Exception e) {
+            log.error("Failed to parse Google userinfo response", e);
+            throw new RuntimeException("Failed to parse Google userinfo response");
+        }
+    }
+
+    /**
+     * Process Google OAuth2 user: find or create user, then generate JWT tokens
+     */
+    @Transactional
+    public TokenDTO processGoogleUser(JsonNode googleUser, HttpServletRequest request) {
+        String email = googleUser.get("email").asText();
+        String name = googleUser.has("name") ? googleUser.get("name").asText() : email;
+        String picture = googleUser.has("picture") ? googleUser.get("picture").asText() : null;
+        String googleId = googleUser.get("sub").asText();
+
+        String ipAddress = getClientIp(request);
+        String userAgent = request.getHeader("User-Agent");
+
+        // Step 1: Find by auth_provider + auth_provider_id (returning user)
+        User user = userRepository.findByAuthProviderAndAuthProviderId("GOOGLE", googleId).orElse(null);
+
+        if (user == null) {
+            // Step 2: Find by email (link existing local account)
+            user = userRepository.findByEmail(email).orElse(null);
+        }
+
+        if (user == null) {
+            // Step 3: Create new user
+            log.info("Creating new user from Google OAuth: {}", email);
+            user = User.builder()
+                    .email(email)
+                    .fullName(name)
+                    .avatarUrl(picture)
+                    .authProvider("GOOGLE")
+                    .authProviderId(googleId)
+                    .passwordHash(passwordEncoder.encode(java.util.UUID.randomUUID().toString()))
+                    .isActive(true)
+                    .isVerified(true)
+                    .failedLoginCount(0)
+                    .twoFactorEnabled(false)
+                    .lastLogin(LocalDateTime.now())
+                    .build();
+
+            Role patientRole = roleRepository.findByName("PATIENT")
+                    .orElseThrow(() -> new ResourceNotFoundException("Role PATIENT not found"));
+
+            UserRole userRole = new UserRole();
+            userRole.setRole(patientRole);
+            user.addRole(userRole);
+
+            user = userRepository.save(user);
+            log.info("New Google user created: {} (ID: {})", email, user.getId());
+        } else {
+            // Existing user — update Google info if first time linking
+            log.info("Existing user logging in via Google: {}", email);
+            if (user.getAuthProvider() == null || "LOCAL".equals(user.getAuthProvider())) {
+                user.setAuthProvider("GOOGLE");
+                user.setAuthProviderId(googleId);
+            }
+            if (user.getAvatarUrl() == null && picture != null) {
+                user.setAvatarUrl(picture);
+            }
+            if (user.getFullName() == null && name != null) {
+                user.setFullName(name);
+            }
+            user.setLastLogin(LocalDateTime.now());
+            user = userRepository.save(user);
+        }
+
+        // Activity log
+        activityLoggingService.log(user, com.q2k.meditech.entity.enums.ActivityType.LOGIN,
+                "Google OAuth2 login", ipAddress, userAgent);
+
+        return generateTokens(user, "google-oauth", "Google OAuth Login", ipAddress, userAgent);
+    }
+
+    // ==================== Facebook OAuth2 Methods ====================
+
+    /**
+     * Build Facebook OAuth2 authorization URL for redirect
+     */
+    public String buildFacebookAuthorizationUrl() {
+        return UriComponentsBuilder.fromUriString(facebookAuthUrl)
+                .queryParam("client_id", facebookAppId)
+                .queryParam("redirect_uri", facebookRedirectUri)
+                .queryParam("scope", facebookScope)
+                .queryParam("response_type", "code")
+                .build()
+                .toUriString();
+    }
+
+    /**
+     * Exchange Facebook authorization code for access token
+     */
+    public JsonNode exchangeFacebookCode(String code) {
+        String url = UriComponentsBuilder.fromUriString(facebookTokenUrl)
+                .queryParam("client_id", facebookAppId)
+                .queryParam("client_secret", facebookAppSecret)
+                .queryParam("code", code)
+                .queryParam("redirect_uri", facebookRedirectUri)
+                .build()
+                .toUriString();
+
+        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+
+        try {
+            return objectMapper.readTree(response.getBody());
+        } catch (Exception e) {
+            log.error("Failed to parse Facebook token response", e);
+            throw new RuntimeException("Failed to parse Facebook token response");
+        }
+    }
+
+    /**
+     * Fetch Facebook user info using access token
+     */
+    public JsonNode fetchFacebookUserInfo(String accessToken) {
+        String url = facebookUserinfoUrl + "&access_token=" + accessToken;
+
+        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+
+        try {
+            return objectMapper.readTree(response.getBody());
+        } catch (Exception e) {
+            log.error("Failed to parse Facebook userinfo response", e);
+            throw new RuntimeException("Failed to parse Facebook userinfo response");
+        }
+    }
+
+    /**
+     * Process Facebook OAuth2 user: find or create user, then generate JWT tokens
+     */
+    @Transactional
+    public TokenDTO processFacebookUser(JsonNode fbUser, HttpServletRequest request) {
+        String facebookId = fbUser.get("id").asText();
+        String name = fbUser.has("name") ? fbUser.get("name").asText() : null;
+        String email = fbUser.has("email") ? fbUser.get("email").asText() : null;
+        String picture = null;
+        if (fbUser.has("picture") && fbUser.get("picture").has("data")
+                && fbUser.get("picture").get("data").has("url")) {
+            picture = fbUser.get("picture").get("data").get("url").asText();
+            if (picture.length() > 2048) {
+                picture = null;
+            }
+        }
+
+        String ipAddress = getClientIp(request);
+        String userAgent = request.getHeader("User-Agent");
+
+        // Step 1: Find by auth_provider + auth_provider_id (returning user)
+        User user = userRepository.findByAuthProviderAndAuthProviderId("FACEBOOK", facebookId).orElse(null);
+
+        if (user == null && email != null) {
+            // Step 2: Find by real email (link existing local account)
+            user = userRepository.findByEmail(email).orElse(null);
+        }
+
+        if (user == null) {
+            // Step 3: Create new user — use real email if available, otherwise generate placeholder
+            String userEmail = (email != null) ? email : (facebookId + "@facebook.com");
+            log.info("Creating new user from Facebook OAuth: {}", userEmail);
+            user = User.builder()
+                    .email(userEmail)
+                    .fullName(name)
+                    .avatarUrl(picture)
+                    .authProvider("FACEBOOK")
+                    .authProviderId(facebookId)
+                    .passwordHash(passwordEncoder.encode(java.util.UUID.randomUUID().toString()))
+                    .isActive(true)
+                    .isVerified(true)
+                    .failedLoginCount(0)
+                    .twoFactorEnabled(false)
+                    .lastLogin(LocalDateTime.now())
+                    .build();
+
+            Role patientRole = roleRepository.findByName("PATIENT")
+                    .orElseThrow(() -> new ResourceNotFoundException("Role PATIENT not found"));
+
+            UserRole userRole = new UserRole();
+            userRole.setRole(patientRole);
+            user.addRole(userRole);
+
+            user = userRepository.save(user);
+            log.info("New Facebook user created: {} (ID: {})", userEmail, user.getId());
+        } else {
+            log.info("Existing user logging in via Facebook: {}", user.getEmail());
+            if (user.getAuthProvider() == null || "LOCAL".equals(user.getAuthProvider())) {
+                user.setAuthProvider("FACEBOOK");
+                user.setAuthProviderId(facebookId);
+            }
+            if (user.getAvatarUrl() == null && picture != null) {
+                user.setAvatarUrl(picture);
+            }
+            if (user.getFullName() == null && name != null) {
+                user.setFullName(name);
+            }
+            user.setLastLogin(LocalDateTime.now());
+            user = userRepository.save(user);
+        }
+
+        activityLoggingService.log(user, com.q2k.meditech.entity.enums.ActivityType.LOGIN,
+                "Facebook OAuth2 login", ipAddress, userAgent);
+
+        return generateTokens(user, "facebook-oauth", "Facebook OAuth Login", ipAddress, userAgent);
     }
 }

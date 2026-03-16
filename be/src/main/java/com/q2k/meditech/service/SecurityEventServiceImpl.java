@@ -209,8 +209,12 @@ public class SecurityEventServiceImpl implements SecurityEventService {
                 .build();
     }
 
+    private static final java.util.Set<String> ALLOWED_SECURITY_SORT_FIELDS = java.util.Set.of(
+            "createdAt", "eventType", "severity", "id");
+
     private Pageable createPageable(SecurityEventFilterDTO filter) {
-        String sortBy = filter.getSortBy() != null ? filter.getSortBy() : "createdAt";
+        String sortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                filter.getSortBy(), ALLOWED_SECURITY_SORT_FIELDS, "createdAt");
         Sort.Direction direction = "ASC".equalsIgnoreCase(filter.getSortDir())
                 ? Sort.Direction.ASC : Sort.Direction.DESC;
         return PageRequest.of(

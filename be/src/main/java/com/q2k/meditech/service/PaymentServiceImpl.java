@@ -59,6 +59,8 @@ public class PaymentServiceImpl implements PaymentService {
     // QR refresh rate limiting: paymentId -> list of refresh timestamps
     private static final int QR_REFRESH_MAX = 3;
     private static final long QR_REFRESH_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+    private static final java.util.Set<String> ALLOWED_PAYMENT_SORT_FIELDS = java.util.Set.of(
+            "createdAt", "updatedAt", "status", "amount", "paidAt", "paymentMethod", "paymentDate", "id", "daysPending");
     private final ConcurrentHashMap<Long, java.util.Deque<Long>> qrRefreshTracker = new ConcurrentHashMap<>();
 
     @Override
@@ -223,16 +225,8 @@ public class PaymentServiceImpl implements PaymentService {
                 ? dto.getOrderInfo()
                 : "Payment " + payment.getPaymentCode();
 
-        // Generate MoMo order ID
-        // Always append timestamp if payment was previously sent to MoMo (prevents duplicate orderId error)
-        boolean needsUniqueId = isRefresh 
-                || "INITIATED".equals(payment.getPaymentStatus()) 
-                || "PROCESSING".equals(payment.getPaymentStatus())
-                || "FAILED".equals(payment.getPaymentStatus())
-                || payment.getMomoOrderId() != null;
-        String orderId = needsUniqueId
-                ? payment.getPaymentCode() + "-R" + System.currentTimeMillis()
-                : payment.getPaymentCode();
+        // Generate MoMo order ID — always unique to prevent duplicate orderId error (MoMo error 41)
+        String orderId = payment.getPaymentCode() + "-R" + System.currentTimeMillis();
 
         // Call MoMo API to create payment order
         MomoClient.MomoPaymentResponse momoResponse;
@@ -836,6 +830,9 @@ public class PaymentServiceImpl implements PaymentService {
                         ? payment.getAppointment().getDoctor().getSpecialization() : null)
                 .appointmentDate(payment.getAppointment() != null 
                         ? payment.getAppointment().getAppointmentDate() : null)
+                .appointmentStatus(payment.getAppointment() != null 
+                        && payment.getAppointment().getStatus() != null
+                        ? payment.getAppointment().getStatus().name() : null)
                 .build();
 
         if (payment.getProcessedBy() != null) {
@@ -902,10 +899,31 @@ public class PaymentServiceImpl implements PaymentService {
         org.springframework.data.domain.Pageable pageable =
                 org.springframework.data.domain.PageRequest.of(pageNumber, pageSize);
 
-        // Query with filters
+        // Translate special tab status values into actual filters
+        java.util.List<String> paymentStatuses;
+        com.q2k.meditech.entity.enums.AppointmentStatus appointmentStatus = null;
+        java.util.List<com.q2k.meditech.entity.enums.AppointmentStatus> excludeAppointmentStatuses = null;
+
+        if ("UNPAID".equals(status)) {
+            // Unpaid tab: PENDING, INITIATED, FAILED — only when appointment is COMPLETED
+            paymentStatuses = java.util.List.of("PENDING", "INITIATED", "FAILED");
+            appointmentStatus = com.q2k.meditech.entity.enums.AppointmentStatus.COMPLETED;
+        } else if ("COMPLETED".equals(status)) {
+            // Completed tab: payment PAID + appointment COMPLETED
+            paymentStatuses = java.util.List.of("PAID");
+            appointmentStatus = com.q2k.meditech.entity.enums.AppointmentStatus.COMPLETED;
+        } else if (status != null && !status.isBlank()) {
+            // Direct status filter (e.g. PAID, CANCELLED)
+            paymentStatuses = java.util.List.of(status);
+        } else {
+            paymentStatuses = null; // no filter
+        }
+
+        // Query with advanced filters
         org.springframework.data.domain.Page<Payment> payments =
-                paymentRepository.findByPatientIdWithFilters(
-                        patientId, status, method, fromDate, toDate, pageable);
+                paymentRepository.findByPatientIdWithAdvancedFilters(
+                        patientId, paymentStatuses, appointmentStatus, excludeAppointmentStatuses,
+                        method, fromDate, toDate, pageable);
 
         // Map to DTOs
         return payments.map(this::mapToDTO);
@@ -1534,7 +1552,8 @@ public class PaymentServiceImpl implements PaymentService {
 
         // Create sort
         org.springframework.data.domain.Sort sort;
-        String sortField = sortBy != null ? sortBy : "createdAt";
+        String sortField = com.q2k.meditech.util.SortFieldValidator.validate(
+                sortBy, ALLOWED_PAYMENT_SORT_FIELDS, "createdAt");
         if (sortField.equals("paymentDate")) {
             sortField = "paidAt";
         }
@@ -2417,7 +2436,8 @@ public class PaymentServiceImpl implements PaymentService {
         log.info("Getting pending payments list - search: {}, page: {}, size: {}", search, pageNumber, pageSize);
 
         // "daysPending" is a computed DTO field — map it to createdAt with inverted direction
-        String effectiveSortBy = sortBy;
+        String effectiveSortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                sortBy, ALLOWED_PAYMENT_SORT_FIELDS, "createdAt");
         String effectiveSortDir = sortDir;
         if ("daysPending".equalsIgnoreCase(sortBy)) {
             effectiveSortBy = "createdAt";
@@ -2426,8 +2446,8 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         org.springframework.data.domain.Sort sort = "ASC".equalsIgnoreCase(effectiveSortDir)
-                ? org.springframework.data.domain.Sort.by(effectiveSortBy != null && !effectiveSortBy.isEmpty() ? effectiveSortBy : "createdAt").ascending()
-                : org.springframework.data.domain.Sort.by(effectiveSortBy != null && !effectiveSortBy.isEmpty() ? effectiveSortBy : "createdAt").descending();
+                ? org.springframework.data.domain.Sort.by(effectiveSortBy).ascending()
+                : org.springframework.data.domain.Sort.by(effectiveSortBy).descending();
 
         // Default sort: oldest first (createdAt ASC)
         if (effectiveSortBy == null || effectiveSortBy.isEmpty()) {

@@ -75,9 +75,11 @@ public class AdminPatientController {
 
         log.info("GET /admin/patients - q: {}, gender: {}, bloodGroup: {}, isActive: {}", q, gender, bloodGroup, isActive);
 
+        String safeSortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                sortBy, java.util.Set.of("id", "createdAt"), "id");
         Sort sort = sortOrder.equalsIgnoreCase("asc")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
+                ? Sort.by(safeSortBy).ascending()
+                : Sort.by(safeSortBy).descending();
         Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
 
         Page<Patient> patients = patientRepository.findAllWithFilters(q, gender, bloodGroup, isActive, pageable);

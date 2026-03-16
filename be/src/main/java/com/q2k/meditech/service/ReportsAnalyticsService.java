@@ -100,8 +100,8 @@ public class ReportsAnalyticsService {
 
     private double calculateTotalRevenue() {
         return paymentRepository.findAll().stream()
-                .filter(p -> "COMPLETED".equals(p.getPaymentStatus()))
-                .mapToDouble(p -> p.getAmount() != null ? p.getAmount().doubleValue() : 0.0)
+                .filter(p -> "PAID".equals(p.getPaymentStatus()))
+                .mapToDouble(p -> p.getTotalAmount() != null ? p.getTotalAmount().doubleValue() : 0.0)
                 .sum();
     }
 
@@ -150,10 +150,10 @@ public class ReportsAnalyticsService {
 
     private Map<String, Double> getRevenueByPaymentMethod() {
         return paymentRepository.findAll().stream()
-                .filter(p -> "COMPLETED".equals(p.getPaymentStatus()))
+                .filter(p -> "PAID".equals(p.getPaymentStatus()))
                 .collect(Collectors.groupingBy(
                         p -> p.getPaymentMethod() != null ? p.getPaymentMethod() : "OTHER",
-                        Collectors.summingDouble(p -> p.getAmount() != null ? p.getAmount().doubleValue() : 0.0)
+                        Collectors.summingDouble(p -> p.getTotalAmount() != null ? p.getTotalAmount().doubleValue() : 0.0)
                 ));
     }
 
@@ -173,12 +173,12 @@ public class ReportsAnalyticsService {
                 .filter(p -> {
                     if (p.getCreatedAt() == null) return false;
                     LocalDate paymentDate = p.getCreatedAt().toLocalDate();
-                    return "COMPLETED".equals(p.getPaymentStatus()) &&
+                    return "PAID".equals(p.getPaymentStatus()) &&
                            !paymentDate.isBefore(from) && !paymentDate.isAfter(to);
                 })
                 .collect(Collectors.groupingBy(
                         p -> p.getCreatedAt().toLocalDate().format(formatter),
-                        Collectors.summingDouble(p -> p.getAmount() != null ? p.getAmount().doubleValue() : 0.0)
+                        Collectors.summingDouble(p -> p.getTotalAmount() != null ? p.getTotalAmount().doubleValue() : 0.0)
                 ));
 
         return dailyRevenue.entrySet().stream()
@@ -310,12 +310,12 @@ public class ReportsAnalyticsService {
                     
                     // Calculate revenue by finding payments linked to appointments with doctors of this specialty
                     double totalRevenue = allPayments.stream()
-                            .filter(p -> "COMPLETED".equals(p.getPaymentStatus()) && 
+                            .filter(p -> "PAID".equals(p.getPaymentStatus()) && 
                                     p.getAppointment() != null &&
                                     p.getAppointment().getDoctor() != null &&
                                     p.getAppointment().getDoctor().getSpecialties().stream()
                                             .anyMatch(s -> s.getId().equals(specialty.getId())))
-                            .mapToDouble(p -> p.getAmount() != null ? p.getAmount().doubleValue() : 0.0)
+                            .mapToDouble(p -> p.getTotalAmount() != null ? p.getTotalAmount().doubleValue() : 0.0)
                             .sum();
                     
                     return ReportsAnalyticsDTO.SpecialtyStatsDTO.builder()

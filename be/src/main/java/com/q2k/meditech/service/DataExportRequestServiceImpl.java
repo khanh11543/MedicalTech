@@ -66,9 +66,11 @@ public class DataExportRequestServiceImpl implements DataExportRequestService {
 
         Sort.Direction direction = "ASC".equalsIgnoreCase(filter.getSortDir())
                 ? Sort.Direction.ASC : Sort.Direction.DESC;
+        String safeSortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                filter.getSortBy(), java.util.Set.of("createdAt", "status", "id"), "createdAt");
         Pageable pageable = PageRequest.of(
                 filter.getPageNumber(), filter.getPageSize(),
-                Sort.by(direction, filter.getSortBy())
+                Sort.by(direction, safeSortBy)
         );
 
         Specification<DataExportRequest> spec = Specification.where(null);

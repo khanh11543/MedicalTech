@@ -64,9 +64,11 @@ public class AdminNotificationController {
         
         log.info("GET /admin/notifications - userId: {}, type: {}, isRead: {}, q: {}", userId, type, isRead, q);
         
+        String safeSortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                sortBy, java.util.Set.of("createdAt", "id"), "createdAt");
         Sort sort = sortOrder.equalsIgnoreCase("asc") 
-                ? Sort.by(sortBy).ascending() 
-                : Sort.by(sortBy).descending();
+                ? Sort.by(safeSortBy).ascending() 
+                : Sort.by(safeSortBy).descending();
         Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
         
         Page<NotificationDTO> notifications = notificationService.listAllNotifications(

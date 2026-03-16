@@ -67,9 +67,11 @@ public class AdminDoctorDocumentController {
 
         log.info("GET /admin/doctor-documents - status: {}, type: {}", status, type);
 
+        String safeSortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                sortBy, java.util.Set.of("createdAt", "id"), "createdAt");
         Sort sort = sortOrder.equalsIgnoreCase("desc") 
-                ? Sort.by(sortBy).descending() 
-                : Sort.by(sortBy).ascending();
+                ? Sort.by(safeSortBy).descending() 
+                : Sort.by(safeSortBy).ascending();
         Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
 
         Page<DoctorDocumentDTO> documents = documentService.listAllDocuments(status, type, pageable);

@@ -17,8 +17,8 @@ const statusConfig: Record<string, { label: string; classes: string }> = {
 type PaymentTabKey = "PAID" | "UNPAID" | "COMPLETED" | "CANCELLED";
 const PAYMENT_TABS: { key: PaymentTabKey; label: string; statusParam: string }[] = [
   { key: "PAID", label: "Paid", statusParam: "PAID" },
-  { key: "UNPAID", label: "Unpaid", statusParam: "PENDING" },
-  { key: "COMPLETED", label: "Completed", statusParam: "PAID" },
+  { key: "UNPAID", label: "Unpaid", statusParam: "UNPAID" },
+  { key: "COMPLETED", label: "Completed", statusParam: "COMPLETED" },
   { key: "CANCELLED", label: "Cancelled", statusParam: "CANCELLED" },
 ];
 

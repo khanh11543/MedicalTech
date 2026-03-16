@@ -281,8 +281,12 @@ public class SessionManagementServiceImpl implements SessionManagementService {
                 .build();
     }
 
+    private static final java.util.Set<String> ALLOWED_SESSION_SORT_FIELDS = java.util.Set.of(
+            "lastSeenAt", "createdAt", "id");
+
     private Pageable createSessionPageable(SessionFilterDTO filter) {
-        String sortBy = filter.getSortBy() != null ? filter.getSortBy() : "lastSeenAt";
+        String sortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                filter.getSortBy(), ALLOWED_SESSION_SORT_FIELDS, "lastSeenAt");
         Sort.Direction direction = "ASC".equalsIgnoreCase(filter.getSortDir())
                 ? Sort.Direction.ASC : Sort.Direction.DESC;
         return PageRequest.of(

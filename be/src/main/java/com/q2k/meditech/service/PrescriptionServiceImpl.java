@@ -209,10 +209,12 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         // Pagination and sorting
         Sort.Direction direction = "ASC".equalsIgnoreCase(filter.getSortDir())
                 ? Sort.Direction.ASC : Sort.Direction.DESC;
+        String safeSortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                filter.getSortBy(), java.util.Set.of("prescriptionDate", "createdAt", "id", "status"), "prescriptionDate");
         Pageable pageable = PageRequest.of(
                 filter.getPageNumber(),
                 filter.getPageSize(),
-                Sort.by(direction, filter.getSortBy())
+                Sort.by(direction, safeSortBy)
         );
 
         Page<Prescription> prescriptions = prescriptionRepository.findAll(spec, pageable);

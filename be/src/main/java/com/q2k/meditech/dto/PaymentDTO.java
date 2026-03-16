@@ -88,6 +88,9 @@ public class PaymentDTO {
     /** Appointment date for display on patient portal */
     private LocalDate appointmentDate;
 
+    /** Appointment status (e.g. PENDING, COMPLETED, CANCELLED) */
+    private String appointmentStatus;
+
     private BigDecimal amountReceived;
 
     private BigDecimal changeGiven;

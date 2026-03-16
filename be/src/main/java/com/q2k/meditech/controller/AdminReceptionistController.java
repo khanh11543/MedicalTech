@@ -80,9 +80,11 @@ public class AdminReceptionistController {
 
         log.info("GET /admin/receptionists - q: {}, department: {}, shift: {}, isActive: {}", q, department, shift, isActive);
 
+        String safeSortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                sortBy, java.util.Set.of("id", "createdAt"), "id");
         Sort sort = sortOrder.equalsIgnoreCase("asc")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
+                ? Sort.by(safeSortBy).ascending()
+                : Sort.by(safeSortBy).descending();
         Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
 
         Page<Receptionist> receptionists = receptionistRepository.findAllWithFilters(q, department, shift, isActive, pageable);

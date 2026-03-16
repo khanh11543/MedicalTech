@@ -1096,6 +1096,21 @@ public class AppointmentServiceImpl implements AppointmentService {
         createHistory(appointment, "CANCELLED", oldStatus, AppointmentStatus.CANCELLED,
                 userId, userRole, dto.getReason());
 
+        // Auto-cancel associated unpaid payment
+        try {
+            paymentRepository.findByAppointmentIdWithDetails(appointmentId).ifPresent(payment -> {
+                String ps = payment.getPaymentStatus();
+                if ("PENDING".equals(ps) || "INITIATED".equals(ps) || "FAILED".equals(ps)) {
+                    payment.setPaymentStatus("CANCELLED");
+                    payment.setNotes("Auto-cancelled: appointment cancelled");
+                    paymentRepository.save(payment);
+                    log.info("Auto-cancelled payment {} for cancelled appointment {}", payment.getId(), appointmentId);
+                }
+            });
+        } catch (Exception e) {
+            log.warn("Failed to auto-cancel payment for appointment {}: {}", appointmentId, e.getMessage());
+        }
+
         // Send notification: appointment cancelled
         try {
             notificationEventService.onAppointmentCancelled(appointment);
@@ -1614,8 +1629,12 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + appointmentId));
     }
     
+    private static final java.util.Set<String> ALLOWED_APPOINTMENT_SORT_FIELDS = java.util.Set.of(
+            "appointmentDate", "startTime", "createdAt", "updatedAt", "status", "id");
+
     private Pageable createPageable(AppointmentFilterDTO filter) {
-        String sortBy = filter.getSortBy() != null ? filter.getSortBy() : "appointmentDate";
+        String sortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                filter.getSortBy(), ALLOWED_APPOINTMENT_SORT_FIELDS, "appointmentDate");
         Sort.Direction direction = "ASC".equalsIgnoreCase(filter.getSortDir()) ? 
                 Sort.Direction.ASC : Sort.Direction.DESC;
         

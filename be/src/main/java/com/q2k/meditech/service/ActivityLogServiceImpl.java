@@ -126,8 +126,12 @@ public class ActivityLogServiceImpl implements ActivityLogService {
                 .build();
     }
 
+    private static final java.util.Set<String> ALLOWED_ACTIVITY_SORT_FIELDS = java.util.Set.of(
+            "createdAt", "action", "id");
+
     private Pageable createPageable(ActivityLogFilterDTO filter) {
-        String sortBy = filter.getSortBy() != null ? filter.getSortBy() : "createdAt";
+        String sortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                filter.getSortBy(), ALLOWED_ACTIVITY_SORT_FIELDS, "createdAt");
         Sort.Direction direction = "ASC".equalsIgnoreCase(filter.getSortDir())
                 ? Sort.Direction.ASC : Sort.Direction.DESC;
         return PageRequest.of(

@@ -15,7 +15,8 @@ import java.util.Set;
 @Table(name = "users", indexes = {
         @Index(name = "idx_users_email", columnList = "email"),
         @Index(name = "idx_users_phone", columnList = "phone"),
-        @Index(name = "idx_users_active", columnList = "is_active")
+        @Index(name = "idx_users_active", columnList = "is_active"),
+        @Index(name = "idx_users_auth_provider", columnList = "auth_provider, auth_provider_id", unique = true)
 })
 @Getter
 @Setter
@@ -45,7 +46,7 @@ public class User extends BaseEntity {
     @Column(name = "phone", length = 20)
     private String phone;
 
-    @Column(name = "avatar_url", length = 500)
+    @Column(name = "avatar_url", length = 2048)
     private String avatarUrl;
 
     @Builder.Default

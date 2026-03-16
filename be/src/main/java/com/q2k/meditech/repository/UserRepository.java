@@ -96,4 +96,9 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
            "WHERE r.name = :roleName " +
            "AND u.id NOT IN (SELECT rec.user.id FROM Receptionist rec)")
     List<User> findUsersWithRoleMissingReceptionistProfile(@Param("roleName") String roleName);
+
+    /**
+     * Find user by auth provider and provider ID (for social login lookup)
+     */
+    Optional<User> findByAuthProviderAndAuthProviderId(String authProvider, String authProviderId);
 }

@@ -1,5 +1,6 @@
 import axios from "axios";
 import { authStorage } from "../utils/authStorage";
+import { sanitizeData } from "../utils/xss";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 
@@ -10,9 +11,20 @@ const api = axios.create({
   },
 });
 
-// Request interceptor: attach access token
+// Request interceptor: sanitize data & attach access token
 api.interceptors.request.use(
   (config) => {
+    // Sanitize request data (POST/PUT/PATCH body) to strip XSS patterns
+    // Skip FormData (multipart uploads) — sanitizing it destroys the binary payload
+    if (config.data && typeof config.data === "object" && !(config.data instanceof FormData)) {
+      config.data = sanitizeData(config.data);
+    }
+
+    // Sanitize query parameters
+    if (config.params && typeof config.params === "object") {
+      config.params = sanitizeData(config.params);
+    }
+
     const token = authStorage.getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

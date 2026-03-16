@@ -32,6 +32,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final MaintenanceFilter maintenanceFilter;
     private final DoctorVerificationFilter doctorVerificationFilter;
+    private final XssFilter xssFilter;
 
         @Bean
         public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -133,6 +134,9 @@ public class SecurityConfig {
                                     Map.of("status", 403, "message", "Access Denied: " + accessDeniedException.getMessage()));
                         })
                 )
+
+                // Add XSS filter at the very beginning of the chain
+                .addFilterBefore(xssFilter, UsernamePasswordAuthenticationFilter.class)
 
                 // Add JWT filter before UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

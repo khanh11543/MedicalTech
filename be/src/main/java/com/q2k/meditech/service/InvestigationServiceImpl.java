@@ -461,8 +461,12 @@ public class InvestigationServiceImpl implements InvestigationService {
                 .build();
     }
 
+    private static final java.util.Set<String> ALLOWED_INVESTIGATION_SORT_FIELDS = java.util.Set.of(
+            "createdAt", "status", "id");
+
     private Pageable createPageable(InvestigationFilterDTO filter) {
-        String sortBy = filter.getSortBy() != null ? filter.getSortBy() : "createdAt";
+        String sortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                filter.getSortBy(), ALLOWED_INVESTIGATION_SORT_FIELDS, "createdAt");
         Sort.Direction direction = "ASC".equalsIgnoreCase(filter.getSortDir())
                 ? Sort.Direction.ASC : Sort.Direction.DESC;
         return PageRequest.of(

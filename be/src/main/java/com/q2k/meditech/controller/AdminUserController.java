@@ -82,9 +82,11 @@ public class AdminUserController {
         log.info("GET /admin/users - q: {}, role: {}, isActive: {}", q, role, isActive);
 
         // Create pageable with sort
+        String safeSortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                sortBy, java.util.Set.of("createdAt", "id", "email", "fullName"), "createdAt");
         Sort sort = sortOrder.equalsIgnoreCase("asc")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
+                ? Sort.by(safeSortBy).ascending()
+                : Sort.by(safeSortBy).descending();
         Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
 
         Page<UserDTO> users = userService.listUsers(q, role, isActive, pageable);

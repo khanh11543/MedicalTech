@@ -248,8 +248,12 @@ public class AuditLogServiceImpl implements AuditLogService {
         }
     }
 
+    private static final java.util.Set<String> ALLOWED_AUDIT_SORT_FIELDS = java.util.Set.of(
+            "createdAt", "action", "entityType", "id");
+
     private Pageable createPageable(AuditLogFilterDTO filter) {
-        String sortBy = filter.getSortBy() != null ? filter.getSortBy() : "createdAt";
+        String sortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                filter.getSortBy(), ALLOWED_AUDIT_SORT_FIELDS, "createdAt");
         Sort.Direction direction = "ASC".equalsIgnoreCase(filter.getSortDir())
                 ? Sort.Direction.ASC : Sort.Direction.DESC;
         return PageRequest.of(

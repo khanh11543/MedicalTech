@@ -48,9 +48,11 @@ public class AdminSupportController {
             @RequestParam(defaultValue = "createdAt") String sortBy,
             @RequestParam(defaultValue = "desc") String sortOrder) {
 
+        String safeSortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                sortBy, java.util.Set.of("createdAt", "updatedAt", "status", "priority", "id"), "createdAt");
         Sort sort = sortOrder.equalsIgnoreCase("asc")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
+                ? Sort.by(safeSortBy).ascending()
+                : Sort.by(safeSortBy).descending();
 
         Page<SupportTicketDTO> tickets = supportTicketService.listAllTickets(
                 status, category, priority, q, PageRequest.of(pageNumber, pageSize, sort));

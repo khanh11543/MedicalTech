@@ -18,6 +18,8 @@ const VerifyOtp = lazy(() => import("./pages/AuthPages/VerifyOtp"));
 const VerifyAccount = lazy(() => import("./pages/AuthPages/VerifyAccount"));
 const ForgotPassword = lazy(() => import("./pages/AuthPages/ForgotPassword"));
 const MfaVerify = lazy(() => import("./pages/AuthPages/MfaVerify"));
+const OAuthSuccess = lazy(() => import("./pages/AuthPages/OAuthSuccess"));
+const OAuthFacebookCallback = lazy(() => import("./pages/AuthPages/OAuthFacebookCallback"));
 const NotFound = lazy(() => import("./pages/OtherPage/NotFound"));
 
 // Admin Pages
@@ -334,6 +336,8 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/verify-otp" element={<VerifyOtp />} />
           <Route path="/verify-account" element={<VerifyAccount />} />
+          <Route path="/oauth-success" element={<OAuthSuccess />} />
+          <Route path="/oauth/facebook/callback" element={<OAuthFacebookCallback />} />
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />

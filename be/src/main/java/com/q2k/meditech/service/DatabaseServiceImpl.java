@@ -203,7 +203,8 @@ public class DatabaseServiceImpl implements DatabaseService {
 
         for (String tableName : tableNames) {
             try {
-                List<Map<String, Object>> result = jdbcTemplate.queryForList("OPTIMIZE TABLE " + tableName);
+                if (!isValidTableName(tableName)) continue;
+                List<Map<String, Object>> result = jdbcTemplate.queryForList("OPTIMIZE TABLE `" + tableName.replace("`", "") + "`");
                 Map<String, Object> tableResult = new LinkedHashMap<>();
                 tableResult.put("table", tableName);
                 tableResult.put("status", "SUCCESS");
@@ -228,7 +229,8 @@ public class DatabaseServiceImpl implements DatabaseService {
 
         for (String tableName : tableNames) {
             try {
-                List<Map<String, Object>> result = jdbcTemplate.queryForList("ANALYZE TABLE " + tableName);
+                if (!isValidTableName(tableName)) continue;
+                List<Map<String, Object>> result = jdbcTemplate.queryForList("ANALYZE TABLE `" + tableName.replace("`", "") + "`");
                 Map<String, Object> tableResult = new LinkedHashMap<>();
                 tableResult.put("table", tableName);
                 tableResult.put("status", "SUCCESS");
@@ -264,6 +266,10 @@ public class DatabaseServiceImpl implements DatabaseService {
                 "ORDER BY table_name";
 
         return jdbcTemplate.queryForList(sql, String.class);
+    }
+
+    private boolean isValidTableName(String tableName) {
+        return tableName != null && tableName.matches("^[a-zA-Z_][a-zA-Z0-9_]{0,63}$");
     }
 
     @Override

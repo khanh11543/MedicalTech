@@ -263,8 +263,14 @@ public class IpManagementServiceImpl implements IpManagementService {
                 .build();
     }
 
+    private static final java.util.Set<String> ALLOWED_BLOCKED_IP_SORT_FIELDS = java.util.Set.of(
+            "blockedAt", "createdAt", "id");
+    private static final java.util.Set<String> ALLOWED_IP_RULE_SORT_FIELDS = java.util.Set.of(
+            "createdAt", "id");
+
     private Pageable createBlockedIpPageable(BlockedIpFilterDTO filter) {
-        String sortBy = filter.getSortBy() != null ? filter.getSortBy() : "blockedAt";
+        String sortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                filter.getSortBy(), ALLOWED_BLOCKED_IP_SORT_FIELDS, "blockedAt");
         Sort.Direction direction = "ASC".equalsIgnoreCase(filter.getSortDir())
                 ? Sort.Direction.ASC : Sort.Direction.DESC;
         return PageRequest.of(
@@ -275,7 +281,8 @@ public class IpManagementServiceImpl implements IpManagementService {
     }
 
     private Pageable createIpRulePageable(IpRuleFilterDTO filter) {
-        String sortBy = filter.getSortBy() != null ? filter.getSortBy() : "createdAt";
+        String sortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                filter.getSortBy(), ALLOWED_IP_RULE_SORT_FIELDS, "createdAt");
         Sort.Direction direction = "ASC".equalsIgnoreCase(filter.getSortDir())
                 ? Sort.Direction.ASC : Sort.Direction.DESC;
         return PageRequest.of(

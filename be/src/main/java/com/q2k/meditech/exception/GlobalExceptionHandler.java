@@ -174,6 +174,27 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handle AccountLockedException (429 Too Many Requests)
+     */
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<ApiErrorResponse> handleAccountLockedException(
+            AccountLockedException ex,
+            WebRequest request) {
+
+        log.warn("Account/IP locked: {}", ex.getMessage());
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(getCurrentTimestamp())
+                .status(HttpStatus.TOO_MANY_REQUESTS.value())
+                .error(HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+
+        return new ResponseEntity<>(error, HttpStatus.TOO_MANY_REQUESTS);
+    }
+
+    /**
      * Handle bad credentials (wrong email/password) — return 401 so frontend shows correct message
      */
     @ExceptionHandler(BadCredentialsException.class)

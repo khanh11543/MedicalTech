@@ -155,9 +155,11 @@ public class RestoreController {
 
         log.info("GET /admin/restore/history - page: {}, size: {}", pageNumber, pageSize);
 
+        String safeSortBy = com.q2k.meditech.util.SortFieldValidator.validate(
+                sortBy, java.util.Set.of("startedAt", "id"), "startedAt");
         Sort sort = sortDir.equalsIgnoreCase("ASC")
-                ? Sort.by(sortBy).ascending()
-                : Sort.by(sortBy).descending();
+                ? Sort.by(safeSortBy).ascending()
+                : Sort.by(safeSortBy).descending();
         Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
 
         Page<RestoreRecord> history = restoreService.getRestoreHistory(pageable);

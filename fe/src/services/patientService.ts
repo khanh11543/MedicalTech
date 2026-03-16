@@ -301,6 +301,8 @@ export interface Payment {
   doctorSpecialty?: string | null;
   /** Appointment date for display */
   appointmentDate?: string | null;
+  /** Appointment status (e.g. PENDING, COMPLETED, CANCELLED) */
+  appointmentStatus?: string | null;
   amountReceived: number;
   changeGiven: number;
   notes: string | null;
