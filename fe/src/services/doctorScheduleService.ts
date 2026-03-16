@@ -1,8 +1,8 @@
-import api from "./api";
+import api from './api';
 
 // =========== ENUMS & TYPES ===========
-export type ExceptionType = "OFF" | "MODIFIED" | "EXTRA";
-export type TimeSlotStatus = "AVAILABLE" | "BOOKED" | "BLOCKED" | "COMPLETED";
+export type ExceptionType = 'OFF' | 'MODIFIED' | 'EXTRA';
+export type TimeSlotStatus = 'AVAILABLE' | 'BOOKED' | 'BLOCKED' | 'COMPLETED';
 
 // =========== INTERFACES ===========
 
@@ -67,28 +67,52 @@ export interface MessageDTO {
  * Get day name from day of week number
  */
 export const getDayName = (dayOfWeek: number): string => {
-  const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  return days[dayOfWeek] || "Unknown";
+  const days = [
+    'Sunday',
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+  ];
+  return days[dayOfWeek] || 'Unknown';
 };
 
 /**
  * Get day short name from day of week number
  */
 export const getDayShortName = (dayOfWeek: number): string => {
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  return days[dayOfWeek] || "Unknown";
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return days[dayOfWeek] || 'Unknown';
 };
 
 // =========== SERVICE FUNCTIONS ===========
 const doctorScheduleService = {
-  // ========== DOCTOR SCHEDULES ==========
+  /**
+   * Check if schedules exist for the entire week (all 7 days)
+   * Returns true if at least one schedule exists for any day of the week
+   */
+  hasWeeklySchedules: async (): Promise<boolean> => {
+    try {
+      const schedules = await doctorScheduleService.getDoctorSchedules();
+      return schedules.length > 0;
+    } catch (err) {
+      console.error('Error checking for weekly schedules:', err);
+      return false;
+    }
+  },
 
   /**
    * Get doctor schedules with optional filter
    */
-  getDoctorSchedules: async (dayOfWeek?: number): Promise<DoctorScheduleDTO[]> => {
+  getDoctorSchedules: async (
+    dayOfWeek?: number
+  ): Promise<DoctorScheduleDTO[]> => {
     const params = dayOfWeek !== undefined ? { dayOfWeek } : {};
-    const response = await api.get<DoctorScheduleDTO[]>("/doctor/schedules", { params });
+    const response = await api.get<DoctorScheduleDTO[]>('/doctor/schedules', {
+      params,
+    });
     return response.data;
   },
 
@@ -96,9 +120,12 @@ const doctorScheduleService = {
    * Create a new doctor schedule
    */
   createDoctorSchedule: async (
-    dto: Omit<DoctorScheduleDTO, "id" | "doctorId">
+    dto: Omit<DoctorScheduleDTO, 'id' | 'doctorId'>
   ): Promise<DoctorScheduleDTO> => {
-    const response = await api.post<DoctorScheduleDTO>("/doctor/schedules", dto);
+    const response = await api.post<DoctorScheduleDTO>(
+      '/doctor/schedules',
+      dto
+    );
     return response.data;
   },
 
@@ -107,9 +134,12 @@ const doctorScheduleService = {
    */
   updateDoctorSchedule: async (
     scheduleId: number,
-    dto: Partial<Omit<DoctorScheduleDTO, "id" | "doctorId">>
+    dto: Partial<Omit<DoctorScheduleDTO, 'id' | 'doctorId'>>
   ): Promise<DoctorScheduleDTO> => {
-    const response = await api.put<DoctorScheduleDTO>(`/doctor/schedules/${scheduleId}`, dto);
+    const response = await api.put<DoctorScheduleDTO>(
+      `/doctor/schedules/${scheduleId}`,
+      dto
+    );
     return response.data;
   },
 
@@ -126,9 +156,12 @@ const doctorScheduleService = {
    * Add a schedule exception (OFF/MODIFIED/EXTRA)
    */
   addScheduleException: async (
-    dto: Omit<ScheduleExceptionDTO, "id" | "doctorId">
+    dto: Omit<ScheduleExceptionDTO, 'id' | 'doctorId'>
   ): Promise<ScheduleExceptionDTO> => {
-    const response = await api.post<ScheduleExceptionDTO>("/doctor/schedule-exceptions", dto);
+    const response = await api.post<ScheduleExceptionDTO>(
+      '/doctor/schedule-exceptions',
+      dto
+    );
     return response.data;
   },
 
@@ -136,7 +169,9 @@ const doctorScheduleService = {
    * List all schedule exceptions
    */
   listScheduleExceptions: async (): Promise<ScheduleExceptionDTO[]> => {
-    const response = await api.get<ScheduleExceptionDTO[]>("/doctor/schedule-exceptions");
+    const response = await api.get<ScheduleExceptionDTO[]>(
+      '/doctor/schedule-exceptions'
+    );
     return response.data;
   },
 
@@ -152,8 +187,11 @@ const doctorScheduleService = {
   /**
    * List time slots for a date range
    */
-  listTimeSlots: async (startDate: string, endDate: string): Promise<TimeSlotDTO[]> => {
-    const response = await api.get<TimeSlotDTO[]>("/doctor/time-slots", {
+  listTimeSlots: async (
+    startDate: string,
+    endDate: string
+  ): Promise<TimeSlotDTO[]> => {
+    const response = await api.get<TimeSlotDTO[]>('/doctor/time-slots', {
       params: { startDate, endDate },
     });
     return response.data;
@@ -163,9 +201,9 @@ const doctorScheduleService = {
    * Create a single time slot
    */
   createTimeSlot: async (
-    dto: Omit<TimeSlotDTO, "id" | "doctorId" | "createdAt" | "updatedAt">
+    dto: Omit<TimeSlotDTO, 'id' | 'doctorId' | 'createdAt' | 'updatedAt'>
   ): Promise<TimeSlotDTO> => {
-    const response = await api.post<TimeSlotDTO>("/doctor/time-slots", dto);
+    const response = await api.post<TimeSlotDTO>('/doctor/time-slots', dto);
     return response.data;
   },
 
@@ -174,9 +212,14 @@ const doctorScheduleService = {
    */
   updateTimeSlot: async (
     slotId: number,
-    dto: Partial<Omit<TimeSlotDTO, "id" | "doctorId" | "createdAt" | "updatedAt">>
+    dto: Partial<
+      Omit<TimeSlotDTO, 'id' | 'doctorId' | 'createdAt' | 'updatedAt'>
+    >
   ): Promise<TimeSlotDTO> => {
-    const response = await api.put<TimeSlotDTO>(`/doctor/time-slots/${slotId}`, dto);
+    const response = await api.put<TimeSlotDTO>(
+      `/doctor/time-slots/${slotId}`,
+      dto
+    );
     return response.data;
   },
 
@@ -191,17 +234,26 @@ const doctorScheduleService = {
    * Generate time slots based on schedules and exceptions
    */
   generateTimeSlots: async (dto: GenerateSlotsDTO): Promise<MessageDTO> => {
-    const response = await api.post<MessageDTO>("/doctor/time-slots/generate", dto);
+    const response = await api.post<MessageDTO>(
+      '/doctor/time-slots/generate',
+      dto
+    );
     return response.data;
   },
 
   /**
    * Block a time slot
    */
-  blockTimeSlot: async (slotId: number, reason?: string): Promise<TimeSlotDTO> => {
-    const response = await api.patch<TimeSlotDTO>(`/doctor/time-slots/${slotId}/block`, {
-      reason: reason || "",
-    });
+  blockTimeSlot: async (
+    slotId: number,
+    reason?: string
+  ): Promise<TimeSlotDTO> => {
+    const response = await api.patch<TimeSlotDTO>(
+      `/doctor/time-slots/${slotId}/block`,
+      {
+        reason: reason || '',
+      }
+    );
     return response.data;
   },
 
@@ -209,7 +261,9 @@ const doctorScheduleService = {
    * Unblock a time slot
    */
   unblockTimeSlot: async (slotId: number): Promise<TimeSlotDTO> => {
-    const response = await api.patch<TimeSlotDTO>(`/doctor/time-slots/${slotId}/unblock`);
+    const response = await api.patch<TimeSlotDTO>(
+      `/doctor/time-slots/${slotId}/unblock`
+    );
     return response.data;
   },
 };
