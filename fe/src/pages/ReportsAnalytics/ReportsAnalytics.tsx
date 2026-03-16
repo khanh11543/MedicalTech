@@ -239,21 +239,45 @@ export default function ReportsAnalyticsPage() {
             {analytics.specialtyStatistics.length > 0 ? (
               <Doughnut
                 data={{
-                  labels: analytics.specialtyStatistics.slice(0, 6).map(s => s.specialtyName),
-                  datasets: [{
-                    data: analytics.specialtyStatistics.slice(0, 6).map(s => s.appointmentCount),
-                    backgroundColor: ["rgba(59,130,246,0.8)", "rgba(34,197,94,0.8)", "rgba(234,179,8,0.8)", "rgba(168,85,247,0.8)", "rgba(239,68,68,0.8)", "rgba(6,182,212,0.8)"],
-                    borderWidth: 2,
-                    borderColor: "#fff",
-                  }],
+                  labels: analytics.specialtyStatistics.slice(0, 6).map((s) => s.specialtyName),
+                  datasets: [
+                    {
+                      data: analytics.specialtyStatistics.slice(0, 6).map((s) => s.appointmentCount),
+                      backgroundColor: [
+                        "rgba(59,130,246,0.8)",
+                        "rgba(34,197,94,0.8)",
+                        "rgba(234,179,8,0.8)",
+                        "rgba(168,85,247,0.8)",
+                        "rgba(239,68,68,0.8)",
+                        "rgba(6,182,212,0.8)",
+                      ],
+                      borderWidth: 2,
+                      borderColor: "#fff",
+                    },
+                  ],
                 }}
                 options={{
                   responsive: true,
                   layout: { padding: 20 },
                   cutout: "55%",
                   plugins: {
-                    legend: { position: "bottom" },
+                    legend: {
+                      position: "bottom",
+                      // Disable click-to-toggle on legend items so slices cannot be hidden
+                      onClick: () => {},
+                    },
                     doughnutCenter: { label: "Total" },
+                    tooltip: {
+                      callbacks: {
+                        label: (ctx) => {
+                          const data = (ctx.dataset.data || []) as number[];
+                          const total = data.reduce((a, b) => a + Number(b ?? 0), 0);
+                          const raw = Number(ctx.raw ?? 0);
+                          const pct = total ? ((raw / total) * 100).toFixed(1) : "0.0";
+                          return `${ctx.label}: ${raw} (${pct}%)`;
+                        },
+                      },
+                    },
                   },
                 }}
               />

@@ -27,79 +27,15 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import { Doughnut } from "react-chartjs-2";
+import { Bar, Doughnut } from "react-chartjs-2";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
-/** Plugin: draw "Total" + sum in doughnut center and percentage on each segment. Respects legend toggle (hidden segments excluded). */
+/** Plugin currently disabled (no center text) – tooltip only. */
 const doughnutCenterAndPercentPlugin = {
   id: "doughnutCenterAndPercent",
   afterDraw(chart: ChartJS) {
-    const { ctx } = chart;
-    if (chart.config.type !== "doughnut") return;
-    const meta = chart.getDatasetMeta(0);
-    if (!meta?.data?.length) return;
-    const data = chart.data.datasets[0]?.data as number[];
-    const arcs = meta.data as Array<{ hidden?: boolean; tooltipPosition?: () => { x: number; y: number } }>;
-    const visibleTotal = data.reduce((sum, val, i) => sum + (arcs[i]?.hidden ? 0 : Number(val ?? 0)), 0);
-
-    const firstArc = meta.data[0] as unknown as {
-      x?: number;
-      y?: number;
-      innerRadius?: number;
-      outerRadius?: number;
-    };
-    const centerX = firstArc.x ?? chart.width / 2;
-    const centerY = firstArc.y ?? chart.height / 2;
-    const innerRadius = firstArc.innerRadius ?? 0;
-    const outerRadius = firstArc.outerRadius ?? 0;
-    const ringWidth = Math.max(1, outerRadius - innerRadius);
-
-    // Center text: "Total" + number (smaller font)
-    const opts = (chart.options.plugins as Record<string, unknown>)?.doughnutCenter as { label?: string } | undefined;
-    const label = opts?.label ?? "Total";
-    const labelFontPx = Math.max(10, Math.round(ringWidth * 0.42));
-    const valueFontPx = Math.max(14, Math.round(ringWidth * 0.72));
-    const labelOffsetY = Math.max(8, Math.round(ringWidth * 0.42));
-    ctx.save();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = chart.options.color ? String(chart.options.color) : "#374151";
-    ctx.font = `600 ${labelFontPx}px sans-serif`;
-    ctx.fillText(label, centerX, centerY - labelOffsetY);
-    ctx.font = `700 ${valueFontPx}px sans-serif`;
-    ctx.fillText(String(visibleTotal), centerX, centerY + Math.round(valueFontPx * 0.15));
-    ctx.restore();
-
-    // Percentage on each segment – only for visible segments, smaller font, keep inside chart area
-    const chartArea = chart.chartArea || { left: 0, right: chart.width, top: 0, bottom: chart.height };
-    const padding = 4;
-    const minX = chartArea.left + padding;
-    const maxX = chartArea.right - padding;
-    const minY = chartArea.top + padding;
-    const maxY = chartArea.bottom - padding;
-
-    arcs.forEach((arc, i) => {
-      if (arc.hidden || visibleTotal === 0) return;
-      const value = Number(data[i] ?? 0);
-      if (value === 0) return;
-      const pct = (value / visibleTotal) * 100;
-      if (pct < 2) return;
-      const pos = arc.tooltipPosition ? arc.tooltipPosition() : { x: centerX, y: centerY };
-      const pctFontPx = Math.max(9, Math.round(ringWidth * 0.30));
-      ctx.font = `600 ${pctFontPx}px sans-serif`;
-      const text = `${pct.toFixed(1)}%`;
-      const textWidth = ctx.measureText(text).width;
-      const halfW = textWidth / 2;
-      const x = Math.max(minX + halfW, Math.min(maxX - halfW, pos.x));
-      const y = Math.max(minY + pctFontPx / 2, Math.min(maxY - pctFontPx / 2, pos.y));
-      ctx.save();
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillStyle = "#fff";
-      ctx.fillText(text, x, y);
-      ctx.restore();
-    });
+    // no-op
   },
 };
 ChartJS.register(doughnutCenterAndPercentPlugin);
@@ -233,49 +169,66 @@ export default function Home() {
           />
         </div>
 
-        {/* Charts Section - Donut with Total in center & % on segments (real data from API) */}
+        {/* Charts Section */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Users by Role */}
+          {/* Users by Role - bar chart like design reference */}
           <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] md:p-6 min-h-[400px] flex flex-col">
             <h3 className="mb-4 text-xl font-semibold text-gray-800 dark:text-white">Users by Role</h3>
             <div className="flex-1 min-h-[320px]">
-            <Doughnut
-              data={{
-                labels: ["Admin", "Doctor", "Patient", "Receptionist"],
-                datasets: [{
-                  data: [
-                    stats?.totalAdmins ?? 0,
-                    stats?.totalDoctors ?? 0,
-                    stats?.totalPatients ?? 0,
-                    stats?.totalReceptionists ?? 0,
+              <Bar
+                data={{
+                  labels: ["Admin", "Doctor", "Patient", "Receptionist"],
+                  datasets: [
+                    {
+                      label: "Users",
+                      data: [
+                        stats?.totalAdmins ?? 0,
+                        stats?.totalDoctors ?? 0,
+                        stats?.totalPatients ?? 0,
+                        stats?.totalReceptionists ?? 0,
+                      ],
+                      backgroundColor: ["#0f766e", "#22c55e", "#06b6d4", "#eab308"],
+                      borderRadius: 8,
+                      maxBarThickness: 40,
+                    },
                   ],
-                  backgroundColor: ["#3b82f6", "#22c55e", "#06b6d4", "#eab308"],
-                  borderWidth: 2,
-                  borderColor: "#fff",
-                }],
-              }}
-              options={{
-                responsive: true,
-                maintainAspectRatio: true,
-                aspectRatio: 1.1,
-                layout: { padding: 20 },
-                cutout: "65%",
-                plugins: {
-                  legend: { position: "bottom", labels: { font: { size: 14 }, padding: 16 } },
-                  doughnutCenter: { label: "Total" },
-                  tooltip: {
-                    bodyFont: { size: 14 },
-                    callbacks: {
-                      label: (ctx) => {
-                        const total = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0);
-                        const pct = total ? ((Number(ctx.raw) / total) * 100).toFixed(1) : "0";
-                        return `${ctx.label}: ${ctx.raw} (${pct}%)`;
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  layout: { padding: 16 },
+                  plugins: {
+                    legend: {
+                      display: false,
+                      position: "bottom",
+                      labels: { font: { size: 13 }, padding: 12 },
+                      onClick: () => {},
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: (ctx) => {
+                          const data = (ctx.dataset.data || []) as number[];
+                          const total = data.reduce((a, b) => a + Number(b ?? 0), 0);
+                          const raw = Number(ctx.raw ?? 0);
+                          const pct = total ? ((raw / total) * 100).toFixed(1) : "0.0";
+                          return `${ctx.dataset.label}: ${raw} (${pct}%)`;
+                        },
                       },
                     },
                   },
-                },
-              }}
-            />
+                  scales: {
+                    x: {
+                      grid: { display: false },
+                      ticks: { font: { size: 12 } },
+                    },
+                    y: {
+                      beginAtZero: true,
+                      grid: { color: "rgba(148,163,184,0.25)" },
+                      ticks: { stepSize: 2, font: { size: 11 } },
+                    },
+                  },
+                }}
+              />
             </div>
           </div>
 
@@ -304,8 +257,11 @@ export default function Home() {
                 layout: { padding: 20 },
                 cutout: "65%",
                 plugins: {
-                  legend: { position: "bottom", labels: { font: { size: 14 }, padding: 16 } },
-                  doughnutCenter: { label: "Total" },
+                  legend: {
+                    position: "bottom",
+                    labels: { font: { size: 14 }, padding: 16 },
+                    onClick: () => {},
+                  },
                   tooltip: {
                     bodyFont: { size: 14 },
                     callbacks: {
@@ -347,8 +303,11 @@ export default function Home() {
                 layout: { padding: 20 },
                 cutout: "65%",
                 plugins: {
-                  legend: { position: "bottom", labels: { font: { size: 14 }, padding: 16 } },
-                  doughnutCenter: { label: "Total" },
+                  legend: {
+                    position: "bottom",
+                    labels: { font: { size: 14 }, padding: 16 },
+                    onClick: () => {},
+                  },
                   tooltip: {
                     bodyFont: { size: 14 },
                     callbacks: {

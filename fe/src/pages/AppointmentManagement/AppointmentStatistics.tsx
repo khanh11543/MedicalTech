@@ -296,6 +296,10 @@ export default function AppointmentStatistics() {
     { name: "No-Show", data: appointmentsOverTime.map((d) => d.noShow) },
   ];
 
+  // Precompute totals used for percentage tooltips
+  const totalStatusAppointments = appointmentsByStatus.reduce((sum, s) => sum + s.count, 0);
+  const totalCancellations = cancellationAnalysis?.totalCancellations ?? 0;
+
   // Pie chart - Appointments by status
   const pieChartOptions: ApexOptions = {
     chart: {
@@ -348,19 +352,18 @@ export default function AppointmentStatistics() {
         },
       },
     },
+    // Hide inline % labels; percentages are shown only in tooltip
     dataLabels: {
-      enabled: true,
-      formatter: (val: number) => `${val.toFixed(1)}%`,
-      style: {
-        fontSize: "12px",
-        fontWeight: "bold",
-        colors: ["#FFFFFF"],
-      },
-      dropShadow: { enabled: false },
+      enabled: false,
     },
     tooltip: {
       y: {
-        formatter: (val: number) => formatNumber(val),
+        formatter: (val: number) => {
+          const pct = totalStatusAppointments
+            ? ((val / totalStatusAppointments) * 100).toFixed(1)
+            : "0.0";
+          return `${formatNumber(val)} (${pct}%)`;
+        },
       },
     },
   };
@@ -439,21 +442,25 @@ export default function AppointmentStatistics() {
     colors: ["#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#8B5CF6", "#6B7280"],
     labels: cancellationAnalysis?.reasons.map((r) => r.reason) || [],
     legend: { position: "bottom" },
+    // Hide inline % labels; show them only inside tooltip
     dataLabels: {
-      enabled: true,
-      formatter: (val: number) => `${val.toFixed(1)}%`,
-      style: {
-        fontSize: "14px",
-        fontWeight: "bold",
-        colors: ["#FFFFFF"],
-      },
-      dropShadow: {
-        enabled: true,
-        top: 1,
-        left: 1,
-        blur: 2,
-        color: "#000000",
-        opacity: 0.6,
+      enabled: false,
+    },
+    tooltip: {
+      y: {
+        formatter: (val: number, opts?: { seriesIndex?: number }) => {
+          const value = Number(val ?? 0);
+          const pct =
+            totalCancellations > 0
+              ? ((value / totalCancellations) * 100).toFixed(1)
+              : "0.0";
+          const label =
+            typeof opts?.seriesIndex === "number"
+              ? cancellationAnalysis?.reasons[opts.seriesIndex]?.reason ?? ""
+              : "";
+          const prefix = label ? `${label}: ` : "";
+          return `${prefix}${formatNumber(value)} (${pct}%)`;
+        },
       },
     },
   };

@@ -228,6 +228,9 @@ export default function App() {
               {/* Reports & Analytics */}
               <Route path="/admin/reports-analytics" element={<ReportsAnalytics />} />
 
+              {/* Admin Support */}
+              <Route path="/admin/support" element={<UserSupport />} />
+
             {/* Admin Personal Settings */}
             <Route path="/admin/settings" element={<AdminSettings />} />
 
