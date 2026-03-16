@@ -133,10 +133,11 @@ export default function AppointmentPage() {
   const selectedSlot = timeSlots.find((s) => String(s.id) === formData.timeSlotId);
 
   const validatePhone = (phone: string): string | null => {
-    const digits = phone.replace(/\D/g, "").replace(/^0+/, "") || phone.replace(/\D/g, "");
+    const digits = phone.replace(/\D/g, "");
     if (!digits) return "Please enter your phone number.";
     if (digits.length !== 10 && digits.length !== 11) return "Phone number should be 10–11 digits.";
-    if (digits.length === 10 && !/^[3-9]/.test(digits)) return "Vietnamese number should start with 3, 5, 7, 8, or 9.";
+    const withoutLeadingZero = digits.replace(/^0+/, "") || digits;
+    if ((digits.length === 10 || digits.length === 11) && !/^[3-9]/.test(withoutLeadingZero)) return "Vietnamese number should start with 3, 5, 7, 8, or 9.";
     return null;
   };
 
