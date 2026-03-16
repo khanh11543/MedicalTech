@@ -35,6 +35,8 @@ const MethodPieChart: React.FC<MethodPieChartProps> = ({ data, isLoading, onMeth
     chart: {
       fontFamily: 'Outfit, sans-serif',
       type: 'donut',
+      offsetX: 8,
+      offsetY: 8,
       events: {
         dataPointSelection: (_e: any, _ctx: any, config: any) => {
           if (onMethodClick && data) {
@@ -52,6 +54,7 @@ const MethodPieChart: React.FC<MethodPieChartProps> = ({ data, isLoading, onMeth
     dataLabels: {
       enabled: true,
       formatter: (val: number) => `${val.toFixed(1)}%`,
+      style: { fontSize: '12px', fontWeight: 600, colors: ['#FFFFFF'] },
     },
     tooltip: {
       y: {

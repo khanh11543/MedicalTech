@@ -9,11 +9,6 @@ function maskPhone(phone: string) {
   if (!phone || phone.length < 7) return phone || "—";
   return `${phone.slice(0, 4)}***${phone.slice(-3)}`;
 }
-function maskId(id: string) {
-  if (!id || id.length < 4) return "—";
-  return `${"*".repeat(id.length - 4)}${id.slice(-4)}`;
-}
-
 function EyeIcon({ open }: { open: boolean }) {
   return open ? (
     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -26,9 +21,6 @@ export default function PatientAccount() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [patientCccd, setPatientCccd] = useState<string | null>(null); // CCCD from patient profile (Medical Profile)
   const [loading, setLoading] = useState(true);
-  const [showCccd, setShowCccd] = useState(false);
-  const [showVerifyModal, setShowVerifyModal] = useState(false);
-  const [verifyPassword, setVerifyPassword] = useState("");
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -49,6 +41,9 @@ export default function PatientAccount() {
   const [mfaError, setMfaError] = useState<string | null>(null);
   const [mfaLoading, setMfaLoading] = useState(false);
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
+  const [emailBackupCodesLoading, setEmailBackupCodesLoading] = useState(false);
+  const [emailBackupCodesMessage, setEmailBackupCodesMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [showCccd, setShowCccd] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -74,6 +69,7 @@ export default function PatientAccount() {
   const handleStartMfaSetup = async () => {
     setMfaError(null);
     setBackupCodes(null);
+    setEmailBackupCodesMessage(null);
     setMfaCode("");
     setMfaQr("");
     setMfaSecretInfo(null);
@@ -129,20 +125,6 @@ export default function PatientAccount() {
     } finally {
       setMfaLoading(false);
     }
-  };
-
-  const handleRevealCccd = () => {
-    if (!showCccd) {
-      setShowVerifyModal(true);
-    } else {
-      setShowCccd(false);
-    }
-  };
-
-  const handleVerify = () => {
-    setShowCccd(true);
-    setShowVerifyModal(false);
-    setVerifyPassword("");
   };
 
   const handleChangePassword = async () => {
@@ -244,19 +226,25 @@ export default function PatientAccount() {
             <div className="flex items-center justify-between py-2.5 px-3.5 bg-gray-50 rounded-xl">
               <div>
                 <p className="text-[11px] text-gray-400 mb-0.5">ID Number (CCCD)</p>
-                <p className="text-sm font-medium text-gray-900 font-mono tracking-wide">{showCccd ? userCccd || "Not set" : maskId(userCccd)}</p>
+                <p className="text-sm font-medium text-gray-900 font-mono tracking-wide">
+                  {userCccd ? (showCccd ? userCccd : "••••••••") : "Not set"}
+                </p>
               </div>
-              <button
-                onClick={handleRevealCccd}
-                className="p-2 rounded-lg text-gray-400 hover:text-[#049ebb] hover:bg-[#049ebb]/10 transition-all bg-transparent border-none cursor-pointer"
-              >
-                <EyeIcon open={showCccd} />
-              </button>
+              {userCccd && (
+                <button
+                  type="button"
+                  onClick={() => setShowCccd((prev) => !prev)}
+                  className="p-2 rounded-lg text-gray-400 hover:text-[#049ebb] hover:bg-[#049ebb]/10 transition-all bg-transparent border-none cursor-pointer"
+                  title={showCccd ? "Hide ID number" : "Show last 4 digits"}
+                >
+                  <EyeIcon open={showCccd} />
+                </button>
+              )}
             </div>
 
             <div className="flex items-start gap-2.5 p-3 bg-blue-50 border border-blue-200 rounded-xl">
               <svg className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              <p className="text-xs text-blue-700 leading-relaxed">Your identity information is securely encrypted and only visible to authorized personnel during medical procedures.</p>
+              <p className="text-xs text-blue-700 leading-relaxed">Your ID number is stored as a hash in the database. Only the last 4 digits are shown for reference. Update it in Medical Profile if needed.</p>
             </div>
           </div>
         </div>
@@ -335,6 +323,7 @@ export default function PatientAccount() {
                     setMfaError(null);
                     setMfaCode("");
                     setBackupCodes(null);
+                    setEmailBackupCodesMessage(null);
                     setMfaDisableOpen(true);
                   }}
                   className="px-4 py-2 text-xs font-semibold text-white bg-red-500 rounded-xl hover:bg-red-600 transition-all shadow-md shadow-red-500/20 border-none cursor-pointer disabled:opacity-50"
@@ -373,45 +362,61 @@ export default function PatientAccount() {
             <p className="text-[11px] text-amber-800 mb-3">
               These codes are shown once. Store them somewhere safe. Each code can be used once if you lose access to your Authenticator.
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 mb-3">
               {backupCodes.map((c) => (
                 <div key={c} className="font-mono text-xs bg-white border border-amber-200 rounded-lg px-3 py-2 text-amber-900">
                   {c}
                 </div>
               ))}
             </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const text = "MedicalTech – Two-Factor Backup Codes\n\nSave these codes. Each can be used once to sign in if you lose your Authenticator app.\n\n" + backupCodes.join("\n");
+                  const blob = new Blob([text], { type: "text/plain" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = "MedicalTech-backup-codes.txt";
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-amber-900 bg-white border border-amber-300 rounded-xl hover:bg-amber-50 transition-all"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                Download to device
+              </button>
+              <button
+                type="button"
+                disabled={emailBackupCodesLoading}
+                onClick={async () => {
+                  setEmailBackupCodesMessage(null);
+                  setEmailBackupCodesLoading(true);
+                  try {
+                    await authService.emailBackupCodes(backupCodes);
+                    setEmailBackupCodesMessage({ type: "success", text: "Backup codes sent to your email." });
+                  } catch (err: unknown) {
+                    const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || "Failed to send email.";
+                    setEmailBackupCodesMessage({ type: "error", text: msg });
+                  } finally {
+                    setEmailBackupCodesLoading(false);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-amber-900 bg-white border border-amber-300 rounded-xl hover:bg-amber-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                {emailBackupCodesLoading ? "Sending..." : "Send to my email"}
+              </button>
+            </div>
+            {emailBackupCodesMessage && (
+              <p className={`mt-2 text-xs ${emailBackupCodesMessage.type === "success" ? "text-green-700" : "text-red-700"}`}>
+                {emailBackupCodesMessage.text}
+              </p>
+            )}
           </div>
         )}
       </div>
-
-      {/* Verify Modal */}
-      {showVerifyModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b border-gray-100">
-              <h3 className="text-base font-semibold text-gray-900">Identity Verification</h3>
-              <button onClick={() => { setShowVerifyModal(false); setVerifyPassword(""); }} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all bg-transparent border-none cursor-pointer">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <div className="p-5">
-              <p className="text-xs text-gray-500 mb-3">Enter your password to view your ID number.</p>
-              <input
-                type="password"
-                value={verifyPassword}
-                onChange={(e) => setVerifyPassword(e.target.value)}
-                placeholder="Enter your password"
-                className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#049ebb]/30 focus:border-[#049ebb]"
-                autoFocus
-              />
-            </div>
-            <div className="flex justify-end gap-2 p-5 border-t border-gray-100">
-              <button onClick={() => { setShowVerifyModal(false); setVerifyPassword(""); }} className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-all border-none cursor-pointer">Cancel</button>
-              <button disabled={!verifyPassword} onClick={handleVerify} className="px-4 py-2 text-xs font-medium text-white bg-[#049ebb] rounded-xl hover:bg-[#037a94] disabled:opacity-50 disabled:cursor-not-allowed transition-all border-none cursor-pointer">Confirm</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* MFA Setup Modal */}
       {mfaSetupOpen && (

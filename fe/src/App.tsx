@@ -39,7 +39,6 @@ const PaymentDetail = lazy(() => import("./pages/PaymentManagement/PaymentDetail
 const RefundList = lazy(() => import("./pages/PaymentManagement/RefundList"));
 const RefundDetail = lazy(() => import("./pages/PaymentManagement/RefundDetail"));
 const ReviewList = lazy(() => import("./pages/ReviewManagement/ReviewList"));
-const ContentList = lazy(() => import("./pages/ContentManagement/ContentList"));
 const SecurityAudit = lazy(() => import("./pages/SecurityAudit/SecurityAudit"));
 const ReportsAnalytics = lazy(() => import("./pages/ReportsAnalytics/ReportsAnalytics"));
 const RevenueReports = lazy(() => import("./pages/RevenueReports/RevenueReports"));
@@ -225,9 +224,6 @@ export default function App() {
 
               {/* Review Management */}
               <Route path="/admin/review-list" element={<ReviewList />} />
-
-              {/* Content Management */}
-              <Route path="/admin/content-list" element={<ContentList />} />
 
               {/* Reports & Analytics */}
               <Route path="/admin/reports-analytics" element={<ReportsAnalytics />} />

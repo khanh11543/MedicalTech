@@ -23,7 +23,7 @@ export default function DoctorAppointmentsHistory() {
     const [summaryModalOpen, setSummaryModalOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [medicalRecordModalOpen, setMedicalRecordModalOpen] = useState(false);
-    const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+    const [selectedAppointment, setSelectedAppointment] = useState<AppointmentDTO | null>(null);
 
     // Fetch appointments from API
     useEffect(() => {
@@ -31,8 +31,9 @@ export default function DoctorAppointmentsHistory() {
             try {
                 setLoading(true);
                 setError(null);
-                const response = await appointmentService.getAppointmentsByDoctor({
-                    sort: "appointmentDate,DESC",
+                const response = await appointmentService.getDoctorAppointmentHistory({
+                    pageNumber: 0,
+                    pageSize: 100,
                 });
                 // Filter to only show completed, cancelled, no-show, and rescheduled appointments
                 const historyAppointments = response.content?.filter((apt) =>
@@ -107,8 +108,9 @@ export default function DoctorAppointmentsHistory() {
         try {
             setLoading(true);
             setError(null);
-            const response = await appointmentService.getAppointmentsByDoctor({
-                sort: "appointmentDate,DESC",
+            const response = await appointmentService.getDoctorAppointmentHistory({
+                pageNumber: 0,
+                pageSize: 100,
             });
             const historyAppointments = response.content?.filter((apt) =>
                 ["COMPLETED", "CANCELLED", "NO_SHOW", "RESCHEDULED"].includes(apt.status)
@@ -354,19 +356,8 @@ export default function DoctorAppointmentsHistory() {
                                         </p>
                                     </div>
                                     <div className="p-3 bg-yellow-100 rounded-lg dark:bg-yellow-900/30">
-                                        <svg
-                                            className="w-6 h-6 text-yellow-600 dark:text-yellow-400"
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            strokeWidth="1.5"
-                                            stroke="currentColor"
-                                        >
-                                            <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                d="M12 9v3.75m-9.303 3.376c.865.865 2.05 1.754 3.43 2.405m7.286-9.684c1.38.651 2.565 1.54 3.43 2.405m2.794 10.874l-1.415-1.414M15.93 12.75l1.415-1.414m-7.074-7.071l1.414 1.413M9.752 15.931l-1.415 1.414"
-                                            />
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" className="w-6 h-6 text-yellow-600 dark:text-yellow-400">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.182 16.318A4.486 4.486 0 0 0 12.016 15a4.486 4.486 0 0 0-3.198 1.318M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
                                         </svg>
                                     </div>
                                 </div>

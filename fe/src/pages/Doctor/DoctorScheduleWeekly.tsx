@@ -1,46 +1,29 @@
-import { useState, useMemo, useEffect } from "react";
-import { toast } from "react-toastify";
-import PageMeta from "../../components/common/PageMeta";
-import PageBreadcrumb from "../../components/common/PageBreadCrumb";
-import ScheduleForm from "../../components/forms/ScheduleForm";
-import ScheduleExceptionForm from "../../components/forms/ScheduleExceptionForm";
-import {
-  getDoctorSchedules,
-  createDoctorSchedule,
-  updateDoctorSchedule,
-  deleteDoctorSchedule,
-  listTimeSlots,
-  generateTimeSlots,
-  addScheduleException,
-  listScheduleExceptions,
-  deleteScheduleException,
-  DoctorScheduleDTO,
+import { useState, useMemo, useEffect } from 'react';
+import PageMeta from '../../components/common/PageMeta';
+import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import Toast from '../../components/common/Toast';
+import { useToast } from '../../hooks/useToast';
+import doctorScheduleService, {
   TimeSlotDTO,
-  ScheduleExceptionDTO,
-  getDayName,
   getDayShortName,
-} from "../../services/doctorScheduleService";
+} from '../../services/doctorScheduleService';
 
 export default function DoctorScheduleWeekly() {
-  // Time Slots state
+  const { toast, showToast, dismissToast } = useToast();
+
+  // Data states
   const [timeSlots, setTimeSlots] = useState<TimeSlotDTO[]>([]);
-
-  // Schedules state
-  const [schedules, setSchedules] = useState<DoctorScheduleDTO[]>([]);
-
-  // Exceptions state
-  const [exceptions, setExceptions] = useState<ScheduleExceptionDTO[]>([]);
-
-  // UI state
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [scheduleTab, setScheduleTab] = useState<"schedule" | "exception">("schedule");
-  const [editingSchedule, setEditingSchedule] = useState<DoctorScheduleDTO | null>(null);
-  const [editingException, setEditingException] = useState<ScheduleExceptionDTO | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ type: "schedule" | "exception"; id: number } | null>(null);
-  const [generatingSlots, setGeneratingSlots] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // UI states
+  const [editingSlot, setEditingSlot] = useState<TimeSlotDTO | null>(null);
+  const [addingSlotDate, setAddingSlotDate] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    startTime: '09:00',
+    endTime: '10:00',
+  });
 
   // Calculate next week dates
   const nextWeekInfo = useMemo(() => {
@@ -57,14 +40,19 @@ export default function DoctorScheduleWeekly() {
     nextWeekStart.setDate(currentWeekStart.getDate() + 7);
 
     // Build dates for next week
-    const dates: { dayOfWeek: number; date: Date; dateStr: string; label: string }[] = [];
+    const dates: {
+      dayOfWeek: number;
+      date: Date;
+      dateStr: string;
+      label: string;
+    }[] = [];
     for (let i = 0; i < 7; i++) {
       const date = new Date(nextWeekStart);
       date.setDate(nextWeekStart.getDate() + i);
       dates.push({
         dayOfWeek: i,
         date,
-        dateStr: date.toISOString().split("T")[0],
+        dateStr: date.toISOString().split('T')[0],
         label: `${getDayShortName(i)} ${date.getDate()}`,
       });
     }
@@ -72,28 +60,25 @@ export default function DoctorScheduleWeekly() {
     return { nextWeekStart, dates };
   }, []);
 
-  // Fetch initial data
+  // Fetch time slots for next week
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // Fetch schedules and exceptions
-        const schedulesData = await getDoctorSchedules();
-        const exceptionsData = await listScheduleExceptions();
-        setSchedules(schedulesData);
-        setExceptions(exceptionsData);
-
-        // Fetch time slots for next week
         const startDate = nextWeekInfo.dates[0].dateStr;
         const endDate = nextWeekInfo.dates[6].dateStr;
-        const slotsData = await listTimeSlots(startDate, endDate);
+        const slotsData = await doctorScheduleService.listTimeSlots(
+          startDate,
+          endDate
+        );
         setTimeSlots(slotsData);
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to fetch data";
+        const errorMessage =
+          err instanceof Error ? err.message : 'Failed to fetch time slots';
         setError(errorMessage);
-        console.error("Error fetching data:", err);
+        console.error('Error fetching time slots:', err);
       } finally {
         setLoading(false);
       }
@@ -102,212 +87,247 @@ export default function DoctorScheduleWeekly() {
     fetchData();
   }, [nextWeekInfo]);
 
-  const handleRetry = async () => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const schedulesData = await getDoctorSchedules();
-        const exceptionsData = await listScheduleExceptions();
-        setSchedules(schedulesData);
-        setExceptions(exceptionsData);
-        const startDate = nextWeekInfo.dates[0].dateStr;
-        const endDate = nextWeekInfo.dates[6].dateStr;
-        const slotsData = await listTimeSlots(startDate, endDate);
-        setTimeSlots(slotsData);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : "Failed to fetch data";
-        setError(errorMessage);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  };
+  // Group time slots by date
+  const slotsByDate = useMemo(() => {
+    const grouped: { [key: string]: TimeSlotDTO[] } = {};
+    nextWeekInfo.dates.forEach((dateInfo) => {
+      grouped[dateInfo.dateStr] = timeSlots.filter(
+        (slot) => slot.slotDate === dateInfo.dateStr
+      );
+    });
+    return grouped;
+  }, [timeSlots, nextWeekInfo]);
 
-  // Schedule handlers
-  const handleSubmitSchedule = async (data: Omit<DoctorScheduleDTO, "id" | "doctorId">) => {
+  // Total slots count
+  const totalSlots = useMemo(() => timeSlots.length, [timeSlots]);
+
+  // Handle add time slot
+  const handleAddTimeSlot = async (dateStr: string) => {
+    if (!formData.startTime || !formData.endTime) {
+      showToast('Please fill in start and end times', 'error');
+      return;
+    }
+
+    if (formData.startTime >= formData.endTime) {
+      showToast('Start time must be before end time', 'error');
+      return;
+    }
+
     try {
       setSubmitting(true);
+      const newSlot = await doctorScheduleService.createTimeSlot({
+        slotDate: dateStr,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        status: 'AVAILABLE',
+      });
 
-      if (editingSchedule?.id) {
-        const updated = await updateDoctorSchedule(editingSchedule.id, data);
-        setSchedules((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-        toast.success(`Schedule for ${getDayName(data.dayOfWeek)} updated successfully`);
-      } else {
-        const created = await createDoctorSchedule(data);
-        setSchedules((prev) => [...prev, created]);
-        toast.success(`Schedule for ${getDayName(data.dayOfWeek)} created successfully`);
-      }
-
-      setEditingSchedule(null);
+      setTimeSlots((prev) => [...prev, newSlot]);
+      setAddingSlotDate(null);
+      setFormData({ startTime: '09:00', endTime: '10:00' });
+      showToast('Time slot added successfully', 'success');
     } catch (err) {
-      console.log(err)
-      const errorMessage = err instanceof Error ? err.message : "Failed to save schedule";
-      toast.error(errorMessage);
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to add time slot';
+      showToast(errorMessage, 'error');
+      console.error('Error adding time slot:', err);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteSchedule = async (id: number) => {
+  // Handle update time slot
+  const handleUpdateTimeSlot = async (slotId: number) => {
+    if (!formData.startTime || !formData.endTime) {
+      showToast('Please fill in start and end times', 'error');
+      return;
+    }
+
+    if (formData.startTime >= formData.endTime) {
+      showToast('Start time must be before end time', 'error');
+      return;
+    }
+
     try {
       setSubmitting(true);
-      await deleteDoctorSchedule(id);
-      setSchedules((prev) => prev.filter((s) => s.id !== id));
-      setDeleteConfirm(null);
-      toast.success("Schedule deleted successfully");
+      const updatedSlot = await doctorScheduleService.updateTimeSlot(slotId, {
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+      });
+
+      setTimeSlots((prev) =>
+        prev.map((slot) => (slot.id === slotId ? updatedSlot : slot))
+      );
+      setEditingSlot(null);
+      setFormData({ startTime: '09:00', endTime: '10:00' });
+      showToast('Time slot updated successfully', 'success');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to delete schedule";
-      toast.error(errorMessage);
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to update time slot';
+      showToast(errorMessage, 'error');
+      console.error('Error updating time slot:', err);
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Exception handlers
-  const handleSubmitException = async (data: Omit<ScheduleExceptionDTO, "id" | "doctorId">) => {
+  // Handle delete time slot
+  const handleDeleteTimeSlot = async (slotId: number) => {
+    if (!window.confirm('Are you sure you want to delete this time slot?'))
+      return;
+
     try {
       setSubmitting(true);
-
-      if (editingException?.id) {
-        // For now, we'll delete and recreate since backend might not support update
-        await deleteScheduleException(editingException.id);
-        const created = await addScheduleException(data);
-        setExceptions((prev) => prev.filter((e) => e.id !== editingException.id).concat(created));
-        toast.success(`Exception updated successfully`);
-      } else {
-        const created = await addScheduleException(data);
-        setExceptions((prev) => [...prev, created]);
-        const exceptionType = data.exceptionType === "OFF" ? "Day off" : `${data.exceptionType} exception`;
-        toast.success(`${exceptionType} added successfully`);
-      }
-
-      setEditingException(null);
+      await doctorScheduleService.deleteTimeSlot(slotId);
+      setTimeSlots((prev) => prev.filter((slot) => slot.id !== slotId));
+      showToast('Time slot deleted successfully', 'success');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to save exception";
-      toast.error(errorMessage);
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to delete time slot';
+      showToast(errorMessage, 'error');
+      console.error('Error deleting time slot:', err);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteException = async (id: number) => {
+  // Handle generate schedules
+  const handleGenerateSchedules = async () => {
+    if (totalSlots === 0) {
+      showToast(
+        'Please add at least one time slot before generating schedules',
+        'error'
+      );
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Generate schedules from ${totalSlots} time slots? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
     try {
       setSubmitting(true);
-      await deleteScheduleException(id);
-      setExceptions((prev) => prev.filter((e) => e.id !== id));
-      setDeleteConfirm(null);
-      toast.success("Exception deleted successfully");
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to delete exception";
-      toast.error(errorMessage);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Generate time slots
-  const handleGenerateSlots = async () => {
-    try {
-      setGeneratingSlots(true);
-
       const startDate = nextWeekInfo.dates[0].dateStr;
       const endDate = nextWeekInfo.dates[6].dateStr;
 
-      await generateTimeSlots({
+      const result = await doctorScheduleService.generateTimeSlots({
         startDate,
         endDate,
         overwriteExisting: false,
       });
 
-      // Refresh time slots
-      const slotsData = await listTimeSlots(startDate, endDate);
-      setTimeSlots(slotsData);
-      
-      toast.success(`Generated ${slotsData.length} time slots for next week`);
+      showToast(
+        result.message || 'Schedules generated successfully',
+        'success'
+      );
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to generate time slots";
-      toast.error(errorMessage);
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to generate schedules';
+      showToast(errorMessage, 'error');
+      console.error('Error generating schedules:', err);
     } finally {
-      setGeneratingSlots(false);
+      setSubmitting(false);
     }
   };
 
-  // Group time slots by date
-  const slotsByDate = useMemo(() => {
-    const grouped: { [key: string]: TimeSlotDTO[] } = {};
-    timeSlots.forEach((slot) => {
-      if (!grouped[slot.slotDate]) {
-        grouped[slot.slotDate] = [];
-      }
-      grouped[slot.slotDate].push(slot);
-    });
-    return grouped;
-  }, [timeSlots]);
+  // Handle retry
+  const handleRetry = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const startDate = nextWeekInfo.dates[0].dateStr;
+      const endDate = nextWeekInfo.dates[6].dateStr;
+      const slotsData = await doctorScheduleService.listTimeSlots(
+        startDate,
+        endDate
+      );
+      setTimeSlots(slotsData);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to fetch time slots';
+      setError(errorMessage);
+      console.error('Error fetching time slots:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <>
-      <PageMeta title="Weekly Schedule | Doctor Panel" description="Manage your weekly schedule and time slots" />
-      <PageBreadcrumb pageTitle="Weekly Schedule" />
+      <PageMeta
+        title='Weekly Schedule | Doctor Panel'
+        description='Manage your weekly time slots'
+      />
+      <PageBreadcrumb pageTitle='Weekly Schedule' />
 
-      <div className="space-y-6">
+      <div className='space-y-6'>
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4'>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Weekly Schedule</h2>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              Manage your working hours and time slots for next week
+            <h2 className='text-2xl font-bold text-gray-900 dark:text-white'>
+              Weekly Time Slots
+            </h2>
+            <p className='mt-1 text-sm text-gray-600 dark:text-gray-400'>
+              Add time slots for the next week ({nextWeekInfo.dates[0].dateStr}{' '}
+              to {nextWeekInfo.dates[6].dateStr})
             </p>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={handleGenerateSlots}
-              disabled={generatingSlots || schedules.length === 0}
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          <button
+            onClick={handleGenerateSchedules}
+            disabled={totalSlots === 0 || submitting}
+            className='px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center gap-2'
+          >
+            <svg
+              className='w-5 h-5'
+              xmlns='http://www.w3.org/2000/svg'
+              fill='none'
+              viewBox='0 0 24 24'
+              strokeWidth='1.5'
+              stroke='currentColor'
             >
-              {generatingSlots ? "Generating..." : "Generate Time Slots"}
-            </button>
-            <button
-              onClick={() => {
-                setShowScheduleModal(true);
-                setScheduleTab("schedule");
-              }}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-600 text-white font-medium rounded-lg transition-colors"
-            >
-              ⚙️ Manage Schedules
-            </button>
-          </div>
+              <path
+                strokeLinecap='round'
+                strokeLinejoin='round'
+                d='M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+              />
+            </svg>
+            Generate Schedules
+          </button>
         </div>
 
-        {/* Load error */}
+        {/* Error State */}
         {error && !loading && (
-          <div className="rounded-2xl border border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-900/10 p-6">
-            <div className="flex gap-4">
-              <div className="flex-shrink-0">
-                <svg
-                  className="w-6 h-6 text-red-600 dark:text-red-400"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth="1.5"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-red-900 dark:text-red-200 mb-2">
-                  Failed to Load
+          <div className='rounded-2xl border border-red-200 bg-red-50 dark:border-red-900/30 dark:bg-red-900/10 p-6'>
+            <div className='flex gap-4'>
+              <svg
+                className='w-6 h-6 text-red-600 dark:text-red-400 flex-shrink-0'
+                xmlns='http://www.w3.org/2000/svg'
+                fill='none'
+                viewBox='0 0 24 24'
+                strokeWidth='1.5'
+                stroke='currentColor'
+              >
+                <path
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  d='M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+                />
+              </svg>
+              <div className='flex-1'>
+                <h3 className='text-lg font-semibold text-red-900 dark:text-red-200 mb-2'>
+                  Failed to Load Time Slots
                 </h3>
-                <p className="text-sm text-red-800 dark:text-red-300 mb-4">{error}</p>
+                <p className='text-sm text-red-800 dark:text-red-300 mb-4'>
+                  {error}
+                </p>
                 <button
                   onClick={handleRetry}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors"
+                  className='inline-flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition-colors'
                 >
                   Try Again
                 </button>
@@ -316,24 +336,33 @@ export default function DoctorScheduleWeekly() {
           </div>
         )}
 
-        {/* Loading state */}
+        {/* Loading State */}
         {loading && (
-          <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-12">
-            <div className="flex flex-col items-center justify-center gap-4">
+          <div className='rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-24'>
+            <div className='flex flex-col items-center justify-center gap-4'>
               <svg
-                className="w-12 h-12 animate-spin text-blue-600 dark:text-blue-400"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
+                className='w-12 h-12 animate-spin text-blue-600 dark:text-blue-400'
+                xmlns='http://www.w3.org/2000/svg'
+                fill='none'
+                viewBox='0 0 24 24'
               >
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <circle
+                  className='opacity-25'
+                  cx='12'
+                  cy='12'
+                  r='10'
+                  stroke='currentColor'
+                  strokeWidth='4'
+                ></circle>
                 <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  className='opacity-75'
+                  fill='currentColor'
+                  d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
                 ></path>
               </svg>
-              <p className="text-lg font-medium text-gray-600 dark:text-gray-400">Loading schedules...</p>
+              <p className='text-lg font-medium text-gray-600 dark:text-gray-400'>
+                Loading time slots...
+              </p>
             </div>
           </div>
         )}
@@ -341,320 +370,288 @@ export default function DoctorScheduleWeekly() {
         {/* Content */}
         {!loading && !error && (
           <>
-            {/* Time Slots Section */}
-            <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  📅 Your Available Time Slots
-                </h3>
+            {/* Summary Stats */}
+            <div className='rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6'>
+              <div className='flex items-center justify-between'>
+                <div>
+                  <p className='text-sm font-medium text-gray-600 dark:text-gray-400'>
+                    Total Time Slots for Next Week
+                  </p>
+                  <p className='mt-2 text-3xl font-bold text-blue-600 dark:text-blue-400'>
+                    {totalSlots}
+                  </p>
+                </div>
+                <div className='p-3 bg-blue-100 rounded-lg dark:bg-blue-900/30'>
+                  <svg
+                    className='w-8 h-8 text-blue-600 dark:text-blue-400'
+                    xmlns='http://www.w3.org/2000/svg'
+                    fill='none'
+                    viewBox='0 0 24 24'
+                    strokeWidth='1.5'
+                    stroke='currentColor'
+                  >
+                    <path
+                      strokeLinecap='round'
+                      strokeLinejoin='round'
+                      d='M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0121 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5'
+                    />
+                  </svg>
+                </div>
               </div>
+            </div>
 
-              <div className="p-6">
-                {timeSlots.length === 0 ? (
-                  <div className="text-center py-12">
-                    <svg
-                      className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-600"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth="1.5"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0121 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
-                      />
-                    </svg>
-                    <p className="text-lg font-medium text-gray-600 dark:text-gray-400 mb-2">
-                      No time slots generated yet
-                    </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
-                      Register your working schedules, then click "Generate Time Slots" to create available slots
-                    </p>
-                    <button
-                      onClick={() => setShowScheduleModal(true)}
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                    >
-                      ⚙️ Register Your Schedule
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {nextWeekInfo.dates.map((day) => (
-                      <div key={day.dateStr} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                        <h4 className="font-semibold text-gray-900 dark:text-white mb-3">{day.label}</h4>
+            {/* Weekly Grid */}
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4'>
+              {nextWeekInfo.dates.map((dateInfo) => {
+                const daySlots = slotsByDate[dateInfo.dateStr] || [];
+                return (
+                  <div
+                    key={dateInfo.dateStr}
+                    className='rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-6'
+                  >
+                    {/* Day Header */}
+                    <div className='mb-4'>
+                      <p className='text-sm font-medium text-gray-600 dark:text-gray-400'>
+                        {dateInfo.label}
+                      </p>
+                      <p className='text-xs text-gray-500 dark:text-gray-500 mt-1'>
+                        {daySlots.length} slot{daySlots.length !== 1 ? 's' : ''}
+                      </p>
+                    </div>
 
-                        {slotsByDate[day.dateStr] && slotsByDate[day.dateStr].length > 0 ? (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                            {slotsByDate[day.dateStr].map((slot) => (
-                              <div
-                                key={slot.id}
-                                className={`px-3 py-2 rounded text-sm font-medium text-center transition-colors ${
-                                  slot.isAvailable
-                                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                                }`}
-                              >
+                    {/* Time Slots List */}
+                    <div className='space-y-2 mb-4'>
+                      {daySlots.length > 0 ? (
+                        daySlots.map((slot) => (
+                          <div
+                            key={slot.id}
+                            className='flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-900/40'
+                          >
+                            <div>
+                              <p className='text-sm font-semibold text-gray-900 dark:text-white'>
                                 {slot.startTime} - {slot.endTime}
-                              </div>
-                            ))}
+                              </p>
+                              <p className='text-xs text-gray-500 dark:text-gray-400 capitalize'>
+                                {slot.status?.toLowerCase()}
+                              </p>
+                            </div>
+                            <div className='flex gap-1'>
+                              <button
+                                onClick={() => {
+                                  setEditingSlot(slot);
+                                  setFormData({
+                                    startTime: slot.startTime,
+                                    endTime: slot.endTime,
+                                  });
+                                }}
+                                className='p-2 hover:bg-blue-200 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 rounded transition-colors'
+                                title='Edit'
+                              >
+                                <svg
+                                  xmlns='http://www.w3.org/2000/svg'
+                                  fill='none'
+                                  viewBox='0 0 24 24'
+                                  stroke-width='1.5'
+                                  stroke='currentColor'
+                                  className='w-4'
+                                >
+                                  <path
+                                    stroke-linecap='round'
+                                    stroke-linejoin='round'
+                                    d='m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10'
+                                  />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleDeleteTimeSlot(slot.id || 0)
+                                }
+                                disabled={submitting}
+                                className='p-2 hover:bg-red-200 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 rounded transition-colors disabled:opacity-50'
+                                title='Delete'
+                              >
+                                <svg
+                                  xmlns='http://www.w3.org/2000/svg'
+                                  fill='none'
+                                  viewBox='0 0 24 24'
+                                  stroke-width='1.5'
+                                  stroke='currentColor'
+                                  className='w-4'
+                                >
+                                  <path
+                                    stroke-linecap='round'
+                                    stroke-linejoin='round'
+                                    d='m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0'
+                                  />
+                                </svg>
+                              </button>
+                            </div>
                           </div>
-                        ) : (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">No slots for this day</p>
-                        )}
+                        ))
+                      ) : (
+                        <p className='text-xs text-gray-400 dark:text-gray-600 italic'>
+                          No time slots
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Add/Edit Form */}
+                    {(addingSlotDate === dateInfo.dateStr ||
+                      editingSlot?.slotDate === dateInfo.dateStr) && (
+                      <div className='border-t border-gray-200 dark:border-gray-700 pt-4 space-y-3'>
+                        <div className='grid grid-cols-2 gap-2'>
+                          <div>
+                            <label className='text-xs font-medium text-gray-700 dark:text-gray-300'>
+                              Start
+                            </label>
+                            <input
+                              type='time'
+                              value={formData.startTime}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  startTime: e.target.value,
+                                })
+                              }
+                              className='w-full mt-1 px-2 py-1 text-sm border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:outline-none'
+                              disabled={submitting}
+                            />
+                          </div>
+                          <div>
+                            <label className='text-xs font-medium text-gray-700 dark:text-gray-300'>
+                              End
+                            </label>
+                            <input
+                              type='time'
+                              value={formData.endTime}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  endTime: e.target.value,
+                                })
+                              }
+                              className='w-full mt-1 px-2 py-1 text-sm border border-gray-300 rounded dark:border-gray-600 dark:bg-gray-800 dark:text-white focus:outline-none'
+                              disabled={submitting}
+                            />
+                          </div>
+                        </div>
+                        <div className='flex gap-2'>
+                          <button
+                            onClick={() => {
+                              if (editingSlot) {
+                                handleUpdateTimeSlot(editingSlot.id || 0);
+                              } else {
+                                handleAddTimeSlot(dateInfo.dateStr);
+                              }
+                            }}
+                            disabled={submitting}
+                            className='flex-1 px-3 py-2 text-xs font-medium bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded transition-colors'
+                          >
+                            {submitting
+                              ? '...'
+                              : editingSlot
+                                ? 'Update'
+                                : 'Add'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingSlot(null);
+                              setAddingSlotDate(null);
+                              setFormData({
+                                startTime: '09:00',
+                                endTime: '10:00',
+                              });
+                            }}
+                            disabled={submitting}
+                            className='flex-1 px-3 py-2 text-xs font-medium border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-colors'
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Add Button */}
+                    {addingSlotDate !== dateInfo.dateStr && !editingSlot && (
+                      <button
+                        onClick={() => {
+                          setAddingSlotDate(dateInfo.dateStr);
+                          setFormData({ startTime: '09:00', endTime: '10:00' });
+                        }}
+                        className='w-full px-3 py-2 text-sm font-medium border border-dashed border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded transition-colors'
+                      >
+                        + Add Time Slot
+                      </button>
+                    )}
                   </div>
-                )}
+                );
+              })}
+            </div>
+
+            {/* Helper Text */}
+            <div className='rounded-2xl border border-blue-200 bg-blue-50 dark:border-blue-900/30 dark:bg-blue-900/10 p-6'>
+              <div className='flex gap-4'>
+                <svg
+                  className='w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5'
+                  xmlns='http://www.w3.org/2000/svg'
+                  fill='none'
+                  viewBox='0 0 24 24'
+                  strokeWidth='1.5'
+                  stroke='currentColor'
+                >
+                  <path
+                    strokeLinecap='round'
+                    strokeLinejoin='round'
+                    d='M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z'
+                  />
+                </svg>
+                <div>
+                  <h4 className='font-semibold text-blue-900 dark:text-blue-200 mb-2'>
+                    How to use:
+                  </h4>
+                  <ul className='text-sm text-blue-800 dark:text-blue-300 space-y-1'>
+                    <li>1. Add time slots for each day of the week</li>
+                    <li>2. Review all slots are correct</li>
+                    <li>3. Click "Generate Schedules" to finalize</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </>
         )}
 
-        {/* Schedule Management Modal */}
-        {showScheduleModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/60 p-4">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              {/* Modal Header */}
-              <div className="sticky top-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  📋 Manage Working Schedules
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowScheduleModal(false);
-                    setEditingSchedule(null);
-                    setEditingException(null);
-                  }}
-                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Tabs */}
-              <div className="px-6 py-0 border-b border-gray-200 dark:border-gray-700 flex gap-4">
-                <button
-                  onClick={() => setScheduleTab("schedule")}
-                  className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-                    scheduleTab === "schedule"
-                      ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                      : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300"
-                  }`}
-                >
-                  Weekly Schedules
-                </button>
-                <button
-                  onClick={() => setScheduleTab("exception")}
-                  className={`px-4 py-3 font-medium border-b-2 transition-colors ${
-                    scheduleTab === "exception"
-                      ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                      : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-300"
-                  }`}
-                >
-                  Exceptions
-                </button>
-              </div>
-
-              {/* Modal Content */}
-              <div className="p-6 space-y-4">
-                {scheduleTab === "schedule" ? (
-                  <div>
-                    {/* Schedule Form */}
-                    {editingSchedule || editingSchedule === null ? (
-                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 mb-6">
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
-                          {editingSchedule ? "Edit Weekly Schedule" : "Add New Weekly Schedule"}
-                        </h3>
-                        <ScheduleForm
-                          schedule={editingSchedule}
-                          onSubmit={handleSubmitSchedule}
-                          onCancel={() => setEditingSchedule(null)}
-                          isLoading={submitting}
-                        />
-                      </div>
-                    ) : null}
-
-                    {/* Schedules List */}
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Your Schedules for Next Week</h3>
-                    {schedules.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-gray-600 dark:text-gray-400 mb-3">No schedules registered yet</p>
-                        {!editingSchedule && (
-                          <button
-                            onClick={() => setEditingSchedule({} as DoctorScheduleDTO)}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                          >
-                            + Add Schedule
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {schedules.map((schedule) => (
-                          <div
-                            key={schedule.id}
-                            className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50"
-                          >
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">
-                                {getDayName(schedule.dayOfWeek)}
-                              </p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">
-                                {schedule.startTime} - {schedule.endTime} ({schedule.slotDuration}min slots)
-                              </p>
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => setEditingSchedule(schedule)}
-                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded lg transition-colors"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => setDeleteConfirm({ type: "schedule", id: schedule.id! })}
-                                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {!editingSchedule && schedules.length > 0 && (
-                      <button
-                        onClick={() => setEditingSchedule({} as DoctorScheduleDTO)}
-                        className="mt-4 w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                      >
-                        + Add Another Schedule
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    {/* Exception Form */}
-                    {editingException || editingException === null ? (
-                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 mb-6">
-                        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
-                          {editingException ? "Edit Exception" : "Add Exception"}
-                        </h3>
-                        <ScheduleExceptionForm
-                          exception={editingException}
-                          onSubmit={handleSubmitException}
-                          onCancel={() => setEditingException(null)}
-                          isLoading={submitting}
-                          nextWeekStart={nextWeekInfo.nextWeekStart}
-                        />
-                      </div>
-                    ) : null}
-
-                    {/* Exceptions List */}
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Schedule Exceptions</h3>
-                    {exceptions.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-gray-600 dark:text-gray-400 mb-3">No exceptions added yet</p>
-                        {!editingException && (
-                          <button
-                            onClick={() => setEditingException({} as ScheduleExceptionDTO)}
-                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                          >
-                            + Add Exception
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {exceptions.map((exc) => (
-                          <div
-                            key={exc.id}
-                            className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800/50"
-                          >
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white">{exc.exceptionDate}</p>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">
-                                {exc.exceptionType === "OFF"
-                                  ? "Day Off"
-                                  : exc.exceptionType === "MODIFIED"
-                                    ? `Modified: ${exc.startTime} - ${exc.endTime}`
-                                    : `Extra: ${exc.startTime} - ${exc.endTime}`}
-                              </p>
-                              {exc.reason && (
-                                <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Reason: {exc.reason}</p>
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => setEditingException(exc)}
-                                className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition-colors"
-                              >
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => setDeleteConfirm({ type: "exception", id: exc.id! })}
-                                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition-colors"
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {!editingException && exceptions.length > 0 && (
-                      <button
-                        onClick={() => setEditingException({} as ScheduleExceptionDTO)}
-                        className="mt-4 w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-                      >
-                        + Add Another Exception
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Delete Confirmation Dialog */}
-        {deleteConfirm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 dark:bg-black/60">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-6 max-w-sm mx-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Delete {deleteConfirm.type === "schedule" ? "Schedule" : "Exception"}?
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                This action cannot be undone.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setDeleteConfirm(null)}
-                  disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    if (deleteConfirm.type === "schedule") {
-                      handleDeleteSchedule(deleteConfirm.id);
-                    } else {
-                      handleDeleteException(deleteConfirm.id);
-                    }
-                  }}
-                  disabled={submitting}
-                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {submitting ? "Deleting..." : "Delete"}
-                </button>
-              </div>
+        {/* Loading Overlay for form submission */}
+        {submitting && (
+          <div className='fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50'>
+            <div className='flex flex-col items-center gap-4'>
+              <svg
+                className='w-12 h-12 animate-spin text-white'
+                xmlns='http://www.w3.org/2000/svg'
+                fill='none'
+                viewBox='0 0 24 24'
+              >
+                <circle
+                  className='opacity-25'
+                  cx='12'
+                  cy='12'
+                  r='10'
+                  stroke='currentColor'
+                  strokeWidth='4'
+                ></circle>
+                <path
+                  className='opacity-75'
+                  fill='currentColor'
+                  d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
+                ></path>
+              </svg>
+              <p className='text-white font-medium'>Processing...</p>
             </div>
           </div>
         )}
       </div>
+
+      {/* Toast Notifications */}
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

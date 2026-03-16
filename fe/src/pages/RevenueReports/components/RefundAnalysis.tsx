@@ -29,13 +29,19 @@ const RefundAnalysis: React.FC<RefundAnalysisProps> = ({ data, isLoading }) => {
 
   const reasonDonutOptions: ApexOptions = useMemo(
     () => ({
-      chart: { fontFamily: 'Outfit, sans-serif', type: 'donut' },
+      chart: {
+        fontFamily: 'Outfit, sans-serif',
+        type: 'donut',
+        offsetX: 8,
+        offsetY: 8,
+      },
       labels: reasonLabels,
       colors: reasonColors,
       legend: { position: 'bottom', fontSize: '12px' },
       dataLabels: {
         enabled: true,
         formatter: (val: number) => `${val.toFixed(1)}%`,
+        style: { fontSize: '12px', fontWeight: 600, colors: ['#FFFFFF'] },
       },
       tooltip: {
         y: { formatter: (val: number) => `${val} refunds` },

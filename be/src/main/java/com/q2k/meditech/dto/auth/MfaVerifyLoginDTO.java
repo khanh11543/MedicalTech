@@ -16,7 +16,7 @@ public class MfaVerifyLoginDTO {
     private String mfaToken;
 
     @NotBlank(message = "Code is required")
-    @Pattern(regexp = "^[0-9]{6}$", message = "Code must be 6 digits")
+    @Pattern(regexp = "^(?:[0-9]{6}|[A-Za-z0-9]{8,32})$", message = "Code must be a 6-digit Authenticator code or a backup code (8–32 characters)")
     private String code;
 }
 

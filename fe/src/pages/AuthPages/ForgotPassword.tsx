@@ -8,18 +8,34 @@ import Button from "../../components/ui/button/Button";
 import authService from "../../services/authService";
 import { ChevronLeftIcon } from "../../icons";
 
+const validateEmail = (value: string): string | null => {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return "Please enter your registered email.";
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmed)) {
+    if (trimmed.includes("@") && !trimmed.split("@")[1]?.includes("."))
+      return "Please enter a part following '@'. Email is incomplete.";
+    return "Please enter a valid email address.";
+  }
+  return null;
+};
+
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setEmailError("");
 
-    if (!email.trim()) {
-      setError("Please enter your registered email.");
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      setError(emailErr);
+      setEmailError(emailErr);
       return;
     }
 
@@ -31,11 +47,9 @@ export default function ForgotPassword() {
       const axiosError = err as {
         response?: { data?: { message?: string }; status?: number };
       };
-      if (axiosError.response?.data?.message) {
-        setError(axiosError.response.data.message);
-      } else {
-        setError("Request failed. Please try again.");
-      }
+      const msg = axiosError.response?.data?.message ?? "";
+      setError(msg || "Request failed. Please try again.");
+      setEmailError(msg || "Request failed. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -84,7 +98,7 @@ export default function ForgotPassword() {
                 </Link>
               </div>
             ) : (
-              <form onSubmit={handleSubmit}>
+              <form onSubmit={handleSubmit} noValidate>
                 {error && (
                   <div className="p-3 mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
                     {error}
@@ -99,7 +113,12 @@ export default function ForgotPassword() {
                       type="email"
                       placeholder="Enter your registered email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        if (emailError) setEmailError("");
+                      }}
+                      error={!!emailError}
+                      hint={emailError}
                       autoFocus
                     />
                   </div>

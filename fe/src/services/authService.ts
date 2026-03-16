@@ -137,6 +137,11 @@ const authService = {
     return response.data;
   },
 
+  emailBackupCodes: async (backupCodes: string[]): Promise<MessageResponse> => {
+    const response = await api.post("/me/mfa/email-backup-codes", { backupCodes });
+    return response.data;
+  },
+
   logout: async (): Promise<MessageResponse> => {
     const response = await api.post("/auth/logout");
     return response.data;

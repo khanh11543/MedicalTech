@@ -303,6 +303,8 @@ export default function AppointmentStatistics() {
       fontFamily: "Outfit, sans-serif",
       animations: { enabled: false },
       foreColor: isDarkMode ? "#E5E7EB" : "#111827",
+      offsetX: 8,
+      offsetY: 8,
     },
     colors: appointmentsByStatus.map((s) => STATUS_COLORS[s.status] || "#6B7280"),
     labels: appointmentsByStatus.map((s) => s.status),
@@ -350,11 +352,10 @@ export default function AppointmentStatistics() {
       enabled: true,
       formatter: (val: number) => `${val.toFixed(1)}%`,
       style: {
-        fontSize: "16px",
+        fontSize: "12px",
         fontWeight: "bold",
         colors: ["#FFFFFF"],
       },
-      // Drop shadow makes labels look blurry on some displays/zoom levels
       dropShadow: { enabled: false },
     },
     tooltip: {

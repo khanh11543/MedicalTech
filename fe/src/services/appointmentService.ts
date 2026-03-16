@@ -377,6 +377,22 @@ const appointmentService = {
     return response.data;
   },
 
+  // Get doctor's appointment history (Doctor role)
+  getDoctorAppointmentHistory: async (
+    filter: AppointmentFilterDTO
+  ): Promise<PageResponse<AppointmentDTO>> => {
+    const params = new URLSearchParams();
+    
+    if (filter.status) params.append("status", filter.status);
+    if (filter.from) params.append("dateFrom", filter.from);
+    if (filter.to) params.append("dateTo", filter.to);
+    params.append("pageNumber", (filter.pageNumber ?? 0).toString());
+    params.append("pageSize", (filter.pageSize ?? 10).toString());
+
+    const response = await api.get(`/doctor/appointments/history?${params.toString()}`);
+    return response.data;
+  },
+
   // Get doctor's appointment detail (Doctor role)
   getDoctorAppointmentDetail: async (id: number): Promise<AppointmentDetailDTO> => {
     const response = await api.get(`/appointments/${id}`);

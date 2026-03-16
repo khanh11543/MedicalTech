@@ -32,6 +32,8 @@ export default function SignInForm() {
   const [email, setEmail] = useState(rememberedEmail || "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lockUntil, setLockUntil] = useState<Date | null>(null);
   const [countdown, setCountdown] = useState(0);
@@ -62,13 +64,31 @@ export default function SignInForm() {
 
   const isLocked = countdown > 0;
 
+  const validateEmail = (value: string): string | null => {
+    const trimmed = value?.trim() ?? "";
+    if (!trimmed) return "Please enter your email.";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      if (trimmed.includes("@") && !trimmed.split("@")[1]?.includes("."))
+        return "Please enter a part following '@'. Email is incomplete.";
+      return "Please enter a valid email address.";
+    }
+    return null;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLocked) return;
     setError("");
+    setEmailError("");
+    setPasswordError("");
 
-    if (!email || !password) {
-      setError("Please enter both email and password.");
+    const emailErr = validateEmail(email);
+    const missingPassword = !password?.trim();
+    if (emailErr || missingPassword) {
+      setError(emailErr || "Please enter both email and password.");
+      if (emailErr) setEmailError(emailErr);
+      if (missingPassword) setPasswordError("Please enter your password.");
       return;
     }
 
@@ -180,7 +200,7 @@ export default function SignInForm() {
                 )}
               </div>
             )}
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
               <div className="space-y-6">
                 <div>
                   <Label>
@@ -190,7 +210,12 @@ export default function SignInForm() {
                     type="email"
                     placeholder="Enter your email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (emailError) setEmailError("");
+                    }}
+                    error={!!emailError}
+                    hint={emailError}
                   />
                 </div>
                 <div>
@@ -202,7 +227,12 @@ export default function SignInForm() {
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (passwordError) setPasswordError("");
+                      }}
+                      error={!!passwordError}
+                      hint={passwordError}
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}

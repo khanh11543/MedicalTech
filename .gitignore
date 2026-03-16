@@ -1,3 +1,7 @@
+# Environment (secrets)
+.env
+.env.local
+
 # Application properties (contains sensitive config)
 be/src/main/resources/application.properties
 be/src/main/resources/application.properties~

@@ -164,7 +164,7 @@ export default function DepartmentsPage() {
     );
   }
 
-  // First item = featured, rest split into 2 columns
+  // First item = featured (giữa), rest chia 2 cột
   const featured = departments[0];
   const rest = departments.slice(1);
   const col1 = rest.filter((_, i) => i % 2 === 0);
@@ -185,19 +185,14 @@ export default function DepartmentsPage() {
       <section className="dept-section">
         <div className="container-landing">
           <div className="dept-grid">
-            {/* Column 1 */}
             <div className="dept-col">
               {col1.map((d) => (
                 <DepartmentCard key={d.id} dept={d} />
               ))}
             </div>
-
-            {/* Column 2 — Featured */}
             <div className="dept-col">
               <FeaturedDepartmentCard dept={featured} />
             </div>
-
-            {/* Column 3 */}
             <div className="dept-col">
               {col2.map((d) => (
                 <DepartmentCard key={d.id} dept={d} />

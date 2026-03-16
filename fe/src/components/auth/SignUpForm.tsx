@@ -41,9 +41,26 @@ export default function SignUpForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
+  const [termsError, setTermsError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navigate = useNavigate();
+
+  const validateEmail = (value: string): string | null => {
+    const trimmed = value?.trim() ?? "";
+    if (!trimmed) return "Please enter your email.";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      if (trimmed.includes("@") && !trimmed.split("@")[1]?.includes("."))
+        return "Please enter a part following '@'. Email is incomplete.";
+      return "Please enter a valid email address.";
+    }
+    return null;
+  };
 
   const validatePassword = (pwd: string): string | null => {
     const pattern =
@@ -80,8 +97,8 @@ export default function SignUpForm() {
       return null;
     }
 
-    if (digits.length < 7 || digits.length > 15)
-      return "Phone number should be 7–15 digits.";
+    if (digits.length !== 10 && digits.length !== 11)
+      return "Phone number should be 10–11 digits.";
     return null;
   };
 
@@ -99,31 +116,51 @@ export default function SignUpForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setEmailError("");
+    setPhoneError("");
+    setPasswordError("");
+    setConfirmPasswordError("");
+    setTermsError("");
 
-    if (!email || !password || !confirmPassword) {
+    const emailErr = validateEmail(email);
+    const missingPhone =
+      phoneCountryCode === "+ other"
+        ? !phoneNumber.trim()
+        : !normalizePhoneDigits(phoneNumber);
+    const missingPassword = !password;
+    const missingConfirm = !confirmPassword;
+    if (emailErr || missingPhone || missingPassword || missingConfirm) {
       setError("Please fill in all required fields.");
+      if (emailErr) setEmailError(emailErr);
+      if (missingPhone) setPhoneError("Please enter your phone number.");
+      if (missingPassword) setPasswordError("Please enter your password.");
+      if (missingConfirm) setConfirmPasswordError("Please confirm your password.");
       return;
     }
 
     if (!isChecked) {
       setError("Please agree to the Terms and Conditions.");
+      setTermsError("Please agree to the Terms and Conditions.");
       return;
     }
 
-    const pwdError = validatePassword(password);
-    if (pwdError) {
-      setError(pwdError);
+    const pwdErr = validatePassword(password);
+    if (pwdErr) {
+      setError(pwdErr);
+      setPasswordError(pwdErr);
       return;
     }
 
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
+      setConfirmPasswordError("Passwords do not match.");
       return;
     }
 
-    const phoneError = validatePhone(phoneCountryCode, phoneNumber);
-    if (phoneError) {
-      setError(phoneError);
+    const phErr = validatePhone(phoneCountryCode, phoneNumber);
+    if (phErr) {
+      setError(phErr);
+      setPhoneError(phErr);
       return;
     }
 
@@ -143,8 +180,26 @@ export default function SignUpForm() {
       const axiosError = err as {
         response?: { data?: { message?: string }; status?: number };
       };
-      if (axiosError.response?.data?.message) {
-        setError(axiosError.response.data.message);
+      const msg = axiosError.response?.data?.message ?? "";
+      const isDuplicate =
+        axiosError.response?.status === 409 ||
+        msg.toLowerCase().includes("already registered");
+      if (isDuplicate) {
+        const warningText = "Email or phone number already exists.";
+        setError(warningText);
+        if (msg.toLowerCase().includes("email")) {
+          setEmailError(warningText);
+        }
+        if (msg.toLowerCase().includes("phone")) {
+          setPhoneError(warningText);
+        }
+        // If generic duplicate, highlight both
+        if (!msg.toLowerCase().includes("email") && !msg.toLowerCase().includes("phone")) {
+          setEmailError(warningText);
+          setPhoneError(warningText);
+        }
+      } else if (msg) {
+        setError(msg);
       } else {
         setError("Registration failed. Please try again.");
       }
@@ -180,7 +235,7 @@ export default function SignUpForm() {
                 {error}
               </div>
             )}
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} noValidate>
               <div className="space-y-5">
                 {/* Email */}
                 <div>
@@ -193,20 +248,32 @@ export default function SignUpForm() {
                     name="email"
                     placeholder="Enter your email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (emailError) setEmailError("");
+                    }}
+                    error={!!emailError}
+                    hint={emailError}
                   />
                 </div>
                 {/* Phone */}
                 <div>
-                  <Label>Phone (optional)</Label>
+                  <Label>
+                    Phone<span className="text-error-500">*</span>
+                  </Label>
                   <div className="flex gap-2">
                     <select
                       aria-label="Country code"
                       value={phoneCountryCode}
-                      onChange={(e) =>
-                        setPhoneCountryCode(e.target.value as typeof phoneCountryCode)
-                      }
-                      className="h-11 shrink-0 w-[140px] rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm shadow-theme-xs focus:outline-none focus:ring-3 focus:ring-brand-500/30 focus:border-brand-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white/90"
+                      onChange={(e) => {
+                        setPhoneCountryCode(e.target.value as typeof phoneCountryCode);
+                        if (phoneError) setPhoneError("");
+                      }}
+                      className={`h-11 shrink-0 w-[140px] rounded-lg border bg-white px-3 py-2.5 text-sm shadow-theme-xs focus:outline-none focus:ring-3 focus:ring-brand-500/30 dark:bg-gray-900 dark:text-white/90 ${
+                        phoneError
+                          ? "border-error-500 focus:border-error-500 focus:ring-error-500/20"
+                          : "border-gray-300 focus:border-brand-500 dark:border-gray-600"
+                      }`}
                     >
                       {COUNTRY_CODES.map((c) => (
                         <option key={c.code} value={c.code}>
@@ -226,17 +293,24 @@ export default function SignUpForm() {
                             : "Phone number"
                       }
                       value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      onChange={(e) => {
+                        setPhoneNumber(e.target.value);
+                        if (phoneError) setPhoneError("");
+                      }}
                       className="flex-1 min-w-0"
+                      error={!!phoneError}
+                      hint={phoneError}
                     />
                   </div>
-                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                    {phoneCountryCode === "+84"
-                      ? "VietNam: 9–10 digits, e.g. 912 345 678."
-                      : phoneCountryCode === "+ other"
-                        ? "Enter full number with + and country code."
-                        : "Enter number without leading 0."}
-                  </p>
+                  {!phoneError && (
+                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                      {phoneCountryCode === "+84"
+                        ? "VietNam: 9–10 digits, e.g. 912 345 678."
+                        : phoneCountryCode === "+ other"
+                          ? "Enter full number with + and country code."
+                          : "Enter number without leading 0."}
+                    </p>
+                  )}
                 </div>
                 {/* Password */}
                 <div>
@@ -248,7 +322,12 @@ export default function SignUpForm() {
                       placeholder="Enter your password"
                       type={showPassword ? "text" : "password"}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (passwordError) setPasswordError("");
+                      }}
+                      error={!!passwordError}
+                      hint={passwordError}
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
@@ -261,9 +340,11 @@ export default function SignUpForm() {
                       )}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                    Min 8 chars with uppercase, lowercase, number &amp; special character.
-                  </p>
+                  {!passwordError && (
+                    <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                      Min 8 chars with uppercase, lowercase, number &amp; special character.
+                    </p>
+                  )}
                 </div>
                 {/* Confirm Password */}
                 <div>
@@ -275,7 +356,12 @@ export default function SignUpForm() {
                       placeholder="Confirm your password"
                       type={showConfirmPassword ? "text" : "password"}
                       value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        if (confirmPasswordError) setConfirmPasswordError("");
+                      }}
+                      error={!!confirmPasswordError}
+                      hint={confirmPasswordError}
                     />
                     <span
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -294,18 +380,26 @@ export default function SignUpForm() {
                   <Checkbox
                     className="w-5 h-5"
                     checked={isChecked}
-                    onChange={setIsChecked}
+                    onChange={(checked) => {
+                      setIsChecked(checked);
+                      if (termsError) setTermsError("");
+                    }}
                   />
-                  <p className="inline-block font-normal text-gray-500 dark:text-gray-400">
-                    By creating an account means you agree to the{" "}
-                    <span className="text-gray-800 dark:text-white/90">
-                      Terms and Conditions,
-                    </span>{" "}
-                    and our{" "}
-                    <span className="text-gray-800 dark:text-white">
-                      Privacy Policy
-                    </span>
-                  </p>
+                  <div>
+                    <p className="inline-block font-normal text-gray-500 dark:text-gray-400">
+                      By creating an account means you agree to the{" "}
+                      <span className="text-gray-800 dark:text-white/90">
+                        Terms and Conditions,
+                      </span>{" "}
+                      and our{" "}
+                      <span className="text-gray-800 dark:text-white">
+                        Privacy Policy
+                      </span>
+                    </p>
+                    {termsError && (
+                      <p className="mt-1 text-xs text-error-500">{termsError}</p>
+                    )}
+                  </div>
                 </div>
                 {/* Button */}
                 <div>
