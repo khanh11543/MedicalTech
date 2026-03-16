@@ -206,15 +206,32 @@ public class ConsultationServiceImpl implements ConsultationService {
     public ConsultationDTO finalizeConsultationWithData(Long appointmentId, ConsultationCreateUpdateDTO dto) {
         log.debug("Finalizing consultation with data for appointment ID: {}", appointmentId);
         
-        // Get consultation by appointment ID
+        // Get or create consultation by appointment ID
         Consultation consultation = consultationRepository.findByAppointmentId(appointmentId)
-                .orElseThrow(() -> new EntityNotFoundException("Consultation not found for appointment ID: " + appointmentId));
+                .orElseGet(() -> {
+                    log.info("Consultation not found for appointment ID: {}. Creating new one from provided data.", appointmentId);
+                    
+                    // Get the appointment
+                    Appointment appointment = appointmentRepository.findById(appointmentId)
+                            .orElseThrow(() -> new EntityNotFoundException("Appointment not found with ID: " + appointmentId));
+                    
+                    // Create new consultation from the provided data
+                    Consultation newConsultation = new Consultation();
+                    newConsultation.setAppointment(appointment);
+                    newConsultation.setStatus(ConsultationStatus.DRAFT);
+                    
+                    // Map the DTO to the entity
+                    consultationMapper.updateEntity(dto, newConsultation);
+                    
+                    // Save and return the new consultation
+                    return consultationRepository.save(newConsultation);
+                });
         
         if (!ConsultationStatus.DRAFT.equals(consultation.getStatus())) {
             throw new IllegalStateException("Only DRAFT consultations can be finalized. Current status: " + consultation.getStatus());
         }
         
-        // Update consultation fields with provided data
+        // Update consultation fields with provided data (in case it was an existing draft)
         consultationMapper.updateEntity(dto, consultation);
         
         // Get current user
