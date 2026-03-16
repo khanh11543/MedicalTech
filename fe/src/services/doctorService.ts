@@ -1,4 +1,4 @@
-import api from "./api";
+import api from './api';
 
 // ============== TYPES ==============
 
@@ -183,47 +183,64 @@ export interface QueueSummary {
  * GET /api/doctor/dashboard
  */
 export const getDoctorDashboard = async (): Promise<DoctorDashboard> => {
-  const response = await api.get<DoctorDashboard>("/doctor/dashboard");
+  const response = await api.get<DoctorDashboard>('/doctor/dashboard');
   return response.data;
 };
 
 // ---------- Today (Queue / Timeline) ----------
 
 export const getDoctorToday = async (): Promise<DoctorTodayData> => {
-  const response = await api.get<DoctorTodayData>("/doctor/today");
+  const response = await api.get<DoctorTodayData>('/doctor/today');
   return response.data;
 };
 
 export const callNextPatient = async (): Promise<void> => {
-  await api.post("/doctor/today/call-next");
+  await api.post('/doctor/today/call-next');
 };
 
 export const callPatient = async (appointmentId: number): Promise<void> => {
   await api.post(`/doctor/today/call/${appointmentId}`);
 };
 
-export const completeConsultation = async (appointmentId: number): Promise<void> => {
+export const completeConsultation = async (
+  appointmentId: number
+): Promise<void> => {
   await api.post(`/doctor/today/complete/${appointmentId}`);
 };
 
-export const skipPatient = async (appointmentId: number, reason: string): Promise<void> => {
+export const skipPatient = async (
+  appointmentId: number,
+  reason: string
+): Promise<void> => {
   await api.post(`/doctor/today/skip/${appointmentId}`, { reason });
 };
 
-export const markNoShow = async (appointmentId: number, reason: string): Promise<void> => {
+export const markNoShow = async (
+  appointmentId: number,
+  reason: string
+): Promise<void> => {
   await api.post(`/doctor/today/no-show/${appointmentId}`, { reason });
 };
 
 export const changeDoctorStatus = async (status: string): Promise<void> => {
-  await api.post("/doctor/today/status", { status });
+  await api.post('/doctor/today/status', { status });
 };
 
-export const reorderQueue = async (orderedAppointmentIds: number[], reason: string): Promise<void> => {
-  await api.post("/doctor/today/reorder", { orderedAppointmentIds, reason });
+export const reorderQueue = async (
+  orderedAppointmentIds: number[],
+  reason: string
+): Promise<void> => {
+  await api.post('/doctor/today/reorder', { orderedAppointmentIds, reason });
 };
 
-export const sendToReception = async (appointmentId: number, message?: string): Promise<void> => {
-  await api.post(`/doctor/today/send-to-reception/${appointmentId}`, message != null ? { message } : {});
+export const sendToReception = async (
+  appointmentId: number,
+  message?: string
+): Promise<void> => {
+  await api.post(
+    `/doctor/today/send-to-reception/${appointmentId}`,
+    message != null ? { message } : {}
+  );
 };
 
 // ============== PROFILE SETUP TYPES ==============
@@ -288,50 +305,223 @@ export interface DocumentVerificationSummary {
   isComplete: boolean;
 }
 
+// ============== DOCTOR'S PATIENTS TYPES ==============
+
+export interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+  first: boolean;
+  last: boolean;
+}
+
+export interface DoctorPatientDTO {
+  id: number;
+  userId: number;
+  mrn: string;
+  name: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string | null;
+  age: number | null;
+  gender: string | null;
+  avatarUrl: string | null;
+  address: string | null;
+  allergies: string | null;
+  medicalHistory: string | null;
+  totalVisits: number;
+  lastVisitDate: string | null;
+  totalCompletedAppointments: number;
+  insuranceStatus: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface RecentPatientDTO {
+  id: number;
+  userId: number;
+  mrn: string;
+  name: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string | null;
+  age: number | null;
+  gender: string | null;
+  avatarUrl: string | null;
+  lastVisitDate: string | null;
+  lastVisitTime: string | null;
+  reasonForVisit: string | null;
+  totalVisits: number;
+}
+
+export interface FlaggedPatientDTO {
+  id: number;
+  userId: number;
+  mrn: string;
+  name: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string | null;
+  age: number | null;
+  gender: string | null;
+  avatarUrl: string | null;
+  allergyList: AllergySummary[];
+  chronicConditionsList: ChronicConditionSummary[];
+  lastVisitDate: string | null;
+  totalVisits: number;
+}
+
+export interface AllergySummary {
+  id: number;
+  allergyName: string;
+  severity: string; // MILD | MODERATE | SEVERE | CRITICAL
+  reactions: string[] | null;
+  dateRecorded: string;
+}
+
+export interface ChronicConditionSummary {
+  id: number;
+  conditionName: string;
+  severity: string; // MILD | MODERATE | SEVERE
+  diagnosisDate: string;
+  status: string; // ACTIVE | RESOLVED | MONITORING
+}
+
+export interface DoctorPatientSearchParams {
+  search?: string;
+  page?: number;
+  size?: number;
+  sortBy?: string;
+  sortDir?: string;
+}
+
 // ============== PROFILE SETUP API CALLS ==============
 
 /** GET /api/doctor/profile */
 export const getDoctorProfile = async (): Promise<DoctorProfile> => {
-  const response = await api.get<DoctorProfile>("/doctor/profile");
+  const response = await api.get<DoctorProfile>('/doctor/profile');
   return response.data;
 };
 
 /** PUT /api/doctor/profile */
-export const updateDoctorProfile = async (data: UpdateDoctorProfile): Promise<DoctorProfile> => {
-  const response = await api.put<DoctorProfile>("/doctor/profile", data);
+export const updateDoctorProfile = async (
+  data: UpdateDoctorProfile
+): Promise<DoctorProfile> => {
+  const response = await api.put<DoctorProfile>('/doctor/profile', data);
   return response.data;
 };
 
 /** POST /api/doctor/profile/upload-document */
-export const uploadDoctorDocument = async (file: File, docType: string): Promise<DoctorDocumentDTO> => {
+export const uploadDoctorDocument = async (
+  file: File,
+  docType: string
+): Promise<DoctorDocumentDTO> => {
   const formData = new FormData();
-  formData.append("file", file);
-  formData.append("docType", docType);
-  const response = await api.post<DoctorDocumentDTO>("/doctor/profile/upload-document", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  formData.append('file', file);
+  formData.append('docType', docType);
+  const response = await api.post<DoctorDocumentDTO>(
+    '/doctor/profile/upload-document',
+    formData,
+    {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }
+  );
   return response.data;
 };
 
 /** GET /api/doctor/documents */
 export const getDoctorDocuments = async (): Promise<DoctorDocumentDTO[]> => {
-  const response = await api.get<DoctorDocumentDTO[]>("/doctor/documents");
+  const response = await api.get<DoctorDocumentDTO[]>('/doctor/documents');
   return response.data;
 };
 
 /** DELETE /api/doctor/documents/:id */
-export const deleteDoctorDocument = async (documentId: number): Promise<void> => {
+export const deleteDoctorDocument = async (
+  documentId: number
+): Promise<void> => {
   await api.delete(`/doctor/documents/${documentId}`);
 };
 
 /** GET /api/doctor/documents/verification-summary */
-export const getDocumentVerificationSummary = async (): Promise<DocumentVerificationSummary> => {
-  const response = await api.get<DocumentVerificationSummary>("/doctor/documents/verification-summary");
-  return response.data;
-};
+export const getDocumentVerificationSummary =
+  async (): Promise<DocumentVerificationSummary> => {
+    const response = await api.get<DocumentVerificationSummary>(
+      '/doctor/documents/verification-summary'
+    );
+    return response.data;
+  };
 
 /** POST /api/doctor/profile/submit-verification */
 export const submitDoctorVerification = async (): Promise<DoctorProfile> => {
-  const response = await api.post<DoctorProfile>("/doctor/profile/submit-verification");
+  const response = await api.post<DoctorProfile>(
+    '/doctor/profile/submit-verification'
+  );
+  return response.data;
+};
+
+// ============== DOCTOR'S PATIENTS API CALLS ==============
+
+/** GET /api/doctor/patients - Get all patients of the logged-in doctor */
+export const getDoctorPatients = async (
+  params?: DoctorPatientSearchParams
+): Promise<PageResponse<DoctorPatientDTO>> => {
+  const response = await api.get<PageResponse<DoctorPatientDTO>>(
+    '/doctor/patients',
+    {
+      params: {
+        search: params?.search || '',
+        page: params?.page || 0,
+        size: params?.size || 20,
+        sortBy: params?.sortBy || 'lastVisitDate',
+        sortDir: params?.sortDir || 'DESC',
+      },
+    }
+  );
+  return response.data;
+};
+
+/** GET /api/doctor/patients/recent - Get recently visited patients */
+export const getRecentPatients = async (
+  limit?: number
+): Promise<RecentPatientDTO[]> => {
+  const response = await api.get<RecentPatientDTO[]>(
+    '/doctor/patients/recent',
+    {
+      params: {
+        limit: limit || 10,
+      },
+    }
+  );
+  return response.data;
+};
+
+/** GET /api/doctor/patients/flagged - Get patients with allergies or chronic conditions */
+export const getFlaggedPatients = async (params?: {
+  type?: 'ALL' | 'ALLERGIES' | 'CHRONIC';
+  page?: number;
+  size?: number;
+}): Promise<PageResponse<FlaggedPatientDTO>> => {
+  const response = await api.get<PageResponse<FlaggedPatientDTO>>(
+    '/doctor/patients/flagged',
+    {
+      params: {
+        type: params?.type || 'ALL',
+        page: params?.page || 0,
+        size: params?.size || 20,
+      },
+    }
+  );
+  return response.data;
+};
+
+/** GET /api/doctor/patients/:patientId - Get patient detail */
+export const getDoctorPatientDetail = async (
+  patientId: number
+): Promise<DoctorPatientDTO> => {
+  const response = await api.get<DoctorPatientDTO>(
+    `/doctor/patients/${patientId}`
+  );
   return response.data;
 };
