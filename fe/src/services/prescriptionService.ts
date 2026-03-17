@@ -208,7 +208,15 @@ const prescriptionService = {
     return response.data;
   },
 
-  // 6.1 - List all prescriptions
+  // Doctor - Get all prescriptions for current doctor
+  getDoctorPrescriptions: async (
+    params: PrescriptionFilterParams
+  ): Promise<PageResponse<PrescriptionDTO>> => {
+    const response = await api.get('/doctor/prescriptions', { params });
+    return response.data;
+  },
+
+  // 6.1 - List all prescriptions (admin)
   getAllPrescriptions: async (
     params: PrescriptionFilterParams
   ): Promise<PageResponse<PrescriptionDTO>> => {
