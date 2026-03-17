@@ -147,11 +147,30 @@ public class ConsultationServiceImpl implements ConsultationService {
 
     @Override
     @Transactional
-    public ConsultationDTO updateConsultationDraft(Long consultationId, ConsultationCreateUpdateDTO dto) {
-        log.debug("Updating consultation draft ID: {}", consultationId);
+    public ConsultationDTO updateConsultationDraft(Long appointmentId, ConsultationCreateUpdateDTO dto) {
+        log.debug("Updating/creating consultation draft for appointment ID: {}", appointmentId);
         
-        Consultation consultation = consultationRepository.findById(consultationId)
-                .orElseThrow(() -> new EntityNotFoundException("Consultation not found with ID: " + consultationId));
+        // Try to find existing consultation, or create if it doesn't exist
+        Consultation consultation = consultationRepository.findByAppointmentId(appointmentId)
+                .orElseGet(() -> {
+                    log.info("Consultation not found for appointment ID: {}. Creating new draft...", appointmentId);
+                    
+                    // Get the appointment and its doctor
+                    Appointment appointment = appointmentRepository.findById(appointmentId)
+                            .orElseThrow(() -> new EntityNotFoundException("Appointment not found with ID: " + appointmentId));
+                    
+                    Patient patient = appointment.getPatient();
+                    Doctor doctor = appointment.getDoctor();
+                    
+                    // Create new consultation draft
+                    Consultation newConsultation = new Consultation();
+                    newConsultation.setAppointment(appointment);
+                    newConsultation.setPatient(patient);
+                    newConsultation.setDoctor(doctor);
+                    newConsultation.setStatus(ConsultationStatus.DRAFT);
+                    
+                    return newConsultation;
+                });
         
         // Only allow updates to draft records
         if (ConsultationStatus.FINALIZED.equals(consultation.getStatus())) {
@@ -162,7 +181,7 @@ public class ConsultationServiceImpl implements ConsultationService {
         consultationMapper.updateEntity(dto, consultation);
         
         Consultation updatedConsultation = consultationRepository.save(consultation);
-        log.info("Updated consultation ID: {}", consultationId);
+        log.info("Saved consultation draft for appointment ID: {}", appointmentId);
         
         return consultationMapper.toDTO(updatedConsultation);
     }
@@ -218,6 +237,8 @@ public class ConsultationServiceImpl implements ConsultationService {
                     // Create new consultation from the provided data
                     Consultation newConsultation = new Consultation();
                     newConsultation.setAppointment(appointment);
+                    newConsultation.setPatient(appointment.getPatient());
+                    newConsultation.setDoctor(appointment.getDoctor());
                     newConsultation.setStatus(ConsultationStatus.DRAFT);
                     
                     // Map the DTO to the entity
@@ -415,11 +436,25 @@ public class ConsultationServiceImpl implements ConsultationService {
 
     @Override
     @Transactional
-    public ConsultationAttachmentDTO uploadAttachment(Long consultationId, MultipartFile file) {
-        log.debug("Uploading attachment for consultation ID: {}", consultationId);
+    public ConsultationAttachmentDTO uploadAttachment(Long appointmentId, MultipartFile file) {
+        log.debug("Uploading attachment for appointment ID: {}", appointmentId);
         
-        Consultation consultation = consultationRepository.findById(consultationId)
-                .orElseThrow(() -> new EntityNotFoundException("Consultation not found with ID: " + consultationId));
+        // Get or create consultation by appointment ID
+        Consultation consultation = consultationRepository.findByAppointmentId(appointmentId)
+                .orElseGet(() -> {
+                    log.info("Consultation not found for appointment ID: {}. Creating new one for attachment upload.", appointmentId);
+                    
+                    Appointment appointment = appointmentRepository.findById(appointmentId)
+                            .orElseThrow(() -> new EntityNotFoundException("Appointment not found with ID: " + appointmentId));
+                    
+                    Consultation newConsultation = new Consultation();
+                    newConsultation.setAppointment(appointment);
+                    newConsultation.setPatient(appointment.getPatient());
+                    newConsultation.setDoctor(appointment.getDoctor());
+                    newConsultation.setStatus(ConsultationStatus.DRAFT);
+                    
+                    return consultationRepository.save(newConsultation);
+                });
         
         // Validate file
         if (file == null || file.isEmpty()) {
@@ -446,7 +481,7 @@ public class ConsultationServiceImpl implements ConsultationService {
             String uniqueFilename = UUID.randomUUID().toString() + fileExtension;
             
             // Create directory if it doesn't exist
-            Path uploadPath = Paths.get(UPLOAD_DIR, consultationId.toString());
+            Path uploadPath = Paths.get(UPLOAD_DIR, consultation.getId().toString());
             Files.createDirectories(uploadPath);
             
             // Save file
@@ -468,11 +503,11 @@ public class ConsultationServiceImpl implements ConsultationService {
             consultation.addAttachment(attachment);
             consultationRepository.save(consultation);
             
-            log.info("Uploaded attachment ID: {} for consultation ID: {}", savedAttachment.getId(), consultationId);
+            log.info("Uploaded attachment ID: {} for consultation ID: {} (appointment ID: {})", savedAttachment.getId(), consultation.getId(), appointmentId);
             
             return consultationMapper.toDTO(savedAttachment);
         } catch (IOException e) {
-            log.error("Error uploading file for consultation ID: {}", consultationId, e);
+            log.error("Error uploading file for appointment ID: {}", appointmentId, e);
             throw new RuntimeException("Error uploading file: " + e.getMessage(), e);
         }
     }

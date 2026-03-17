@@ -39,6 +39,9 @@ public class Prescription extends BaseEntity {
     @Column(name = "prescription_date", nullable = false)
     private LocalDate prescriptionDate;
 
+    @Column(name = "issue_date", nullable = false)
+    private LocalDate issueDate; // When the prescription is issued
+
     @Column(name = "expiry_date")
     private LocalDate expiryDate; // When the prescription expires
 

@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import InputField from '../form/input/InputField';
 import TextArea from '../form/input/TextArea';
 import Label from '../form/Label';
 import Button from '../ui/button/Button';
+import Toast from '../common/Toast';
 import { useToast } from '../../hooks/useToast';
+import { useNavigate } from 'react-router-dom';
 import consultationService, {
   ConsultationRecord,
 } from '../../services/consultationService';
@@ -21,27 +23,26 @@ interface PatientInfo {
 
 interface ConsultationFormProps {
   appointmentId?: number;
-  draftId?: string;
   onBack: () => void;
-  onDraftSaved?: () => void;
   patientInfo?: PatientInfo;
 }
 
 export default function ConsultationForm({
   appointmentId,
-  draftId,
   onBack,
-  onDraftSaved,
   patientInfo,
 }: ConsultationFormProps) {
-  const { showToast } = useToast();
-  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { toast, showToast, dismissToast } = useToast();
   const [saving, setSaving] = useState(false);
-  const [tabActive, setTabActive] = useState<'examination' | 'amendments'>(
-    'examination'
-  );
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [formData, setFormData] = useState<ConsultationRecord>({
+    id: 0,
     appointmentId: appointmentId || 0,
+    patientId: 0,
+    patientName: patientInfo?.patientName || '',
+    doctorId: 0,
+    doctorName: '',
     status: 'DRAFT',
     chiefComplaint: '',
     hpi: '',
@@ -60,200 +61,111 @@ export default function ConsultationForm({
     diagnosticCode: '',
     plan: '',
     followUpInstructions: '',
+    isLocked: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    amendments: [],
     attachments: [],
-    lastSavedAt: new Date().toISOString(),
   });
 
-  const [amendments, setAmendments] = useState<
-    Array<{
-      id: string;
-      content: string;
-      createdAt: string;
-      signedAt?: string;
-    }>
-  >([]);
+  // Field validation errors
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const [newAmendment, setNewAmendment] = useState('');
-  const [showAmendmentModal, setShowAmendmentModal] = useState(false);
-  const [isFinalized, setIsFinalized] = useState(false);
-
+  // Load existing draft consultation when component mounts
   useEffect(() => {
-    const loadConsultation = async () => {
-      // If no appointmentId and no draftId, we can't load anything
-      if (!appointmentId && !draftId) {
-        return;
-      }
+    if (!appointmentId) {
+      return;
+    }
 
-      setLoading(true);
+    const loadDraftConsultation = async () => {
       try {
-        let consultation: ConsultationRecord;
-
-        if (draftId) {
-          // Load draft consultation if draftId is provided
-          // In backend, we would need to get consultation by ID
-          // For now, we'll use the appointmentId from the draft
-          // This would require a backend change to support fetching by draftId
-          showToast('Loading draft consultation...', 'info');
-          // TODO: Implement getConsultationById in backend
-        } else if (appointmentId) {
-          // Load by appointment ID
-          showToast('Loading consultation data...', 'info');
-          consultation =
-            await consultationService.getConsultation(appointmentId);
-          setFormData(consultation);
-          setIsFinalized(consultation.status === 'FINALIZED');
-          showToast('Consultation loaded successfully', 'success');
-
-          if (consultation.status === 'FINALIZED') {
-            const amendments =
-              await consultationService.getAmendments(appointmentId);
-            setAmendments(amendments);
-          }
-        }
+        const consultation =
+          await consultationService.getConsultation(appointmentId);
+        setFormData(consultation);
       } catch (error) {
-        console.error('Failed to load consultation:', error);
-
-        // Check if it's a "not found" error (404) - this is expected for new consultations
-        const isNotFound =
-          error instanceof Error && error.message?.includes('404');
-
-        if (isNotFound) {
-          showToast('📝 Creating new consultation draft...', 'info');
-          // Initialize with empty draft if no existing consultation
-          const newDraft: ConsultationRecord = {
-            appointmentId: appointmentId || 0,
-            status: 'DRAFT',
-            chiefComplaint: '',
-            hpi: '',
-            vitals: {
-              temperature: null,
-              systolic: null,
-              diastolic: null,
-              heartRate: null,
-              respiratoryRate: null,
-              height: null,
-              weight: null,
-              bmi: null,
-            },
-            physicalExam: '',
-            diagnosis: '',
-            diagnosticCode: '',
-            plan: '',
-            followUpInstructions: '',
-            attachments: [],
-            lastSavedAt: new Date().toISOString(),
-          };
-
-          setFormData(newDraft);
-
-          // Auto-save the draft to backend so it exists for finalize operation
-          try {
-            showToast('💾 Auto-saving draft to server...', 'info');
-            const savedDraft = await consultationService.saveDraft(newDraft);
-            setFormData(savedDraft);
-            showToast('✅ Consultation draft created and saved', 'success');
-          } catch (saveError) {
-            console.error('Failed to auto-save draft:', saveError);
-            showToast(
-              '⚠️ Draft created locally but failed to sync with server: ' +
-                (saveError instanceof Error
-                  ? saveError.message
-                  : 'Unknown error') +
-                '. Please save manually.',
-              'info'
-            );
-          }
-        } else {
-          showToast(
-            '❌ Failed to load consultation: ' +
-              (error instanceof Error ? error.message : 'Unknown error'),
-            'error'
-          );
-          // Initialize with empty draft
-          setFormData((prev) => ({
-            ...prev,
-            appointmentId: appointmentId || 0,
-            lastSavedAt: new Date().toISOString(),
-          }));
-        }
-      } finally {
-        setLoading(false);
+        console.error('Error loading draft consultation:', error);
+        // If loading fails, keep the empty form state
+        // Form will still work for new draft creation
       }
     };
 
-    loadConsultation();
-  }, [appointmentId, draftId, showToast]);
+    loadDraftConsultation();
+  }, [appointmentId]);
 
-  const handleSaveDraftCallback = useCallback(async () => {
-    if (formData.status === 'DRAFT' && !isFinalized) {
-      setSaving(true);
-      try {
-        const savedConsultation = await consultationService.saveDraft(formData);
-        setFormData(savedConsultation);
-        // Silent success for auto-save - only show on errors to avoid notification spam
-      } catch (error) {
-        console.error('Failed to auto-save draft:', error);
-        showToast(
-          '⚠️ Failed to auto-save draft: ' +
-            (error instanceof Error ? error.message : 'Unknown error'),
-          'error'
-        );
-      } finally {
-        setSaving(false);
-      }
-    }
-  }, [isFinalized, formData, showToast]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      handleSaveDraftCallback();
-    }, 3000);
-
-    return () => clearTimeout(timer);
-  }, [handleSaveDraftCallback]);
-
-  const handleSaveDraft = async () => {
-    if (isFinalized) {
-      showToast('Record is finalized and cannot be edited directly', 'info');
+  // Memoize handleSaveDraft to avoid unnecessary re-renders
+  const handleSaveDraft = useCallback(async () => {
+    if (!appointmentId) {
+      showToast('❌ Appointment not found', 'error');
       return;
     }
 
     setSaving(true);
-    showToast('💾 Saving draft...', 'info');
+    showToast('💾 Saving consultation draft...', 'info');
     try {
-      const savedConsultation = await consultationService.saveDraft(formData);
-      setFormData(savedConsultation);
-      showToast(
-        '✅ Draft saved successfully at ' + new Date().toLocaleTimeString(),
-        'success'
+      // Convert formData to the API payload format
+      const payload = {
+        appointmentId,
+        chiefComplaint: formData.chiefComplaint,
+        hpi: formData.hpi,
+        temperature: formData.vitals.temperature,
+        systolic: formData.vitals.systolic,
+        diastolic: formData.vitals.diastolic,
+        heartRate: formData.vitals.heartRate,
+        respiratoryRate: formData.vitals.respiratoryRate,
+        height: formData.vitals.height,
+        weight: formData.vitals.weight,
+        physicalExam: formData.physicalExam,
+        diagnosis: formData.diagnosis,
+        diagnosticCode: formData.diagnosticCode,
+        plan: formData.plan,
+        followUpInstructions: formData.followUpInstructions,
+      };
+
+      const updatedConsultation = await consultationService.saveDraft(
+        appointmentId,
+        payload
       );
-      // Call the callback to notify parent component
-      onDraftSaved?.();
+      setFormData(updatedConsultation);
+      showToast('✅ Consultation draft saved successfully', 'success');
     } catch (error) {
       console.error('Error saving draft:', error);
-      showToast(
-        '❌ Failed to save draft: ' +
-          (error instanceof Error ? error.message : 'Unknown error'),
-        'error'
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      showToast(`❌ Failed to save draft: ${errorMessage}`, 'error');
     } finally {
       setSaving(false);
     }
-  };
+  }, [appointmentId, formData, showToast]);
 
   const handleFinalize = async () => {
-    if (!formData.chiefComplaint.trim()) {
-      showToast('❌ Please enter Chief Complaint', 'error');
-      return;
-    }
+    // Clear previous errors
+    setFieldErrors({});
 
-    if (Object.values(formData.vitals).every((v) => v === null)) {
-      showToast('❌ Please enter at least one vital sign', 'error');
-      return;
+    // Validate all required fields
+    const errors: Record<string, string> = {};
+
+    if (!formData.chiefComplaint.trim()) {
+      errors['chiefComplaint'] = 'Chief Complaint is required';
     }
 
     if (!formData.diagnosis.trim()) {
-      showToast('❌ Please enter Diagnosis', 'error');
+      errors['diagnosis'] = 'Diagnosis is required';
+    }
+
+    if (Object.values(formData.vitals).every((v) => v === null)) {
+      errors['vitals'] = 'At least one vital sign is required';
+    }
+
+    // If there are errors, show them and return
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+
+      // Show toast with error count
+      const errorCount = Object.keys(errors).length;
+      showToast(
+        `⚠️ Please fix ${errorCount} validation error${errorCount > 1 ? 's' : ''} before finalizing`,
+        'error'
+      );
       return;
     }
 
@@ -261,21 +173,41 @@ export default function ConsultationForm({
     showToast('🔒 Finalizing consultation...', 'info');
     try {
       console.log('Attempting to finalize consultation:', formData);
-      const finalizedConsultation =
-        await consultationService.finalize(formData);
+
+      // Convert formData to the API payload format
+      const payload = {
+        appointmentId: formData.appointmentId,
+        chiefComplaint: formData.chiefComplaint,
+        hpi: formData.hpi,
+        temperature: formData.vitals.temperature,
+        systolic: formData.vitals.systolic,
+        diastolic: formData.vitals.diastolic,
+        heartRate: formData.vitals.heartRate,
+        respiratoryRate: formData.vitals.respiratoryRate,
+        height: formData.vitals.height,
+        weight: formData.vitals.weight,
+        physicalExam: formData.physicalExam,
+        diagnosis: formData.diagnosis,
+        diagnosticCode: formData.diagnosticCode,
+        plan: formData.plan,
+        followUpInstructions: formData.followUpInstructions,
+      };
+
+      const finalizedConsultation = await consultationService.finalize(
+        formData.appointmentId,
+        payload
+      );
       console.log('Finalization successful:', finalizedConsultation);
-      setFormData(finalizedConsultation);
-      setIsFinalized(true);
       showToast(
         '✅ Consultation finalized and appointment approved',
         'success'
       );
-      // Notify parent component
-      onDraftSaved?.();
-      // Return to previous view
-      setTimeout(() => {
-        onBack();
-      }, 1500);
+      // Show modal instead of immediately going back
+      setFormData((prev) => ({
+        ...prev,
+        patientId: finalizedConsultation.patientId,
+      }));
+      setShowFinalizeModal(true);
     } catch (error) {
       console.error('Error finalizing record - full error object:', error);
 
@@ -303,8 +235,11 @@ export default function ConsultationForm({
           errorMessage = axiosError.response.data.message;
         } else if (axiosError.response?.data?.error) {
           errorMessage = axiosError.response.data.error;
+        } else if (axiosError.response?.data?.statusText) {
+          const status = axiosError.response.data.status || 'Unknown';
+          errorMessage = `${status} - ${axiosError.response.data.statusText}`;
         } else if (axiosError.response?.statusText) {
-          errorMessage = `${axiosError.response.status} - ${axiosError.response.statusText}`;
+          errorMessage = axiosError.response.statusText;
         } else if (axiosError.message) {
           errorMessage = axiosError.message;
         }
@@ -312,10 +247,7 @@ export default function ConsultationForm({
         console.error('Detailed error response:', axiosError.response);
       }
 
-      showToast(
-        `❌ Failed to finalize record: ${errorMessage}. Please ensure the draft was saved and try again.`,
-        'error'
-      );
+      showToast(`❌ Failed to finalize record: ${errorMessage}`, 'error');
     } finally {
       setSaving(false);
     }
@@ -324,73 +256,6 @@ export default function ConsultationForm({
   const handlePrint = () => {
     window.print();
     showToast('Printing summary...', 'info');
-  };
-
-  const handleAddAmendment = async () => {
-    if (!newAmendment.trim()) {
-      showToast('❌ Please enter amendment content', 'error');
-      return;
-    }
-
-    if (!appointmentId) {
-      showToast('❌ Appointment not found', 'error');
-      return;
-    }
-
-    setSaving(true);
-    showToast('📝 Adding amendment...', 'info');
-    try {
-      const amendment = await consultationService.addAmendment(
-        appointmentId,
-        newAmendment
-      );
-      setAmendments((prev) => [...prev, amendment]);
-      setNewAmendment('');
-      setShowAmendmentModal(false);
-      showToast('✅ Amendment added successfully', 'success');
-    } catch (error) {
-      console.error('Error adding amendment:', error);
-      showToast(
-        '❌ Failed to add amendment: ' +
-          (error instanceof Error ? error.message : 'Unknown error'),
-        'error'
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSignAmendment = async (amendmentId: string) => {
-    if (!appointmentId) {
-      showToast('❌ Appointment not found', 'error');
-      return;
-    }
-
-    setSaving(true);
-    showToast('✍️ Signing amendment...', 'info');
-    try {
-      const signedAmendment = await consultationService.signAmendment(
-        appointmentId,
-        amendmentId
-      );
-      setAmendments((prev) =>
-        prev.map((a) =>
-          a.id === amendmentId
-            ? { ...a, signedAt: signedAmendment.signedAt }
-            : a
-        )
-      );
-      showToast('✅ Amendment signed successfully', 'success');
-    } catch (error) {
-      console.error('Error signing amendment:', error);
-      showToast(
-        '❌ Failed to sign amendment: ' +
-          (error instanceof Error ? error.message : 'Unknown error'),
-        'error'
-      );
-    } finally {
-      setSaving(false);
-    }
   };
 
   const handleFieldChange = (field: string, value: string | number | null) => {
@@ -417,6 +282,11 @@ export default function ConsultationForm({
       ...prev,
       vitals: updatedVitals,
     }));
+
+    // Clear vitals error when user enters any vital sign
+    if (fieldErrors.vitals) {
+      setFieldErrors({ ...fieldErrors, vitals: '' });
+    }
   };
 
   const calculateBMICategory = (bmi: number | null) => {
@@ -464,7 +334,7 @@ export default function ConsultationForm({
     }
   };
 
-  const handleDeleteAttachment = async (attachmentId: string) => {
+  const handleDeleteAttachment = async (attachmentId: number) => {
     if (!appointmentId) {
       showToast('❌ Appointment not found', 'error');
       return;
@@ -473,7 +343,10 @@ export default function ConsultationForm({
     setSaving(true);
     showToast('🗑️ Deleting file...', 'info');
     try {
-      await consultationService.deleteAttachment(appointmentId, attachmentId);
+      await consultationService.deleteAttachment(
+        appointmentId,
+        attachmentId.toString()
+      );
       setFormData((prev) => ({
         ...prev,
         attachments: prev.attachments.filter((a) => a.id !== attachmentId),
@@ -491,160 +364,135 @@ export default function ConsultationForm({
     }
   };
 
-  if (loading) {
-    return (
-      <div className='flex items-center justify-center p-8'>
-        <div className='inline-block animate-spin'>
-          <svg
-            className='h-8 w-8 text-brand-500'
-            xmlns='http://www.w3.org/2000/svg'
-            fill='none'
-            viewBox='0 0 24 24'
-          >
-            <circle
-              className='opacity-25'
-              cx='12'
-              cy='12'
-              r='10'
-              stroke='currentColor'
-              strokeWidth='4'
-            ></circle>
-            <path
-              className='opacity-75'
-              fill='currentColor'
-              d='M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z'
-            ></path>
-          </svg>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className='p-6'>
-      {/* Patient Info Section (from DoctorToday) */}
-      {patientInfo && (
-        <div className='mb-6 rounded-lg border border-brand-200 bg-brand-50 p-4 dark:border-brand-900 dark:bg-brand-900/10'>
-          <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-            {/* Left side: Basic info */}
-            <div className='space-y-2'>
-              <div>
-                <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                  Appointment Code
-                </p>
-                <p className='text-sm font-semibold text-gray-900 dark:text-white'>
-                  {patientInfo.appointmentCode || 'N/A'}
-                </p>
-              </div>
-              <div>
-                <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                  Patient Name
-                </p>
-                <p className='text-sm font-semibold text-gray-900 dark:text-white'>
-                  {patientInfo.patientName || 'N/A'}
-                </p>
-              </div>
-              {patientInfo.queueNumber && (
+    <>
+      <div className='p-6'>
+        {/* Patient Info Section (from DoctorToday) */}
+        {patientInfo && (
+          <div className='mb-6 rounded-lg border border-brand-200 bg-brand-50 p-4 dark:border-brand-900 dark:bg-brand-900/10'>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              {/* Left side: Basic info */}
+              <div className='space-y-2'>
                 <div>
                   <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                    Queue Number
+                    Appointment Code
                   </p>
                   <p className='text-sm font-semibold text-gray-900 dark:text-white'>
-                    #{patientInfo.queueNumber}
+                    {patientInfo.appointmentCode || 'N/A'}
                   </p>
                 </div>
-              )}
-            </div>
-
-            {/* Right side: Demographics & clinical info */}
-            <div className='space-y-2'>
-              <div>
-                <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                  Demographics
-                </p>
-                <div className='text-sm text-gray-900 dark:text-white'>
-                  {patientInfo.age && <span>{patientInfo.age} years old</span>}
-                  {patientInfo.age && patientInfo.gender && (
-                    <span className='mx-1'>•</span>
-                  )}
-                  {patientInfo.gender && <span>{patientInfo.gender}</span>}
-                </div>
-              </div>
-              {patientInfo.reasonForVisit && (
                 <div>
                   <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                    Reason for Visit
+                    Patient Name
                   </p>
-                  <p className='text-sm text-gray-900 dark:text-white'>
-                    {patientInfo.reasonForVisit}
+                  <p className='text-sm font-semibold text-gray-900 dark:text-white'>
+                    {patientInfo.patientName || 'N/A'}
                   </p>
+                </div>
+                {patientInfo.queueNumber && (
+                  <div>
+                    <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
+                      Queue Number
+                    </p>
+                    <p className='text-sm font-semibold text-gray-900 dark:text-white'>
+                      #{patientInfo.queueNumber}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Right side: Demographics & clinical info */}
+              <div className='space-y-2'>
+                <div>
+                  <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
+                    Demographics
+                  </p>
+                  <div className='text-sm text-gray-900 dark:text-white'>
+                    {patientInfo.age && (
+                      <span>{patientInfo.age} years old</span>
+                    )}
+                    {patientInfo.age && patientInfo.gender && (
+                      <span className='mx-1'>•</span>
+                    )}
+                    {patientInfo.gender && <span>{patientInfo.gender}</span>}
+                  </div>
+                </div>
+                {patientInfo.reasonForVisit && (
+                  <div>
+                    <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
+                      Reason for Visit
+                    </p>
+                    <p className='text-sm text-gray-900 dark:text-white'>
+                      {patientInfo.reasonForVisit}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Alerts section */}
+            <div className='mt-3 space-y-2 pt-3 border-t border-brand-200 dark:border-brand-900'>
+              {patientInfo.allergies && (
+                <div className='flex items-start gap-2 rounded bg-red-50 p-2 dark:bg-red-900/20'>
+                  <span className='flex-shrink-0 text-red-500 font-bold'>
+                    ⚠️
+                  </span>
+                  <div>
+                    <p className='text-xs font-semibold text-red-700 dark:text-red-400'>
+                      ALLERGIES
+                    </p>
+                    <p className='text-xs text-red-600 dark:text-red-300'>
+                      {patientInfo.allergies}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {patientInfo.medicalHistory && (
+                <div className='flex items-start gap-2 rounded bg-amber-50 p-2 dark:bg-amber-900/20'>
+                  <span className='flex-shrink-0 text-amber-600 font-bold'>
+                    📋
+                  </span>
+                  <div>
+                    <p className='text-xs font-semibold text-amber-700 dark:text-amber-400'>
+                      MEDICAL HISTORY
+                    </p>
+                    <p className='text-xs text-amber-600 dark:text-amber-300 line-clamp-2'>
+                      {patientInfo.medicalHistory}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
           </div>
+        )}
 
-          {/* Alerts section */}
-          <div className='mt-3 space-y-2 pt-3 border-t border-brand-200 dark:border-brand-900'>
-            {patientInfo.allergies && (
-              <div className='flex items-start gap-2 rounded bg-red-50 p-2 dark:bg-red-900/20'>
-                <span className='flex-shrink-0 text-red-500 font-bold'>⚠️</span>
-                <div>
-                  <p className='text-xs font-semibold text-red-700 dark:text-red-400'>
-                    ALLERGIES
-                  </p>
-                  <p className='text-xs text-red-600 dark:text-red-300'>
-                    {patientInfo.allergies}
-                  </p>
-                </div>
-              </div>
-            )}
-            {patientInfo.medicalHistory && (
-              <div className='flex items-start gap-2 rounded bg-amber-50 p-2 dark:bg-amber-900/20'>
-                <span className='flex-shrink-0 text-amber-600 font-bold'>
-                  📋
-                </span>
-                <div>
-                  <p className='text-xs font-semibold text-amber-700 dark:text-amber-400'>
-                    MEDICAL HISTORY
-                  </p>
-                  <p className='text-xs text-amber-600 dark:text-amber-300 line-clamp-2'>
-                    {patientInfo.medicalHistory}
-                  </p>
-                </div>
-              </div>
-            )}
+        {/* Header */}
+        <div className='mb-6 flex items-start justify-between'>
+          <div>
+            <h1 className='text-2xl font-bold text-gray-900 dark:text-white'>
+              Medical Examination Record
+            </h1>
+            <div className='mt-2 flex items-center gap-4'>
+              <span
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
+                  formData.status === 'FINALIZED'
+                    ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                }`}
+              >
+                {formData.status === 'FINALIZED' ? '🔒 Finalized' : '📝 Draft'}
+              </span>
+              <span className='text-xs text-gray-500 dark:text-gray-400'>
+                Last Updated: {new Date(formData.updatedAt).toLocaleString()}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
 
-      {/* Header */}
-      <div className='mb-6 flex items-start justify-between'>
-        <div>
-          <h1 className='text-2xl font-bold text-gray-900 dark:text-white'>
-            Medical Examination Record
-          </h1>
-          <div className='mt-2 flex items-center gap-4'>
-            <span
-              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
-                formData.status === 'FINALIZED'
-                  ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-              }`}
-            >
-              {formData.status === 'FINALIZED' ? '🔒 Finalized' : '📝 Draft'}
-            </span>
-            <span className='text-xs text-gray-500 dark:text-gray-400'>
-              Last Updated: {new Date(formData.lastSavedAt).toLocaleString()}
-            </span>
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className='flex gap-3'>
-          <Button variant='outline' onClick={onBack} disabled={saving}>
-            Back
-          </Button>
-          {!isFinalized && (
+          {/* Actions */}
+          <div className='flex gap-3'>
+            <Button variant='outline' onClick={onBack} disabled={saving}>
+              Back
+            </Button>
             <Button
               variant='outline'
               onClick={handleSaveDraft}
@@ -652,58 +500,34 @@ export default function ConsultationForm({
             >
               {saving ? 'Saving...' : '💾 Save Draft'}
             </Button>
-          )}
-          {!isFinalized && (
             <Button onClick={handleFinalize} disabled={saving}>
-              ✍️ Finalize & Sign
+              {saving ? 'Finalizing...' : 'Finalize & Sign'}
             </Button>
-          )}
-          {isFinalized && (
             <Button variant='outline' onClick={handlePrint} disabled={saving}>
-              🖨️ Print Summary
+              Print Summary
             </Button>
-          )}
+          </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className='mb-6 border-b border-gray-200 dark:border-gray-700'>
-        <div className='flex gap-6'>
-          <button
-            onClick={() => setTabActive('examination')}
-            className={`border-b-2 px-0 py-3 text-sm font-medium transition-colors ${
-              tabActive === 'examination'
-                ? 'border-brand-500 text-brand-600 dark:text-brand-400'
-                : 'border-transparent text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-            }`}
-          >
-            Examination & Findings
-          </button>
-          {isFinalized && (
-            <button
-              onClick={() => setTabActive('amendments')}
-              className={`border-b-2 px-0 py-3 text-sm font-medium transition-colors ${
-                tabActive === 'amendments'
-                  ? 'border-brand-500 text-brand-600 dark:text-brand-400'
-                  : 'border-transparent text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
-            >
-              Amendments ({amendments.length})
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Examination Tab */}
-      {tabActive === 'examination' && (
+        {/* Examination Section */}
         <div className='space-y-8'>
           {/* Chief Complaint */}
-          <Section title='1. Chief Complaint' required>
+          <Section
+            title='1. Chief Complaint'
+            required
+            error={fieldErrors.chiefComplaint}
+          >
             <TextArea
               placeholder="Enter the patient's main reason for visit (e.g., headache, high fever)"
               value={formData.chiefComplaint}
-              onChange={(value) => handleFieldChange('chiefComplaint', value)}
-              disabled={isFinalized}
+              onChange={(value) => {
+                handleFieldChange('chiefComplaint', value);
+                // Clear error when user starts typing
+                if (fieldErrors.chiefComplaint) {
+                  setFieldErrors({ ...fieldErrors, chiefComplaint: '' });
+                }
+              }}
+              disabled={formData.status === 'FINALIZED'}
               rows={3}
             />
           </Section>
@@ -714,13 +538,13 @@ export default function ConsultationForm({
               placeholder='Describe in detail the development of the current illness (when it started, severity, associated symptoms)'
               value={formData.hpi}
               onChange={(value) => handleFieldChange('hpi', value)}
-              disabled={isFinalized}
+              disabled={formData.status === 'FINALIZED'}
               rows={4}
             />
           </Section>
 
           {/* Vitals */}
-          <Section title='3. Vital Signs' required>
+          <Section title='3. Vital Signs' required error={fieldErrors.vitals}>
             <div className='grid grid-cols-2 gap-4 sm:grid-cols-3'>
               <div>
                 <Label htmlFor='temperature'>Temperature (°C)</Label>
@@ -735,7 +559,7 @@ export default function ConsultationForm({
                       e.target.value ? parseFloat(e.target.value) : null
                     )
                   }
-                  disabled={isFinalized}
+                  disabled={formData.status === 'FINALIZED'}
                 />
               </div>
               <div>
@@ -751,7 +575,7 @@ export default function ConsultationForm({
                       e.target.value ? parseInt(e.target.value) : null
                     )
                   }
-                  disabled={isFinalized}
+                  disabled={formData.status === 'FINALIZED'}
                 />
               </div>
               <div>
@@ -767,7 +591,7 @@ export default function ConsultationForm({
                       e.target.value ? parseInt(e.target.value) : null
                     )
                   }
-                  disabled={isFinalized}
+                  disabled={formData.status === 'FINALIZED'}
                 />
               </div>
               <div>
@@ -783,7 +607,7 @@ export default function ConsultationForm({
                       e.target.value ? parseInt(e.target.value) : null
                     )
                   }
-                  disabled={isFinalized}
+                  disabled={formData.status === 'FINALIZED'}
                 />
               </div>
               <div>
@@ -799,7 +623,7 @@ export default function ConsultationForm({
                       e.target.value ? parseInt(e.target.value) : null
                     )
                   }
-                  disabled={isFinalized}
+                  disabled={formData.status === 'FINALIZED'}
                 />
               </div>
             </div>
@@ -823,7 +647,7 @@ export default function ConsultationForm({
                         e.target.value ? parseInt(e.target.value) : null
                       )
                     }
-                    disabled={isFinalized}
+                    disabled={formData.status === 'FINALIZED'}
                   />
                 </div>
                 <div>
@@ -839,7 +663,7 @@ export default function ConsultationForm({
                         e.target.value ? parseFloat(e.target.value) : null
                       )
                     }
-                    disabled={isFinalized}
+                    disabled={formData.status === 'FINALIZED'}
                   />
                 </div>
                 {formData.vitals.bmi && (
@@ -865,19 +689,25 @@ export default function ConsultationForm({
               placeholder='Detailed findings from physical examination (skin condition, pulses, respiration, heart sounds, abdomen, etc.)'
               value={formData.physicalExam}
               onChange={(value) => handleFieldChange('physicalExam', value)}
-              disabled={isFinalized}
+              disabled={formData.status === 'FINALIZED'}
               rows={4}
             />
           </Section>
 
           {/* Diagnosis */}
-          <Section title='5. Diagnosis' required>
+          <Section title='5. Diagnosis' required error={fieldErrors.diagnosis}>
             <div className='space-y-4'>
               <TextArea
                 placeholder='Detailed clinical diagnosis'
                 value={formData.diagnosis}
-                onChange={(value) => handleFieldChange('diagnosis', value)}
-                disabled={isFinalized}
+                onChange={(value) => {
+                  handleFieldChange('diagnosis', value);
+                  // Clear error when user starts typing
+                  if (fieldErrors.diagnosis) {
+                    setFieldErrors({ ...fieldErrors, diagnosis: '' });
+                  }
+                }}
+                disabled={formData.status === 'FINALIZED'}
                 rows={3}
               />
               <div>
@@ -891,7 +721,7 @@ export default function ConsultationForm({
                   onChange={(e) =>
                     handleFieldChange('diagnosticCode', e.target.value)
                   }
-                  disabled={isFinalized}
+                  disabled={formData.status === 'FINALIZED'}
                 />
               </div>
             </div>
@@ -903,7 +733,7 @@ export default function ConsultationForm({
               placeholder='Describe detailed treatment plan (medications, tests, procedures, etc.)'
               value={formData.plan}
               onChange={(value) => handleFieldChange('plan', value)}
-              disabled={isFinalized}
+              disabled={formData.status === 'FINALIZED'}
               rows={4}
             />
           </Section>
@@ -916,7 +746,7 @@ export default function ConsultationForm({
               onChange={(value) =>
                 handleFieldChange('followUpInstructions', value)
               }
-              disabled={isFinalized}
+              disabled={formData.status === 'FINALIZED'}
               rows={3}
             />
           </Section>
@@ -948,7 +778,7 @@ export default function ConsultationForm({
                 multiple
                 accept='image/*,.pdf'
                 className='mt-4 hidden'
-                disabled={isFinalized || saving}
+                disabled={formData.status === 'FINALIZED' || saving}
                 onChange={handleFileUpload}
                 id='file-upload'
               />
@@ -971,10 +801,10 @@ export default function ConsultationForm({
                         {attachment.filename}
                       </p>
                       <p className='text-xs text-gray-600 dark:text-gray-400'>
-                        {new Date(attachment.uploadedAt).toLocaleString()}
+                        {new Date(attachment.createdAt).toLocaleString()}
                       </p>
                     </div>
-                    {!isFinalized && (
+                    {formData.status !== 'FINALIZED' && (
                       <button
                         onClick={() => handleDeleteAttachment(attachment.id)}
                         disabled={saving}
@@ -989,108 +819,60 @@ export default function ConsultationForm({
             )}
           </Section>
         </div>
-      )}
+      </div>
 
-      {/* Amendments Tab */}
-      {tabActive === 'amendments' && (
-        <div className='space-y-6'>
-          <div className='rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20'>
-            <h3 className='font-medium text-blue-900 dark:text-blue-300'>
-              ℹ️ Addendum Mode
-            </h3>
-            <p className='mt-1 text-sm text-blue-800 dark:text-blue-400'>
-              The finalized record cannot be directly edited. You can add new
-              amendments to update information without modifying the original
-              record.
+      {/* Finalize Success Modal */}
+      {showFinalizeModal && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50'>
+          <div className='max-w-lg rounded-lg bg-white p-8 shadow-lg dark:bg-gray-800'>
+            <div className='mb-4 text-center'>
+              <div className='mx-auto mb-4 text-5xl'>🎉</div>
+              <h2 className='text-2xl font-bold text-gray-900 dark:text-white'>
+                Consultation Finalized!
+              </h2>
+            </div>
+
+            <p className='mb-6 text-center text-gray-600 dark:text-gray-400'>
+              The consultation record has been successfully finalized and
+              locked. Next, please create a prescription for this consultation.
             </p>
+
+            <div className='flex gap-3'>
+              <Button
+                variant='outline'
+                onClick={() => {
+                  setShowFinalizeModal(false);
+                  onBack();
+                }}
+                className='flex-1'
+              >
+                Done
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowFinalizeModal(false);
+                  navigate('/doctor/prescriptions/create', {
+                    state: {
+                      appointmentId: formData.appointmentId,
+                      patientId: formData.patientId,
+                      patientName: formData.patientName,
+                      diagnosis: formData.diagnosis,
+                      followUpInstructions: formData.followUpInstructions,
+                      consultationId: formData.id,
+                    },
+                  });
+                }}
+                className='flex-1'
+              >
+                Create Prescription Now
+              </Button>
+            </div>
           </div>
-
-          {/* Amendment Form */}
-          {!showAmendmentModal && (
-            <Button onClick={() => setShowAmendmentModal(true)}>
-              + Add Amendment
-            </Button>
-          )}
-
-          {showAmendmentModal && (
-            <div className='rounded-lg border border-yellow-200 bg-yellow-50 p-4 dark:border-yellow-800 dark:bg-yellow-900/20'>
-              <h4 className='mb-3 font-medium text-gray-900 dark:text-white'>
-                Add New Amendment
-              </h4>
-              <TextArea
-                placeholder='Enter amendment content for the record...'
-                value={newAmendment}
-                onChange={(value) => setNewAmendment(value)}
-                rows={4}
-              />
-              <div className='mt-3 flex gap-2'>
-                <Button onClick={handleAddAmendment} disabled={saving}>
-                  {saving ? 'Saving...' : 'Save Amendment'}
-                </Button>
-                <Button
-                  variant='outline'
-                  onClick={() => {
-                    setNewAmendment('');
-                    setShowAmendmentModal(false);
-                  }}
-                  disabled={saving}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Amendments List */}
-          {amendments.length > 0 && (
-            <div className='space-y-4'>
-              <h4 className='font-medium text-gray-900 dark:text-white'>
-                Amendment List
-              </h4>
-              {amendments.map((amendment, index) => (
-                <div
-                  key={amendment.id}
-                  className='rounded-lg border border-gray-200 p-4 dark:border-gray-700'
-                >
-                  <div className='mb-3 flex items-start justify-between'>
-                    <div>
-                      <h5 className='font-medium text-gray-900 dark:text-white'>
-                        Amendment #{index + 1}
-                      </h5>
-                      <p className='text-xs text-gray-600 dark:text-gray-400'>
-                        {new Date(amendment.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        amendment.signedAt
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                          : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                      }`}
-                    >
-                      {amendment.signedAt ? '✓ Signed' : '⏳ Pending Signature'}
-                    </span>
-                  </div>
-                  <p className='whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300'>
-                    {amendment.content}
-                  </p>
-                  {!amendment.signedAt && (
-                    <div className='mt-4'>
-                      <Button
-                        onClick={() => handleSignAmendment(amendment.id)}
-                        disabled={saving}
-                      >
-                        Sign Amendment
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       )}
-    </div>
+
+      <Toast toast={toast} onDismiss={dismissToast} />
+    </>
   );
 }
 
@@ -1098,20 +880,29 @@ export default function ConsultationForm({
 function Section({
   title,
   required = false,
+  error,
   children,
 }: {
   title: string;
   required?: boolean;
+  error?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className='rounded-lg bg-gray-50 p-6 dark:bg-gray-700/50'>
+    <div
+      className={`rounded-lg p-6 ${error ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' : 'bg-gray-50 dark:bg-gray-700/50'}`}
+    >
       <div className='mb-4 flex items-center gap-2'>
         <h3 className='text-sm font-semibold text-gray-900 dark:text-white'>
           {title}
         </h3>
         {required && <span className='text-red-600'>*</span>}
       </div>
+      {error && (
+        <div className='mb-4 rounded bg-red-100 dark:bg-red-900/30 p-3 border-l-4 border-red-500'>
+          <p className='text-sm text-red-700 dark:text-red-300'>{error}</p>
+        </div>
+      )}
       {children}
     </div>
   );

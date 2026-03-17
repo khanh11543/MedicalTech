@@ -8,7 +8,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -30,11 +32,12 @@ import java.util.Map;
  * This filter runs AFTER JWT authentication so we can check roles.
  */
 @Component
-@RequiredArgsConstructor
 @Slf4j
 public class MaintenanceFilter extends OncePerRequestFilter {
 
-    private final MaintenanceService maintenanceService;
+    @Autowired
+    @Lazy
+    private MaintenanceService maintenanceService;
 
     @Value("${app.maintenance.allowed-paths:/auth/**,/public/**,/swagger-ui/**,/v3/api-docs/**,/admin/maintenance/**}")
     private String allowedPathsConfig;
