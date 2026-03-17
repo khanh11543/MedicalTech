@@ -216,7 +216,20 @@ export default function CreateAppointment({ isOpen, onClose, onCreated, rebookDa
         const response = await api.get(`/public/doctors/${selectedDoctorId}/slots`, {
           params: { dateFrom: appointmentDate, dateTo: appointmentDate },
         });
-        setTimeSlots(response.data || []);
+        let slots: TimeSlotOption[] = response.data || [];
+
+        // Filter out past time slots if selected date is today
+        const today = new Date().toISOString().split("T")[0];
+        if (appointmentDate === today) {
+          const now = new Date();
+          const currentHHMM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+          slots = slots.map((slot) => ({
+            ...slot,
+            isAvailable: slot.isAvailable && slot.startTime > currentHHMM,
+          }));
+        }
+
+        setTimeSlots(slots);
         setSelectedSlotId(null);
       } catch {
         setTimeSlots([]);

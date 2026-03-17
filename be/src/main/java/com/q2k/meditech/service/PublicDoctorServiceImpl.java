@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -117,7 +118,14 @@ public class PublicDoctorServiceImpl implements PublicDoctorService {
 
         // Get available slots
         List<TimeSlot> slots = timeSlotRepository.findAvailableSlots(doctorId, dateFrom, dateTo);
-        
+
+        // Filter out past time slots for today
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+        slots = slots.stream()
+                .filter(slot -> !slot.getSlotDate().equals(today) || slot.getStartTime().isAfter(now))
+                .collect(Collectors.toList());
+
         return timeSlotMapper.toDTOList(slots);
     }
 
