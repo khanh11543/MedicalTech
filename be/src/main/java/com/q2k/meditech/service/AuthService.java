@@ -23,6 +23,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -1142,13 +1143,35 @@ public class AuthService {
     public JsonNode fetchFacebookUserInfo(String accessToken) {
         String url = facebookUserinfoUrl + "&access_token=" + accessToken;
 
-        ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
-
         try {
+            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
             return objectMapper.readTree(response.getBody());
+        } catch (HttpClientErrorException e) {
+            log.warn("Facebook API error when fetching user info: {}", e.getResponseBodyAsString());
+            try {
+                JsonNode errorBody = objectMapper.readTree(e.getResponseBodyAsString());
+                if (errorBody.has("error")) {
+                    JsonNode error = errorBody.get("error");
+                    int subCode = error.has("error_subcode") ? error.get("error_subcode").asInt() : 0;
+                    // Subcode 1351040: account has no valid email — retry without email field
+                    if (subCode == 1351040) {
+                        log.info("Facebook account has no verified email, retrying without email field");
+                        String fallbackUrl = "https://graph.facebook.com/v19.0/me?fields=id,name,picture.type(large)&access_token=" + accessToken;
+                        ResponseEntity<String> fallbackResponse = restTemplate.getForEntity(fallbackUrl, String.class);
+                        return objectMapper.readTree(fallbackResponse.getBody());
+                    }
+                    String msg = error.has("error_user_msg") ? error.get("error_user_msg").asText() : error.get("message").asText();
+                    throw new BadRequestException("Facebook login failed: " + msg);
+                }
+            } catch (BadRequestException bre) {
+                throw bre;
+            } catch (Exception parseEx) {
+                log.error("Failed to parse Facebook error response", parseEx);
+            }
+            throw new BadRequestException("Failed to retrieve user information from Facebook. Please try again.");
         } catch (Exception e) {
-            log.error("Failed to parse Facebook userinfo response", e);
-            throw new RuntimeException("Failed to parse Facebook userinfo response");
+            log.error("Failed to fetch Facebook userinfo", e);
+            throw new RuntimeException("Failed to fetch Facebook userinfo");
         }
     }
 

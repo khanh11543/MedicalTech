@@ -473,11 +473,67 @@ export default function TimeSlotList() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Start Time</label>
-              <input type="time" value={createForm.startTime} onChange={(e) => setCreateForm({ ...createForm, startTime: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
+              <div className="flex items-center gap-1">
+                <select
+                  value={createForm.startTime ? createForm.startTime.split(":")[0] : ""}
+                  onChange={(e) => {
+                    const mm = createForm.startTime?.split(":")[1] || "00";
+                    setCreateForm({ ...createForm, startTime: `${e.target.value}:${mm}` });
+                  }}
+                  className="w-1/2 rounded-lg border border-gray-300 px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="">HH</option>
+                  {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")).map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+                <span className="text-gray-500 dark:text-gray-400">:</span>
+                <select
+                  value={createForm.startTime ? createForm.startTime.split(":")[1] : ""}
+                  onChange={(e) => {
+                    const hh = createForm.startTime?.split(":")[0] || "00";
+                    setCreateForm({ ...createForm, startTime: `${hh}:${e.target.value}` });
+                  }}
+                  className="w-1/2 rounded-lg border border-gray-300 px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="">MM</option>
+                  {["00", "15", "30", "45"].map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
               <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">End Time</label>
-              <input type="time" value={createForm.endTime} onChange={(e) => setCreateForm({ ...createForm, endTime: e.target.value })} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white" />
+              <div className="flex items-center gap-1">
+                <select
+                  value={createForm.endTime ? createForm.endTime.split(":")[0] : ""}
+                  onChange={(e) => {
+                    const mm = createForm.endTime?.split(":")[1] || "00";
+                    setCreateForm({ ...createForm, endTime: `${e.target.value}:${mm}` });
+                  }}
+                  className="w-1/2 rounded-lg border border-gray-300 px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="">HH</option>
+                  {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")).map((h) => (
+                    <option key={h} value={h}>{h}</option>
+                  ))}
+                </select>
+                <span className="text-gray-500 dark:text-gray-400">:</span>
+                <select
+                  value={createForm.endTime ? createForm.endTime.split(":")[1] : ""}
+                  onChange={(e) => {
+                    const hh = createForm.endTime?.split(":")[0] || "00";
+                    setCreateForm({ ...createForm, endTime: `${hh}:${e.target.value}` });
+                  }}
+                  className="w-1/2 rounded-lg border border-gray-300 px-2 py-2 text-sm dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                >
+                  <option value="">MM</option>
+                  {["00", "15", "30", "45"].map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
           <div className="flex gap-3">
