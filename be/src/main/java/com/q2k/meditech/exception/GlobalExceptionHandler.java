@@ -231,6 +231,25 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * Handle JPA EntityNotFoundException (404)
+     * When an entity is not found in the database
+     */
+    @ExceptionHandler(jakarta.persistence.EntityNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleEntityNotFoundException(
+            jakarta.persistence.EntityNotFoundException ex,
+            WebRequest request) {
+        log.warn("Entity not found: {}", ex.getMessage());
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(getCurrentTimestamp())
+                .status(HttpStatus.NOT_FOUND.value())
+                .error(HttpStatus.NOT_FOUND.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+        return new ResponseEntity<>(error, HttpStatus.NOT_FOUND);
+    }
+
+    /**
      * Handle all other exceptions (500)
      */
     @ExceptionHandler(Exception.class)

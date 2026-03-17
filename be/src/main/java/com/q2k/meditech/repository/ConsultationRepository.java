@@ -21,10 +21,10 @@ public interface ConsultationRepository extends JpaRepository<Consultation, Long
 
     /**
      * Find consultation by appointment ID with eager loading
+     * Note: Only fetch single-valued associations (doctor, finalizedByUser)
+     * Collections (amendments, attachments) are lazy loaded to avoid MultipleBagFetchException
      */
     @Query("SELECT c FROM Consultation c " +
-           "LEFT JOIN FETCH c.amendments a " +
-           "LEFT JOIN FETCH c.attachments att " +
            "LEFT JOIN FETCH c.doctor d " +
            "LEFT JOIN FETCH d.user du " +
            "LEFT JOIN FETCH c.finalizedByUser " +
