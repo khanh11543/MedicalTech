@@ -29,7 +29,7 @@ export default function PaymentHistory() {
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [tabCounts, setTabCounts] = useState<Record<PaymentTabKey, number>>({ PAID: 0, UNPAID: 0, COMPLETED: 0, CANCELLED: 0 });
-  const [activeTab, setActiveTab] = useState<PaymentTabKey>("PAID");
+  const [activeTab, setActiveTab] = useState<PaymentTabKey>("UNPAID");
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [qrModalPayment, setQrModalPayment] = useState<Payment | null>(null);
   const [cancelModalPayment, setCancelModalPayment] = useState<Payment | null>(null);

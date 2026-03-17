@@ -42,6 +42,10 @@ export function CheckInModal({
   const isPast = diffMin < -15;   // > 15 minutes after
   const outsideWindow = tooEarly || isPast;
 
+  // Payment check: must be PAID before check-in
+  const paymentNotPaid = appointment.paymentStatus && appointment.paymentStatus !== "PAID";
+  const cannotCheckIn = outsideWindow || paymentNotPaid;
+
   const handleCheckIn = async () => {
     try {
       setLoading(true);
@@ -223,6 +227,32 @@ export function CheckInModal({
           </div>
         )}
 
+        {/* Payment not paid warning */}
+        {paymentNotPaid && (
+          <div className="bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-lg p-3 mb-4">
+            <div className="flex items-start gap-2">
+              <svg
+                className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <div className="text-sm text-orange-700 dark:text-orange-300">
+                <span className="font-medium">Payment required</span> — Payment status is{" "}
+                <span className="font-mono font-semibold">{appointment.paymentStatus}</span>.
+                Patient must complete payment before check-in.
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Optional note */}
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -270,7 +300,7 @@ export function CheckInModal({
           </button>
           <button
             onClick={handleCheckIn}
-            disabled={loading || outsideWindow}
+            disabled={loading || cannotCheckIn}
             className="px-5 py-2 text-sm rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {loading && (

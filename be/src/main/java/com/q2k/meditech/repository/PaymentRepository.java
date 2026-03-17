@@ -55,6 +55,11 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     List<Payment> findByPatientIdOrderByCreatedAtDesc(Long patientId);
 
     /**
+     * Find pending MoMo payments for a patient (for status sync)
+     */
+    List<Payment> findByPatientIdAndPaymentMethodAndPaymentStatusIn(Long patientId, String paymentMethod, List<String> paymentStatuses);
+
+    /**
      * Find payments by status
      */
     List<Payment> findByPaymentStatusOrderByCreatedAtDesc(String paymentStatus);

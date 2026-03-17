@@ -9,7 +9,7 @@ import com.q2k.meditech.entity.enums.RefundType;
 import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.*;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -46,6 +46,7 @@ public class RefundServiceImpl implements RefundService {
     // ========== LIST / FILTER ==========
 
     @Override
+    @Transactional(readOnly = true)
     public Page<RefundResponseDTO> getAllRefunds(
             String status,
             Long doctorId,
@@ -102,6 +103,7 @@ public class RefundServiceImpl implements RefundService {
     // ========== STATISTICS ==========
 
     @Override
+    @Transactional(readOnly = true)
     public RefundStatsDTO getRefundStatistics(String from, String to) {
         log.info("Getting refund statistics - from: {}, to: {}", from, to);
 
@@ -187,6 +189,7 @@ public class RefundServiceImpl implements RefundService {
     // ========== DETAIL ==========
 
     @Override
+    @Transactional(readOnly = true)
     public RefundDetailDTO getRefundDetail(Long refundId) {
         log.info("Getting refund detail for ID: {}", refundId);
 

@@ -222,7 +222,7 @@ function DepartmentsSection() {
     publicService.getSpecialties().then((list) => {
       if (list.length > 0) {
         setDepartments(list.slice(0, 6).map((s: Specialty) => ({
-          icon: s.iconUrl || "bi bi-hospital",
+          icon: (s.iconUrl && s.iconUrl.trim()) || "bi bi-hospital",
           title: s.name,
           desc: s.description || "Specialized medical care with experienced professionals.",
           img: s.imageUrl || "/images/landing/cardiology-3.webp",

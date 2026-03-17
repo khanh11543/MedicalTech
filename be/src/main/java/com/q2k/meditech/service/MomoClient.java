@@ -214,12 +214,34 @@ public class MomoClient {
             Long transId = responseBody.get("transId") != null 
                     ? Long.valueOf(responseBody.get("transId").toString())
                     : null;
+            Long respTime = responseBody.get("responseTime") != null
+                    ? Long.valueOf(responseBody.get("responseTime").toString())
+                    : null;
+
+            // Parse refundTrans list from MoMo query response
+            @SuppressWarnings("unchecked")
+            java.util.List<Map<String, Object>> refundTransRaw =
+                    (java.util.List<Map<String, Object>>) responseBody.get("refundTrans");
+            java.util.List<RefundTransItem> refundTrans = null;
+            if (refundTransRaw != null) {
+                refundTrans = refundTransRaw.stream().map(rt -> RefundTransItem.builder()
+                        .orderId(rt.get("orderId") != null ? rt.get("orderId").toString() : null)
+                        .transId(rt.get("transId") != null ? Long.valueOf(rt.get("transId").toString()) : null)
+                        .amount(rt.get("amount") != null ? Long.valueOf(rt.get("amount").toString()) : null)
+                        .resultCode(rt.get("resultCode") != null ? (Integer) rt.get("resultCode") : null)
+                        .createdTime(rt.get("createdTime") != null ? Long.valueOf(rt.get("createdTime").toString()) : null)
+                        .build()
+                ).collect(java.util.stream.Collectors.toList());
+                log.info("MoMo query found {} refund transactions for orderId: {}", refundTrans.size(), orderId);
+            }
 
             return MomoQueryResponse.builder()
                     .orderId(orderId)
                     .resultCode(resultCode != null ? resultCode : -1)
                     .message((String) responseBody.get("message"))
                     .transId(transId)
+                    .responseTime(respTime)
+                    .refundTrans(refundTrans)
                     .build();
 
         } catch (Exception e) {
@@ -230,38 +252,94 @@ public class MomoClient {
 
     /**
      * Refund payment with MoMo
+     * API: POST {endpoint}/refund
+     * Signature: accessKey=$accessKey&amount=$amount&description=$description
+     *            &orderId=$orderId&partnerCode=$partnerCode&requestId=$requestId&transId=$transId
+     *
+     * IMPORTANT: orderId must be a NEW unique ID for each refund request.
+     *            transId identifies the original MoMo payment transaction.
      */
     public MomoRefundResponse refundPayment(
-            String orderId,
+            Long transId,
             Long amount,
             String refundReason) {
         try {
-            log.info("Refunding MoMo payment - orderId: {}, amount: {}", orderId, amount);
+            // Generate NEW unique orderId for the refund request
+            String orderId = "REFUND-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().substring(0, 8);
+            String requestId = UUID.randomUUID().toString();
+            String description = refundReason != null ? refundReason : "Refund";
+
+            log.info("Refunding MoMo payment - refundOrderId: {}, origTransId: {}, amount: {}", orderId, transId, amount);
+
+            // Build raw signature (alphabetical order per MoMo v2 docs)
+            String rawSignature = "accessKey=" + accessKey
+                    + "&amount=" + amount
+                    + "&description=" + description
+                    + "&orderId=" + orderId
+                    + "&partnerCode=" + partnerCode
+                    + "&requestId=" + requestId
+                    + "&transId=" + transId;
+
+            log.info("Refund raw signature: {}", rawSignature);
+            String signature = new HmacUtils(HmacAlgorithms.HMAC_SHA_256, secretKey).hmacHex(rawSignature);
 
             Map<String, Object> requestData = new LinkedHashMap<>();
             requestData.put("partnerCode", partnerCode);
             requestData.put("orderId", orderId);
-            requestData.put("requestId", UUID.randomUUID().toString());
+            requestData.put("requestId", requestId);
             requestData.put("amount", amount);
-            requestData.put("transId", ""); // Get from payment transaction
+            requestData.put("transId", transId);
             requestData.put("lang", "vi");
-            requestData.put("description", refundReason);
-
-            String signature = generateSignature(requestData);
+            requestData.put("description", description);
             requestData.put("signature", signature);
 
-            // Call MoMo API endpoint: /refund
-            // Implementation would call actual MoMo API
+            String apiUrl = momoEndpoint + "/refund";
+            log.info("Calling MoMo Refund API: {}", apiUrl);
 
-            return MomoRefundResponse.builder()
-                    .orderId(orderId)
-                    .resultCode(0)
-                    .message("OK")
-                    .build();
+            String requestBody = objectMapper.writeValueAsString(requestData);
+            log.info("MoMo refund request body: {}", requestBody);
+
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+            org.springframework.http.HttpEntity<String> entity = new org.springframework.http.HttpEntity<>(requestBody, headers);
+
+            org.springframework.http.ResponseEntity<String> responseEntity;
+            try {
+                responseEntity = restTemplate.exchange(apiUrl, org.springframework.http.HttpMethod.POST, entity, String.class);
+            } catch (org.springframework.web.client.HttpClientErrorException e) {
+                log.error("MoMo Refund API HTTP error: {}", e.getResponseBodyAsString());
+                throw new RuntimeException("MoMo refund error: " + e.getResponseBodyAsString());
+            }
+
+            Map<String, Object> responseBody = objectMapper.readValue(responseEntity.getBody(), Map.class);
+            log.info("MoMo refund response: {}", responseBody);
+
+            Integer resultCode = (Integer) responseBody.get("resultCode");
+            Long refundTransId = responseBody.get("transId") != null
+                    ? Long.valueOf(responseBody.get("transId").toString())
+                    : null;
+
+            if (resultCode != null && resultCode == 0) {
+                log.info("MoMo refund successful - orderId: {}, refundTransId: {}", orderId, refundTransId);
+                return MomoRefundResponse.builder()
+                        .orderId(orderId)
+                        .resultCode(resultCode)
+                        .message((String) responseBody.get("message"))
+                        .refundTransId(refundTransId)
+                        .build();
+            } else {
+                log.error("MoMo refund failed - resultCode: {}, message: {}", resultCode, responseBody.get("message"));
+                return MomoRefundResponse.builder()
+                        .orderId(orderId)
+                        .resultCode(resultCode != null ? resultCode : -1)
+                        .message((String) responseBody.get("message"))
+                        .refundTransId(refundTransId)
+                        .build();
+            }
 
         } catch (Exception e) {
             log.error("Error refunding MoMo payment", e);
-            throw new RuntimeException("Failed to refund MoMo payment", e);
+            throw new RuntimeException("Failed to refund MoMo payment: " + e.getMessage(), e);
         }
     }
 
@@ -453,13 +531,17 @@ public class MomoClient {
         public String message;
         public Long transId;
         public Integer transState;
+        public Long responseTime;
+        public java.util.List<RefundTransItem> refundTrans;
 
-        public MomoQueryResponse(String orderId, Integer resultCode, String message, Long transId, Integer transState) {
+        public MomoQueryResponse(String orderId, Integer resultCode, String message, Long transId, Integer transState, Long responseTime, java.util.List<RefundTransItem> refundTrans) {
             this.orderId = orderId;
             this.resultCode = resultCode;
             this.message = message;
             this.transId = transId;
             this.transState = transState;
+            this.responseTime = responseTime;
+            this.refundTrans = refundTrans;
         }
 
         public static MomoQueryResponseBuilder builder() {
@@ -472,6 +554,8 @@ public class MomoClient {
             private String message;
             private Long transId;
             private Integer transState;
+            private Long responseTime;
+            private java.util.List<RefundTransItem> refundTrans;
 
             public MomoQueryResponseBuilder orderId(String orderId) {
                 this.orderId = orderId;
@@ -498,8 +582,78 @@ public class MomoClient {
                 return this;
             }
 
+            public MomoQueryResponseBuilder responseTime(Long responseTime) {
+                this.responseTime = responseTime;
+                return this;
+            }
+
+            public MomoQueryResponseBuilder refundTrans(java.util.List<RefundTransItem> refundTrans) {
+                this.refundTrans = refundTrans;
+                return this;
+            }
+
             public MomoQueryResponse build() {
-                return new MomoQueryResponse(orderId, resultCode, message, transId, transState);
+                return new MomoQueryResponse(orderId, resultCode, message, transId, transState, responseTime, refundTrans);
+            }
+        }
+    }
+
+    /**
+     * Refund transaction item from MoMo Query API response
+     */
+    public static class RefundTransItem {
+        public String orderId;
+        public Long transId;
+        public Long amount;
+        public Integer resultCode;
+        public Long createdTime;
+
+        public RefundTransItem(String orderId, Long transId, Long amount, Integer resultCode, Long createdTime) {
+            this.orderId = orderId;
+            this.transId = transId;
+            this.amount = amount;
+            this.resultCode = resultCode;
+            this.createdTime = createdTime;
+        }
+
+        public static RefundTransItemBuilder builder() {
+            return new RefundTransItemBuilder();
+        }
+
+        public static class RefundTransItemBuilder {
+            private String orderId;
+            private Long transId;
+            private Long amount;
+            private Integer resultCode;
+            private Long createdTime;
+
+            public RefundTransItemBuilder orderId(String orderId) {
+                this.orderId = orderId;
+                return this;
+            }
+
+            public RefundTransItemBuilder transId(Long transId) {
+                this.transId = transId;
+                return this;
+            }
+
+            public RefundTransItemBuilder amount(Long amount) {
+                this.amount = amount;
+                return this;
+            }
+
+            public RefundTransItemBuilder resultCode(Integer resultCode) {
+                this.resultCode = resultCode;
+                return this;
+            }
+
+            public RefundTransItemBuilder createdTime(Long createdTime) {
+                this.createdTime = createdTime;
+                return this;
+            }
+
+            public RefundTransItem build() {
+                return new RefundTransItem(orderId, transId, amount, resultCode, createdTime);
             }
         }
     }

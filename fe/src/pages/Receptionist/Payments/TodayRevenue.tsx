@@ -52,13 +52,20 @@ export default function TodayRevenue() {
 
       if (statsResult.status === "fulfilled") {
         const statsRes = statsResult.value;
+        // Extract cash/momo from paymentMethodsDistribution array
+        const cashStats = statsRes?.paymentMethodsDistribution?.find((m: { method: string }) => m.method === "CASH");
+        const momoStats = statsRes?.paymentMethodsDistribution?.find((m: { method: string }) => m.method === "MOMO");
+        const cashRev = cashStats?.amount || 0;
+        const momoRev = momoStats?.amount || 0;
+        const cashTx = cashStats?.count || 0;
+        const momoTx = momoStats?.count || 0;
         setStats({
-          totalRevenue: statsRes?.totalRevenue || 0,
-          totalTransactions: statsRes?.totalTransactions || 0,
-          cashRevenue: statsRes?.cashRevenue || 0,
-          cashTransactions: statsRes?.cashTransactions || 0,
-          momoRevenue: statsRes?.momoRevenue || 0,
-          momoTransactions: statsRes?.momoTransactions || 0,
+          totalRevenue: statsRes?.todayRevenue || (cashRev + momoRev) || 0,
+          totalTransactions: statsRes?.todayTransactionCount || (cashTx + momoTx) || 0,
+          cashRevenue: cashRev,
+          cashTransactions: cashTx,
+          momoRevenue: momoRev,
+          momoTransactions: momoTx,
           pendingCount: statsRes?.pendingCount || 0,
           pendingAmount: statsRes?.pendingAmount || 0,
         });
@@ -318,7 +325,7 @@ export default function TodayRevenue() {
                     <td className="px-4 py-3 font-mono text-brand-500 text-xs">{t.transactionCode}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300 text-xs">{t.appointmentCode}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300 text-xs">
-                      {t.paidTime ? new Date(t.paidTime).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }) : "—"}
+                      {t.paidTime ? String(t.paidTime).substring(0, 5) : "—"}
                     </td>
                     <td className="px-4 py-3 font-semibold text-gray-900 dark:text-white">{formatCurrency(t.amount)}</td>
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-300 text-xs">

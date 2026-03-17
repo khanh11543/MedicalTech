@@ -573,6 +573,30 @@ public class EmailService {
             String clinicName,
             String hotline,
             String address) {
+        sendAppointmentConfirmationEmail(toEmail, patientName, appointmentCode, department,
+                doctorName, dateStr, timeStr, reasonForVisit, clinicName, hotline, address,
+                null, null, null);
+    }
+
+    /**
+     * Send appointment confirmation email with payment info (QR code, payment link).
+     */
+    @Async
+    public void sendAppointmentConfirmationEmail(
+            String toEmail,
+            String patientName,
+            String appointmentCode,
+            String department,
+            String doctorName,
+            String dateStr,
+            String timeStr,
+            String reasonForVisit,
+            String clinicName,
+            String hotline,
+            String address,
+            String paymentAmount,
+            String paymentQrUrl,
+            String paymentPageUrl) {
         if (toEmail == null || toEmail.isBlank()) {
             log.warn("Cannot send appointment confirmation: patient email is empty");
             return;
@@ -581,7 +605,8 @@ public class EmailService {
             String subject = "Appointment Confirmation - " + (appointmentCode != null ? appointmentCode : "");
             String htmlContent = buildAppointmentConfirmationEmailTemplate(
                     patientName, appointmentCode, department, doctorName,
-                    dateStr, timeStr, reasonForVisit, clinicName, hotline, address);
+                    dateStr, timeStr, reasonForVisit, clinicName, hotline, address,
+                    paymentAmount, paymentQrUrl, paymentPageUrl);
             sendHtmlEmail(toEmail, subject, htmlContent);
             log.info("Appointment confirmation email sent to: {}", toEmail);
         } catch (Exception e) {
@@ -600,6 +625,25 @@ public class EmailService {
             String clinicName,
             String hotline,
             String address) {
+        return buildAppointmentConfirmationEmailTemplate(patientName, appointmentCode, department,
+                doctorName, dateStr, timeStr, reasonForVisit, clinicName, hotline, address,
+                null, null, null);
+    }
+
+    private String buildAppointmentConfirmationEmailTemplate(
+            String patientName,
+            String appointmentCode,
+            String department,
+            String doctorName,
+            String dateStr,
+            String timeStr,
+            String reasonForVisit,
+            String clinicName,
+            String hotline,
+            String address,
+            String paymentAmount,
+            String paymentQrUrl,
+            String paymentPageUrl) {
         String pName = safeStr(patientName);
         String code = safeStr(appointmentCode);
         String dept = safeStr(department);
@@ -610,6 +654,32 @@ public class EmailService {
         String clinic = clinicName == null || clinicName.isBlank() ? "MedicalTech Clinic" : clinicName;
         String phone = safeStr(hotline);
         String addr = safeStr(address);
+
+        // Build payment section HTML if payment info is available
+        String paymentSection = "";
+        if (paymentAmount != null && !paymentAmount.isBlank()) {
+            StringBuilder sb = new StringBuilder();
+            sb.append("<div style='background:#fff3cd;padding:20px;margin:16px 0;border-radius:8px;border:1px solid #ffc107;'>\n");
+            sb.append("<p style='margin:0 0 12px;font-size:1.1rem;font-weight:bold;color:#856404;'>💳 Payment Required Before Your Visit</p>\n");
+            sb.append("<p style='margin:4px 0;'>Consultation Fee: <strong>").append(escapeHtml(paymentAmount)).append(" VND</strong></p>\n");
+            sb.append("<p style='margin:8px 0 4px;color:#555;font-size:0.9rem;'>Please complete your payment before arriving at the clinic.</p>\n");
+            if (paymentQrUrl != null && !paymentQrUrl.isBlank()) {
+                sb.append("<div style='text-align:center;margin:16px 0;'>\n");
+                sb.append("<p style='margin:0 0 8px;font-weight:bold;'>Scan QR with MoMo App to Pay:</p>\n");
+                sb.append("<img src='").append(escapeHtml(paymentQrUrl)).append("' alt='MoMo Payment QR Code' style='width:200px;height:200px;border-radius:8px;border:2px solid #ddd;' />\n");
+                sb.append("<p style='margin:8px 0 0;font-size:0.8rem;color:#888;'>⏱ QR code expires in 15 minutes. You can generate a new one from your Payment History.</p>\n");
+                sb.append("</div>\n");
+            }
+            if (paymentPageUrl != null && !paymentPageUrl.isBlank()) {
+                sb.append("<div style='text-align:center;margin:12px 0;'>\n");
+                sb.append("<a href='").append(escapeHtml(paymentPageUrl)).append("' style='display:inline-block;background:#a50064;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;'>Pay with MoMo</a>\n");
+                sb.append("</div>\n");
+            }
+            sb.append("<p style='margin:12px 0 0;font-size:0.85rem;color:#555;text-align:center;'>If the QR has expired, go to your <strong>Profile → Payment History</strong> and click <strong>Pay Now</strong> to get a new QR code.</p>\n");
+            sb.append("<p style='margin:12px 0 0;font-size:0.85rem;color:#856404;'>⚠️ Cancellation policy: Cancel ≥24h before → 50% refund | Cancel <24h → no refund | Doctor cancels → 100% refund.</p>\n");
+            sb.append("</div>\n");
+            paymentSection = sb.toString();
+        }
 
         return "<!DOCTYPE html>\n" +
                 "<html>\n" +
@@ -641,6 +711,7 @@ public class EmailService {
                 "<p>• Time: " + escapeHtml(time) + "</p>\n" +
                 "<p><strong>Reason for Visit:</strong><br>" + escapeHtml(reason) + "</p>\n" +
                 "</div>\n" +
+                paymentSection +
                 "<div class='note'>\n" +
                 "<p><strong>Note:</strong> Please arrive <strong>15 minutes early</strong> to complete the check-in process.</p>\n" +
                 "</div>\n" +
