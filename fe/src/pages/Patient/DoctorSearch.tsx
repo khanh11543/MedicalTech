@@ -5,6 +5,7 @@ import patientService, {
   type DoctorCard,
   type Specialty,
 } from "../../services/patientService";
+import { getAvatarUrl } from "../../utils/avatar";
 
 export default function DoctorSearch() {
   const navigate = useNavigate();
@@ -193,7 +194,7 @@ function DoctorCardItem({ doctor, onBook }: { doctor: DoctorCard; onBook: () => 
       <div className="flex items-center gap-3 mb-4">
         <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shrink-0 overflow-hidden">
           {doctor.avatarUrl ? (
-            <img src={doctor.avatarUrl} alt={doctor.fullName} className="w-full h-full object-cover" />
+            <img src={getAvatarUrl(doctor.avatarUrl) ?? ""} alt={doctor.fullName} className="w-full h-full object-cover" />
           ) : (
             <span className="text-white font-bold text-lg">
               {doctor.fullName?.charAt(0)}

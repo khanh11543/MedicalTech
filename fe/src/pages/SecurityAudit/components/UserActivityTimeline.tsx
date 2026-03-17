@@ -8,6 +8,7 @@ import {
   ACTIVITY_TYPE_ICONS,
 } from "../../../services/securityService";
 import dayjs from "dayjs";
+import { getAvatarUrl } from "../../../utils/avatar";
 
 interface Props {
   onViewDetail: (log: ActivityLogDTO) => void;
@@ -123,7 +124,7 @@ export default function UserActivityTimeline({ onViewDetail, onClose }: Props) {
             <div className="flex items-center gap-3 rounded-lg bg-white p-3 dark:bg-gray-800">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700">
                 {data.content[0].user.avatarUrl ? (
-                  <img src={data.content[0].user.avatarUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+                  <img src={getAvatarUrl(data.content[0].user.avatarUrl) ?? ""} alt="" className="h-10 w-10 rounded-full object-cover" />
                 ) : (
                   <span className="text-sm font-bold text-gray-500">
                     {data.content[0].user.fullName?.charAt(0) || "?"}

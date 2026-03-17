@@ -7,6 +7,7 @@ import { useToast } from "../../hooks/useToast";
 import Badge from "../../components/ui/badge/Badge";
 import { useWorkstation } from "../../context/WorkstationContext";
 import { maskEmail } from "../../utils/privacyMask";
+import { getAvatarUrl } from "../../utils/avatar";
 import { FormSkeleton } from "../../components/ui/skeleton/Skeleton";
 import adminService, {
   DoctorVerification,
@@ -238,7 +239,7 @@ export default function VerificationDetail() {
           <div className="flex items-start gap-6">
             <div className="w-20 h-20 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center overflow-hidden flex-shrink-0">
               {doctor.avatarUrl ? (
-                <img src={doctor.avatarUrl} alt={doctor.fullName} className="w-full h-full object-cover" />
+                <img src={getAvatarUrl(doctor.avatarUrl) ?? ""} alt={doctor.fullName} className="w-full h-full object-cover" />
               ) : (
                 <span className="text-3xl text-blue-600 dark:text-blue-400 font-bold">
                   {doctor.fullName?.charAt(0).toUpperCase() || "D"}

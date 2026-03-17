@@ -5,6 +5,7 @@ import patientService, {
   type DoctorDetail,
   type TimeSlot,
 } from "../../services/patientService";
+import { getAvatarUrl } from "../../utils/avatar";
 
 export default function DoctorDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -146,7 +147,7 @@ export default function DoctorDetailPage() {
               <div className="flex items-start gap-5">
                 <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shrink-0 overflow-hidden">
                   {doctor.avatarUrl ? (
-                    <img src={doctor.avatarUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={getAvatarUrl(doctor.avatarUrl) ?? ""} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-3xl font-bold text-white">{doctor.fullName?.charAt(0)}</span>
                   )}

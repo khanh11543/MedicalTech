@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { PageTitle, StarRating } from "./components/SharedComponents";
 import publicService, { type Specialty, type DoctorCard } from "../../services/publicService";
+import { getAvatarUrl } from "../../utils/avatar";
 import "./landing.css";
 
 function parseHighlights(raw: string | null): string[] {
@@ -226,7 +227,7 @@ export default function DepartmentDetailPage() {
                   <div className="relative overflow-hidden h-[250px]">
                     {doc.avatarUrl ? (
                       <img
-                        src={doc.avatarUrl}
+                        src={getAvatarUrl(doc.avatarUrl) ?? ""}
                         alt={doc.fullName}
                         className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                       />
