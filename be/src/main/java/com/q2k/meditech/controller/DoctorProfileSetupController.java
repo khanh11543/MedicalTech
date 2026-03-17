@@ -2,7 +2,6 @@ package com.q2k.meditech.controller;
 
 import com.q2k.meditech.dto.DoctorDocumentCreateDTO;
 import com.q2k.meditech.dto.DoctorDocumentDTO;
-import com.q2k.meditech.dto.MessageDTO;
 import com.q2k.meditech.dto.doctor.DoctorProfileDTO;
 import com.q2k.meditech.dto.doctor.UpdateDoctorProfileDTO;
 import com.q2k.meditech.entity.Doctor;
@@ -11,6 +10,7 @@ import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.repository.DoctorRepository;
 import com.q2k.meditech.service.DoctorDocumentService;
 import com.q2k.meditech.service.DoctorProfileService;
+import com.q2k.meditech.service.UserServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -45,6 +46,7 @@ public class DoctorProfileSetupController {
     private final DoctorProfileService doctorProfileService;
     private final DoctorRepository doctorRepository;
     private final DoctorDocumentService documentService;
+    private final UserServiceImpl userService;
 
     private static final String UPLOAD_DIR = "uploads";
     private static final Set<String> ALLOWED_DOC_TYPES = Set.of(
@@ -100,6 +102,15 @@ public class DoctorProfileSetupController {
         if (dto.getBio() != null) doctor.setBio(dto.getBio());
         if (dto.getHospitalAffiliation() != null) doctor.setHospitalAffiliation(dto.getHospitalAffiliation());
         if (dto.getOfficeAddress() != null) doctor.setOfficeAddress(dto.getOfficeAddress());
+
+        // Update normalized specialties (syncs legacy specialization to primary name)
+        if (dto.getSpecialtyIds() != null && !dto.getSpecialtyIds().isEmpty()) {
+            try {
+                userService.assignSpecialtiesToDoctor(doctor, dto.getSpecialtyIds(), dto.getPrimarySpecialtyId());
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException(e.getMessage());
+            }
+        }
 
         // If rejected, reset back to awaiting documents
         if (doctor.getVerificationStatus() == VerificationStatus.REJECTED) {
@@ -252,12 +263,31 @@ public class DoctorProfileSetupController {
         boolean profileComplete = isProfileComplete(doctor);
         boolean documentsComplete = docSummary.hasLicense() && docSummary.hasId() && docSummary.hasDegree();
 
+        List<Long> specialtyIds = doctor.getDoctorSpecialties() == null
+                ? List.of()
+                : doctor.getDoctorSpecialties().stream()
+                .map(ds -> ds.getSpecialty() != null ? ds.getSpecialty().getId() : null)
+                .filter(id -> id != null)
+                .distinct()
+                .toList();
+
+        Long primarySpecialtyId = doctor.getDoctorSpecialties() == null
+                ? null
+                : doctor.getDoctorSpecialties().stream()
+                .filter(ds -> Boolean.TRUE.equals(ds.getIsPrimary()))
+                .map(ds -> ds.getSpecialty() != null ? ds.getSpecialty().getId() : null)
+                .filter(id -> id != null)
+                .findFirst()
+                .orElse(null);
+
         return DoctorProfileDTO.builder()
                 .id(doctor.getId())
                 .fullName(doctor.getFullName())
                 .email(doctor.getUser() != null ? doctor.getUser().getEmail() : null)
                 .avatarUrl(doctor.getUser() != null ? doctor.getUser().getAvatarUrl() : null)
                 .specialization(doctor.getSpecialization())
+                .specialtyIds(specialtyIds)
+                .primarySpecialtyId(primarySpecialtyId)
                 .licenseNumber(doctor.getLicenseNumber())
                 .experienceYears(doctor.getExperienceYears())
                 .education(doctor.getEducation())

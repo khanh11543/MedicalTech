@@ -63,7 +63,7 @@ export default function LandingLayout() {
     if (userRoles.includes("DOCTOR"))
       return { path: "/doctor", label: "Doctor Dashboard", icon: "bi bi-heart-pulse" };
     if (userRoles.includes("RECEPTIONIST"))
-      return { path: "/receptionist/dashboard", label: "Receptionist Dashboard", icon: "bi bi-clipboard2-pulse" };
+      return { path: "/receptionist/dashboard", label: "Receptionist Dashboard", icon: "bi bi-heart-pulse" };
     return null;
   };
 

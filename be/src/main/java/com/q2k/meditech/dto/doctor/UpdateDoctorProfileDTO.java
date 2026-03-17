@@ -4,6 +4,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.*;
 
+import java.util.Set;
+
 /**
  * DTO for doctor to update their professional profile (Phase 3)
  */
@@ -15,6 +17,15 @@ public class UpdateDoctorProfileDTO {
 
     @Size(max = 255, message = "Specialization must not exceed 255 characters")
     private String specialization;
+
+    /**
+     * Optional: update specialties using the normalized specialty table.
+     * When provided, this will update doctor_specialties and also sync legacy specialization string
+     * to the primary specialty name.
+     */
+    private Set<Long> specialtyIds;
+
+    private Long primarySpecialtyId;
 
     @Size(max = 50, message = "License number must not exceed 50 characters")
     private String licenseNumber;

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import PageMeta from "../../components/common/PageMeta";
 import { FormSkeleton } from "../../components/ui/skeleton/Skeleton";
+import publicService, { Specialty } from "../../services/publicService";
 import {
   getDoctorProfile,
   updateDoctorProfile,
@@ -63,6 +64,7 @@ export default function DoctorProfileSetup() {
   const [profile, setProfile] = useState<DoctorProfile | null>(null);
   const [documents, setDocuments] = useState<DoctorDocumentDTO[]>([]);
   const [docSummary, setDocSummary] = useState<DocumentVerificationSummary | null>(null);
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -72,6 +74,8 @@ export default function DoctorProfileSetup() {
   // Form state
   const [form, setForm] = useState<UpdateDoctorProfile>({
     specialization: "",
+    specialtyIds: [],
+    primarySpecialtyId: undefined,
     licenseNumber: "",
     experienceYears: 0,
     education: "",
@@ -91,18 +95,37 @@ export default function DoctorProfileSetup() {
     try {
       setLoading(true);
       setError(null);
-      const [profileData, docs, summary] = await Promise.all([
+      const [profileData, docs, summary, specialtiesData] = await Promise.all([
         getDoctorProfile(),
         getDoctorDocuments(),
         getDocumentVerificationSummary(),
+        publicService.getSpecialties(),
       ]);
       setProfile(profileData);
       setDocuments(docs);
       setDocSummary(summary);
+      setSpecialties((specialtiesData || []).filter((s) => s.isActive !== false));
 
       // Populate form
+      const activeSpecialties = (specialtiesData || []).filter((s) => s.isActive !== false);
+      const primaryIdFromApi = profileData.primarySpecialtyId ?? null;
+      const fallbackPrimaryId =
+        primaryIdFromApi ??
+        (profileData.specialization
+          ? activeSpecialties.find((s) => s.name === profileData.specialization)?.id ?? null
+          : null);
+
+      const effectivePrimaryId = fallbackPrimaryId ?? undefined;
+
       setForm({
         specialization: profileData.specialization || "",
+        specialtyIds:
+          profileData.specialtyIds && profileData.specialtyIds.length > 0
+            ? profileData.specialtyIds
+            : effectivePrimaryId != null
+              ? [effectivePrimaryId]
+              : [],
+        primarySpecialtyId: effectivePrimaryId,
         licenseNumber: profileData.licenseNumber || "",
         experienceYears: profileData.experienceYears || 0,
         education: profileData.education || "",
@@ -356,14 +379,30 @@ export default function DoctorProfileSetup() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Specialization <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={form.specialization || ""}
-                  onChange={(e) => setForm({ ...form, specialization: e.target.value })}
+                <select
+                  value={form.primarySpecialtyId ?? ""}
+                  onChange={(e) => {
+                    const id = Number(e.target.value);
+                    const sp = specialties.find((s) => s.id === id);
+                    setForm({
+                      ...form,
+                      primarySpecialtyId: id,
+                      specialtyIds: [id],
+                      specialization: sp?.name || "",
+                    });
+                  }}
                   disabled={!isEditable}
-                  placeholder="e.g., Internal Medicine, Cardiology, Dermatology..."
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white disabled:bg-gray-100 disabled:text-gray-500 dark:disabled:bg-gray-600"
-                />
+                >
+                  <option value="" disabled>
+                    Select specialization...
+                  </option>
+                  {specialties.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* License Number */}

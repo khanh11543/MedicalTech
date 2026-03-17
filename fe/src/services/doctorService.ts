@@ -251,6 +251,8 @@ export interface DoctorProfile {
   email: string | null;
   avatarUrl: string | null;
   specialization: string | null;
+  specialtyIds?: number[];
+  primarySpecialtyId?: number | null;
   licenseNumber: string | null;
   experienceYears: number;
   education: string | null;
@@ -269,6 +271,8 @@ export interface DoctorProfile {
 
 export interface UpdateDoctorProfile {
   specialization?: string;
+  specialtyIds?: number[];
+  primarySpecialtyId?: number;
   licenseNumber?: string;
   experienceYears?: number;
   education?: string;

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * DTO for doctor profile response (doctor's own view)
@@ -21,6 +22,12 @@ public class DoctorProfileDTO {
 
     // Professional info
     private String specialization;
+    /**
+     * Specialty IDs assigned to this doctor (from doctor_specialties).
+     * Primary specialty is indicated by primarySpecialtyId.
+     */
+    private List<Long> specialtyIds;
+    private Long primarySpecialtyId;
     private String licenseNumber;
     private Integer experienceYears;
     private String education;

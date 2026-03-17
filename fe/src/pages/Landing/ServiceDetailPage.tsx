@@ -104,7 +104,7 @@ const servicesData: ServiceData[] = [
         linkText: "Learn More",
       },
       {
-        icon: "bi-clipboard2-pulse",
+        icon: "bi-heart-pulse",
         title: "Neurotherapy",
         description:
           "Comprehensive therapy programs for rehabilitation and recovery from neurological conditions.",

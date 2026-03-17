@@ -235,6 +235,8 @@ export default function CreateUser() {
       qualification: "",
       notes: "",
       sendInvite: true,
+      specialtyIds: [],
+      primarySpecialtyId: null,
     });
     setErrors({});
     setApiError(null);

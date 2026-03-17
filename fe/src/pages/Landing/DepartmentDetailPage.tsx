@@ -109,7 +109,15 @@ export default function DepartmentDetailPage() {
   }
 
   const highlights = parseHighlights(specialty.highlights);
-  const icon = specialty.iconUrl || "bi bi-hospital";
+  const resolveDepartmentIcon = (s: Specialty) => {
+    if (s.iconUrl && s.iconUrl.trim()) return s.iconUrl;
+    const sl = (s.slug || s.name || "").toLowerCase().trim();
+    if (sl === "kham-tong-quat" || sl === "khám-tổng-quát" || sl.includes("tong-quat") || sl.includes("tổng-quát")) {
+      return "bi bi-heart-pulse";
+    }
+    return "bi bi-hospital";
+  };
+  const icon = resolveDepartmentIcon(specialty);
   const img = specialty.imageUrl || "/images/landing/cardiology-2.webp";
 
   return (
@@ -183,7 +191,7 @@ export default function DepartmentDetailPage() {
               {/* Book Appointment CTA inside highlights */}
               <div className="mt-4">
                 <button
-                  onClick={handleBookAppointment}
+                  onClick={() => handleBookAppointment()}
                   className="w-full py-4 px-6 rounded-xl font-semibold text-white bg-[#049ebb] border-none cursor-pointer transition-all hover:bg-[#037a94] hover:-translate-y-[2px] hover:shadow-[0_8px_25px_rgba(4,158,187,0.4)] flex items-center justify-center gap-3 text-[1.05rem]"
                 >
                   <i className="bi bi-calendar-check text-[1.3rem]"></i>
@@ -312,7 +320,7 @@ export default function DepartmentDetailPage() {
                   with the highest quality medical care. You can pay online via MoMo QR or pay at the reception.
                 </p>
                 <div className="dd-cta-actions">
-                  <button onClick={handleBookAppointment} className="dd-cta-btn-primary">
+                  <button onClick={() => handleBookAppointment()} className="dd-cta-btn-primary">
                     <i className="bi bi-calendar-check"></i>
                     Book Appointment
                   </button>

@@ -218,11 +218,20 @@ function DepartmentsSection() {
   const navigate = useNavigate();
   const [departments, setDepartments] = useState<{ icon: string; title: string; desc: string; img: string; slug: string }[]>([]);
 
+  const resolveDepartmentIcon = (s: Specialty) => {
+    if (s.iconUrl && s.iconUrl.trim()) return s.iconUrl;
+    const slug = (s.slug || s.name || "").toLowerCase().trim();
+    if (slug === "kham-tong-quat" || slug === "khám-tổng-quát" || slug.includes("tong-quat") || slug.includes("tổng-quát")) {
+      return "bi bi-heart-pulse";
+    }
+    return "bi bi-hospital";
+  };
+
   useEffect(() => {
     publicService.getSpecialties().then((list) => {
       if (list.length > 0) {
         setDepartments(list.slice(0, 6).map((s: Specialty) => ({
-          icon: s.iconUrl || "bi bi-hospital",
+          icon: resolveDepartmentIcon(s),
           title: s.name,
           desc: s.description || "Specialized medical care with experienced professionals.",
           img: s.imageUrl || "/images/landing/cardiology-3.webp",

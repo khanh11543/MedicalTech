@@ -112,12 +112,21 @@ export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const resolveDepartmentIcon = (s: Specialty) => {
+    if (s.iconUrl && s.iconUrl.trim()) return s.iconUrl;
+    const slug = (s.slug || s.name || "").toLowerCase().trim();
+    if (slug === "kham-tong-quat" || slug === "khám-tổng-quát" || slug.includes("tong-quat") || slug.includes("tổng-quát")) {
+      return "bi bi-heart-pulse";
+    }
+    return "bi bi-hospital";
+  };
+
   useEffect(() => {
     publicService.getSpecialties().then((list) => {
       const mapped: Department[] = list.map((s: Specialty, idx: number) => ({
         id: s.id,
         slug: s.slug || s.name.toLowerCase().replace(/\s+/g, "-"),
-        icon: s.iconUrl || "bi bi-hospital",
+        icon: resolveDepartmentIcon(s),
         title: s.name,
         subtitle: s.subtitle || s.name,
         description: s.description || "Specialized medical care with experienced professionals.",
