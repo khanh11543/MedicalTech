@@ -11,6 +11,7 @@ import com.q2k.meditech.entity.enums.TimeSlotStatus;
 import com.q2k.meditech.exception.AppointmentException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.dto.mapper.AppointmentMapper;
+import com.q2k.meditech.dto.mapper.TimeSlotMapper;
 import com.q2k.meditech.dto.settings.GeneralSettingsDTO;
 import com.q2k.meditech.repository.*;
 import com.q2k.meditech.util.ExportUtil;
@@ -51,6 +52,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final DoctorRepository doctorRepository;
     private final UserRepository userRepository;
     private final AppointmentMapper appointmentMapper;
+    private final TimeSlotMapper timeSlotMapper;
     private final PrescriptionRepository prescriptionRepository;
     private final ReviewRepository reviewRepository;
     private final PaymentRepository paymentRepository;
@@ -1149,6 +1151,47 @@ public class AppointmentServiceImpl implements AppointmentService {
                 appointmentId, oldDate, oldStartTime, dto.getNewDate(), dto.getNewStartTime(), userId, userRole);
         
         return appointmentMapper.toDTO(appointment);
+    }
+
+    @Override
+    public List<TimeSlotDTO> getAvailableSlotsForReschedule(Long doctorId, LocalDate dateFrom, LocalDate dateTo) {
+        log.debug("Getting available slots for doctor: {} from {} to {}", doctorId, dateFrom, dateTo);
+        
+        // Validate doctor exists
+        doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + doctorId));
+        
+        // Set default date range: today to +7 days if not specified
+        if (dateFrom == null) {
+            dateFrom = LocalDate.now();
+        }
+        if (dateTo == null) {
+            dateTo = dateFrom.plusDays(7);
+        }
+        
+        // Validate dateFrom is not in the past
+        if (dateFrom.isBefore(LocalDate.now())) {
+            dateFrom = LocalDate.now();
+        }
+        
+        // Validate date range
+        if (dateTo.isBefore(dateFrom)) {
+            throw new AppointmentException("End date cannot be before start date");
+        }
+        
+        // Get available slots from repository
+        List<TimeSlot> availableSlots = timeSlotRepository.findAvailableSlots(doctorId, dateFrom, dateTo);
+        
+        // Filter out past time slots for today
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+        
+        availableSlots = availableSlots.stream()
+                .filter(slot -> !slot.getSlotDate().equals(today) || slot.getStartTime().isAfter(now))
+                .collect(Collectors.toList());
+        
+        // Convert to DTOs
+        return timeSlotMapper.toDTOList(availableSlots);
     }
     
     @Override

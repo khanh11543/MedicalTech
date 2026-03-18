@@ -241,4 +241,14 @@ public interface AppointmentService {
      * Export statistics to PDF
      */
     byte[] exportStatisticsPdf(LocalDate from, LocalDate to, Long doctorId);
+    
+    /**
+     * Get available time slots for a doctor for rescheduling appointments
+     * Returns slots within the specified date range
+     * @param doctorId Doctor ID
+     * @param dateFrom Start date (defaults to today if null)
+     * @param dateTo End date (defaults to dateFrom + 7 days if null)
+     * @return List of available time slots
+     */
+    List<TimeSlotDTO> getAvailableSlotsForReschedule(Long doctorId, LocalDate dateFrom, LocalDate dateTo);
 }
