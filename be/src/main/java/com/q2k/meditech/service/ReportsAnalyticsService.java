@@ -33,48 +33,110 @@ public class ReportsAnalyticsService {
     private final SpecialtyRepository specialtyRepository;
 
     /**
-     * Get comprehensive reports and analytics
+     * Get comprehensive reports and analytics filtered by date range.
+     * Uses [rangeStart, rangeEndExclusive) pattern for safe datetime comparison.
+     *
+     * @param startDate inclusive start date
+     * @param endDate   inclusive end date
      */
-    public ReportsAnalyticsDTO getReportsAnalytics() {
-        log.info("Generating reports and analytics");
+    public ReportsAnalyticsDTO getReportsAnalytics(LocalDate startDate, LocalDate endDate) {
+        log.info("Generating reports and analytics for range [{}, {}]", startDate, endDate);
 
         LocalDateTime now = LocalDateTime.now();
-        LocalDate today = LocalDate.now();
-        LocalDate thirtyDaysAgo = today.minusDays(30);
-        LocalDate oneYearAgo = today.minusMonths(12);
 
-        // Overview Statistics
-        long totalUsers = userRepository.count();
-        long totalAppointments = appointmentRepository.count();
-        long totalPayments = paymentRepository.count();
-        double totalRevenue = calculateTotalRevenue();
+        // Safe range boundaries: [startDate 00:00, endDate+1 00:00)
+        LocalDateTime rangeStart = startDate.atStartOfDay();
+        LocalDateTime rangeEndExclusive = endDate.plusDays(1).atStartOfDay();
 
-        // Appointment Analytics
-        Map<String, Long> appointmentsByStatus = getAppointmentsByStatus();
-        Map<String, Long> appointmentsBySpecialty = getAppointmentsBySpecialty();
-        List<ReportsAnalyticsDTO.DailyAppointmentDTO> appointmentTrend = 
-                getDailyAppointmentTrend(thirtyDaysAgo, today);
+        // ---- Fetch all data once ----
+        List<Appointment> allAppointments = appointmentRepository.findAll();
+        List<Payment> allPayments = paymentRepository.findAll();
+        List<User> allUsers = userRepository.findAll();
 
-        // Payment Analytics
-        Map<String, Double> revenueByPaymentMethod = getRevenueByPaymentMethod();
-        Map<String, Long> paymentsByStatus = getPaymentsByStatus();
-        List<ReportsAnalyticsDTO.DailyRevenueDTO> revenueTrend = 
-                getDailyRevenueTrend(thirtyDaysAgo, today);
+        // ---- Filter appointments in range (by appointmentDate) ----
+        List<Appointment> rangeAppointments = allAppointments.stream()
+                .filter(a -> {
+                    if (a.getAppointmentDate() == null) return false;
+                    LocalDate d = a.getAppointmentDate();
+                    return !d.isBefore(startDate) && !d.isAfter(endDate);
+                })
+                .collect(Collectors.toList());
 
-        // User Analytics
-        Map<String, Long> usersByRole = getUsersByRole();
-        List<ReportsAnalyticsDTO.MonthlyUserGrowthDTO> userGrowthTrend = 
-                getMonthlyUserGrowth(oneYearAgo);
+        // ---- Filter payments in range (by createdAt) ----
+        List<Payment> rangePayments = allPayments.stream()
+                .filter(p -> {
+                    if (p.getCreatedAt() == null) return false;
+                    LocalDateTime dt = p.getCreatedAt();
+                    return !dt.isBefore(rangeStart) && dt.isBefore(rangeEndExclusive);
+                })
+                .collect(Collectors.toList());
 
-        // Doctor Analytics
-        List<ReportsAnalyticsDTO.TopDoctorDTO> topDoctorsByAppointments = 
-                getTopDoctorsByAppointments(5);
-        List<ReportsAnalyticsDTO.TopDoctorDTO> topDoctorsByRating = 
-                getTopDoctorsByRating(5);
+        // ===== Overview Statistics =====
+        // Users are all-time
+        long totalUsers = allUsers.size();
+        // Appointments & payments scoped to range
+        long totalAppointments = rangeAppointments.size();
+        long totalPayments = rangePayments.size();
+        double totalRevenue = rangePayments.stream()
+                .filter(p -> "PAID".equals(p.getPaymentStatus()))
+                .mapToDouble(p -> p.getTotalAmount() != null ? p.getTotalAmount().doubleValue() : 0.0)
+                .sum();
 
-        // Specialty Analytics
-        List<ReportsAnalyticsDTO.SpecialtyStatsDTO> specialtyStatistics = 
-                getSpecialtyStatistics();
+        // ===== Appointment Analytics (scoped) =====
+        Map<String, Long> appointmentsByStatus = rangeAppointments.stream()
+                .collect(Collectors.groupingBy(
+                        a -> a.getStatus() != null ? a.getStatus().name() : "UNKNOWN",
+                        Collectors.counting()
+                ));
+
+        Map<String, Long> appointmentsBySpecialty = rangeAppointments.stream()
+                .filter(a -> a.getDoctor() != null && !a.getDoctor().getSpecialties().isEmpty())
+                .collect(Collectors.groupingBy(
+                        a -> {
+                            Specialty s = a.getDoctor().getSpecialties().get(0);
+                            return s != null && s.getName() != null ? s.getName() : "Unknown";
+                        },
+                        Collectors.counting()
+                ));
+
+        List<ReportsAnalyticsDTO.DailyAppointmentDTO> appointmentTrend =
+                getDailyAppointmentTrend(rangeAppointments);
+
+        // ===== Payment Analytics (scoped) =====
+        List<Payment> rangePaidPayments = rangePayments.stream()
+                .filter(p -> "PAID".equals(p.getPaymentStatus()))
+                .collect(Collectors.toList());
+
+        Map<String, Double> revenueByPaymentMethod = rangePaidPayments.stream()
+                .collect(Collectors.groupingBy(
+                        p -> p.getPaymentMethod() != null ? p.getPaymentMethod() : "OTHER",
+                        Collectors.summingDouble(p -> p.getTotalAmount() != null ? p.getTotalAmount().doubleValue() : 0.0)
+                ));
+
+        Map<String, Long> paymentsByStatus = rangePayments.stream()
+                .collect(Collectors.groupingBy(
+                        p -> p.getPaymentStatus() != null ? p.getPaymentStatus() : "UNKNOWN",
+                        Collectors.counting()
+                ));
+
+        List<ReportsAnalyticsDTO.DailyRevenueDTO> revenueTrend =
+                getDailyRevenueTrend(rangePaidPayments);
+
+        // ===== User Analytics (all-time) =====
+        Map<String, Long> usersByRole = getUsersByRole(allUsers);
+        LocalDate oneYearAgo = LocalDate.now().minusMonths(12);
+        List<ReportsAnalyticsDTO.MonthlyUserGrowthDTO> userGrowthTrend =
+                getMonthlyUserGrowth(allUsers, oneYearAgo);
+
+        // ===== Doctor Analytics (scoped) =====
+        List<ReportsAnalyticsDTO.TopDoctorDTO> topDoctorsByAppointments =
+                getTopDoctorsByAppointments(rangeAppointments, 5);
+        List<ReportsAnalyticsDTO.TopDoctorDTO> topDoctorsByRating =
+                getTopDoctorsByRating(rangeAppointments, 5);
+
+        // ===== Specialty Analytics (scoped) =====
+        List<ReportsAnalyticsDTO.SpecialtyStatsDTO> specialtyStatistics =
+                getSpecialtyStatistics(rangeAppointments, rangePaidPayments);
 
         return ReportsAnalyticsDTO.builder()
                 .totalUsers(totalUsers)
@@ -96,44 +158,14 @@ public class ReportsAnalyticsService {
                 .build();
     }
 
-    // Helper methods
+    // ======================== Helper Methods ========================
 
-    private double calculateTotalRevenue() {
-        return paymentRepository.findAll().stream()
-                .filter(p -> "PAID".equals(p.getPaymentStatus()))
-                .mapToDouble(p -> p.getTotalAmount() != null ? p.getTotalAmount().doubleValue() : 0.0)
-                .sum();
-    }
-
-    private Map<String, Long> getAppointmentsByStatus() {
-        return appointmentRepository.findAll().stream()
-                .collect(Collectors.groupingBy(
-                        a -> a.getStatus() != null ? a.getStatus().name() : "UNKNOWN",
-                        Collectors.counting()
-                ));
-    }
-
-    private Map<String, Long> getAppointmentsBySpecialty() {
-        return appointmentRepository.findAll().stream()
-                .filter(a -> a.getDoctor() != null && !a.getDoctor().getSpecialties().isEmpty())
-                .collect(Collectors.groupingBy(
-                        a -> {
-                            Specialty s = a.getDoctor().getSpecialties().get(0);
-                            return s != null && s.getName() != null ? s.getName() : "Unknown";
-                        },
-                        Collectors.counting()
-                ));
-    }
-
-    private List<ReportsAnalyticsDTO.DailyAppointmentDTO> getDailyAppointmentTrend(LocalDate from, LocalDate to) {
-        List<Appointment> appointments = appointmentRepository.findAll();
+    private List<ReportsAnalyticsDTO.DailyAppointmentDTO> getDailyAppointmentTrend(
+            List<Appointment> appointments) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        
+
         Map<String, Long> dailyCounts = appointments.stream()
-                .filter(a -> {
-                    if (a.getAppointmentDate() == null) return false;
-                    return !a.getAppointmentDate().isBefore(from) && !a.getAppointmentDate().isAfter(to);
-                })
+                .filter(a -> a.getAppointmentDate() != null)
                 .collect(Collectors.groupingBy(
                         a -> a.getAppointmentDate().format(formatter),
                         Collectors.counting()
@@ -148,34 +180,12 @@ public class ReportsAnalyticsService {
                 .collect(Collectors.toList());
     }
 
-    private Map<String, Double> getRevenueByPaymentMethod() {
-        return paymentRepository.findAll().stream()
-                .filter(p -> "PAID".equals(p.getPaymentStatus()))
-                .collect(Collectors.groupingBy(
-                        p -> p.getPaymentMethod() != null ? p.getPaymentMethod() : "OTHER",
-                        Collectors.summingDouble(p -> p.getTotalAmount() != null ? p.getTotalAmount().doubleValue() : 0.0)
-                ));
-    }
-
-    private Map<String, Long> getPaymentsByStatus() {
-        return paymentRepository.findAll().stream()
-                .collect(Collectors.groupingBy(
-                        p -> p.getPaymentStatus() != null ? p.getPaymentStatus() : "UNKNOWN",
-                        Collectors.counting()
-                ));
-    }
-
-    private List<ReportsAnalyticsDTO.DailyRevenueDTO> getDailyRevenueTrend(LocalDate from, LocalDate to) {
-        List<Payment> payments = paymentRepository.findAll();
+    private List<ReportsAnalyticsDTO.DailyRevenueDTO> getDailyRevenueTrend(
+            List<Payment> paidPayments) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        
-        Map<String, Double> dailyRevenue = payments.stream()
-                .filter(p -> {
-                    if (p.getCreatedAt() == null) return false;
-                    LocalDate paymentDate = p.getCreatedAt().toLocalDate();
-                    return "PAID".equals(p.getPaymentStatus()) &&
-                           !paymentDate.isBefore(from) && !paymentDate.isAfter(to);
-                })
+
+        Map<String, Double> dailyRevenue = paidPayments.stream()
+                .filter(p -> p.getCreatedAt() != null)
                 .collect(Collectors.groupingBy(
                         p -> p.getCreatedAt().toLocalDate().format(formatter),
                         Collectors.summingDouble(p -> p.getTotalAmount() != null ? p.getTotalAmount().doubleValue() : 0.0)
@@ -190,8 +200,8 @@ public class ReportsAnalyticsService {
                 .collect(Collectors.toList());
     }
 
-    private Map<String, Long> getUsersByRole() {
-        return userRepository.findAll().stream()
+    private Map<String, Long> getUsersByRole(List<User> users) {
+        return users.stream()
                 .filter(user -> user.getUserRoles() != null)
                 .flatMap(user -> user.getUserRoles().stream())
                 .filter(userRole -> userRole.getRole() != null)
@@ -201,23 +211,20 @@ public class ReportsAnalyticsService {
                 ));
     }
 
-    private List<ReportsAnalyticsDTO.MonthlyUserGrowthDTO> getMonthlyUserGrowth(LocalDate from) {
-        List<User> users = userRepository.findAll();
+    private List<ReportsAnalyticsDTO.MonthlyUserGrowthDTO> getMonthlyUserGrowth(List<User> users, LocalDate from) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM");
-        
-        // Group users by month
+
         Map<String, Long> monthlyNewUsers = users.stream()
-                .filter(u -> u.getCreatedAt() != null && 
+                .filter(u -> u.getCreatedAt() != null &&
                             !u.getCreatedAt().toLocalDate().isBefore(from))
                 .collect(Collectors.groupingBy(
                         u -> u.getCreatedAt().format(formatter),
                         Collectors.counting()
                 ));
 
-        // Calculate cumulative users
         List<ReportsAnalyticsDTO.MonthlyUserGrowthDTO> growthData = new ArrayList<>();
         long cumulativeUsers = users.stream()
-                .filter(u -> u.getCreatedAt() != null && 
+                .filter(u -> u.getCreatedAt() != null &&
                             u.getCreatedAt().toLocalDate().isBefore(from))
                 .count();
 
@@ -238,8 +245,9 @@ public class ReportsAnalyticsService {
         return growthData;
     }
 
-    private List<ReportsAnalyticsDTO.TopDoctorDTO> getTopDoctorsByAppointments(int limit) {
-        return appointmentRepository.findAll().stream()
+    private List<ReportsAnalyticsDTO.TopDoctorDTO> getTopDoctorsByAppointments(
+            List<Appointment> appointments, int limit) {
+        return appointments.stream()
                 .filter(a -> a.getDoctor() != null)
                 .collect(Collectors.groupingBy(
                         Appointment::getDoctor,
@@ -253,7 +261,7 @@ public class ReportsAnalyticsService {
                     double avgRating = doctor.getRatingAvg() != null ? doctor.getRatingAvg().doubleValue() : 0.0;
                     String specialtyName = !doctor.getSpecialties().isEmpty() ?
                             doctor.getSpecialties().get(0).getName() : "N/A";
-                    
+
                     return ReportsAnalyticsDTO.TopDoctorDTO.builder()
                             .doctorId(doctor.getId())
                             .name(doctor.getFullName())
@@ -265,19 +273,24 @@ public class ReportsAnalyticsService {
                 .collect(Collectors.toList());
     }
 
-    private List<ReportsAnalyticsDTO.TopDoctorDTO> getTopDoctorsByRating(int limit) {
+    private List<ReportsAnalyticsDTO.TopDoctorDTO> getTopDoctorsByRating(
+            List<Appointment> rangeAppointments, int limit) {
+        // Count appointments per doctor within range
+        Map<Long, Long> doctorAppointmentCounts = rangeAppointments.stream()
+                .filter(a -> a.getDoctor() != null)
+                .collect(Collectors.groupingBy(
+                        a -> a.getDoctor().getId(),
+                        Collectors.counting()
+                ));
+
         return doctorRepository.findAll().stream()
+                .filter(doctor -> doctorAppointmentCounts.containsKey(doctor.getId()))
                 .map(doctor -> {
                     double avgRating = doctor.getRatingAvg() != null ? doctor.getRatingAvg().doubleValue() : 0.0;
-                    
-                    long appointmentCount = appointmentRepository.findAll().stream()
-                            .filter(a -> a.getDoctor() != null && 
-                                    a.getDoctor().getId().equals(doctor.getId()))
-                            .count();
-                    
+                    long appointmentCount = doctorAppointmentCounts.getOrDefault(doctor.getId(), 0L);
                     String specialtyName = !doctor.getSpecialties().isEmpty() ?
                             doctor.getSpecialties().get(0).getName() : "N/A";
-                    
+
                     return ReportsAnalyticsDTO.TopDoctorDTO.builder()
                             .doctorId(doctor.getId())
                             .name(doctor.getFullName())
@@ -292,32 +305,29 @@ public class ReportsAnalyticsService {
                 .collect(Collectors.toList());
     }
 
-    private List<ReportsAnalyticsDTO.SpecialtyStatsDTO> getSpecialtyStatistics() {
-        List<Payment> allPayments = paymentRepository.findAll();
-        
+    private List<ReportsAnalyticsDTO.SpecialtyStatsDTO> getSpecialtyStatistics(
+            List<Appointment> rangeAppointments, List<Payment> rangePaidPayments) {
         return specialtyRepository.findAll().stream()
                 .map(specialty -> {
                     long doctorCount = doctorRepository.findAll().stream()
                             .filter(d -> d.getSpecialties().stream()
                                     .anyMatch(s -> s.getId().equals(specialty.getId())))
                             .count();
-                    
-                    long appointmentCount = appointmentRepository.findAll().stream()
-                            .filter(a -> a.getDoctor() != null && 
+
+                    long appointmentCount = rangeAppointments.stream()
+                            .filter(a -> a.getDoctor() != null &&
                                     a.getDoctor().getSpecialties().stream()
                                             .anyMatch(s -> s.getId().equals(specialty.getId())))
                             .count();
-                    
-                    // Calculate revenue by finding payments linked to appointments with doctors of this specialty
-                    double totalRevenue = allPayments.stream()
-                            .filter(p -> "PAID".equals(p.getPaymentStatus()) && 
-                                    p.getAppointment() != null &&
+
+                    double totalRevenue = rangePaidPayments.stream()
+                            .filter(p -> p.getAppointment() != null &&
                                     p.getAppointment().getDoctor() != null &&
                                     p.getAppointment().getDoctor().getSpecialties().stream()
                                             .anyMatch(s -> s.getId().equals(specialty.getId())))
                             .mapToDouble(p -> p.getTotalAmount() != null ? p.getTotalAmount().doubleValue() : 0.0)
                             .sum();
-                    
+
                     return ReportsAnalyticsDTO.SpecialtyStatsDTO.builder()
                             .specialtyId(specialty.getId())
                             .specialtyName(specialty.getName())

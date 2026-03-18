@@ -202,12 +202,13 @@ export const securityAuditAPI = {
 // ============== REPORTS ANALYTICS API ==============
 
 export const reportsAnalyticsAPI = {
-  getAnalytics: () =>
-    api.get<ReportsAnalytics>("/admin/reports-analytics"),
+  getAnalytics: (params?: { startDate?: string; endDate?: string }) =>
+    api.get<ReportsAnalytics>("/admin/reports-analytics", { params }),
 
-  getDashboard: () =>
-    api.get<ReportsAnalytics>("/admin/reports-analytics/dashboard"),
+  getDashboard: (params?: { startDate?: string; endDate?: string }) =>
+    api.get<ReportsAnalytics>("/admin/reports-analytics/dashboard", { params }),
 };
+
 
 // ============== GDPR COMPLIANCE API ==============
 
