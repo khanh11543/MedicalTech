@@ -68,11 +68,13 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         }
 
         // Create prescription
+        LocalDate prescriptionDate = dto.getPrescriptionDate() != null ? dto.getPrescriptionDate() : LocalDate.now();
         Prescription prescription = Prescription.builder()
                 .patient(patient)
                 .doctor(doctor)
                 .appointment(appointment)
-                .prescriptionDate(dto.getPrescriptionDate() != null ? dto.getPrescriptionDate() : LocalDate.now())
+                .prescriptionDate(prescriptionDate)
+                .issueDate(LocalDate.now()) // Set issue date to current date
                 .expiryDate(dto.getFollowUpDate()) // Use follow-up date as expiry if available
                 .status(PrescriptionStatus.ACTIVE)
                 .diagnosis(dto.getDiagnosis())
@@ -328,10 +330,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 ? prescription.getPrescriptionCode()
                 : "PRE-" + String.format("%06d", prescription.getId());
 
-        // Resolve expiry date: prefer expiryDate, fall back to followUpDate
-        LocalDate expiryDate = prescription.getExpiryDate() != null
-                ? prescription.getExpiryDate()
-                : prescription.getFollowUpDate();
+        LocalDate expiryDate = prescription.getFollowUpDate();
 
         return PrescriptionDetailDTO.builder()
                 // Prescription info

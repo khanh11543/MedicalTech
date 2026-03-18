@@ -15,6 +15,16 @@ export interface PrescriptionItemDTO {
   itemOrder?: number;
 }
 
+export interface PrescriptionCreateDTO {
+  patientId: number;
+  appointmentId?: number;
+  prescriptionDate?: string;
+  diagnosis?: string;
+  notes?: string;
+  followUpDate?: string;
+  items: PrescriptionItemDTO[];
+}
+
 export interface PrescriptionDTO {
   id: number;
   patientId: number;
@@ -184,15 +194,44 @@ export interface PageResponse<T> {
 // ==================== API FUNCTIONS ====================
 
 const prescriptionService = {
-  // 6.1 - List all prescriptions
-  getAllPrescriptions: async (params: PrescriptionFilterParams): Promise<PageResponse<PrescriptionDTO>> => {
+  // Doctor - Create prescription
+  createPrescription: async (
+    dto: PrescriptionCreateDTO
+  ): Promise<PrescriptionDTO> => {
+    const response = await api.post('/doctor/prescriptions', dto);
+    return response.data;
+  },
+
+  // Doctor - Get prescription by ID
+  getPrescription: async (id: number): Promise<PrescriptionDTO> => {
+    const response = await api.get(`/doctor/prescriptions/${id}`);
+    return response.data;
+  },
+
+  // Doctor - Get all prescriptions for current doctor
+  getDoctorPrescriptions: async (
+    params: PrescriptionFilterParams
+  ): Promise<PageResponse<PrescriptionDTO>> => {
+    const response = await api.get('/doctor/prescriptions', { params });
+    return response.data;
+  },
+
+  // 6.1 - List all prescriptions (admin)
+  getAllPrescriptions: async (
+    params: PrescriptionFilterParams
+  ): Promise<PageResponse<PrescriptionDTO>> => {
     const response = await api.get('/admin/prescriptions', { params });
     return response.data;
   },
 
   // 6.1 - Get prescription statistics
-  getPrescriptionStatistics: async (from?: string, to?: string): Promise<PrescriptionStatsDTO> => {
-    const response = await api.get('/admin/prescriptions/statistics', { params: { from, to } });
+  getPrescriptionStatistics: async (
+    from?: string,
+    to?: string
+  ): Promise<PrescriptionStatsDTO> => {
+    const response = await api.get('/admin/prescriptions/statistics', {
+      params: { from, to },
+    });
     return response.data;
   },
 
@@ -203,7 +242,9 @@ const prescriptionService = {
   },
 
   // 6.1 - Export prescriptions
-  exportPrescriptions: async (params: PrescriptionFilterParams): Promise<Blob> => {
+  exportPrescriptions: async (
+    params: PrescriptionFilterParams
+  ): Promise<Blob> => {
     const response = await api.get('/admin/prescriptions/export', {
       params,
       responseType: 'blob',
@@ -221,37 +262,69 @@ const prescriptionService = {
 
   // 6.2 - Print prescription
   printPrescription: async (id: number, format: string = 'PDF') => {
-    const response = await api.get(`/admin/prescriptions/${id}/print`, { params: { format } });
+    const response = await api.get(`/admin/prescriptions/${id}/print`, {
+      params: { format },
+    });
     return response.data;
   },
 
   // 6.2 - Send prescription email
   sendPrescriptionEmail: async (id: number, dto: SendPrescriptionEmailDTO) => {
-    const response = await api.post(`/admin/prescriptions/${id}/send-email`, dto);
+    const response = await api.post(
+      `/admin/prescriptions/${id}/send-email`,
+      dto
+    );
     return response.data;
   },
 
   // 6.3 - Template statistics overview
-  getTemplateStatistics: async (from?: string, to?: string): Promise<TemplateStatsDTO> => {
-    const response = await api.get('/admin/prescription-templates/statistics', { params: { from, to } });
+  getTemplateStatistics: async (
+    from?: string,
+    to?: string
+  ): Promise<TemplateStatsDTO> => {
+    const response = await api.get('/admin/prescription-templates/statistics', {
+      params: { from, to },
+    });
     return response.data;
   },
 
   // 6.3 - Templates by doctor
-  getTemplatesByDoctor: async (from?: string, to?: string, top: number = 10): Promise<DoctorTemplateStatsDTO[]> => {
-    const response = await api.get('/admin/prescription-templates/by-doctor', { params: { from, to, top } });
+  getTemplatesByDoctor: async (
+    from?: string,
+    to?: string,
+    top: number = 10
+  ): Promise<DoctorTemplateStatsDTO[]> => {
+    const response = await api.get('/admin/prescription-templates/by-doctor', {
+      params: { from, to, top },
+    });
     return response.data;
   },
 
   // 6.3 - Common medications
-  getCommonMedications: async (from?: string, to?: string, top: number = 20, groupBy: string = 'MEDICATION'): Promise<CommonMedicationDTO[]> => {
-    const response = await api.get('/admin/prescription-templates/medications/common', { params: { from, to, top, groupBy } });
+  getCommonMedications: async (
+    from?: string,
+    to?: string,
+    top: number = 20,
+    groupBy: string = 'MEDICATION'
+  ): Promise<CommonMedicationDTO[]> => {
+    const response = await api.get(
+      '/admin/prescription-templates/medications/common',
+      { params: { from, to, top, groupBy } }
+    );
     return response.data;
   },
 
   // 6.3 - Template usage trends
-  getUsageTrends: async (from: string, to: string, groupBy: string = 'WEEK', doctorId?: number): Promise<TemplateUsageTrendsDTO> => {
-    const response = await api.get('/admin/prescription-templates/usage-trends', { params: { from, to, groupBy, doctorId } });
+  getUsageTrends: async (
+    from: string,
+    to: string,
+    groupBy: string = 'WEEK',
+    doctorId?: number
+  ): Promise<TemplateUsageTrendsDTO> => {
+    const response = await api.get(
+      '/admin/prescription-templates/usage-trends',
+      { params: { from, to, groupBy, doctorId } }
+    );
     return response.data;
   },
 
