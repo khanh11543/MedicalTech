@@ -199,7 +199,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PaymentInitDTO initMomoPayment(Long paymentId, MomoInitDTO dto, Long currentUserId) {
         return initMomoPaymentInternal(paymentId, dto, currentUserId, false);
     }

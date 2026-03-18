@@ -71,6 +71,11 @@ public class MomoClient {
             log.info("Config - partnerCode: {}, accessKey: {}", partnerCode, accessKey);
             log.info("Config - redirectUrl: {}, ipnUrl: {}", returnUrl, ipnUrl);
 
+            if (isBlank(momoEndpoint) || isBlank(createUrl) || isBlank(partnerCode) || isBlank(accessKey)
+                    || isBlank(secretKey) || isBlank(returnUrl) || isBlank(ipnUrl)) {
+                throw new IllegalStateException("MoMo is not configured (missing DEV_* environment variables)");
+            }
+
             String requestId = UUID.randomUUID().toString();
             String cleanExtraData = (extraData != null) ? extraData : "";
             String requestTypeValue = "captureWallet"; // For MoMo wallet payment
@@ -162,6 +167,10 @@ public class MomoClient {
             log.error("Error creating MoMo payment order", e);
             throw new RuntimeException("Failed to create MoMo payment: " + e.getMessage(), e);
         }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     /**
