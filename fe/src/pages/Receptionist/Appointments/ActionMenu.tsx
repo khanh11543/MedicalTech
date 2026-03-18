@@ -116,9 +116,8 @@ const ACTION_BUTTON_CONFIG: Record<
 export default function ActionMenu({ appointment, onAction }: ActionMenuProps) {
   const baseActions = ACTIONS_PER_STATUS[appointment.status] || ["VIEW"];
 
-  // For COMPLETED appointments, filter actions based on payment status
+  // Filter actions based on payment status for all statuses
   const actions = baseActions.filter((action) => {
-    if (appointment.status !== "COMPLETED") return true;
     const paid = appointment.paymentStatus === "PAID";
     if (action === "COLLECT_PAYMENT" && paid) return false;   // already paid → hide Collect
     if (action === "RECEIPT" && !paid) return false;           // not paid yet → no receipt

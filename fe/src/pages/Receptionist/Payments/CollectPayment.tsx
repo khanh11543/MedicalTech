@@ -170,9 +170,9 @@ export default function CollectPayment() {
   // ==================== COLLECT ACTION ====================
 
   const handleCollectPayment = async (appointment: AppointmentSearchResult) => {
-    // Guard: only allow collection for COMPLETED appointments
-    if (appointment.status !== "COMPLETED") {
-      alert("Payment can only be collected for completed appointments.");
+    // Guard: cannot collect for cancelled/no-show appointments
+    if (appointment.status === "CANCELLED" || appointment.status === "NO_SHOW") {
+      alert("Cannot collect payment for cancelled or no-show appointments.");
       return;
     }
 
@@ -559,10 +559,10 @@ export default function CollectPayment() {
                 {/* Right: CTA */}
                 <div className="flex items-center gap-2">
                   {(() => {
-                    const isCompleted = apt.status === "COMPLETED";
                     const isCancelled = apt.status === "CANCELLED" || apt.status === "NO_SHOW";
                     const isPaid = apt.paymentStatus === "PAID";
                     const isPending = apt.paymentStatus === "PENDING";
+                    const isInitiated = apt.paymentStatus === "INITIATED";
                     const isFailed = apt.paymentStatus === "FAILED" || apt.paymentStatus === "CANCELLED";
                     const hasAmount = apt.fee > 0;
 
@@ -587,16 +587,7 @@ export default function CollectPayment() {
                       );
                     }
 
-                    // Not yet COMPLETED → cannot collect
-                    if (!isCompleted) {
-                      return (
-                        <span className="px-3 py-2 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
-                          Awaiting completion
-                        </span>
-                      );
-                    }
-
-                    // COMPLETED + 0 VND → no charge
+                    // 0 VND → no charge
                     if (!hasAmount && isPending) {
                       return (
                         <span className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-lg">
@@ -605,8 +596,8 @@ export default function CollectPayment() {
                       );
                     }
 
-                    // COMPLETED + PENDING + amount > 0 → Collect
-                    if (isPending && hasAmount) {
+                    // PENDING/INITIATED + amount > 0 → Collect
+                    if ((isPending || isInitiated) && hasAmount) {
                       return (
                         <button
                           onClick={() => handleCollectPayment(apt)}
@@ -617,7 +608,7 @@ export default function CollectPayment() {
                       );
                     }
 
-                    // COMPLETED + FAILED → Retry
+                    // FAILED → Retry
                     if (isFailed) {
                       return (
                         <button

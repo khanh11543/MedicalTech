@@ -68,6 +68,11 @@ public class AppointmentServiceImpl implements AppointmentService {
     public AppointmentDTO bookAppointment(BookAppointmentDTO dto, Long bookedByUserId, BookedBy bookedBy) {
         log.info("Booking appointment for patient {} with doctor {}", dto.getPatientId(), dto.getDoctorId());
         
+        // Validate appointment date is not in the past
+        if (dto.getAppointmentDate() != null && dto.getAppointmentDate().isBefore(LocalDate.now())) {
+            throw new AppointmentException("Cannot book an appointment in the past");
+        }
+        
         // Resolve startTime/endTime from timeSlotId if provided
         TimeSlot bookedSlot = null;
         if (dto.getTimeSlotId() != null) {
