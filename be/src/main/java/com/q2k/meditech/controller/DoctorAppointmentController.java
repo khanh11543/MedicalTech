@@ -121,6 +121,22 @@ public class DoctorAppointmentController {
         return ResponseEntity.ok(slots);
     }
     
+    /**
+     * Doctor cancels an appointment
+     * PUT /api/doctor/appointments/{id}/cancel
+     */
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<AppointmentDTO> cancelAppointment(
+            @PathVariable Long id,
+            @RequestBody CancelDTO dto,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        Long doctorUserId = getCurrentUserId(userDetails);
+        
+        AppointmentDTO result = appointmentService.cancelAppointment(id, dto, doctorUserId, "DOCTOR");
+        return ResponseEntity.ok(result);
+    }
+    
     // Helper methods
     private Long getCurrentUserId(UserDetails userDetails) {
         return SecurityUtil.getCurrentUserId();

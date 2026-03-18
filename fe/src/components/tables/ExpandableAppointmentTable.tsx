@@ -4,6 +4,8 @@ import { AppointmentDTO } from '../../services/appointmentService';
 interface ExpandableAppointmentTableProps {
   appointments: AppointmentDTO[];
   onViewDetails?: (appointment: AppointmentDTO) => void;
+  onCancel?: (appointment: AppointmentDTO) => void;
+  onReschedule?: (appointment: AppointmentDTO) => void;
 }
 
 const getStatusColor = (status: string) => {
@@ -26,6 +28,8 @@ const getStatusColor = (status: string) => {
 export default function ExpandableAppointmentTable({
   appointments,
   onViewDetails,
+  onCancel,
+  onReschedule,
 }: ExpandableAppointmentTableProps) {
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -260,10 +264,7 @@ export default function ExpandableAppointmentTable({
                               </button>
                               <button
                                 onClick={() => {
-                                  console.log(
-                                    'Reschedule request for:',
-                                    appointment
-                                  );
+                                  onReschedule?.(appointment);
                                   setOpenMenuId(null);
                                 }}
                                 className='w-full px-4 py-2.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-3 border-b border-gray-100 dark:border-gray-700'
@@ -281,14 +282,11 @@ export default function ExpandableAppointmentTable({
                                     d='M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'
                                   />
                                 </svg>
-                                Reschedule request
+                                Reschedule
                               </button>
                               <button
                                 onClick={() => {
-                                  console.log(
-                                    'Cancel appointment:',
-                                    appointment
-                                  );
+                                  onCancel?.(appointment);
                                   setOpenMenuId(null);
                                 }}
                                 className='w-full px-4 py-2.5 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3 border-b border-gray-100 dark:border-gray-700'

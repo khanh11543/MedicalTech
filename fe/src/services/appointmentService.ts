@@ -356,12 +356,21 @@ const appointmentService = {
     return response.data;
   },
 
-  // Cancel appointment
+  // Cancel appointment (Admin)
   cancelAppointment: async (
     id: number,
     data: CancelDTO
   ): Promise<AppointmentDTO> => {
     const response = await api.put(`/admin/appointments/${id}/cancel`, data);
+    return response.data;
+  },
+
+  // Cancel appointment (Doctor)
+  cancelAppointmentAsDoctor: async (
+    id: number,
+    data: CancelDTO
+  ): Promise<AppointmentDTO> => {
+    const response = await api.put(`/doctor/appointments/${id}/cancel`, data);
     return response.data;
   },
 

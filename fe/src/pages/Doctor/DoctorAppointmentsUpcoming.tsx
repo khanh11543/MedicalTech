@@ -6,9 +6,11 @@ import { useToast } from '../../hooks/useToast';
 import ExpandableAppointmentTable from '../../components/tables/ExpandableAppointmentTable';
 import AppointmentDetailModal from '../../components/modals/AppointmentDetailModal';
 import RescheduleModal from '../../components/modals/RescheduleModal';
+import CancelModal from '../../components/modals/CancelModal';
 import appointmentService, {
   AppointmentDTO,
   RescheduleDTO,
+  CancelDTO,
 } from '../../services/appointmentService';
 
 export default function DoctorAppointmentsUpcoming() {
@@ -40,6 +42,11 @@ export default function DoctorAppointmentsUpcoming() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // Cancel modal states
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] =
+    useState<AppointmentDTO | null>(null);
 
   // Fetch appointments from API
   useEffect(() => {
@@ -92,23 +99,24 @@ export default function DoctorAppointmentsUpcoming() {
 
   // Process data: search, filter, sort, month filter
   const processedAppointments = useMemo(() => {
+    console.log('appointments:', appointments);
     let result = [...appointments];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
+    console.log('result1:', result);
     // Filter by status: Only show CONFIRMED and SCHEDULED appointments
     // PENDING appointments are displayed on the Pending Confirmations page
     result = result.filter((apt) => {
-      const allowedStatuses = ['CONFIRMED', 'SCHEDULED'];
+      const allowedStatuses = ['CONFIRMED', 'SCHEDULED', 'RESCHEDULED'];
       return allowedStatuses.includes(apt.status);
     });
-
+    console.log('result2:', result);
     // Filter by date (only future appointments)
     result = result.filter((apt) => {
       const aptDate = new Date(apt.appointmentDate);
       return aptDate >= today;
     });
-
+    console.log('result3:', result);
     // Filter by month
     result = result.filter((apt) => {
       // Extract YYYY-MM from appointmentDate (handles both "YYYY-MM-DD" and "YYYY-MM-DDTHH:mm:ss" formats)
@@ -117,13 +125,22 @@ export default function DoctorAppointmentsUpcoming() {
       return matches;
     });
 
-    // Search filter
+    // Search filter - search across multiple fields
+    console.log('result4:', result);
+    console.log('searchQuery:', searchQuery);
+    console.log('searchQuery.trim():', searchQuery.trim() ? 'ok' : 'no');
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (apt) =>
           apt.patientName.toLowerCase().includes(query) ||
-          apt.patientEmail.toLowerCase().includes(query)
+          apt.patientEmail.toLowerCase().includes(query) ||
+          apt.patientPhone.toLowerCase().includes(query) ||
+          apt.doctorName.toLowerCase().includes(query) ||
+          apt.appointmentCode.toLowerCase().includes(query) ||
+          (apt.reasonForVisit &&
+            apt.reasonForVisit.toLowerCase().includes(query)) ||
+          (apt.symptoms && apt.symptoms.toLowerCase().includes(query))
       );
     }
 
@@ -157,6 +174,8 @@ export default function DoctorAppointmentsUpcoming() {
 
   // Get appointments for paginated dates
   const paginatedAppointments = useMemo(() => {
+    console.log('(processedAppointments:', processedAppointments);
+    console.log('(paginatedDates:', paginatedDates);
     return processedAppointments.filter((apt) =>
       paginatedDates.includes(apt.appointmentDate)
     );
@@ -197,6 +216,37 @@ export default function DoctorAppointmentsUpcoming() {
   const handleCloseRescheduleModal = () => {
     setIsRescheduleModalOpen(false);
     setAppointmentToReschedule(null);
+  };
+
+  const handleCancel = (appointment: AppointmentDTO) => {
+    setAppointmentToCancel(appointment);
+    setIsCancelModalOpen(true);
+  };
+
+  const handleCloseCancelModal = () => {
+    setIsCancelModalOpen(false);
+    setAppointmentToCancel(null);
+  };
+
+  const handleCancelSubmit = async (data: CancelDTO) => {
+    if (!appointmentToCancel) return;
+
+    try {
+      await appointmentService.cancelAppointmentAsDoctor(
+        appointmentToCancel.id,
+        data
+      );
+      showToast(`Appointment cancelled successfully`, 'success');
+      // Remove from list
+      setAppointments(
+        appointments.filter((apt) => apt.id !== appointmentToCancel.id)
+      );
+      handleCloseCancelModal();
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to cancel appointment';
+      showToast(errorMessage, 'error');
+    }
   };
 
   const handleReschedule = async (data: RescheduleDTO) => {
@@ -574,13 +624,15 @@ export default function DoctorAppointmentsUpcoming() {
                 </div>
               </div>
             </div>
-
+            {console.log('paginatedAppointments:', paginatedAppointments)}
             {/* Appointments Table */}
             {processedAppointments.length > 0 ? (
               <>
                 <ExpandableAppointmentTable
                   appointments={paginatedAppointments}
                   onViewDetails={handleViewDetails}
+                  onCancel={handleCancel}
+                  onReschedule={handleOpenRescheduleModal}
                 />
 
                 {/* Pagination */}
@@ -693,6 +745,15 @@ export default function DoctorAppointmentsUpcoming() {
           isOpen={isRescheduleModalOpen}
           onClose={handleCloseRescheduleModal}
           onReschedule={handleReschedule}
+          isLoading={rescheduleLoading}
+        />
+
+        {/* Cancel Modal */}
+        <CancelModal
+          appointment={appointmentToCancel}
+          isOpen={isCancelModalOpen}
+          onClose={handleCloseCancelModal}
+          onCancel={handleCancelSubmit}
           isLoading={rescheduleLoading}
         />
 

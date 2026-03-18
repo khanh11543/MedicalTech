@@ -5,6 +5,7 @@ import Toast from '../../components/common/Toast';
 import { useToast } from '../../hooks/useToast';
 import PendingConfirmationTable from '../../components/tables/PendingConfirmationTable';
 import RescheduleModal from '../../components/modals/RescheduleModal';
+import CancelModal from '../../components/modals/CancelModal';
 import appointmentService, {
   AppointmentDTO,
   CancelDTO,
@@ -29,6 +30,11 @@ export default function DoctorAppointmentsPending() {
   // Reschedule modal states
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [appointmentToReschedule, setAppointmentToReschedule] =
+    useState<AppointmentDTO | null>(null);
+
+  // Cancel modal states
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [appointmentToCancel, setAppointmentToCancel] =
     useState<AppointmentDTO | null>(null);
 
   // Fetch appointments from API
@@ -71,13 +77,19 @@ export default function DoctorAppointmentsPending() {
   const processedAppointments = useMemo(() => {
     let result = [...appointments];
 
-    // Search filter
+    // Search filter - search across multiple fields
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (apt) =>
           apt.patientName.toLowerCase().includes(query) ||
-          apt.patientEmail.toLowerCase().includes(query)
+          apt.patientEmail.toLowerCase().includes(query) ||
+          apt.patientPhone.toLowerCase().includes(query) ||
+          apt.doctorName.toLowerCase().includes(query) ||
+          apt.appointmentCode.toLowerCase().includes(query) ||
+          (apt.reasonForVisit &&
+            apt.reasonForVisit.toLowerCase().includes(query)) ||
+          (apt.symptoms && apt.symptoms.toLowerCase().includes(query))
       );
     }
 
@@ -136,18 +148,30 @@ export default function DoctorAppointmentsPending() {
     }
   };
 
-  const handleCancel = async (appointment: AppointmentDTO) => {
-    const reason = prompt('Please provide a reason for cancellation:');
-    if (!reason) {
-      return;
-    }
+  const handleCancel = (appointment: AppointmentDTO) => {
+    setAppointmentToCancel(appointment);
+    setIsCancelModalOpen(true);
+  };
+
+  const handleCloseCancelModal = () => {
+    setIsCancelModalOpen(false);
+    setAppointmentToCancel(null);
+  };
+
+  const handleCancelSubmit = async (data: CancelDTO) => {
+    if (!appointmentToCancel) return;
 
     try {
-      const cancelData: CancelDTO = { reason };
-      await appointmentService.cancelAppointment(appointment.id, cancelData);
+      await appointmentService.cancelAppointmentAsDoctor(
+        appointmentToCancel.id,
+        data
+      );
       showToast(`Appointment cancelled successfully`, 'success');
       // Remove from list
-      setAppointments(appointments.filter((apt) => apt.id !== appointment.id));
+      setAppointments(
+        appointments.filter((apt) => apt.id !== appointmentToCancel.id)
+      );
+      handleCloseCancelModal();
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to cancel appointment';
@@ -392,7 +416,6 @@ export default function DoctorAppointmentsPending() {
                 </div>
               </div>
             </div>
-
             {/* Pending Appointments Table */}
             {processedAppointments.length > 0 ? (
               <PendingConfirmationTable
@@ -437,6 +460,15 @@ export default function DoctorAppointmentsPending() {
           isOpen={isRescheduleModalOpen}
           onClose={handleCloseRescheduleModal}
           onReschedule={handleRescheduleSubmit}
+          isLoading={rescheduleLoading}
+        />
+
+        {/* Cancel Modal */}
+        <CancelModal
+          appointment={appointmentToCancel}
+          isOpen={isCancelModalOpen}
+          onClose={handleCloseCancelModal}
+          onCancel={handleCancelSubmit}
           isLoading={rescheduleLoading}
         />
       </div>
