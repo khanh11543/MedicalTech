@@ -1,4 +1,4 @@
-import api from "./api";
+import api from './api';
 
 // ==================== TYPES ====================
 
@@ -228,15 +228,15 @@ export interface CreatePatientDTO {
 // ==================== PATIENT SELF-SERVICE TYPES ====================
 
 export type AppointmentStatus =
-  | "PENDING"
-  | "SCHEDULED"
-  | "CONFIRMED"
-  | "CHECKED_IN"
-  | "IN_PROGRESS"
-  | "COMPLETED"
-  | "CANCELLED"
-  | "NO_SHOW"
-  | "RESCHEDULED";
+  | 'PENDING'
+  | 'SCHEDULED'
+  | 'CONFIRMED'
+  | 'CHECKED_IN'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'NO_SHOW'
+  | 'RESCHEDULED';
 
 export interface Appointment {
   id: number;
@@ -558,7 +558,7 @@ const patientService = {
     size?: number;
     sort?: string;
   }): Promise<PageResponse<PatientListDTO>> => {
-    const response = await api.get("/receptionist/patients", { params });
+    const response = await api.get('/receptionist/patients', { params });
     return response.data;
   },
 
@@ -568,7 +568,7 @@ const patientService = {
     page = 0,
     size = 20
   ): Promise<PageResponse<PatientBasicDTO>> => {
-    const response = await api.get("/receptionist/patients/search", {
+    const response = await api.get('/receptionist/patients/search', {
       params: { q: query, page, size },
     });
     return response.data;
@@ -576,7 +576,7 @@ const patientService = {
 
   // Create walk-in patient
   createPatient: async (data: CreatePatientDTO): Promise<PatientBasicDTO> => {
-    const response = await api.post("/receptionist/patients", data);
+    const response = await api.post('/receptionist/patients', data);
     return response.data;
   },
 
@@ -613,7 +613,7 @@ const patientService = {
     page?: number;
     size?: number;
   }): Promise<PageResponse<NewPatientDTO>> => {
-    const response = await api.get("/receptionist/patients/new", { params });
+    const response = await api.get('/receptionist/patients/new', { params });
     return response.data;
   },
 
@@ -625,7 +625,7 @@ const patientService = {
     page?: number;
     size?: number;
   }): Promise<PageResponse<FrequentPatientDTO>> => {
-    const response = await api.get("/receptionist/patients/frequent", {
+    const response = await api.get('/receptionist/patients/frequent', {
       params,
     });
     return response.data;
@@ -671,14 +671,14 @@ const patientService = {
     notes?: string
   ): Promise<PatientDocumentDTO> => {
     const formData = new FormData();
-    formData.append("file", file);
-    formData.append("documentType", documentType);
-    if (notes) formData.append("notes", notes);
+    formData.append('file', file);
+    formData.append('documentType', documentType);
+    if (notes) formData.append('notes', notes);
 
     const response = await api.post(
       `/receptionist/patients/${patientId}/documents`,
       formData,
-      { headers: { "Content-Type": "multipart/form-data" } }
+      { headers: { 'Content-Type': 'multipart/form-data' } }
     );
     return response.data;
   },
@@ -726,20 +726,20 @@ const patientService = {
   ): Promise<Blob> => {
     const response = await api.get(
       `/receptionist/patients/${patientId}/payments/${paymentId}/receipt`,
-      { responseType: "blob" }
+      { responseType: 'blob' }
     );
     return response.data;
   },
 
   // Statistics
   getPatientStats: async (): Promise<PatientStatsDTO> => {
-    const response = await api.get("/receptionist/patients/stats");
+    const response = await api.get('/receptionist/patients/stats');
     return response.data;
   },
 
   // Message templates
   getMessageTemplates: async (): Promise<NotificationTemplateDTO[]> => {
-    const response = await api.get("/receptionist/patients/message-templates");
+    const response = await api.get('/receptionist/patients/message-templates');
     return response.data;
   },
 
@@ -759,24 +759,26 @@ const patientService = {
 
   // Dashboard stats
   getDashboardStats: async (): Promise<DashboardStats> => {
-    const response = await api.get("/patient/dashboard/stats");
+    const response = await api.get('/patient/dashboard/stats');
     return response.data;
   },
 
   // My patient profile (User + Patient fields)
   getMyProfile: async (): Promise<PatientProfileResponse> => {
-    const response = await api.get("/patient/profile");
+    const response = await api.get('/patient/profile');
     return response.data;
   },
 
-  updateMyProfile: async (data: UpdatePatientProfileRequest): Promise<PatientProfileResponse> => {
-    const response = await api.put("/patient/profile", data);
+  updateMyProfile: async (
+    data: UpdatePatientProfileRequest
+  ): Promise<PatientProfileResponse> => {
+    const response = await api.put('/patient/profile', data);
     return response.data;
   },
 
   // Upcoming appointments
   getUpcomingAppointments: async (): Promise<Appointment[]> => {
-    const response = await api.get("/patient/appointments/upcoming");
+    const response = await api.get('/patient/appointments/upcoming');
     return response.data;
   },
 
@@ -789,13 +791,18 @@ const patientService = {
     pageNumber?: number;
     pageSize?: number;
   }): Promise<PageResponse<Appointment>> => {
-    const response = await api.get("/patient/appointments", { params });
+    const response = await api.get('/patient/appointments', { params });
     return response.data;
   },
 
   // Cancel my appointment
-  cancelMyAppointment: async (appointmentId: number, reason?: string): Promise<Appointment> => {
-    const response = await api.patch(`/appointments/${appointmentId}/cancel`, { reason });
+  cancelMyAppointment: async (
+    appointmentId: number,
+    reason?: string
+  ): Promise<Appointment> => {
+    const response = await api.patch(`/appointments/${appointmentId}/cancel`, {
+      reason,
+    });
     return response.data;
   },
 
@@ -805,7 +812,7 @@ const patientService = {
     pageNumber?: number;
     pageSize?: number;
   }): Promise<PageResponse<Payment>> => {
-    const response = await api.get("/patient/payments", { params });
+    const response = await api.get('/patient/payments', { params });
     return response.data;
   },
 
@@ -817,13 +824,13 @@ const patientService = {
     pageNumber?: number;
     pageSize?: number;
   }): Promise<PageResponse<DoctorCard>> => {
-    const response = await api.get("/public/doctors", { params });
+    const response = await api.get('/public/doctors', { params });
     return response.data;
   },
 
   // Get specialties (public)
   getSpecialties: async (): Promise<Specialty[]> => {
-    const response = await api.get("/public/specialties");
+    const response = await api.get('/public/specialties');
     return response.data;
   },
 
@@ -847,8 +854,10 @@ const patientService = {
   },
 
   // Book appointment (patient)
-  bookAppointment: async (data: BookAppointmentRequest): Promise<Appointment> => {
-    const response = await api.post("/patient/appointments", data);
+  bookAppointment: async (
+    data: BookAppointmentRequest
+  ): Promise<Appointment> => {
+    const response = await api.post('/patient/appointments', data);
     return response.data;
   },
 
@@ -857,7 +866,7 @@ const patientService = {
     pageNumber?: number;
     pageSize?: number;
   }): Promise<PageResponse<MedicalRecord>> => {
-    const response = await api.get("/patient/medical-records", { params });
+    const response = await api.get('/patient/medical-records', { params });
     return response.data;
   },
 
@@ -872,7 +881,7 @@ const patientService = {
     pageNumber?: number;
     pageSize?: number;
   }): Promise<PageResponse<Prescription>> => {
-    const response = await api.get("/patient/prescriptions", { params });
+    const response = await api.get('/patient/prescriptions', { params });
     return response.data;
   },
 
@@ -903,35 +912,60 @@ const patientService = {
   // Download invoice PDF
   downloadInvoicePdf: async (invoiceId: number): Promise<Blob> => {
     const response = await api.get(`/patient/invoices/${invoiceId}/pdf`, {
-      responseType: "blob",
+      responseType: 'blob',
     });
     return response.data;
   },
 
   // Init MOMO payment (patient self-service)
   initMomoPayment: async (paymentId: number): Promise<PaymentInitDTO> => {
-    const response = await api.post(`/patient/payments/${paymentId}/momo/init`, {});
+    const response = await api.post(
+      `/patient/payments/${paymentId}/momo/init`,
+      {}
+    );
     return response.data;
   },
 
   // Cancel payment (patient self-service)
-  cancelMyPayment: async (paymentId: number, reason?: string): Promise<Payment> => {
-    const response = await api.patch(`/patient/payments/${paymentId}/cancel`, { reason });
+  cancelMyPayment: async (
+    paymentId: number,
+    reason?: string
+  ): Promise<Payment> => {
+    const response = await api.patch(`/patient/payments/${paymentId}/cancel`, {
+      reason,
+    });
     return response.data;
   },
 
   createReview: async (data: ReviewCreateRequest): Promise<any> => {
-    const response = await api.post("/patient/reviews", data);
+    const response = await api.post('/patient/reviews', data);
     return response.data;
   },
 
   /** Upload image for review (general/testimonial). Returns { url: string }. */
   uploadReviewImage: async (file: File): Promise<{ url: string }> => {
     const formData = new FormData();
-    formData.append("file", file);
-    const response = await api.post("/patient/reviews/upload-image", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
+    formData.append('file', file);
+    const response = await api.post('/patient/reviews/upload-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
+    return response.data;
+  },
+
+  // Reschedule appointment
+  rescheduleAppointment: async (
+    appointmentId: number,
+    data: {
+      newDate: string; // yyyy-MM-dd
+      newStartTime: string; // HH:mm
+      newEndTime: string; // HH:mm
+      reason?: string;
+    }
+  ) => {
+    const response = await api.patch(
+      `/appointments/${appointmentId}/reschedule`,
+      data
+    );
     return response.data;
   },
 };

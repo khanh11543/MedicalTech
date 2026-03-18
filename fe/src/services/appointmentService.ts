@@ -1,28 +1,29 @@
-import api from "./api";
+import api from './api';
+import { TimeSlotDTO } from './doctorScheduleService';
 
 // =========== ENUMS ===========
 export enum AppointmentStatus {
-  PENDING = "PENDING",
-  CONFIRMED = "CONFIRMED",
-  CHECKED_IN = "CHECKED_IN",
-  IN_PROGRESS = "IN_PROGRESS",
-  COMPLETED = "COMPLETED",
-  CANCELLED = "CANCELLED",
-  NO_SHOW = "NO_SHOW",
-  RESCHEDULED = "RESCHEDULED",
+  PENDING = 'PENDING',
+  CONFIRMED = 'CONFIRMED',
+  CHECKED_IN = 'CHECKED_IN',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  CANCELLED = 'CANCELLED',
+  NO_SHOW = 'NO_SHOW',
+  RESCHEDULED = 'RESCHEDULED',
 }
 
 export enum AppointmentType {
-  CONSULTATION = "CONSULTATION",
-  FOLLOW_UP = "FOLLOW_UP",
-  EMERGENCY = "EMERGENCY",
-  CHECKUP = "CHECKUP",
+  CONSULTATION = 'CONSULTATION',
+  FOLLOW_UP = 'FOLLOW_UP',
+  EMERGENCY = 'EMERGENCY',
+  CHECKUP = 'CHECKUP',
 }
 
 export enum PaymentStatus {
-  PAID = "PAID",
-  PENDING = "PENDING",
-  REFUNDED = "REFUNDED",
+  PAID = 'PAID',
+  PENDING = 'PENDING',
+  REFUNDED = 'REFUNDED',
 }
 
 // =========== INTERFACES ===========
@@ -110,7 +111,7 @@ export interface AppointmentStatsDTO {
   todayTotal: number;
   weekTotal: number;
   monthTotal: number;
-  
+
   // Today's breakdown
   todayPending: number;
   todayConfirmed: number;
@@ -118,29 +119,29 @@ export interface AppointmentStatsDTO {
   todayCompleted: number;
   todayCancelled: number;
   todayNoShow: number;
-  
+
   // Rates
   completionRate: number;
   cancellationRate: number;
   noShowRate: number;
-  
+
   // Trends
   dailyTrend: Record<string, number>;
   statusBreakdown: Record<string, number>;
   doctorBreakdown: Record<string, number>;
   hourlyDistribution: Record<string, number>;
-  
+
   // Peak
   peakHour: string;
   peakHourCount: number;
-  
+
   // Average wait time
   avgWaitTimeMinutes: number;
-  
+
   // Comparison with previous period
   weekOverWeekChange: number;
   monthOverMonthChange: number;
-  
+
   // Legacy properties for backward compatibility
   todayByStatus?: Record<AppointmentStatus, number>;
   weekTrend?: number;
@@ -167,24 +168,24 @@ export interface AppointmentDetailDTO extends AppointmentDTO {
   patientDob?: string;
   patientGender?: string;
   patientAddress?: string;
-  
+
   // Extended doctor info
   doctorAvatar?: string;
   doctorPhone?: string;
   doctorConsultationFee?: number;
   doctorExperience?: number;
-  
+
   // Additional details
   doctorNotes?: string;
   diagnosis?: string;
   timeSlotId?: number;
   duration?: number;
-  
+
   // Queue info
   checkedInBy?: string;
   checkedInByUserId?: number;
   estimatedWaitTime?: number;
-  
+
   // Payment info
   paymentId?: number;
   paymentAmount?: number;
@@ -195,12 +196,12 @@ export interface AppointmentDetailDTO extends AppointmentDTO {
 export interface CommunicationDTO {
   id: number;
   appointmentId: number;
-  type: "CONFIRMATION" | "REMINDER" | "CANCELLATION" | "RESCHEDULE" | "CUSTOM";
-  channel: "EMAIL" | "SMS";
+  type: 'CONFIRMATION' | 'REMINDER' | 'CANCELLATION' | 'RESCHEDULE' | 'CUSTOM';
+  channel: 'EMAIL' | 'SMS';
   recipient: string;
   subject?: string;
   content: string;
-  status: "PENDING" | "SENT" | "DELIVERED" | "FAILED";
+  status: 'PENDING' | 'SENT' | 'DELIVERED' | 'FAILED';
   sentAt?: string;
   deliveredAt?: string;
   failureReason?: string;
@@ -218,7 +219,7 @@ export interface PrescriptionDTO {
   diagnosis: string;
   notes: string;
   medications: MedicationDTO[];
-  status: "ACTIVE" | "COMPLETED" | "CANCELLED";
+  status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
   createdAt: string;
   updatedAt: string;
 }
@@ -272,7 +273,7 @@ export interface ReviewDTO {
   rating: number;
   comment: string;
   isAnonymous: boolean;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt: string;
 }
 
@@ -284,7 +285,7 @@ export interface RelatedRecordsDTO {
 }
 
 export interface SendMessageDTO {
-  messageType: "EMAIL" | "SMS";
+  messageType: 'EMAIL' | 'SMS';
   message: string;
   subject?: string;
   sendCopy?: boolean;
@@ -298,21 +299,24 @@ const appointmentService = {
     filter: AppointmentFilterDTO
   ): Promise<PageResponse<AppointmentDTO>> => {
     const params = new URLSearchParams();
-    
-    if (filter.doctorId) params.append("doctorId", filter.doctorId.toString());
-    if (filter.patientId) params.append("patientId", filter.patientId.toString());
-    if (filter.status) params.append("status", filter.status);
+
+    if (filter.doctorId) params.append('doctorId', filter.doctorId.toString());
+    if (filter.patientId)
+      params.append('patientId', filter.patientId.toString());
+    if (filter.status) params.append('status', filter.status);
     // Support multiple status filtering
     if (filter.statuses && filter.statuses.length > 0) {
-      filter.statuses.forEach(status => params.append("statuses", status));
+      filter.statuses.forEach((status) => params.append('statuses', status));
     }
-    if (filter.from) params.append("from", filter.from);
-    if (filter.to) params.append("to", filter.to);
-    if (filter.search) params.append("search", filter.search);
-    if (filter.appointmentType) params.append("appointmentType", filter.appointmentType);
-    if (filter.paymentStatus) params.append("paymentStatus", filter.paymentStatus);
-    params.append("pageNumber", (filter.pageNumber ?? 0).toString());
-    params.append("pageSize", (filter.pageSize ?? 10).toString());
+    if (filter.from) params.append('from', filter.from);
+    if (filter.to) params.append('to', filter.to);
+    if (filter.search) params.append('search', filter.search);
+    if (filter.appointmentType)
+      params.append('appointmentType', filter.appointmentType);
+    if (filter.paymentStatus)
+      params.append('paymentStatus', filter.paymentStatus);
+    params.append('pageNumber', (filter.pageNumber ?? 0).toString());
+    params.append('pageSize', (filter.pageSize ?? 10).toString());
 
     const response = await api.get(`/admin/appointments?${params.toString()}`);
     return response.data;
@@ -329,16 +333,44 @@ const appointmentService = {
     id: number,
     data: RescheduleDTO
   ): Promise<AppointmentDTO> => {
-    const response = await api.put(`/admin/appointments/${id}/reschedule`, data);
+    const response = await api.patch(`/appointments/${id}/reschedule`, data);
     return response.data;
   },
 
-  // Cancel appointment
+  // Get available time slots for rescheduling an appointment
+  getAvailableSlotsForReschedule: async (
+    appointmentId: number,
+    dateFrom?: string,
+    dateTo?: string
+  ): Promise<TimeSlotDTO[]> => {
+    const params = new URLSearchParams();
+    if (dateFrom) params.append('dateFrom', dateFrom);
+    if (dateTo) params.append('dateTo', dateTo);
+
+    const queryString = params.toString();
+    const url = queryString
+      ? `/doctor/appointments/${appointmentId}/available-slots?${queryString}`
+      : `/doctor/appointments/${appointmentId}/available-slots`;
+
+    const response = await api.get<TimeSlotDTO[]>(url);
+    return response.data;
+  },
+
+  // Cancel appointment (Admin)
   cancelAppointment: async (
     id: number,
     data: CancelDTO
   ): Promise<AppointmentDTO> => {
     const response = await api.put(`/admin/appointments/${id}/cancel`, data);
+    return response.data;
+  },
+
+  // Cancel appointment (Doctor)
+  cancelAppointmentAsDoctor: async (
+    id: number,
+    data: CancelDTO
+  ): Promise<AppointmentDTO> => {
+    const response = await api.put(`/doctor/appointments/${id}/cancel`, data);
     return response.data;
   },
 
@@ -352,7 +384,9 @@ const appointmentService = {
 
   // Check-in patient (Receptionist)
   checkInPatient: async (id: number): Promise<AppointmentDTO> => {
-    const response = await api.patch(`/receptionist/appointments/${id}/check-in`);
+    const response = await api.patch(
+      `/receptionist/appointments/${id}/check-in`
+    );
     return response.data;
   },
 
@@ -367,11 +401,11 @@ const appointmentService = {
     filter: AppointmentFilterDTO
   ): Promise<PageResponse<AppointmentDTO>> => {
     const params = new URLSearchParams();
-    
-    if (filter.status) params.append("status", filter.status);
-    if (filter.date) params.append("date", filter.date);
-    params.append("pageNumber", (filter.pageNumber ?? 0).toString());
-    params.append("pageSize", (filter.pageSize ?? 10).toString());
+
+    if (filter.status) params.append('status', filter.status);
+    if (filter.date) params.append('date', filter.date);
+    params.append('pageNumber', (filter.pageNumber ?? 0).toString());
+    params.append('pageSize', (filter.pageSize ?? 10).toString());
 
     const response = await api.get(`/doctor/appointments?${params.toString()}`);
     return response.data;
@@ -382,43 +416,51 @@ const appointmentService = {
     filter: AppointmentFilterDTO
   ): Promise<PageResponse<AppointmentDTO>> => {
     const params = new URLSearchParams();
-    
-    if (filter.status) params.append("status", filter.status);
-    if (filter.from) params.append("dateFrom", filter.from);
-    if (filter.to) params.append("dateTo", filter.to);
-    params.append("pageNumber", (filter.pageNumber ?? 0).toString());
-    params.append("pageSize", (filter.pageSize ?? 10).toString());
 
-    const response = await api.get(`/doctor/appointments/history?${params.toString()}`);
+    if (filter.status) params.append('status', filter.status);
+    if (filter.from) params.append('dateFrom', filter.from);
+    if (filter.to) params.append('dateTo', filter.to);
+    params.append('pageNumber', (filter.pageNumber ?? 0).toString());
+    params.append('pageSize', (filter.pageSize ?? 10).toString());
+
+    const response = await api.get(
+      `/doctor/appointments/history?${params.toString()}`
+    );
     return response.data;
   },
 
   // Get doctor's appointment detail (Doctor role)
-  getDoctorAppointmentDetail: async (id: number): Promise<AppointmentDetailDTO> => {
+  getDoctorAppointmentDetail: async (
+    id: number
+  ): Promise<AppointmentDetailDTO> => {
     const response = await api.get(`/appointments/${id}`);
     return response.data;
   },
 
   // Get doctors for dropdown
   getDoctors: async (): Promise<DoctorOption[]> => {
-    const response = await api.get("/public/doctors?pageSize=100");
+    const response = await api.get('/public/doctors?pageSize=100');
     // Map the response to DoctorOption format
-    return response.data.content.map((doctor: { id: number; fullName: string; specialtyName: string }) => ({
-      id: doctor.id,
-      name: doctor.fullName,
-      specialization: doctor.specialtyName,
-    }));
+    return response.data.content.map(
+      (doctor: { id: number; fullName: string; specialtyName: string }) => ({
+        id: doctor.id,
+        name: doctor.fullName,
+        specialization: doctor.specialtyName,
+      })
+    );
   },
 
   // Get patients for dropdown (Admin access)
   getPatients: async (): Promise<PatientOption[]> => {
     try {
-      const response = await api.get("/admin/users?role=PATIENT&pageSize=100");
-      return response.data.content.map((user: { id: number; email: string; fullName?: string }) => ({
-        id: user.id,
-        name: user.fullName || user.email,
-        email: user.email,
-      }));
+      const response = await api.get('/admin/users?role=PATIENT&pageSize=100');
+      return response.data.content.map(
+        (user: { id: number; email: string; fullName?: string }) => ({
+          id: user.id,
+          name: user.fullName || user.email,
+          email: user.email,
+        })
+      );
     } catch {
       return [];
     }
@@ -427,7 +469,7 @@ const appointmentService = {
   // Get appointment statistics
   getAppointmentStats: async (): Promise<AppointmentStatsDTO> => {
     try {
-      const response = await api.get("/admin/appointments/stats");
+      const response = await api.get('/admin/appointments/stats');
       return response.data;
     } catch {
       // Return mock stats if endpoint doesn't exist
@@ -448,7 +490,7 @@ const appointmentService = {
         statusBreakdown: {},
         doctorBreakdown: {},
         hourlyDistribution: {},
-        peakHour: "",
+        peakHour: '',
         peakHourCount: 0,
         avgWaitTimeMinutes: 0,
         weekOverWeekChange: 0,
@@ -458,10 +500,17 @@ const appointmentService = {
   },
 
   // Bulk cancel appointments
-  bulkCancel: async (ids: number[], reason: string): Promise<{ successCount: number; failCount: number; failedIds: number[] }> => {
-    const response = await api.post("/admin/appointments/bulk/cancel", {
+  bulkCancel: async (
+    ids: number[],
+    reason: string
+  ): Promise<{
+    successCount: number;
+    failCount: number;
+    failedIds: number[];
+  }> => {
+    const response = await api.post('/admin/appointments/bulk/cancel', {
       appointmentIds: ids,
-      reason: reason
+      reason: reason,
     });
     return response.data;
   },
@@ -469,26 +518,38 @@ const appointmentService = {
   // Export appointments to Excel (returns blob)
   exportToExcel: async (filter: AppointmentFilterDTO): Promise<Blob> => {
     const params = new URLSearchParams();
-    if (filter.doctorId) params.append("doctorId", filter.doctorId.toString());
-    if (filter.patientId) params.append("patientId", filter.patientId.toString());
-    if (filter.status) params.append("status", filter.status);
-    if (filter.from) params.append("from", filter.from);
-    if (filter.to) params.append("to", filter.to);
+    if (filter.doctorId) params.append('doctorId', filter.doctorId.toString());
+    if (filter.patientId)
+      params.append('patientId', filter.patientId.toString());
+    if (filter.status) params.append('status', filter.status);
+    if (filter.from) params.append('from', filter.from);
+    if (filter.to) params.append('to', filter.to);
 
-    const response = await api.get(`/admin/appointments/export?${params.toString()}`, {
-      responseType: "blob",
-    });
+    const response = await api.get(
+      `/admin/appointments/export?${params.toString()}`,
+      {
+        responseType: 'blob',
+      }
+    );
     return response.data;
   },
 
   // Send reminder SMS
-  sendReminder: async (ids: number[]): Promise<{ successCount: number; failCount: number; failedIds: number[] }> => {
-    const response = await api.post("/admin/appointments/bulk/reminders", { appointmentIds: ids });
+  sendReminder: async (
+    ids: number[]
+  ): Promise<{
+    successCount: number;
+    failCount: number;
+    failedIds: number[];
+  }> => {
+    const response = await api.post('/admin/appointments/bulk/reminders', {
+      appointmentIds: ids,
+    });
     return response.data;
   },
 
   // =========== DETAIL PAGE APIs ===========
-  
+
   // Get appointment detail (extended info)
   getAppointmentDetail: async (id: number): Promise<AppointmentDetailDTO> => {
     const response = await api.get(`/admin/appointments/${id}/detail`);
@@ -496,8 +557,14 @@ const appointmentService = {
   },
 
   // Mark appointment as no-show
-  markAsNoShow: async (id: number, data: { reason: string; sendNotification?: boolean }): Promise<AppointmentDTO> => {
-    const response = await api.patch(`/admin/appointments/${id}/mark-no-show`, data);
+  markAsNoShow: async (
+    id: number,
+    data: { reason: string; sendNotification?: boolean }
+  ): Promise<AppointmentDTO> => {
+    const response = await api.patch(
+      `/admin/appointments/${id}/mark-no-show`,
+      data
+    );
     return response.data;
   },
 
@@ -508,26 +575,45 @@ const appointmentService = {
   },
 
   // Complete appointment
-  completeAppointment: async (id: number, data: { doctorNotes?: string; diagnosis?: string }): Promise<AppointmentDTO> => {
-    const response = await api.patch(`/admin/appointments/${id}/complete`, data);
+  completeAppointment: async (
+    id: number,
+    data: { doctorNotes?: string; diagnosis?: string }
+  ): Promise<AppointmentDTO> => {
+    const response = await api.patch(
+      `/admin/appointments/${id}/complete`,
+      data
+    );
     return response.data;
   },
 
   // Get communications for an appointment
-  getAppointmentCommunications: async (id: number): Promise<CommunicationDTO[]> => {
+  getAppointmentCommunications: async (
+    id: number
+  ): Promise<CommunicationDTO[]> => {
     const response = await api.get(`/admin/appointments/${id}/communications`);
     return response.data;
   },
 
   // Send custom message
-  sendCustomMessage: async (id: number, data: SendMessageDTO): Promise<{ success: boolean; message: string }> => {
-    const response = await api.post(`/admin/appointments/${id}/send-message`, data);
+  sendCustomMessage: async (
+    id: number,
+    data: SendMessageDTO
+  ): Promise<{ success: boolean; message: string }> => {
+    const response = await api.post(
+      `/admin/appointments/${id}/send-message`,
+      data
+    );
     return response.data;
   },
 
   // Resend failed communication
-  resendCommunication: async (appointmentId: number, communicationId: number): Promise<CommunicationDTO> => {
-    const response = await api.post(`/admin/appointments/${appointmentId}/communications/${communicationId}/resend`);
+  resendCommunication: async (
+    appointmentId: number,
+    communicationId: number
+  ): Promise<CommunicationDTO> => {
+    const response = await api.post(
+      `/admin/appointments/${appointmentId}/communications/${communicationId}/resend`
+    );
     return response.data;
   },
 
@@ -552,14 +638,18 @@ const appointmentService = {
   },
 
   // Get prescriptions for an appointment
-  getAppointmentPrescriptions: async (id: number): Promise<PrescriptionDTO[]> => {
+  getAppointmentPrescriptions: async (
+    id: number
+  ): Promise<PrescriptionDTO[]> => {
     const response = await api.get(`/admin/appointments/${id}/related`);
     // Extract prescriptions from related records response
     return response.data.prescriptions || [];
   },
 
   // Get medical record for an appointment
-  getAppointmentMedicalRecord: async (id: number): Promise<MedicalRecordDTO | null> => {
+  getAppointmentMedicalRecord: async (
+    id: number
+  ): Promise<MedicalRecordDTO | null> => {
     try {
       const response = await api.get(`/admin/appointments/${id}/related`);
       return response.data.medicalRecord || null;
@@ -587,7 +677,7 @@ const appointmentService = {
   // Export history to PDF
   exportHistoryToPDF: async (id: number): Promise<Blob> => {
     const response = await api.get(`/admin/appointments/${id}/history/export`, {
-      responseType: "blob",
+      responseType: 'blob',
     });
     return response.data;
   },
@@ -597,85 +687,121 @@ const appointmentService = {
   // Helper: map FE filter to BE query params
   _mapFilterParams: (filter: StatisticsFilterDTO) => {
     const periodToGroupBy: Record<string, string> = {
-      DAILY: "DAY",
-      WEEKLY: "WEEK",
-      MONTHLY: "MONTH",
+      DAILY: 'DAY',
+      WEEKLY: 'WEEK',
+      MONTHLY: 'MONTH',
     };
     return {
       from: filter.from,
       to: filter.to,
       doctorId: filter.doctorId,
-      groupBy: filter.period ? periodToGroupBy[filter.period] || "DAY" : "DAY",
+      groupBy: filter.period ? periodToGroupBy[filter.period] || 'DAY' : 'DAY',
     };
   },
 
   // Get appointments over time (BE returns TimeSeriesStatsDTO wrapper)
-  getAppointmentsOverTime: async (filter: StatisticsFilterDTO): Promise<AppointmentOverTimeDTO[]> => {
+  getAppointmentsOverTime: async (
+    filter: StatisticsFilterDTO
+  ): Promise<AppointmentOverTimeDTO[]> => {
     const params = appointmentService._mapFilterParams(filter);
-    const response = await api.get("/admin/appointments/statistics/over-time", { params });
+    const response = await api.get('/admin/appointments/statistics/over-time', {
+      params,
+    });
     // BE returns { data: DataPoint[], ... } - extract and map
     const wrapper = response.data;
     const dataPoints = wrapper.data || [];
-    return dataPoints.map((dp: { label: string; date: string; total: number; completed: number; cancelled: number; noShow: number }) => ({
-      date: dp.date || dp.label,
-      label: dp.label,
-      total: dp.total || 0,
-      pending: 0,
-      confirmed: 0,
-      completed: dp.completed || 0,
-      cancelled: dp.cancelled || 0,
-      noShow: dp.noShow || 0,
-    }));
+    return dataPoints.map(
+      (dp: {
+        label: string;
+        date: string;
+        total: number;
+        completed: number;
+        cancelled: number;
+        noShow: number;
+      }) => ({
+        date: dp.date || dp.label,
+        label: dp.label,
+        total: dp.total || 0,
+        pending: 0,
+        confirmed: 0,
+        completed: dp.completed || 0,
+        cancelled: dp.cancelled || 0,
+        noShow: dp.noShow || 0,
+      })
+    );
   },
 
   // Get appointments by status (BE returns StatusDistributionDTO wrapper)
-  getAppointmentsByStatus: async (filter: StatisticsFilterDTO): Promise<AppointmentByStatusDTO[]> => {
+  getAppointmentsByStatus: async (
+    filter: StatisticsFilterDTO
+  ): Promise<AppointmentByStatusDTO[]> => {
     const params = appointmentService._mapFilterParams(filter);
-    const response = await api.get("/admin/appointments/statistics/by-status", { params });
+    const response = await api.get('/admin/appointments/statistics/by-status', {
+      params,
+    });
     // BE returns { total, distribution: [{status, statusDisplayName, count, percentage, color}] }
     const wrapper = response.data;
     const distribution = wrapper.distribution || [];
-    return distribution.map((d: { status: string; count: number; percentage: number }) => ({
-      status: d.status as AppointmentStatus,
-      count: d.count || 0,
-      percentage: d.percentage || 0,
-    }));
+    return distribution.map(
+      (d: { status: string; count: number; percentage: number }) => ({
+        status: d.status as AppointmentStatus,
+        count: d.count || 0,
+        percentage: d.percentage || 0,
+      })
+    );
   },
 
   // Get appointments by doctor (BE returns Page<DoctorStatsDTO>)
-  getAppointmentsByDoctor: async (filter: StatisticsFilterDTO): Promise<AppointmentByDoctorDTO[]> => {
+  getAppointmentsByDoctor: async (
+    filter: StatisticsFilterDTO
+  ): Promise<AppointmentByDoctorDTO[]> => {
     const params = {
       from: filter.from,
       to: filter.to,
       page: 0,
       size: filter.limit || 10,
-      sortBy: "totalAppointments",
-      sortDir: "DESC",
+      sortBy: 'totalAppointments',
+      sortDir: 'DESC',
     };
-    const response = await api.get("/admin/appointments/statistics/by-doctor", { params });
+    const response = await api.get('/admin/appointments/statistics/by-doctor', {
+      params,
+    });
     // BE returns Page with content array of DoctorStatsDTO
     const content = response.data.content || response.data || [];
-    return content.map((d: {
-      doctorId: number; doctorName: string; specialization: string; avatarUrl?: string;
-      totalAppointments: number; completedAppointments: number; cancelledAppointments: number;
-      noShowAppointments: number; completionRate: number;
-    }) => ({
-      doctorId: d.doctorId,
-      doctorName: d.doctorName,
-      doctorSpecialization: d.specialization || "",
-      doctorAvatar: d.avatarUrl,
-      total: d.totalAppointments || 0,
-      completed: d.completedAppointments || 0,
-      cancelled: d.cancelledAppointments || 0,
-      noShow: d.noShowAppointments || 0,
-      completionRate: d.completionRate || 0,
-    }));
+    return content.map(
+      (d: {
+        doctorId: number;
+        doctorName: string;
+        specialization: string;
+        avatarUrl?: string;
+        totalAppointments: number;
+        completedAppointments: number;
+        cancelledAppointments: number;
+        noShowAppointments: number;
+        completionRate: number;
+      }) => ({
+        doctorId: d.doctorId,
+        doctorName: d.doctorName,
+        doctorSpecialization: d.specialization || '',
+        doctorAvatar: d.avatarUrl,
+        total: d.totalAppointments || 0,
+        completed: d.completedAppointments || 0,
+        cancelled: d.cancelledAppointments || 0,
+        noShow: d.noShowAppointments || 0,
+        completionRate: d.completionRate || 0,
+      })
+    );
   },
 
   // Get peak hours analysis (BE returns nested PeakHoursHeatmapDTO)
-  getPeakHoursAnalysis: async (filter: StatisticsFilterDTO): Promise<PeakHoursDTO[]> => {
+  getPeakHoursAnalysis: async (
+    filter: StatisticsFilterDTO
+  ): Promise<PeakHoursDTO[]> => {
     const params = appointmentService._mapFilterParams(filter);
-    const response = await api.get("/admin/appointments/statistics/peak-hours", { params });
+    const response = await api.get(
+      '/admin/appointments/statistics/peak-hours',
+      { params }
+    );
     // BE returns { days: [{dayName, dayShort, dayIndex, hours: [{hour, hourLabel, count, intensity}]}] }
     const wrapper = response.data;
     const result: PeakHoursDTO[] = [];
@@ -698,98 +824,152 @@ const appointmentService = {
   },
 
   // Get cancellation analysis (map BE CancellationAnalysisDTO to FE format)
-  getCancellationAnalysis: async (filter: StatisticsFilterDTO): Promise<CancellationAnalysisDTO> => {
+  getCancellationAnalysis: async (
+    filter: StatisticsFilterDTO
+  ): Promise<CancellationAnalysisDTO> => {
     const params = appointmentService._mapFilterParams(filter);
-    const response = await api.get("/admin/appointments/statistics/cancellation", { params });
+    const response = await api.get(
+      '/admin/appointments/statistics/cancellation',
+      { params }
+    );
     const data = response.data;
     return {
       totalCancellations: data.totalCancellations || 0,
       cancellationRate: data.cancellationRate || 0,
-      reasons: (data.topReasons || []).map((r: { reason: string; count: number; percentage: number }) => ({
-        reason: r.reason || "Unknown",
-        count: r.count || 0,
-        percentage: r.percentage || 0,
-      })),
-      trend: (data.trend || []).map((t: { label: string; date: string; cancellations: number; rate: number }) => ({
-        date: t.date || t.label,
-        label: t.label,
-        total: t.cancellations || 0,
-        rate: t.rate || 0,
-      })),
+      reasons: (data.topReasons || []).map(
+        (r: { reason: string; count: number; percentage: number }) => ({
+          reason: r.reason || 'Unknown',
+          count: r.count || 0,
+          percentage: r.percentage || 0,
+        })
+      ),
+      trend: (data.trend || []).map(
+        (t: {
+          label: string;
+          date: string;
+          cancellations: number;
+          rate: number;
+        }) => ({
+          date: t.date || t.label,
+          label: t.label,
+          total: t.cancellations || 0,
+          rate: t.rate || 0,
+        })
+      ),
       byDoctor: [], // BE doesn't provide per-doctor cancellation breakdown
     };
   },
 
   // Get no-show analysis (map BE NoShowAnalysisDTO to FE format)
-  getNoShowAnalysis: async (filter: StatisticsFilterDTO): Promise<NoShowAnalysisDTO> => {
+  getNoShowAnalysis: async (
+    filter: StatisticsFilterDTO
+  ): Promise<NoShowAnalysisDTO> => {
     const params = appointmentService._mapFilterParams(filter);
-    const response = await api.get("/admin/appointments/statistics/no-show", { params });
+    const response = await api.get('/admin/appointments/statistics/no-show', {
+      params,
+    });
     const data = response.data;
     return {
       totalNoShows: data.totalNoShows || 0,
       noShowRate: data.noShowRate || 0,
-      trend: (data.trend || []).map((t: { label: string; date: string; noShows: number; rate: number }) => ({
-        date: t.date || t.label,
-        label: t.label,
-        total: t.noShows || 0,
-        rate: t.rate || 0,
-      })),
-      repeatOffenders: (data.topRepeatOffenders || []).map((p: {
-        patientId: number; patientName: string; phone: string; noShowCount: number; lastNoShowDate: string;
-      }) => ({
-        patientId: p.patientId,
-        patientName: p.patientName,
-        patientEmail: p.phone || "",
-        noShowCount: p.noShowCount || 0,
-        totalAppointments: p.noShowCount || 0,
-        noShowRate: 100,
-      })),
+      trend: (data.trend || []).map(
+        (t: {
+          label: string;
+          date: string;
+          noShows: number;
+          rate: number;
+        }) => ({
+          date: t.date || t.label,
+          label: t.label,
+          total: t.noShows || 0,
+          rate: t.rate || 0,
+        })
+      ),
+      repeatOffenders: (data.topRepeatOffenders || []).map(
+        (p: {
+          patientId: number;
+          patientName: string;
+          phone: string;
+          noShowCount: number;
+          lastNoShowDate: string;
+        }) => ({
+          patientId: p.patientId,
+          patientName: p.patientName,
+          patientEmail: p.phone || '',
+          noShowCount: p.noShowCount || 0,
+          totalAppointments: p.noShowCount || 0,
+          noShowRate: 100,
+        })
+      ),
       byDoctor: [], // BE doesn't provide per-doctor no-show breakdown
     };
   },
 
   // Get average wait time (map BE WaitTimeStatsDTO to FE format)
-  getAverageWaitTime: async (filter: StatisticsFilterDTO): Promise<WaitTimeAnalysisDTO> => {
+  getAverageWaitTime: async (
+    filter: StatisticsFilterDTO
+  ): Promise<WaitTimeAnalysisDTO> => {
     const params = appointmentService._mapFilterParams(filter);
-    const response = await api.get("/admin/appointments/statistics/wait-time", { params });
+    const response = await api.get('/admin/appointments/statistics/wait-time', {
+      params,
+    });
     const data = response.data;
     return {
       overallAverageWaitTime: data.averageWaitTime || 0,
-      byDoctor: (data.byHour || []).map((h: { hour: number; hourLabel: string; averageWait: number; appointmentCount: number }) => ({
-        doctorId: h.hour,
-        doctorName: h.hourLabel || `${h.hour}:00`,
-        averageWaitTime: h.averageWait || 0,
-        minWaitTime: 0,
-        maxWaitTime: 0,
-        appointmentCount: h.appointmentCount || 0,
-      })),
-      byType: (data.byDayOfWeek || []).map((d: { dayName: string; averageWait: number; appointmentCount: number }) => ({
-        appointmentType: d.dayName as AppointmentType,
-        averageWaitTime: d.averageWait || 0,
-        appointmentCount: d.appointmentCount || 0,
-      })),
-      trend: (data.trend || []).map((t: { label: string; date: string; averageWait: number }) => ({
-        date: t.date || t.label,
-        label: t.label,
-        averageWaitTime: t.averageWait || 0,
-      })),
+      byDoctor: (data.byHour || []).map(
+        (h: {
+          hour: number;
+          hourLabel: string;
+          averageWait: number;
+          appointmentCount: number;
+        }) => ({
+          doctorId: h.hour,
+          doctorName: h.hourLabel || `${h.hour}:00`,
+          averageWaitTime: h.averageWait || 0,
+          minWaitTime: 0,
+          maxWaitTime: 0,
+          appointmentCount: h.appointmentCount || 0,
+        })
+      ),
+      byType: (data.byDayOfWeek || []).map(
+        (d: {
+          dayName: string;
+          averageWait: number;
+          appointmentCount: number;
+        }) => ({
+          appointmentType: d.dayName as AppointmentType,
+          averageWaitTime: d.averageWait || 0,
+          appointmentCount: d.appointmentCount || 0,
+        })
+      ),
+      trend: (data.trend || []).map(
+        (t: { label: string; date: string; averageWait: number }) => ({
+          date: t.date || t.label,
+          label: t.label,
+          averageWaitTime: t.averageWait || 0,
+        })
+      ),
     };
   },
 
   // Export all statistics to PDF
   exportStatisticsToPDF: async (filter: StatisticsFilterDTO): Promise<Blob> => {
     const params = appointmentService._mapFilterParams(filter);
-    const response = await api.get("/admin/appointments/statistics/export", {
+    const response = await api.get('/admin/appointments/statistics/export', {
       params,
-      responseType: "blob",
+      responseType: 'blob',
     });
     return response.data;
   },
 
   // Get summary statistics (map BE AppointmentSummaryStatsDTO to FE SummaryStatisticsDTO)
-  getSummaryStatistics: async (filter: StatisticsFilterDTO): Promise<SummaryStatisticsDTO> => {
+  getSummaryStatistics: async (
+    filter: StatisticsFilterDTO
+  ): Promise<SummaryStatisticsDTO> => {
     const params = appointmentService._mapFilterParams(filter);
-    const response = await api.get("/admin/appointments/statistics/summary", { params });
+    const response = await api.get('/admin/appointments/statistics/summary', {
+      params,
+    });
     const data = response.data;
     return {
       totalAppointments: data.totalAppointments || 0,
@@ -805,7 +985,7 @@ const appointmentService = {
       averageRevenuePerAppointment: 0,
       topDoctor: null,
       peakHour: 0,
-      peakDay: "",
+      peakDay: '',
       changePercentage: data.changePercentage || 0,
       previousPeriodTotal: data.previousPeriodTotal || 0,
       averageAppointmentsPerDay: data.averageAppointmentsPerDay || 0,
@@ -818,7 +998,7 @@ export interface StatisticsFilterDTO {
   from?: string;
   to?: string;
   doctorId?: number;
-  period?: "DAILY" | "WEEKLY" | "MONTHLY";
+  period?: 'DAILY' | 'WEEKLY' | 'MONTHLY';
   limit?: number;
 }
 

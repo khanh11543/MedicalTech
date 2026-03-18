@@ -529,3 +529,22 @@ export const getDoctorPatientDetail = async (
   );
   return response.data;
 };
+
+// ============== DOCTOR'S APPOINTMENT MANAGEMENT API CALLS ==============
+
+/** PATCH /api/appointments/{id}/reschedule - Reschedule an appointment */
+export const rescheduleAppointment = async (
+  appointmentId: number,
+  data: {
+    newDate: string; // yyyy-MM-dd
+    newStartTime: string; // HH:mm
+    newEndTime: string; // HH:mm
+    reason?: string;
+  }
+): Promise<any> => {
+  const response = await api.patch(
+    `/appointments/${appointmentId}/reschedule`,
+    data
+  );
+  return response.data;
+};

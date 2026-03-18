@@ -13,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * Controller for Doctor appointment operations
@@ -93,6 +94,46 @@ public class DoctorAppointmentController {
                 .build();
         
         Page<AppointmentDTO> result = appointmentService.getDoctorAppointmentHistory(doctorId, filter);
+        return ResponseEntity.ok(result);
+    }
+    
+    /**
+     * Get available time slots for rescheduling an appointment
+     * GET /api/doctor/appointments/{id}/available-slots
+     */
+    @GetMapping("/{id}/available-slots")
+    public ResponseEntity<List<TimeSlotDTO>> getAvailableSlotsForReschedule(
+            @PathVariable Long id,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo) {
+        
+        // Parse date parameters
+        LocalDate parsedFrom = dateFrom != null && !dateFrom.isBlank() ? LocalDate.parse(dateFrom) : null;
+        LocalDate parsedTo = dateTo != null && !dateTo.isBlank() ? LocalDate.parse(dateTo) : null;
+        
+        // Get appointment to retrieve doctor ID
+        AppointmentDTO appointment = appointmentService.getAppointmentById(id);
+        Long doctorId = appointment.getDoctorId();
+        
+        // Get available slots
+        List<TimeSlotDTO> slots = appointmentService.getAvailableSlotsForReschedule(doctorId, parsedFrom, parsedTo);
+        
+        return ResponseEntity.ok(slots);
+    }
+    
+    /**
+     * Doctor cancels an appointment
+     * PUT /api/doctor/appointments/{id}/cancel
+     */
+    @PutMapping("/{id}/cancel")
+    public ResponseEntity<AppointmentDTO> cancelAppointment(
+            @PathVariable Long id,
+            @RequestBody CancelDTO dto,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        
+        Long doctorUserId = getCurrentUserId(userDetails);
+        
+        AppointmentDTO result = appointmentService.cancelAppointment(id, dto, doctorUserId, "DOCTOR");
         return ResponseEntity.ok(result);
     }
     
