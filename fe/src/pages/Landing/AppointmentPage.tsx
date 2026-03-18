@@ -186,6 +186,10 @@ export default function AppointmentPage() {
     }
     if (!formData.department) err.department = "Please select a department.";
     if (!formData.date) err.date = "Please select appointment date.";
+    else {
+      const today = new Date().toISOString().split("T")[0];
+      if (formData.date < today) err.date = "Cannot book an appointment in the past.";
+    }
     if (!formData.doctor) err.doctor = "Please select a doctor.";
     if (Object.keys(err).length > 0) {
       setFieldErrors(err);

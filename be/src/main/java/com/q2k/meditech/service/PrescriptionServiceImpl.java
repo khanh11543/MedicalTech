@@ -330,10 +330,7 @@ public class PrescriptionServiceImpl implements PrescriptionService {
                 ? prescription.getPrescriptionCode()
                 : "PRE-" + String.format("%06d", prescription.getId());
 
-        // Resolve expiry date: prefer expiryDate, fall back to followUpDate
-        LocalDate expiryDate = prescription.getExpiryDate() != null
-                ? prescription.getExpiryDate()
-                : prescription.getFollowUpDate();
+        LocalDate expiryDate = prescription.getFollowUpDate();
 
         return PrescriptionDetailDTO.builder()
                 // Prescription info

@@ -53,6 +53,7 @@ public class ReceptionistPatientServiceImpl implements ReceptionistPatientServic
     private final PrivacyMaskingService privacyMaskingService;
     private final SmsService smsService;
     private final ObjectMapper objectMapper;
+    private final FileStorageService fileStorageService;
 
     // ==================== 3.1 ALL PATIENTS ====================
 
@@ -292,9 +293,9 @@ public class ReceptionistPatientServiceImpl implements ReceptionistPatientServic
         User uploader = userRepository.findById(uploaderUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + uploaderUserId));
 
-        // Store file — in production, upload to S3/MinIO; here we save to local path
+        // Upload file to Cloudinary
+        String fileUrl = fileStorageService.uploadFile("patients/" + patientId, file);
         String fileName = file.getOriginalFilename();
-        String fileUrl = "/uploads/patients/" + patientId + "/" + System.currentTimeMillis() + "_" + fileName;
 
         PatientDocument doc = PatientDocument.builder()
                 .patient(patient)

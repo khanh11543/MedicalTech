@@ -10,6 +10,7 @@ import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.repository.DoctorRepository;
 import com.q2k.meditech.service.DoctorDocumentService;
 import com.q2k.meditech.service.DoctorProfileService;
+import com.q2k.meditech.service.FileStorageService;
 import com.q2k.meditech.service.UserServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,15 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set;
-import java.util.UUID;
 
 /**
  * Doctor Profile Setup Controller
@@ -47,13 +41,7 @@ public class DoctorProfileSetupController {
     private final DoctorRepository doctorRepository;
     private final DoctorDocumentService documentService;
     private final UserServiceImpl userService;
-
-    private static final String UPLOAD_DIR = "uploads";
-    private static final Set<String> ALLOWED_DOC_TYPES = Set.of(
-            "image/jpeg", "image/png", "image/gif", "image/webp",
-            "application/pdf"
-    );
-    private static final long MAX_DOC_SIZE = 10 * 1024 * 1024; // 10MB
+    private final FileStorageService fileStorageService;
 
     // ======================== PHASE 3: GET & UPDATE PROFILE ========================
 
@@ -140,47 +128,17 @@ public class DoctorProfileSetupController {
 
         Doctor doctor = doctorProfileService.requireDoctor();
 
-        // Validate file
-        if (file.isEmpty()) {
-            throw new BadRequestException("File is empty");
-        }
-        if (file.getSize() > MAX_DOC_SIZE) {
-            throw new BadRequestException("File size exceeds 10MB limit");
-        }
-        String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_DOC_TYPES.contains(contentType)) {
-            throw new BadRequestException("Invalid file type. Allowed: JPEG, PNG, GIF, WebP, PDF");
-        }
+        // Upload to Cloudinary
+        String fileUrl = fileStorageService.uploadFile("documents/" + doctor.getId(), file);
 
-        try {
-            // Save file to disk
-            Path docDir = Paths.get(UPLOAD_DIR, "documents", String.valueOf(doctor.getId()));
-            Files.createDirectories(docDir);
+        // Create document record via existing service
+        DoctorDocumentCreateDTO createDTO = DoctorDocumentCreateDTO.builder()
+                .docType(docType)
+                .fileUrl(fileUrl)
+                .build();
 
-            String originalName = file.getOriginalFilename();
-            String extension = "";
-            if (originalName != null && originalName.contains(".")) {
-                extension = originalName.substring(originalName.lastIndexOf("."));
-            }
-            String filename = docType.toLowerCase() + "_" + UUID.randomUUID().toString().substring(0, 8) + extension;
-            Path filePath = docDir.resolve(filename);
-            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-            String fileUrl = "/uploads/documents/" + doctor.getId() + "/" + filename;
-
-            // Create document record via existing service
-            DoctorDocumentCreateDTO createDTO = DoctorDocumentCreateDTO.builder()
-                    .docType(docType)
-                    .fileUrl(fileUrl)
-                    .build();
-
-            DoctorDocumentDTO result = documentService.uploadDocument(doctor.getId(), createDTO);
-            return ResponseEntity.ok(result);
-
-        } catch (IOException e) {
-            log.error("Failed to save document file", e);
-            throw new BadRequestException("Failed to upload file: " + e.getMessage());
-        }
+        DoctorDocumentDTO result = documentService.uploadDocument(doctor.getId(), createDTO);
+        return ResponseEntity.ok(result);
     }
 
     // ======================== PHASE 5: SUBMIT FOR VERIFICATION ========================

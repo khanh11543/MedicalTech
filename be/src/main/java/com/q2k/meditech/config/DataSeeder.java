@@ -104,6 +104,7 @@ public class DataSeeder implements CommandLineRunner {
             {"Mắt",            "ophthalmology",     "Eye Care Specialists",    "[\"Lasik Surgery\",\"Cataract Treatment\",\"Eye Examination\"]",           "bi bi-eye",             "/images/landing/showcase-1.webp"},
             {"Tai Mũi Họng",   "ent",               "ENT Specialists",         "[\"Sinusitis\",\"Tonsillitis\",\"Hearing Treatment\"]",                    "bi bi-ear-fill",        "/images/landing/facilities-1.webp"},
             {"Răng Hàm Mặt",   "dental",            "Dental & Maxillofacial",  "[\"Tooth Extraction\",\"Orthodontics\",\"Maxillofacial Surgery\"]",        "bi bi-emoji-laughing",  "/images/landing/showcase-1.webp"},
+            {"Khám tổng quát", "general-checkup",   "General Health Checkup",  "[\"Health Screening\",\"Preventive Care\",\"Annual Checkup\"]",               "bi bi-clipboard2-pulse","/images/landing/cardiology-2.webp"},
         };
 
         for (String[] row : meta) {
@@ -112,7 +113,7 @@ public class DataSeeder implements CommandLineRunner {
                 if (s.getSlug() == null)       { s.setSlug(row[1]);       changed = true; }
                 if (s.getSubtitle() == null)   { s.setSubtitle(row[2]);   changed = true; }
                 if (s.getHighlights() == null) { s.setHighlights(row[3]); changed = true; }
-                if (s.getIconUrl() == null)    { s.setIconUrl(row[4]);    changed = true; }
+                if (s.getIconUrl() == null || s.getIconUrl().isBlank()) { s.setIconUrl(row[4]); changed = true; }
                 if (s.getImageUrl() == null)   { s.setImageUrl(row[5]);   changed = true; }
                 if (changed) {
                     specialtyRepository.save(s);

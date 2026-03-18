@@ -12,9 +12,8 @@ const REMEMBER_KEY = "rememberMe";
 
 /** Returns the storage backend that currently holds auth data. */
 function getStorage(): Storage {
-  return localStorage.getItem(REMEMBER_KEY) === "true"
-    ? localStorage
-    : sessionStorage;
+  // Always use localStorage to prevent logout when app is closed
+  return localStorage;
 }
 
 export const authStorage = {

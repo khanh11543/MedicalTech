@@ -14,12 +14,21 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.q2k.meditech.util.ExportUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+
+import com.q2k.meditech.entity.enums.RefundMethod;
+import com.q2k.meditech.entity.enums.RefundReason;
+import com.q2k.meditech.entity.enums.RefundStatus;
+import com.q2k.meditech.entity.enums.RefundType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -49,12 +58,14 @@ public class PaymentServiceImpl implements PaymentService {
     private final InvoiceRepository invoiceRepository;
     private final AuditLogRepository auditLogRepository;
     private final SecurityEventRepository securityEventRepository;
+    private final RefundRepository refundRepository;
     private final PaymentStatusWebSocketService paymentStatusWebSocketService;
     private final NotificationEventService notificationEventService;
     private final EmailService emailService;
     private final SmsService smsService;
     private final PrivacyMaskingService privacyMaskingService;
     private final ObjectMapper objectMapper;
+    private final PlatformTransactionManager transactionManager;
 
     // QR refresh rate limiting: paymentId -> list of refresh timestamps
     private static final int QR_REFRESH_MAX = 3;
@@ -188,7 +199,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PaymentInitDTO initMomoPayment(Long paymentId, MomoInitDTO dto, Long currentUserId) {
         return initMomoPaymentInternal(paymentId, dto, currentUserId, false);
     }
@@ -579,6 +590,11 @@ public class PaymentServiceImpl implements PaymentService {
      */
     @Transactional
     public Payment updatePaymentStatusSuccess(Long paymentId, String transactionId) {
+        return updatePaymentStatusSuccess(paymentId, transactionId, null);
+    }
+
+    @Transactional
+    public Payment updatePaymentStatusSuccess(Long paymentId, String transactionId, Long momoResponseTime) {
         Payment payment = paymentRepository.findByIdWithDetails(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
 
@@ -589,7 +605,14 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         payment.setPaymentStatus("PAID");
-        payment.setPaidAt(LocalDateTime.now());
+        // Use MoMo's actual payment time if available, otherwise use current time
+        if (momoResponseTime != null && momoResponseTime > 0) {
+            payment.setPaidAt(LocalDateTime.ofInstant(
+                    java.time.Instant.ofEpochMilli(momoResponseTime),
+                    java.time.ZoneId.systemDefault()));
+        } else {
+            payment.setPaidAt(LocalDateTime.now());
+        }
         payment.setTransactionId(transactionId);
         Payment saved = paymentRepository.save(payment);
 
@@ -597,7 +620,7 @@ public class PaymentServiceImpl implements PaymentService {
         paymentStatusWebSocketService.broadcastPaymentStatusChange(
                 saved.getId(), saved.getPaymentCode(), "PAID", saved.getPaymentMethod());
 
-        // Send notification: payment received
+        // Send notification: payment received (to receptionists/admins)
         try {
             notificationEventService.onMomoPaymentReceived(saved);
         } catch (Exception e) {
@@ -673,7 +696,7 @@ public class PaymentServiceImpl implements PaymentService {
                 if (queryResult.resultCode != null && queryResult.resultCode == 0) {
                     // Payment successful — update status
                     String transId = queryResult.transId != null ? String.valueOf(queryResult.transId) : "MOMO-" + payment.getMomoOrderId();
-                    payment = updatePaymentStatusSuccess(payment.getId(), transId);
+                    payment = updatePaymentStatusSuccess(payment.getId(), transId, queryResult.responseTime);
 
                     // Create invoice & send notification (don't fail on error)
                     try {
@@ -863,7 +886,7 @@ public class PaymentServiceImpl implements PaymentService {
     // ========== PATIENT METHODS ==========
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public org.springframework.data.domain.Page<PaymentDTO> getMyPayments(
             Long patientId,
             String status,
@@ -874,6 +897,9 @@ public class PaymentServiceImpl implements PaymentService {
             int pageSize) {
 
         log.info("Getting payments for patient ID: {}, status: {}, method: {}", patientId, status, method);
+
+        // Sync pending MoMo payments with MoMo API before returning results
+        syncPendingMomoPayments(patientId);
 
         // Parse dates if provided
         LocalDateTime fromDate = null;
@@ -905,13 +931,15 @@ public class PaymentServiceImpl implements PaymentService {
         java.util.List<com.q2k.meditech.entity.enums.AppointmentStatus> excludeAppointmentStatuses = null;
 
         if ("UNPAID".equals(status)) {
-            // Unpaid tab: PENDING, INITIATED, FAILED — only when appointment is COMPLETED
+            // Unpaid tab: PENDING, INITIATED, FAILED — show for any appointment status (pre-payment flow)
             paymentStatuses = java.util.List.of("PENDING", "INITIATED", "FAILED");
-            appointmentStatus = com.q2k.meditech.entity.enums.AppointmentStatus.COMPLETED;
+            // No appointment status filter — allow payment before exam
+            excludeAppointmentStatuses = java.util.List.of(
+                    com.q2k.meditech.entity.enums.AppointmentStatus.CANCELLED
+            );
         } else if ("COMPLETED".equals(status)) {
-            // Completed tab: payment PAID + appointment COMPLETED
+            // Completed tab: payment PAID (any appointment status)
             paymentStatuses = java.util.List.of("PAID");
-            appointmentStatus = com.q2k.meditech.entity.enums.AppointmentStatus.COMPLETED;
         } else if (status != null && !status.isBlank()) {
             // Direct status filter (e.g. PAID, CANCELLED)
             paymentStatuses = java.util.List.of(status);
@@ -927,6 +955,51 @@ public class PaymentServiceImpl implements PaymentService {
 
         // Map to DTOs
         return payments.map(this::mapToDTO);
+    }
+
+    /**
+     * Sync pending MoMo payments for a patient by querying MoMo API.
+     * This handles the case where patient paid from email QR and MoMo webhook couldn't reach the server.
+     */
+    private void syncPendingMomoPayments(Long patientId) {
+        try {
+            List<Payment> pendingMomoPayments = paymentRepository.findByPatientIdAndPaymentMethodAndPaymentStatusIn(
+                    patientId, "MOMO", java.util.List.of("INITIATED", "PROCESSING"));
+
+            // Limit to 5 queries to avoid slow response
+            int limit = Math.min(pendingMomoPayments.size(), 5);
+            for (int i = 0; i < limit; i++) {
+                Payment p = pendingMomoPayments.get(i);
+                if (p.getMomoOrderId() == null) continue;
+                try {
+                    MomoClient.MomoQueryResponse queryResult = momoClient.queryPaymentStatus(p.getMomoOrderId());
+                    if (queryResult.resultCode != null && queryResult.resultCode == 0) {
+                        String transId = queryResult.transId != null
+                                ? String.valueOf(queryResult.transId)
+                                : "MOMO-" + p.getMomoOrderId();
+                        updatePaymentStatusSuccess(p.getId(), transId, queryResult.responseTime);
+                        try {
+                            invoiceService.createInvoiceForPayment(p.getId());
+                        } catch (Exception e) {
+                            log.error("Failed to create invoice for synced payment {}: {}", p.getId(), e.getMessage());
+                        }
+                        try {
+                            invoiceDeliveryService.autoSendInvoiceOnPaymentSuccess(p.getId());
+                        } catch (Exception e) {
+                            log.error("Failed to send invoice for synced payment {}: {}", p.getId(), e.getMessage());
+                        }
+                        log.info("Synced MoMo payment {} → PAID", p.getId());
+                    } else if (queryResult.resultCode != null && queryResult.resultCode == 1006) {
+                        updatePaymentStatusFailed(p.getId(), queryResult.message);
+                        log.info("Synced MoMo payment {} → FAILED (user denied)", p.getId());
+                    }
+                } catch (Exception e) {
+                    log.warn("MoMo sync failed for payment {}: {}", p.getId(), e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to sync pending MoMo payments for patient {}: {}", patientId, e.getMessage());
+        }
     }
 
     @Override
@@ -963,7 +1036,7 @@ public class PaymentServiceImpl implements PaymentService {
                 if (queryResult.resultCode != null && queryResult.resultCode == 0) {
                     // Payment successful — update status
                     String transId = queryResult.transId != null ? String.valueOf(queryResult.transId) : "MOMO-" + payment.getMomoOrderId();
-                    payment = updatePaymentStatusSuccess(payment.getId(), transId);
+                    payment = updatePaymentStatusSuccess(payment.getId(), transId, queryResult.responseTime);
 
                     // Create invoice & send notification (don't fail on error)
                     try {
@@ -1212,6 +1285,9 @@ public class PaymentServiceImpl implements PaymentService {
         if (momoRefundTransId != null) {
             payment.setNotes((payment.getNotes() != null ? payment.getNotes() + "\n" : "")
                     + "MoMo Refund TxnID: " + momoRefundTransId + " (Amount: " + refundAmount + ")");
+        } else if ("MOMO".equals(payment.getPaymentMethod())) {
+            payment.setNotes((payment.getNotes() != null ? payment.getNotes() + "\n" : "")
+                    + "MoMo refund API failed - manual refund may be required (Amount: " + refundAmount + ")");
         }
 
         // Add notes
@@ -1227,9 +1303,50 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         payment.setUpdatedAt(LocalDateTime.now());
-        Payment saved = paymentRepository.save(payment);
 
-        // Update associated invoice status
+        // === STEP 1: Save payment status update FIRST ===
+        Payment saved = paymentRepository.saveAndFlush(payment);
+        log.info("Updated payment {} status to {}", paymentId, newStatus);
+
+        // === STEP 2: Create & save Refund record for Refund Management tab ===
+        RefundMethod refMethod = resolveRefundMethod(payment.getPaymentMethod());
+        RefundReason refReasonType = resolveRefundReason(dto.getRefundReason());
+        String refundCode = generateRefundCode();
+
+        log.info("Saving refund record: code={}, paymentId={}, amount={}, originalAmount={}, status=COMPLETED, reason={}, method={}, adminUserId={}",
+                refundCode, paymentId, refundAmount, payment.getTotalAmount(),
+                dto.getRefundReason() != null ? dto.getRefundReason() : "Auto refund",
+                refMethod, adminUser != null ? adminUser.getId() : "null");
+
+        // Save refund in the SAME transaction as the payment update
+        String finalRefundReason = dto.getRefundReason() != null ? dto.getRefundReason() : "Auto refund";
+        Refund newRefund = Refund.builder()
+                .refundCode(refundCode)
+                .payment(saved)
+                .refundAmount(refundAmount)
+                .originalAmount(payment.getTotalAmount())
+                .currency(payment.getCurrency() != null ? payment.getCurrency() : "VND")
+                .status(RefundStatus.COMPLETED)
+                .refundReason(finalRefundReason)
+                .refundReasonType(refReasonType)
+                .refundMethod(refMethod)
+                .refundType(RefundType.AUTO)
+                .requestedDate(LocalDateTime.now())
+                .requestedBy(adminUser)
+                .approvedDate(LocalDateTime.now())
+                .approvedBy(adminUser)
+                .processedDate(LocalDateTime.now())
+                .processedBy(adminUser)
+                .transactionReference(momoRefundTransId)
+                .notes(dto.getNotes())
+                .retryCount(0)
+                .maxRetries(3)
+                .build();
+        Refund savedRefund = refundRepository.saveAndFlush(newRefund);
+        log.info("Successfully saved refund record {} (DB id={}) for payment {}",
+                refundCode, savedRefund.getId(), paymentId);
+
+        // === STEP 3: Update associated invoice status (non-critical) ===
         try {
             Invoice invoice = invoiceRepository.findByPaymentIdWithDetails(paymentId).orElse(null);
             if (invoice != null) {
@@ -1241,7 +1358,7 @@ public class PaymentServiceImpl implements PaymentService {
             log.warn("Could not update invoice status: {}", e.getMessage());
         }
 
-        // Create audit log
+        // === STEP 4: Create audit log (non-critical) ===
         try {
             Map<String, Object> details = new HashMap<>();
             details.put("paymentId", paymentId);
@@ -1277,13 +1394,21 @@ public class PaymentServiceImpl implements PaymentService {
             log.warn("Could not create audit log: {}", e.getMessage());
         }
 
-        // Create security event
+        // === STEP 5: Create security event (non-critical) ===
         try {
             Map<String, Object> metadata = new HashMap<>();
             metadata.put("paymentId", paymentId);
             metadata.put("refundAmount", refundAmount.toString());
             metadata.put("paymentMethod", payment.getPaymentMethod());
             metadata.put("newStatus", newStatus);
+
+            // Serialize metadata to JSON string to avoid Hibernate type cast issues
+            String metadataJson = null;
+            try {
+                metadataJson = objectMapper.writeValueAsString(metadata);
+            } catch (JsonProcessingException e) {
+                log.warn("Could not serialize security event metadata: {}", e.getMessage());
+            }
 
             SecurityEvent securityEvent = SecurityEvent.builder()
                     .eventType(com.q2k.meditech.entity.enums.SecurityEventType.UNUSUAL_DATA_ACCESS)
@@ -1292,7 +1417,7 @@ public class PaymentServiceImpl implements PaymentService {
                     .user(adminUser)
                     .ipAddress(ipAddress)
                     .userAgent(userAgent)
-                    .metadata(metadata)
+                    .metadata(metadataJson)
                     .createdAt(LocalDateTime.now())
                     .build();
             securityEventRepository.save(securityEvent);
@@ -1301,11 +1426,15 @@ public class PaymentServiceImpl implements PaymentService {
             log.warn("Could not create security event: {}", e.getMessage());
         }
 
-        // Auto-send refund notification via email/SMS
-        invoiceDeliveryService.autoSendRefundNotification(saved.getId());
+        // === STEP 6: Auto-send refund notification (non-critical) ===
+        try {
+            invoiceDeliveryService.autoSendRefundNotification(saved.getId());
+        } catch (Exception e) {
+            log.warn("Could not send refund notification for payment {}: {}", paymentId, e.getMessage());
+        }
 
-        log.info("Refund processed successfully for payment: {} (amount: {}, newStatus: {})",
-                paymentId, refundAmount, newStatus);
+        log.info("Refund processed successfully for payment: {} (amount: {}, newStatus: {}, refundCode: {})",
+                paymentId, refundAmount, newStatus, refundCode);
         return mapToDTO(saved);
     }
 
@@ -1473,21 +1602,81 @@ public class PaymentServiceImpl implements PaymentService {
      * Process MoMo refund (mock implementation)
      */
     private String processMomoRefund(Payment payment, RefundDTO dto) {
-        // TODO: Implement actual MoMo refund API call
-        // https://developers.momo.vn/v3/docs/payment/api/refund/
+        log.info("Processing MoMo refund: payment={}, amount={}, transactionId={}",
+                payment.getId(), dto.getRefundAmount(), payment.getTransactionId());
 
-        log.info("Mock MoMo refund: payment={}, amount={}", payment.getId(), dto.getRefundAmount());
+        // Determine the orderId to use for querying original transaction
+        String orderId = payment.getMomoOrderId() != null
+                ? payment.getMomoOrderId() : payment.getPaymentCode();
 
-        // Mock refund transaction ID
-        String refundTransId = "REFUND-" + System.currentTimeMillis();
+        // Parse transId from stored transactionId
+        Long transId = null;
+        if (payment.getTransactionId() != null && !payment.getTransactionId().isBlank()) {
+            try {
+                transId = Long.parseLong(payment.getTransactionId());
+            } catch (NumberFormatException e) {
+                log.warn("Could not parse transactionId '{}' as Long, querying MoMo for transId",
+                        payment.getTransactionId());
+            }
+        }
 
-        // In real implementation:
-        // 1. Call MoMo refund API with payment.getTransactionId()
-        // 2. Verify signature
-        // 3. Handle response
-        // 4. Return refund transaction ID
+        // If transId not available, query MoMo to get it
+        if (transId == null) {
+            try {
+                MomoClient.MomoQueryResponse queryResult = momoClient.queryPaymentStatus(orderId);
+                if (queryResult.resultCode == 0 && queryResult.transId != null) {
+                    transId = queryResult.transId;
+                    log.info("Got transId {} from MoMo query for orderId {}", transId, orderId);
+                } else {
+                    log.error("Cannot get transId from MoMo query for orderId {}: resultCode={}",
+                            orderId, queryResult.resultCode);
+                    return null; // Cannot refund via MoMo, but still update DB
+                }
+            } catch (Exception e) {
+                log.error("Failed to query MoMo for transId: {}", e.getMessage());
+                return null;
+            }
+        }
 
-        return refundTransId;
+        // Call MoMo Refund API (orderId is auto-generated inside momoClient)
+        Long refundAmount = dto.getRefundAmount().longValue();
+        String reason = dto.getRefundReason() != null ? dto.getRefundReason() : "Refund payment";
+
+        try {
+            MomoClient.MomoRefundResponse refundResponse = momoClient.refundPayment(
+                    transId, refundAmount, reason);
+
+            if (refundResponse.resultCode != null && refundResponse.resultCode == 0) {
+                log.info("MoMo refund succeeded: refundOrderId={}, refundTransId={}",
+                        refundResponse.orderId, refundResponse.refundTransId);
+
+                // Verify refund via Query API using ORIGINAL orderId
+                try {
+                    MomoClient.MomoQueryResponse verifyResult = momoClient.queryPaymentStatus(orderId);
+                    if (verifyResult.refundTrans != null && !verifyResult.refundTrans.isEmpty()) {
+                        log.info("Verified {} refund transaction(s) for original orderId {}",
+                                verifyResult.refundTrans.size(), orderId);
+                        for (MomoClient.RefundTransItem rt : verifyResult.refundTrans) {
+                            log.info("  RefundTrans: orderId={}, transId={}, amount={}, resultCode={}",
+                                    rt.orderId, rt.transId, rt.amount, rt.resultCode);
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not verify refund via Query API: {}", e.getMessage());
+                }
+
+                return refundResponse.refundTransId != null
+                        ? refundResponse.refundTransId.toString()
+                        : "REFUND-" + System.currentTimeMillis();
+            } else {
+                log.error("MoMo refund failed: refundOrderId={}, resultCode={}, message={}",
+                        refundResponse.orderId, refundResponse.resultCode, refundResponse.message);
+                return null; // MoMo refund failed, but still update DB status
+            }
+        } catch (Exception e) {
+            log.error("MoMo refund API call failed for payment {}: {}", payment.getId(), e.getMessage());
+            return null; // API call failed, but still update DB status
+        }
     }
 
     /**
@@ -2974,6 +3163,43 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (Exception e) {
             log.warn("Cannot convert {} to BigDecimal", obj);
             return BigDecimal.ZERO;
+        }
+    }
+
+    private String generateRefundCode() {
+        String prefix = "RF" + LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String maxCode = refundRepository.findMaxRefundCodeByPrefix(prefix);
+        int sequence = 1;
+        if (maxCode != null && maxCode.length() > prefix.length()) {
+            try {
+                sequence = Integer.parseInt(maxCode.substring(prefix.length())) + 1;
+            } catch (NumberFormatException ignored) {}
+        }
+        return prefix + String.format("%04d", sequence);
+    }
+
+    private RefundMethod resolveRefundMethod(String paymentMethod) {
+        if (paymentMethod == null) return RefundMethod.ORIGINAL_METHOD;
+        return switch (paymentMethod.toUpperCase()) {
+            case "MOMO" -> RefundMethod.MOMO;
+            case "CASH" -> RefundMethod.CASH;
+            case "BANK_TRANSFER" -> RefundMethod.BANK_TRANSFER;
+            case "VNPAY" -> RefundMethod.VNPAY;
+            case "ZALOPAY" -> RefundMethod.ZALOPAY;
+            case "CARD", "CREDIT_CARD", "DEBIT_CARD" -> RefundMethod.CARD;
+            default -> RefundMethod.ORIGINAL_METHOD;
+        };
+    }
+
+    private RefundReason resolveRefundReason(String reason) {
+        if (reason == null) return RefundReason.OTHER;
+        String upper = reason.toUpperCase().replaceAll("[\\s-]+", "_");
+        try {
+            return RefundReason.valueOf(upper);
+        } catch (IllegalArgumentException e) {
+            if (reason.toLowerCase().contains("cancel")) return RefundReason.PATIENT_CANCELLED_WITHIN_POLICY;
+            if (reason.toLowerCase().contains("doctor")) return RefundReason.DOCTOR_CANCELLED;
+            return RefundReason.OTHER;
         }
     }
 }

@@ -745,6 +745,7 @@ function EmergencySection() {
                 { icon: "bi bi-calendar-check", label: "Book Appointment" },
                 { icon: "bi bi-person-badge", label: "Find a Doctor" },
                 { icon: "bi bi-chat-dots", label: "Live Chat" },
+                { icon: "bi bi-chat-dots", label: "Live Chat" },
               ].map((action) => (
                 <a
                   key={action.label}

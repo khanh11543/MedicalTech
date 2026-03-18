@@ -68,6 +68,11 @@ public class AppointmentServiceImpl implements AppointmentService {
     public AppointmentDTO bookAppointment(BookAppointmentDTO dto, Long bookedByUserId, BookedBy bookedBy) {
         log.info("Booking appointment for patient {} with doctor {}", dto.getPatientId(), dto.getDoctorId());
         
+        // Validate appointment date is not in the past
+        if (dto.getAppointmentDate() != null && dto.getAppointmentDate().isBefore(LocalDate.now())) {
+            throw new AppointmentException("Cannot book an appointment in the past");
+        }
+        
         // Resolve startTime/endTime from timeSlotId if provided
         TimeSlot bookedSlot = null;
         if (dto.getTimeSlotId() != null) {
@@ -148,7 +153,27 @@ public class AppointmentServiceImpl implements AppointmentService {
             log.warn("Failed to send new booking notification: {}", e.getMessage());
         }
 
-        // Send appointment confirmation email to patient's registered email
+        // Create PENDING payment so it appears in patient Payment History and can be paid
+        PaymentDTO createdPayment = null;
+        try {
+            createdPayment = paymentService.createPaymentForAppointment(appointment.getId(), bookedByUserId);
+        } catch (Exception e) {
+            log.warn("Failed to create payment for appointment {}: {}", appointment.getId(), e.getMessage());
+        }
+
+        // Init MoMo payment to get real payment QR code for email
+        PaymentInitDTO momoInit = null;
+        if (createdPayment != null && createdPayment.getTotalAmount() != null
+                && createdPayment.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
+            try {
+                momoInit = paymentService.initMomoPayment(createdPayment.getId(), new MomoInitDTO(), bookedByUserId);
+                log.info("MoMo payment initialized for email QR: paymentId={}, orderId={}", createdPayment.getId(), momoInit.getOrderId());
+            } catch (Exception e) {
+                log.warn("Failed to init MoMo payment for email QR (appointment {}): {}", appointment.getId(), e.getMessage());
+            }
+        }
+
+        // Send appointment confirmation email with payment info to patient's registered email
         try {
             User patientUser = patient.getUser();
             if (patientUser != null && patientUser.getEmail() != null && !patientUser.getEmail().isBlank()) {
@@ -176,6 +201,21 @@ public class AppointmentServiceImpl implements AppointmentService {
                     if (address.isBlank()) address = null;
                 }
 
+                // Build payment info for email using real MoMo QR
+                String paymentAmount = null;
+                String paymentQrUrl = null;
+                String paymentPageUrl = null;
+                if (createdPayment != null && createdPayment.getTotalAmount() != null
+                        && createdPayment.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
+                    paymentAmount = String.format("%,.0f", createdPayment.getTotalAmount());
+                    if (momoInit != null && Boolean.TRUE.equals(momoInit.getSuccess())) {
+                        // Use real MoMo QR code (scannable with MoMo app to pay directly)
+                        paymentQrUrl = momoInit.getQrCodeUrl();
+                        // Use MoMo payUrl as "Pay Online" link (opens MoMo web gateway)
+                        paymentPageUrl = momoInit.getPayUrl();
+                    }
+                }
+
                 emailService.sendAppointmentConfirmationEmail(
                         patientUser.getEmail(),
                         patientName,
@@ -187,20 +227,16 @@ public class AppointmentServiceImpl implements AppointmentService {
                         appointment.getReasonForVisit(),
                         clinicName,
                         hotline,
-                        address
+                        address,
+                        paymentAmount,
+                        paymentQrUrl,
+                        paymentPageUrl
                 );
             } else {
                 log.debug("Patient has no email, skipping appointment confirmation email for appointment {}", appointment.getId());
             }
         } catch (Exception e) {
             log.warn("Failed to send appointment confirmation email: {}", e.getMessage());
-        }
-
-        // Create PENDING payment so it appears in patient Payment History and can be paid
-        try {
-            paymentService.createPaymentForAppointment(appointment.getId(), bookedByUserId);
-        } catch (Exception e) {
-            log.warn("Failed to create payment for appointment {}: {}", appointment.getId(), e.getMessage());
         }
 
         return appointmentMapper.toDTO(appointment);
@@ -320,6 +356,30 @@ public class AppointmentServiceImpl implements AppointmentService {
             throw new AppointmentException(
                 "Only CONFIRMED or PENDING appointments can be checked in. Current status: " 
                 + appointment.getStatus());
+        }
+
+        // 1b. Check payment status: must be PAID before check-in
+        Optional<Payment> paymentOpt = paymentRepository.findByAppointmentIdWithDetails(appointmentId);
+        if (paymentOpt.isPresent()) {
+            Payment payment = paymentOpt.get();
+            // If payment has MoMo and is still INITIATED/PROCESSING, sync with MoMo first
+            if ("MOMO".equals(payment.getPaymentMethod())
+                    && ("INITIATED".equals(payment.getPaymentStatus()) || "PROCESSING".equals(payment.getPaymentStatus()))
+                    && payment.getMomoOrderId() != null) {
+                try {
+                    PaymentDTO synced = paymentService.getPaymentById(payment.getId());
+                    // Re-fetch after possible sync update
+                    payment = paymentRepository.findByAppointmentIdWithDetails(appointmentId).orElse(payment);
+                } catch (Exception e) {
+                    log.warn("MoMo sync failed during check-in for payment {}: {}", payment.getId(), e.getMessage());
+                }
+            }
+            if (!"PAID".equals(payment.getPaymentStatus())) {
+                throw new AppointmentException(
+                    "Payment must be completed before check-in. Current payment status: "
+                    + payment.getPaymentStatus()
+                    + ". Please ask the patient to complete payment first.");
+            }
         }
         
         // 2. Check-in time window validation: 30 min before → 15 min after appointment start
@@ -1120,20 +1180,11 @@ public class AppointmentServiceImpl implements AppointmentService {
         createHistory(appointment, "CANCELLED", oldStatus, AppointmentStatus.CANCELLED,
                 userId, userRole, dto.getReason());
 
-        // Auto-cancel associated unpaid payment
-        try {
-            paymentRepository.findByAppointmentIdWithDetails(appointmentId).ifPresent(payment -> {
-                String ps = payment.getPaymentStatus();
-                if ("PENDING".equals(ps) || "INITIATED".equals(ps) || "FAILED".equals(ps)) {
-                    payment.setPaymentStatus("CANCELLED");
-                    payment.setNotes("Auto-cancelled: appointment cancelled");
-                    paymentRepository.save(payment);
-                    log.info("Auto-cancelled payment {} for cancelled appointment {}", payment.getId(), appointmentId);
-                }
-            });
-        } catch (Exception e) {
-            log.warn("Failed to auto-cancel payment for appointment {}: {}", appointmentId, e.getMessage());
-        }
+        // Apply refund policy (role-based & time-based)
+        applyRefundPolicy(appointment, userId, userRole, false);
+
+        // Release time slot back to AVAILABLE
+        releaseTimeSlot(appointment);
 
         // Send notification: appointment cancelled
         try {
@@ -1146,8 +1197,10 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
     
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public AppointmentDTO getAppointmentById(Long appointmentId) {
+        // Sync MoMo payment status before returning appointment data
+        syncMomoPaymentForAppointment(appointmentId);
         return appointmentMapper.toDTO(getAppointmentEntity(appointmentId));
     }
     
@@ -1436,8 +1489,11 @@ public class AppointmentServiceImpl implements AppointmentService {
                 createHistory(appointment, "CANCELLED", oldStatus, AppointmentStatus.CANCELLED,
                         userId, callerRole, "Bulk cancel: " + dto.getReason());
                 
-                // TODO: Handle refund based on dto.getRefundPolicy()
-                // TODO: Send notification if dto.getSendNotification() is true
+                // Handle payment: apply refund policy (role-based & time-based)
+                applyRefundPolicy(appointment, userId, callerRole, false);
+
+                // Release time slot back to AVAILABLE
+                releaseTimeSlot(appointment);
                 
                 results.add(BulkActionResultDTO.successItem(
                         appointmentId,
@@ -1647,7 +1703,31 @@ public class AppointmentServiceImpl implements AppointmentService {
     }
     
     // ==================== HELPER METHODS ====================
-    
+
+    /**
+     * Sync MoMo payment status for an appointment by querying MoMo API.
+     * Called when receptionist views or checks-in an appointment.
+     */
+    private void syncMomoPaymentForAppointment(Long appointmentId) {
+        try {
+            paymentRepository.findByAppointmentIdWithDetails(appointmentId).ifPresent(payment -> {
+                if ("MOMO".equals(payment.getPaymentMethod())
+                        && ("INITIATED".equals(payment.getPaymentStatus()) || "PROCESSING".equals(payment.getPaymentStatus()))
+                        && payment.getMomoOrderId() != null) {
+                    try {
+                        // Use getPaymentById which already has MoMo query + invoice logic
+                        paymentService.getPaymentById(payment.getId());
+                    } catch (Exception e) {
+                        log.warn("MoMo sync failed for appointment {} payment {}: {}", 
+                                appointmentId, payment.getId(), e.getMessage());
+                    }
+                }
+            });
+        } catch (Exception e) {
+            log.warn("Failed to sync MoMo payment for appointment {}: {}", appointmentId, e.getMessage());
+        }
+    }
+
     private Appointment getAppointmentEntity(Long appointmentId) {
         return appointmentRepository.findByIdWithDetails(appointmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment not found with id: " + appointmentId));
@@ -1693,13 +1773,220 @@ public class AppointmentServiceImpl implements AppointmentService {
                appointment.getStatus() == AppointmentStatus.CHECKED_IN ||
                appointment.getStatus() == AppointmentStatus.IN_PROGRESS;
     }
+
+    /**
+     * Release the time slot back to AVAILABLE when an appointment is cancelled/no-show.
+     */
+    private void releaseTimeSlot(Appointment appointment) {
+        TimeSlot timeSlot = appointment.getTimeSlot();
+        if (timeSlot != null && timeSlot.getStatus() == TimeSlotStatus.BOOKED) {
+            timeSlot.setStatus(TimeSlotStatus.AVAILABLE);
+            timeSlotRepository.save(timeSlot);
+            log.info("Released time slot {} back to AVAILABLE", timeSlot.getId());
+        } else if (timeSlot == null && appointment.getDoctor() != null
+                && appointment.getAppointmentDate() != null && appointment.getStartTime() != null) {
+            timeSlotRepository.findByDoctorIdAndSlotDateAndStartTime(
+                    appointment.getDoctor().getId(), appointment.getAppointmentDate(), appointment.getStartTime()
+            ).ifPresent(slot -> {
+                if (slot.getStatus() == TimeSlotStatus.BOOKED) {
+                    slot.setStatus(TimeSlotStatus.AVAILABLE);
+                    timeSlotRepository.save(slot);
+                    log.info("Released time slot {} back to AVAILABLE (found by lookup)", slot.getId());
+                }
+            });
+        }
+    }
+
+    /**
+     * Apply refund policy on appointment cancellation.
+     *
+     * Policy:
+     *   - Doctor/Admin cancel  → 100% refund
+     *   - Patient/Receptionist cancel >= 24h before appointment → 50% refund
+     *   - Patient/Receptionist cancel <  24h before appointment → no refund
+     *   - No-show → no refund
+     */
+    private void applyRefundPolicy(Appointment appointment, Long userId, String userRole, boolean isNoShow) {
+        Long appointmentId = appointment.getId();
+        try {
+            paymentRepository.findByAppointmentIdWithDetails(appointmentId).ifPresent(payment -> {
+                String ps = payment.getPaymentStatus();
+                String patientEmail = null;
+                String patientName = null;
+                try {
+                    patientEmail = payment.getPatient().getUser().getEmail();
+                    patientName = payment.getPatient().getUser().getFullName();
+                } catch (Exception ignored) {}
+
+                // If payment is not yet paid, just cancel it
+                if ("PENDING".equals(ps) || "INITIATED".equals(ps) || "FAILED".equals(ps)) {
+                    payment.setPaymentStatus("CANCELLED");
+                    payment.setNotes("Auto-cancelled: appointment " + (isNoShow ? "no-show" : "cancelled"));
+                    paymentRepository.save(payment);
+                    log.info("Auto-cancelled unpaid payment {} for appointment {}", payment.getId(), appointmentId);
+                    return;
+                }
+
+                // Only process refund if payment is PAID
+                if (!"PAID".equals(ps)) return;
+
+                // No-show → no refund (keep full payment)
+                if (isNoShow) {
+                    log.info("No refund for no-show appointment {} (payment {} kept)", appointmentId, payment.getId());
+                    // Notify patient: no refund for no-show
+                    sendRefundPolicyEmail(patientEmail, patientName, payment.getPaymentCode(),
+                            payment.getTotalAmount(), BigDecimal.ZERO,
+                            "No-show", "You did not attend your scheduled appointment. As per our policy, no refund is provided for no-show cases.");
+                    return;
+                }
+
+                // Doctor or Admin cancel → 100% refund
+                if ("DOCTOR".equals(userRole) || "ADMIN".equals(userRole)) {
+                    try {
+                        RefundDTO refundDto = RefundDTO.builder()
+                                .refundAmount(payment.getTotalAmount())
+                                .refundReason("Full refund: appointment cancelled by " + userRole)
+                                .notes("100% refund policy — cancelled by " + userRole)
+                                .build();
+                        paymentService.refundPayment(payment.getId(), refundDto, userId);
+                        log.info("Auto-refunded 100% ({}) for payment {} — cancelled by {}",
+                                payment.getTotalAmount(), payment.getId(), userRole);
+                        // Send refund email directly (backup in case autoSendRefundNotification fails)
+                        sendRefundPolicyEmail(patientEmail, patientName, payment.getPaymentCode(),
+                                payment.getTotalAmount(), payment.getTotalAmount(),
+                                "Cancelled by Doctor/Clinic",
+                                "Your appointment has been cancelled by " + userRole + ". You will receive a 100% refund of the amount paid.");
+                    } catch (Exception e) {
+                        log.error("Failed to auto-refund 100% for payment {} on appointment {}: {}",
+                                payment.getId(), appointmentId, e.getMessage());
+                        // Still notify patient about refund failure
+                        sendRefundPolicyEmail(patientEmail, patientName, payment.getPaymentCode(),
+                                payment.getTotalAmount(), payment.getTotalAmount(),
+                                "Cancelled by Doctor/Clinic",
+                                "Your appointment has been cancelled by " + userRole + ". A 100% refund is being processed. Please contact our hotline if you do not receive it within 3-5 business days.");
+                    }
+                    return;
+                }
+
+                // Patient / Receptionist cancel → check 24h rule
+                LocalDate apptDate = appointment.getAppointmentDate();
+                LocalTime apptTime = appointment.getStartTime() != null
+                        ? appointment.getStartTime() : appointment.getAppointmentTime();
+                if (apptDate != null && apptTime != null) {
+                    LocalDateTime appointmentDateTime = LocalDateTime.of(apptDate, apptTime);
+                    long hoursUntil = ChronoUnit.HOURS.between(LocalDateTime.now(), appointmentDateTime);
+
+                    if (hoursUntil >= 24) {
+                        // >= 24h → 50% refund
+                        BigDecimal halfAmount = payment.getTotalAmount()
+                                .divide(BigDecimal.valueOf(2), 0, RoundingMode.HALF_UP);
+                        try {
+                            RefundDTO refundDto = RefundDTO.builder()
+                                    .refundAmount(halfAmount)
+                                    .refundReason("50% refund: appointment cancelled >= 24h before by " + userRole)
+                                    .notes("50% refund policy (cancelled " + hoursUntil + "h before appointment)")
+                                    .build();
+                            paymentService.refundPayment(payment.getId(), refundDto, userId);
+                            log.info("Auto-refunded 50% ({}) for payment {} — cancelled {}h before by {}",
+                                    halfAmount, payment.getId(), hoursUntil, userRole);
+                            // Send refund email directly
+                            sendRefundPolicyEmail(patientEmail, patientName, payment.getPaymentCode(),
+                                    payment.getTotalAmount(), halfAmount,
+                                    "Cancelled more than 24h in advance",
+                                    "You cancelled your appointment more than 24 hours in advance. As per our policy, you will receive a 50% refund of the amount paid.");
+                        } catch (Exception e) {
+                            log.error("Failed to auto-refund 50% for payment {} on appointment {}: {}",
+                                    payment.getId(), appointmentId, e.getMessage());
+                            // Still notify about pending refund
+                            sendRefundPolicyEmail(patientEmail, patientName, payment.getPaymentCode(),
+                                    payment.getTotalAmount(), halfAmount,
+                                    "Cancelled more than 24h in advance",
+                                    "You cancelled your appointment more than 24 hours in advance. A 50% refund is being processed. Please contact our hotline if you do not receive it within 3-5 business days.");
+                        }
+                    } else {
+                        // < 24h → no refund
+                        log.info("No refund for payment {} — cancelled <24h before appointment by {} ({}h before)",
+                                payment.getId(), userRole, hoursUntil);
+                        // Notify patient: no refund because < 24h
+                        sendRefundPolicyEmail(patientEmail, patientName, payment.getPaymentCode(),
+                                payment.getTotalAmount(), BigDecimal.ZERO,
+                                "Cancelled within 24h",
+                                "You cancelled your appointment within 24 hours of the scheduled time. As per our policy, no refund is provided.");
+                    }
+                }
+            });
+        } catch (Exception e) {
+            log.warn("Failed to apply refund policy for appointment {}: {}", appointmentId, e.getMessage());
+        }
+    }
+
+    /**
+     * Send refund policy notification email to patient.
+     * Covers both "refund processed" and "no refund" scenarios.
+     */
+    private void sendRefundPolicyEmail(String email, String patientName, String paymentCode,
+                                        BigDecimal totalPaid, BigDecimal refundAmount,
+                                        String reason, String policyExplanation) {
+        if (email == null || email.isBlank()) return;
+        try {
+            boolean hasRefund = refundAmount != null && refundAmount.compareTo(BigDecimal.ZERO) > 0;
+            String subject = hasRefund
+                    ? "Refund Notification - " + paymentCode
+                    : "Refund Policy Notification - " + paymentCode;
+
+            String refundColor = hasRefund ? "#4caf50" : "#f44336";
+            String refundText = hasRefund
+                    ? String.format("%,.0f VND", refundAmount)
+                    : "0 VND (No refund)";
+
+            String html = "<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;'>"
+                    + "<div style='background:linear-gradient(135deg,#1976d2,#42a5f5);padding:20px;text-align:center;'>"
+                    + "<h1 style='color:white;margin:0;'>Medical Tech</h1></div>"
+                    + "<div style='padding:20px;'>"
+                    + "<h2 style='color:#1976d2;'>📋 Refund Policy Notification</h2>"
+                    + "<p>Dear <strong>" + (patientName != null ? patientName : "Valued Patient") + "</strong>,</p>"
+                    + "<table style='width:100%;border-collapse:collapse;margin:20px 0;'>"
+                    + "<tr style='background:#e3f2fd;'><th style='padding:10px;border:1px solid #ddd;text-align:left;'>Payment Code</th>"
+                    + "<td style='padding:10px;border:1px solid #ddd;'>" + paymentCode + "</td></tr>"
+                    + "<tr><th style='padding:10px;border:1px solid #ddd;text-align:left;'>Amount Paid</th>"
+                    + "<td style='padding:10px;border:1px solid #ddd;'>" + String.format("%,.0f VND", totalPaid) + "</td></tr>"
+                    + "<tr style='background:#e3f2fd;'><th style='padding:10px;border:1px solid #ddd;text-align:left;'>Refund Amount</th>"
+                    + "<td style='padding:10px;border:1px solid #ddd;font-weight:bold;color:" + refundColor + ";'>" + refundText + "</td></tr>"
+                    + "<tr><th style='padding:10px;border:1px solid #ddd;text-align:left;'>Reason</th>"
+                    + "<td style='padding:10px;border:1px solid #ddd;'>" + reason + "</td></tr>"
+                    + "</table>"
+                    + "<div style='background:" + (hasRefund ? "#e8f5e9" : "#fce4ec") + ";padding:15px;border-radius:5px;margin:20px 0;'>"
+                    + "<p style='margin:0;'>" + (hasRefund ? "✅" : "ℹ️") + " <strong>Details:</strong> " + policyExplanation + "</p>"
+                    + "</div>"
+                    + "<div style='background:#fff3e0;padding:15px;border-radius:5px;margin:20px 0;'>"
+                    + "<p style='margin:0;font-size:0.9rem;'>📌 <strong>Refund Policy:</strong></p>"
+                    + "<ul style='margin:5px 0;font-size:0.85rem;'>"
+                    + "<li>Cancelled ≥ 24h before appointment → 50% refund</li>"
+                    + "<li>Cancelled &lt; 24h before appointment → No refund</li>"
+                    + "<li>Cancelled by Doctor/Clinic → 100% refund</li>"
+                    + "<li>No-show → No refund</li>"
+                    + "</ul></div>"
+                    + "<hr style='border:none;border-top:1px solid #ddd;margin:20px 0;'>"
+                    + "<p style='color:#999;font-size:12px;'>If you have any questions, please contact us:<br>"
+                    + "<strong>Hotline: 1900-xxxx</strong> | Email: support@meditech.vn</p>"
+                    + "</div></body></html>";
+
+            emailService.sendHtmlEmail(email, subject, html);
+            log.info("Sent refund policy email to {} for payment {}", email, paymentCode);
+        } catch (Exception e) {
+            log.warn("Failed to send refund policy email to {}: {}", email, e.getMessage());
+        }
+    }
     
     // ==================== APPOINTMENT DETAIL & ACTIONS ====================
     
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public AppointmentDetailDTO getAppointmentDetail(Long appointmentId) {
         log.info("Getting full detail for appointment {}", appointmentId);
+        
+        // Sync MoMo payment status before returning detail
+        syncMomoPaymentForAppointment(appointmentId);
         
         Appointment appointment = getAppointmentEntity(appointmentId);
         Patient patient = appointment.getPatient();
@@ -1882,29 +2169,18 @@ public class AppointmentServiceImpl implements AppointmentService {
         appointment.setCancellationReason(dto.getReason());
         appointment = appointmentRepository.save(appointment);
         
-        // 4. Release the time slot back to AVAILABLE
-        TimeSlot timeSlot = appointment.getTimeSlot();
-        if (timeSlot != null && timeSlot.getStatus() == TimeSlotStatus.BOOKED) {
-            timeSlot.setStatus(TimeSlotStatus.AVAILABLE);
-            timeSlotRepository.save(timeSlot);
-            log.info("Released time slot {} back to AVAILABLE after no-show", timeSlot.getId());
-        } else if (timeSlot == null) {
-            // Try to find the time slot by doctor + date + startTime
-            Optional<TimeSlot> slotOpt = timeSlotRepository.findByDoctorIdAndSlotDateAndStartTime(
-                    appointment.getDoctor().getId(), appointment.getAppointmentDate(), appointment.getStartTime());
-            if (slotOpt.isPresent() && slotOpt.get().getStatus() == TimeSlotStatus.BOOKED) {
-                slotOpt.get().setStatus(TimeSlotStatus.AVAILABLE);
-                timeSlotRepository.save(slotOpt.get());
-                log.info("Released time slot {} back to AVAILABLE after no-show (found by lookup)", slotOpt.get().getId());
-            }
-        }
+        // 4. No-show → no refund (keep full payment), cancel unpaid
+        applyRefundPolicy(appointment, userId, userRole, true);
+
+        // 5. Release the time slot back to AVAILABLE
+        releaseTimeSlot(appointment);
         
-        // 5. Create history with markedBy info
+        // 6. Create history with markedBy info
         String reason = "Marked as no-show by " + userRole + " (userId: " + userId + "): " + dto.getReason();
         createHistory(appointment, "NO_SHOW", oldStatus, AppointmentStatus.NO_SHOW,
                 userId, userRole, reason);
         
-        // 6. Send notification: no-show marked
+        // 7. Send notification: no-show marked
         try {
             notificationEventService.onNoShowMarked(appointment);
         } catch (Exception e) {

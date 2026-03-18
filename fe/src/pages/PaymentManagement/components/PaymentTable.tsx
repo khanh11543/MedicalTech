@@ -24,7 +24,6 @@ interface PaymentTableProps {
   selectedPayments: number[];
   onSelectPayment: (paymentId: number, checked: boolean) => void;
   onViewPayment: (paymentId: number) => void;
-  onRefundPayment: (paymentId: number) => void;
   onPrintReceipt: (paymentId: number) => void;
   showSelection?: boolean;
   emptyMessage?: string;
@@ -36,7 +35,6 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
   selectedPayments,
   onSelectPayment,
   onViewPayment,
-  onRefundPayment,
   onPrintReceipt,
   showSelection = true,
   emptyMessage = "No payments found",
@@ -315,15 +313,6 @@ const PaymentTable: React.FC<PaymentTableProps> = ({
                       >
                         View
                       </button>
-                      {payment.status === 'PAID' && (
-                        <button
-                          onClick={() => onRefundPayment(payment.id)}
-                          className="px-2 py-1 text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded hover:bg-orange-100 transition-colors"
-                          title="Process Refund"
-                        >
-                          Refund
-                        </button>
-                      )}
                       <button
                         onClick={() => onPrintReceipt(payment.id)}
                         className="px-2 py-1 text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200 rounded hover:bg-purple-100 transition-colors"
