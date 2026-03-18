@@ -6,6 +6,7 @@ import {
 } from "../../../services/securityService";
 import dayjs from "dayjs";
 import { useState } from "react";
+import { getAvatarUrl } from "../../../utils/avatar";
 
 interface Props {
   log: ActivityLogDTO;
@@ -172,7 +173,7 @@ export default function ActivityDetailModal({ log, isOpen, onClose, onFilterByUs
                 <div className="mb-2 flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700">
                     {log.user.avatarUrl ? (
-                      <img src={log.user.avatarUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+                      <img src={getAvatarUrl(log.user.avatarUrl) ?? ""} alt="" className="h-10 w-10 rounded-full object-cover" />
                     ) : (
                       <span className="text-sm font-bold text-gray-500">
                         {log.user.fullName?.charAt(0) || "?"}

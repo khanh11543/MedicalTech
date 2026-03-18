@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { PageTitle, StarRating } from "./components/SharedComponents";
 import publicService, { type DoctorCard as DoctorCardType, type Specialty } from "../../services/publicService";
+import { getAvatarUrl } from "../../utils/avatar";
 import "./landing.css";
 
 export default function DoctorsPage() {
@@ -83,7 +84,7 @@ export default function DoctorsPage() {
                   <Link to={`/doctors/${doc.id}`} className="block relative overflow-hidden h-[250px] rounded-t-[15px]">
                     {doc.avatarUrl ? (
                       <img
-                        src={doc.avatarUrl}
+                        src={getAvatarUrl(doc.avatarUrl) ?? ""}
                         alt={doc.fullName}
                         className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                         loading="lazy"

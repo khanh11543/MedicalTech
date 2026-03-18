@@ -13,6 +13,7 @@ import {
 import Badge from "../../components/ui/badge/Badge";
 import { useWorkstation } from "../../context/WorkstationContext";
 import { maskEmail } from "../../utils/privacyMask";
+import { getAvatarUrl } from "../../utils/avatar";
 import adminService, { DoctorVerification as DoctorVerificationType, Page } from "../../services/adminService";
 
 export default function DoctorVerification() {
@@ -228,7 +229,7 @@ export default function DoctorVerification() {
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                               {doc.avatarUrl ? (
-                                <img src={doc.avatarUrl} alt={doc.fullName} className="w-full h-full object-cover" />
+                                <img src={getAvatarUrl(doc.avatarUrl) ?? ""} alt={doc.fullName} className="w-full h-full object-cover" />
                               ) : (
                                 <span className="text-blue-600 dark:text-blue-400 font-medium">
                                   {doc.fullName ? doc.fullName.charAt(0).toUpperCase() : "D"}

@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import Badge from "../../components/ui/badge/Badge";
+import { getAvatarUrl } from "../../utils/avatar";
 import adminService, {
   AdminReceptionist,
   Page,
@@ -274,7 +275,7 @@ function ReceptionistDetailModal({
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center overflow-hidden">
               {receptionist.avatarUrl ? (
-                <img src={receptionist.avatarUrl} alt="" className="w-full h-full object-cover" />
+                <img src={getAvatarUrl(receptionist.avatarUrl) ?? ""} alt="" className="w-full h-full object-cover" />
               ) : (
                 <span className="text-amber-600 dark:text-amber-400 text-lg font-bold">
                   {receptionist.fullName.charAt(0).toUpperCase()}
@@ -656,7 +657,7 @@ export default function ReceptionistList() {
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center overflow-hidden">
                               {r.avatarUrl ? (
-                                <img src={r.avatarUrl} alt="" className="w-full h-full object-cover" />
+                                <img src={getAvatarUrl(r.avatarUrl) ?? ""} alt="" className="w-full h-full object-cover" />
                               ) : (
                                 <span className="text-amber-600 dark:text-amber-400 font-medium">
                                   {r.fullName.charAt(0).toUpperCase()}

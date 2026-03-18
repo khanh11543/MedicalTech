@@ -257,7 +257,7 @@ function DepartmentsSection() {
           {departments.map((dept) => (
             <div
               key={dept.title}
-              className="bg-white rounded-xl overflow-hidden shadow-[0_5px_15px_rgba(44,48,49,0.15)] transition-all hover:-translate-y-[5px] hover:shadow-[0_15px_30px_rgba(44,48,49,0.25)] h-full group"
+              className="bg-white rounded-xl overflow-hidden shadow-[0_5px_15px_rgba(44,48,49,0.15)] transition-all hover:-translate-y-[5px] hover:shadow-[0_15px_30px_rgba(44,48,49,0.25)] h-full group flex flex-col"
             >
               {/* Image */}
               <div className="relative h-[200px] overflow-hidden">
@@ -268,7 +268,7 @@ function DepartmentsSection() {
                 />
               </div>
               {/* Content */}
-              <div className="relative p-[30px]">
+              <div className="relative p-[30px] flex flex-col flex-1">
                 {/* Circle Icon — accent bg, white icon */}
                 <div className="absolute -top-[30px] left-[30px] w-[60px] h-[60px] rounded-full bg-[#049ebb] flex items-center justify-center shadow-[0_5px_15px_rgba(4,158,187,0.4)]">
                   <i className={`${dept.icon} text-[24px] text-white`}></i>
@@ -276,10 +276,10 @@ function DepartmentsSection() {
                 <h3 className="text-[24px] font-bold text-[#18444c] mt-10 mb-4">
                   {dept.title}
                 </h3>
-                <p className="text-[15px] leading-relaxed text-[rgba(44,48,49,0.8)] mb-6">
+                <p className="text-[15px] leading-relaxed text-[rgba(44,48,49,0.8)] mb-6 flex-1">
                   {dept.desc}
                 </p>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 mt-auto">
                   <Link
                     to={`/departments/${dept.slug}`}
                     className="inline-flex items-center gap-2 text-[#049ebb] font-semibold text-[14px] no-underline transition-all group/link"

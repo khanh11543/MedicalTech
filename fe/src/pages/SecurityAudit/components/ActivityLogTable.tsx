@@ -7,6 +7,7 @@ import {
   ACTIVITY_TYPE_ICONS,
 } from "../../../services/securityService";
 import dayjs from "dayjs";
+import { getAvatarUrl } from "../../../utils/avatar";
 
 interface Props {
   data?: PageResponse<ActivityLogDTO>;
@@ -156,7 +157,7 @@ export default function ActivityLogTable({
                     <div className="flex items-center gap-2">
                       <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700">
                         {log.user.avatarUrl ? (
-                          <img src={log.user.avatarUrl} alt="" className="h-7 w-7 rounded-full object-cover" />
+                          <img src={getAvatarUrl(log.user.avatarUrl) ?? ""} alt="" className="h-7 w-7 rounded-full object-cover" />
                         ) : (
                           <span className="text-[10px] font-bold text-gray-500">
                             {log.user.fullName?.charAt(0) || "?"}

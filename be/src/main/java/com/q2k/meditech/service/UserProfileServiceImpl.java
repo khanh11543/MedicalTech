@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 public class UserProfileServiceImpl implements UserProfileService {
 
     private final UserRepository userRepository;
+    private final DoctorRepository doctorRepository;
     private final NotificationPreferenceRepository notificationPreferenceRepository;
     private final UserDisplaySettingRepository displaySettingRepository;
     private final UserPrinterSettingRepository printerSettingRepository;
@@ -59,6 +60,8 @@ public class UserProfileServiceImpl implements UserProfileService {
 
         if (dto.getFullName() != null) {
             user.setFullName(dto.getFullName());
+            // Keep Doctor.fullName in sync for public discovery & booking UIs
+            doctorRepository.findByUserId(userId).ifPresent(d -> d.setFullName(dto.getFullName()));
         }
         if (dto.getPhone() != null) {
             // Check phone uniqueness

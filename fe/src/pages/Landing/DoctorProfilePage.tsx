@@ -6,6 +6,7 @@ import publicService, {
   type TimeSlot,
   type PublicReview,
 } from "../../services/publicService";
+import { getAvatarUrl } from "../../utils/avatar";
 import "./landing.css";
 
 export default function DoctorProfilePage() {
@@ -110,7 +111,7 @@ export default function DoctorProfilePage() {
             {/* Avatar */}
             <div className="w-[200px] h-[200px] min-w-[200px] rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.12)]">
               {doctor.avatarUrl ? (
-                <img src={doctor.avatarUrl} alt={doctor.fullName} className="w-full h-full object-cover" />
+                <img src={getAvatarUrl(doctor.avatarUrl) ?? ""} alt={doctor.fullName} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-[#049ebb] to-[#037a94] flex items-center justify-center">
                   <span className="text-5xl font-bold text-white">{doctor.fullName?.charAt(0)}</span>

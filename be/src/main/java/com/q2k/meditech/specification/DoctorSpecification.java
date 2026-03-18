@@ -63,7 +63,8 @@ public class DoctorSpecification {
     }
 
     public static Specification<Doctor> isApproved() {
+        // Backward compat: VERIFIED should be treated as APPROVED for public discovery.
         return (root, criteriaQuery, criteriaBuilder) ->
-            criteriaBuilder.equal(root.get("verificationStatus"), "APPROVED");
+            root.get("verificationStatus").in("VERIFIED", "APPROVED");
     }
 }
