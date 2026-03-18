@@ -10,6 +10,7 @@ import com.q2k.meditech.entity.enums.AppointmentStatus;
 import com.q2k.meditech.entity.enums.ConsultationStatus;
 import com.q2k.meditech.repository.*;
 import com.q2k.meditech.service.ConsultationService;
+import com.q2k.meditech.service.FileStorageService;
 import com.q2k.meditech.util.SecurityUtil;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -20,10 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -44,9 +41,9 @@ public class ConsultationServiceImpl implements ConsultationService {
     private final DoctorRepository doctorRepository;
     private final UserRepository userRepository;
     private final ConsultationMapper consultationMapper;
+    private final FileStorageService fileStorageService;
 
     // File upload configuration
-    private static final String UPLOAD_DIR = "uploads/consultations/";
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
     @Override
@@ -474,19 +471,10 @@ public class ConsultationServiceImpl implements ConsultationService {
                 .orElseThrow(() -> new EntityNotFoundException("Current user not found"));
         
         try {
-            // Generate unique filename
+            // Upload to Cloudinary
+            String fileUrl = fileStorageService.uploadFile(
+                    "consultations/" + consultation.getId(), file);
             String originalFilename = file.getOriginalFilename();
-            String fileExtension = originalFilename != null ? 
-                    originalFilename.substring(originalFilename.lastIndexOf(".")) : "";
-            String uniqueFilename = UUID.randomUUID().toString() + fileExtension;
-            
-            // Create directory if it doesn't exist
-            Path uploadPath = Paths.get(UPLOAD_DIR, consultation.getId().toString());
-            Files.createDirectories(uploadPath);
-            
-            // Save file
-            Path filePath = uploadPath.resolve(uniqueFilename);
-            Files.write(filePath, file.getBytes());
             
             // Create attachment record
             ConsultationAttachment attachment = ConsultationAttachment.builder()
@@ -494,7 +482,7 @@ public class ConsultationServiceImpl implements ConsultationService {
                     .filename(originalFilename)
                     .fileType(extractFileType(originalFilename))
                     .fileSize(file.getSize())
-                    .filePath(filePath.toString())
+                    .filePath(fileUrl)
                     .mimeType(file.getContentType())
                     .uploadedByUser(currentUser)
                     .build();
@@ -506,7 +494,7 @@ public class ConsultationServiceImpl implements ConsultationService {
             log.info("Uploaded attachment ID: {} for consultation ID: {} (appointment ID: {})", savedAttachment.getId(), consultation.getId(), appointmentId);
             
             return consultationMapper.toDTO(savedAttachment);
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("Error uploading file for appointment ID: {}", appointmentId, e);
             throw new RuntimeException("Error uploading file: " + e.getMessage(), e);
         }
@@ -520,13 +508,8 @@ public class ConsultationServiceImpl implements ConsultationService {
         ConsultationAttachment attachment = attachmentRepository.findById(attachmentId)
                 .orElseThrow(() -> new EntityNotFoundException("Attachment not found with ID: " + attachmentId));
         
-        try {
-            // Delete file from disk
-            Path filePath = Paths.get(attachment.getFilePath());
-            Files.deleteIfExists(filePath);
-        } catch (IOException e) {
-            log.error("Error deleting file for attachment ID: {}", attachmentId, e);
-        }
+        // Delete file from Cloudinary
+        fileStorageService.deleteFile(attachment.getFilePath());
         
         // Remove from consultation
         Consultation consultation = attachment.getConsultation();
@@ -566,14 +549,9 @@ public class ConsultationServiceImpl implements ConsultationService {
             throw new IllegalStateException("Only DRAFT consultations can be deleted. Current status: " + consultation.getStatus());
         }
         
-        // Delete all attachments from disk
+        // Delete all attachments from Cloudinary
         for (ConsultationAttachment attachment : consultation.getAttachments()) {
-            try {
-                Path filePath = Paths.get(attachment.getFilePath());
-                Files.deleteIfExists(filePath);
-            } catch (IOException e) {
-                log.error("Error deleting file for attachment ID: {}", attachment.getId(), e);
-            }
+            fileStorageService.deleteFile(attachment.getFilePath());
         }
         
         // Delete consultation (cascade will handle amendments and attachments)
