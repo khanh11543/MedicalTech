@@ -3,7 +3,9 @@ package com.q2k.meditech.controller;
 import com.q2k.meditech.dto.ReplyReviewDTO;
 import com.q2k.meditech.dto.ReviewDTO;
 import com.q2k.meditech.dto.ReviewListResponse;
+import com.q2k.meditech.dto.DoctorReviewsOverviewResponse;
 import com.q2k.meditech.service.DoctorProfileService;
+import com.q2k.meditech.service.DoctorReviewsOverviewService;
 import com.q2k.meditech.service.ReviewService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,6 +21,7 @@ public class DoctorReviewController {
 
     private final ReviewService reviewService;
     private final DoctorProfileService doctorProfileService;
+    private final DoctorReviewsOverviewService doctorReviewsOverviewService;
 
     @GetMapping
     @Operation(summary = "Get my reviews")
@@ -27,6 +30,16 @@ public class DoctorReviewController {
             @RequestParam(defaultValue = "20") int pageSize) {
         Long doctorId = doctorProfileService.requireDoctor().getId();
         ReviewListResponse response = reviewService.getDoctorReviews(doctorId, pageNumber, pageSize);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/overview")
+    @Operation(summary = "Get my reviews + performance stats")
+    public ResponseEntity<DoctorReviewsOverviewResponse> getDoctorReviewsOverview(
+            @RequestParam(defaultValue = "0") int pageNumber,
+            @RequestParam(defaultValue = "5") int pageSize) {
+        Long doctorId = doctorProfileService.requireDoctor().getId();
+        DoctorReviewsOverviewResponse response = doctorReviewsOverviewService.getOverview(doctorId, pageNumber, pageSize);
         return ResponseEntity.ok(response);
     }
 

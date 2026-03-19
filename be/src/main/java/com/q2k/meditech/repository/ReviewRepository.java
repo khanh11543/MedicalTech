@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -60,4 +61,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
            "WHERE r.doctor.id = :doctorId AND r.isVisible = true ORDER BY r.createdAt DESC",
            countQuery = "SELECT COUNT(r) FROM Review r WHERE r.doctor.id = :doctorId AND r.isVisible = true")
     Page<Review> findByDoctorIdAndIsVisibleTrueOrderByCreatedAtDesc(@Param("doctorId") Long doctorId, Pageable pageable);
+
+    // Rating breakdown for a doctor (counts per star value)
+    @Query("SELECT r.rating, COUNT(r) FROM Review r WHERE r.doctor.id = :doctorId GROUP BY r.rating")
+    List<Object[]> countReviewsByRatingForDoctor(@Param("doctorId") Long doctorId);
 }

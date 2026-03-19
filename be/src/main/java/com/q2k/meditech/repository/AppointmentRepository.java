@@ -95,6 +95,25 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
            "WHERE a.doctor.id = :doctorId AND a.status = :status")
     Long countByDoctorIdAndStatus(@Param("doctorId") Long doctorId, @Param("status") AppointmentStatus status);
 
+    // Total appointments (all statuses) for a doctor
+    @Query("SELECT COUNT(a) FROM Appointment a WHERE a.doctor.id = :doctorId")
+    Long countByDoctorId(@Param("doctorId") Long doctorId);
+
+    // Distinct patients that have had at least one appointment with this doctor
+    @Query("SELECT COUNT(DISTINCT a.patient.id) FROM Appointment a WHERE a.doctor.id = :doctorId")
+    Long countDistinctPatientsTreatedByDoctorId(@Param("doctorId") Long doctorId);
+
+    // Appointments used to calculate consultation hours (only completed consultations with start/end timestamps)
+    @Query("SELECT a FROM Appointment a " +
+            "WHERE a.doctor.id = :doctorId " +
+            "AND a.status = :status " +
+            "AND a.consultationStartedAt IS NOT NULL " +
+            "AND a.consultationEndedAt IS NOT NULL")
+    List<Appointment> findConsultationsWithDurationByDoctorIdAndStatus(
+            @Param("doctorId") Long doctorId,
+            @Param("status") AppointmentStatus status
+    );
+
     // Find appointments within date range
     @Query("SELECT a FROM Appointment a " +
            "WHERE a.appointmentDate BETWEEN :fromDate AND :toDate " +

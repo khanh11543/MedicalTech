@@ -548,3 +548,68 @@ export const rescheduleAppointment = async (
   );
   return response.data;
 };
+
+// ============== DOCTOR REVIEWS OVERVIEW (Reviews & Stats) ==============
+
+export interface DoctorReviewDTO {
+  id: number;
+  appointmentId: number | null;
+  patientId: number | null;
+  patientName: string | null;
+  doctorId: number | null;
+  doctorName: string | null;
+  rating: number | null;
+  comment: string | null;
+  imageUrls: string[];
+  isAnonymous: boolean | null;
+  isVisible: boolean | null;
+  adminResponse: string | null;
+  respondedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface DoctorReviewsStatsDTO {
+  totalAppointments: number;
+  patientsTreated: number;
+  prescriptionsWritten: number;
+  consultationHours: number;
+
+  averageRating: number;
+  totalReviews: number;
+  recentReviewsCount: number;
+
+  ratingDistribution: {
+    rating: number;
+    count: number;
+  }[];
+}
+
+export interface DoctorReviewsOverviewResponse {
+  reviews: DoctorReviewDTO[];
+  totalPages: number;
+  totalElements: number;
+  currentPage: number;
+  pageSize: number;
+  stats: DoctorReviewsStatsDTO;
+}
+
+/**
+ * GET /api/doctor/reviews/overview
+ * Returns both doctor reviews (paginated) and aggregated stats.
+ */
+export const getDoctorReviewsOverview = async (
+  params?: { pageNumber?: number; pageSize?: number }
+): Promise<DoctorReviewsOverviewResponse> => {
+  const response = await api.get<DoctorReviewsOverviewResponse>(
+    "/doctor/reviews/overview",
+    {
+      params: {
+        pageNumber: params?.pageNumber ?? 0,
+        pageSize: params?.pageSize ?? 10,
+      },
+    }
+  );
+
+  return response.data;
+};
