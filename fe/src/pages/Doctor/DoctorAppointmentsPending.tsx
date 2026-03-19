@@ -38,29 +38,29 @@ export default function DoctorAppointmentsPending() {
     useState<AppointmentDTO | null>(null);
 
   // Fetch appointments from API
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await appointmentService.getDoctorAppointments({
-          status: AppointmentStatus.PENDING,
-          pageNumber: 0,
-          pageSize: 100,
-        });
-        setAppointments(response.content || []);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error
-            ? err.message
-            : 'Failed to fetch pending appointments';
-        setError(errorMessage);
-        console.error('Error fetching pending appointments:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await appointmentService.getDoctorAppointments({
+        status: AppointmentStatus.PENDING,
+        pageNumber: 0,
+        pageSize: 100,
+      });
+      setAppointments(response.content || []);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : 'Failed to fetch pending appointments';
+      setError(errorMessage);
+      console.error('Error fetching pending appointments:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchAppointments();
   }, []);
 
@@ -187,6 +187,7 @@ export default function DoctorAppointmentsPending() {
   const handleCloseRescheduleModal = () => {
     setIsRescheduleModalOpen(false);
     setAppointmentToReschedule(null);
+    fetchAppointments();
   };
 
   const handleRescheduleSubmit = async (data: RescheduleDTO) => {
