@@ -32,11 +32,11 @@ public class AppointmentHistory {
     private String action; // CREATED, CONFIRMED, RESCHEDULED, CANCELLED, CHECKED_IN, etc.
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "old_status")
+    @Column(name = "old_status", length = 20)
     private AppointmentStatus oldStatus;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "new_status")
+    @Column(name = "new_status", length = 20)
     private AppointmentStatus newStatus;
 
     @Column(name = "old_date")

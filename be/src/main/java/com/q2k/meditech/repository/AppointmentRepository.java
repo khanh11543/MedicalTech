@@ -1,6 +1,7 @@
 package com.q2k.meditech.repository;
 
 import com.q2k.meditech.entity.Appointment;
+import com.q2k.meditech.entity.Patient;
 import com.q2k.meditech.entity.enums.AppointmentStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -604,4 +605,99 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
             @Param("paymentStatus") String paymentStatus,
             @Param("search") String search,
             Pageable pageable);
+
+    // ==================== DOCTOR PATIENT COHORT QUERIES ====================
+
+    /**
+     * Find all distinct patients that a doctor has seen or has upcoming appointments with
+     * Used for "My Patients" tab
+     */
+    @Query("SELECT DISTINCT a.patient FROM Appointment a " +
+           "WHERE a.doctor.id = :doctorId")
+    Page<Patient> findDistinctPatientsByDoctorId(@Param("doctorId") Long doctorId, Pageable pageable);
+
+    /**
+     * Find patients with search filter (name, email, phone)
+     * Used for "My Patients" search
+     */
+    @Query("SELECT DISTINCT a.patient FROM Appointment a " +
+           "JOIN a.patient p " +
+           "JOIN p.user u " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND (LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "     OR u.phone LIKE CONCAT('%', :search, '%') " +
+           "     OR LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')))")
+    Page<Patient> searchPatientsByDoctorId(
+            @Param("doctorId") Long doctorId,
+            @Param("search") String search,
+            Pageable pageable);
+
+    /**
+     * Find recently seen patients (last 30 days)
+     * Used for "Recent" tab
+     */
+    @Query("SELECT DISTINCT a.patient FROM Appointment a " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.appointmentDate >= :dateFrom " +
+           "AND a.status IN ('COMPLETED', 'IN_PROGRESS')")
+    Page<Patient> findRecentPatientsByDoctorId(
+            @Param("doctorId") Long doctorId,
+            @Param("dateFrom") LocalDate dateFrom,
+            Pageable pageable);
+
+    /**
+     * Get the last appointment date for a doctor-patient pair
+     */
+    @Query("SELECT MAX(a.appointmentDate) FROM Appointment a " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.patient.id = :patientId " +
+           "AND a.status IN ('COMPLETED', 'IN_PROGRESS')")
+    LocalDate findLastAppointmentDateByDoctorAndPatient(
+            @Param("doctorId") Long doctorId,
+            @Param("patientId") Long patientId);
+
+    /**
+     * Get the last appointment for a doctor-patient pair with all details
+     */
+    @Query("SELECT a FROM Appointment a " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.patient.id = :patientId " +
+           "AND a.status IN ('COMPLETED', 'IN_PROGRESS') " +
+           "ORDER BY a.appointmentDate DESC, a.startTime DESC " +
+           "LIMIT 1")
+    Optional<Appointment> findLastAppointmentByDoctorAndPatient(
+            @Param("doctorId") Long doctorId,
+            @Param("patientId") Long patientId);
+
+    /**
+     * Count total visits for a doctor-patient pair
+     */
+    @Query("SELECT COUNT(a) FROM Appointment a " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.patient.id = :patientId")
+    Integer countVisitsByDoctorAndPatient(
+            @Param("doctorId") Long doctorId,
+            @Param("patientId") Long patientId);
+
+    /**
+     * Find upcoming appointments for a patient with a doctor
+     */
+    @Query("SELECT a FROM Appointment a " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.patient.id = :patientId " +
+           "AND a.appointmentDate >= CURRENT_DATE " +
+           "AND a.status IN ('PENDING', 'CONFIRMED', 'CHECKED_IN')")
+    List<Appointment> findUpcomingAppointmentsByDoctorAndPatient(
+            @Param("doctorId") Long doctorId,
+            @Param("patientId") Long patientId);
+
+    /**
+     * Check if doctor has any appointment with patient
+     */
+    @Query("SELECT COUNT(a) > 0 FROM Appointment a " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.patient.id = :patientId")
+    Boolean hasAppointmentWithPatient(
+            @Param("doctorId") Long doctorId,
+            @Param("patientId") Long patientId);
 }

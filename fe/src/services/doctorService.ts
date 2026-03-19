@@ -311,94 +311,174 @@ export interface DocumentVerificationSummary {
 
 // ============== DOCTOR'S PATIENTS TYPES ==============
 
+/**
+ * Generic pagination response wrapper
+ */
 export interface PageResponse<T> {
   content: T[];
+  pageNumber: number;
+  pageSize: number;
   totalElements: number;
   totalPages: number;
-  number: number;
-  size: number;
-  first: boolean;
-  last: boolean;
+  hasNext: boolean;
+  hasPrevious: boolean;
 }
 
+/**
+ * Patient in "My Patients" tab
+ * Contains patient basics, medical history, and visit summary
+ */
 export interface DoctorPatientDTO {
   id: number;
-  userId: number;
-  mrn: string;
-  name: string;
+  fullName: string;
   email: string;
   phone: string;
   dateOfBirth: string | null;
-  age: number | null;
   gender: string | null;
-  avatarUrl: string | null;
-  address: string | null;
+  bloodGroup: string | null;
   allergies: string | null;
   medicalHistory: string | null;
   totalVisits: number;
   lastVisitDate: string | null;
-  totalCompletedAppointments: number;
-  insuranceStatus: string;
-  isActive: boolean;
+  lastVisitReason: string | null;
+  activePrescriptionsCount: number;
+  totalPrescriptionsCount: number;
+  mostRecentPrescriptionDate: string | null;
+  allergyList: string[];
+  chronicConditions: string[];
+  hasUpcomingAppointment: boolean;
   createdAt: string;
+  updatedAt: string;
 }
 
-export interface RecentPatientDTO {
+/**
+ * Patient in "Recent" tab
+ * Optimized for quick access and follow-up support
+ */
+export interface DoctorPatientRecentDTO {
   id: number;
-  userId: number;
-  mrn: string;
-  name: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  lastVisitDate: string | null;
+  daysSinceLastVisit: number;
+  lastVisitReason: string | null;
+  lastVisitNotes: string | null;
+  allergies: string | null;
+  medicalHistory: string | null;
+  hasUpcomingAppointment: boolean;
+  nextAppointmentDate: string | null;
+  lastAppointmentId: number | null;
+  lastMedicalRecordId: number | null;
+}
+
+/**
+ * Patient in "Flags" tab
+ * Contains clinical flags for safety awareness
+ */
+export interface DoctorPatientFlagsDTO {
+  id: number;
+  fullName: string;
+  email: string;
+  phone: string;
+  bloodGroup: string | null;
+  allergies: string[];
+  chronicConditions: string[];
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH';
+  lastVisitDate: string | null;
+  lastVisitNotes: string | null;
+  hasActivePrescriptions: boolean;
+  activePrescriptionsCount: number;
+  updatedAt: string;
+}
+
+/**
+ * Detailed patient information
+ * Contains complete medical history, visit records, and prescriptions
+ */
+export interface DoctorPatientDetailDTO {
+  id: number;
+  fullName: string;
   email: string;
   phone: string;
   dateOfBirth: string | null;
-  age: number | null;
+  age: number;
   gender: string | null;
-  avatarUrl: string | null;
+  address: string | null;
+  bloodGroup: string | null;
+  allergies: string | null;
+  medicalHistory: string | null;
+  insuranceNumber: string | null;
+  emergencyContact: string | null;
+  totalVisitsWithThisDoctor: number;
+  firstVisitDate: string | null;
   lastVisitDate: string | null;
-  lastVisitTime: string | null;
+  lastVisitReason: string | null;
+  lastVisitNotes: string | null;
+  totalMedicalRecords: number;
+  recentMedicalRecords: MedicalRecordSummary[];
+  totalPrescriptions: number;
+  activePrescriptions: number;
+  recentPrescriptions: PrescriptionSummary[];
+  upcomingAppointments: AppointmentSummary[];
+  allergyList: string[];
+  chronicConditionsList: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MedicalRecordSummary {
+  id: number;
+  visitDate: string;
+  chiefComplaint: string | null;
+  diagnosis: string | null;
+  treatmentPlan: string | null;
+}
+
+export interface PrescriptionSummary {
+  id: number;
+  prescriptionCode: string;
+  prescriptionDate: string;
+  diagnosis: string | null;
+  status: string;
+}
+
+export interface AppointmentSummary {
+  id: number;
+  appointmentCode: string;
+  appointmentDate: string;
+  appointmentType: string | null;
+  status: string;
   reasonForVisit: string | null;
-  totalVisits: number;
 }
 
-export interface FlaggedPatientDTO {
-  id: number;
-  userId: number;
-  mrn: string;
-  name: string;
-  email: string;
-  phone: string;
-  dateOfBirth: string | null;
-  age: number | null;
-  gender: string | null;
-  avatarUrl: string | null;
-  allergyList: AllergySummary[];
-  chronicConditionsList: ChronicConditionSummary[];
-  lastVisitDate: string | null;
-  totalVisits: number;
-}
-
-export interface AllergySummary {
-  id: number;
-  allergyName: string;
-  severity: string; // MILD | MODERATE | SEVERE | CRITICAL
-  reactions: string[] | null;
-  dateRecorded: string;
-}
-
-export interface ChronicConditionSummary {
-  id: number;
-  conditionName: string;
-  severity: string; // MILD | MODERATE | SEVERE
-  diagnosisDate: string;
-  status: string; // ACTIVE | RESOLVED | MONITORING
+/**
+ * Cohort statistics
+ */
+export interface DoctorPatientCohortStatsDTO {
+  totalPatients: number;
+  patientsInLast30Days: number;
+  patientsInLast90Days: number;
+  patientsWithAllergies: number;
+  patientsWithChronicConditions: number;
+  highRiskPatients: number;
+  totalPrescriptions: number;
+  activePrescriptions: number;
+  patientsWithActivePrescriptions: number;
+  totalAppointments: number;
+  completedAppointments: number;
+  pendingAppointments: number;
+  upcomingAppointments: number;
+  averageVisitsPerPatient: number;
+  patientsWithFollowUp: number;
 }
 
 export interface DoctorPatientSearchParams {
   search?: string;
-  page?: number;
-  size?: number;
+  pageNumber?: number;
+  pageSize?: number;
   sortBy?: string;
-  sortDir?: string;
+  sortOrder?: string;
 }
 
 // ============== PROFILE SETUP API CALLS ==============
@@ -465,70 +545,154 @@ export const submitDoctorVerification = async (): Promise<DoctorProfile> => {
   return response.data;
 };
 
-// ============== DOCTOR'S PATIENTS API CALLS ==============
+// ============== DOCTOR'S PATIENT MANAGEMENT API CALLS ==============
 
-/** GET /api/doctor/patients - Get all patients of the logged-in doctor */
-export const getDoctorPatients = async (
+/**
+ * Get all patients of the doctor with optional search and pagination
+ * GET /api/doctor/my-patients
+ */
+export const getMyPatients = async (
   params?: DoctorPatientSearchParams
 ): Promise<PageResponse<DoctorPatientDTO>> => {
   const response = await api.get<PageResponse<DoctorPatientDTO>>(
-    '/doctor/patients',
+    '/doctor/my-patients',
     {
       params: {
-        search: params?.search || '',
-        page: params?.page || 0,
-        size: params?.size || 20,
-        sortBy: params?.sortBy || 'lastVisitDate',
-        sortDir: params?.sortDir || 'DESC',
+        search: params?.search || undefined,
+        pageNumber: params?.pageNumber ?? 0,
+        pageSize: params?.pageSize ?? 10,
+        sortBy: params?.sortBy || 'id',
+        sortOrder: params?.sortOrder || 'desc',
       },
     }
   );
   return response.data;
 };
 
-/** GET /api/doctor/patients/recent - Get recently visited patients */
-export const getRecentPatients = async (
-  limit?: number
-): Promise<RecentPatientDTO[]> => {
-  const response = await api.get<RecentPatientDTO[]>(
-    '/doctor/patients/recent',
-    {
-      params: {
-        limit: limit || 10,
-      },
-    }
-  );
-  return response.data;
-};
-
-/** GET /api/doctor/patients/flagged - Get patients with allergies or chronic conditions */
-export const getFlaggedPatients = async (params?: {
-  type?: 'ALL' | 'ALLERGIES' | 'CHRONIC';
-  page?: number;
-  size?: number;
-}): Promise<PageResponse<FlaggedPatientDTO>> => {
-  const response = await api.get<PageResponse<FlaggedPatientDTO>>(
-    '/doctor/patients/flagged',
-    {
-      params: {
-        type: params?.type || 'ALL',
-        page: params?.page || 0,
-        size: params?.size || 20,
-      },
-    }
-  );
-  return response.data;
-};
-
-/** GET /api/doctor/patients/:patientId - Get patient detail */
-export const getDoctorPatientDetail = async (
+/**
+ * Get detailed information for a specific patient
+ * GET /api/doctor/my-patients/{patientId}
+ */
+export const getPatientDetail = async (
   patientId: number
-): Promise<DoctorPatientDTO> => {
-  const response = await api.get<DoctorPatientDTO>(
-    `/doctor/patients/${patientId}`
+): Promise<DoctorPatientDetailDTO> => {
+  const response = await api.get<DoctorPatientDetailDTO>(
+    `/doctor/my-patients/${patientId}`
   );
   return response.data;
 };
+
+/**
+ * Get recently seen patients (last 30 days)
+ * GET /api/doctor/my-patients/recent
+ */
+export const getRecentPatients = async (params?: {
+  pageNumber?: number;
+  pageSize?: number;
+}): Promise<PageResponse<DoctorPatientRecentDTO>> => {
+  const response = await api.get<PageResponse<DoctorPatientRecentDTO>>(
+    '/doctor/my-patients/recent',
+    {
+      params: {
+        pageNumber: params?.pageNumber ?? 0,
+        pageSize: params?.pageSize ?? 10,
+      },
+    }
+  );
+  return response.data;
+};
+
+/**
+ * Get patients with clinical flags (allergies or chronic conditions)
+ * GET /api/doctor/my-patients/flags
+ */
+export const getPatientsWithFlags = async (params?: {
+  pageNumber?: number;
+  pageSize?: number;
+}): Promise<PageResponse<DoctorPatientFlagsDTO>> => {
+  const response = await api.get<PageResponse<DoctorPatientFlagsDTO>>(
+    '/doctor/my-patients/flags',
+    {
+      params: {
+        pageNumber: params?.pageNumber ?? 0,
+        pageSize: params?.pageSize ?? 10,
+      },
+    }
+  );
+  return response.data;
+};
+
+/**
+ * Get patients with allergies only
+ * GET /api/doctor/my-patients/flags/allergies
+ */
+export const getPatientsWithAllergies = async (params?: {
+  pageNumber?: number;
+  pageSize?: number;
+}): Promise<PageResponse<DoctorPatientFlagsDTO>> => {
+  const response = await api.get<PageResponse<DoctorPatientFlagsDTO>>(
+    '/doctor/my-patients/flags/allergies',
+    {
+      params: {
+        pageNumber: params?.pageNumber ?? 0,
+        pageSize: params?.pageSize ?? 10,
+      },
+    }
+  );
+  return response.data;
+};
+
+/**
+ * Get patients with chronic conditions only
+ * GET /api/doctor/my-patients/flags/chronic-conditions
+ */
+export const getPatientsWithChronicConditions = async (params?: {
+  pageNumber?: number;
+  pageSize?: number;
+}): Promise<PageResponse<DoctorPatientFlagsDTO>> => {
+  const response = await api.get<PageResponse<DoctorPatientFlagsDTO>>(
+    '/doctor/my-patients/flags/chronic-conditions',
+    {
+      params: {
+        pageNumber: params?.pageNumber ?? 0,
+        pageSize: params?.pageSize ?? 10,
+      },
+    }
+  );
+  return response.data;
+};
+
+/**
+ * Get high-risk patients (severe allergies or multiple chronic conditions)
+ * GET /api/doctor/my-patients/flags/high-risk
+ */
+export const getHighRiskPatients = async (params?: {
+  pageNumber?: number;
+  pageSize?: number;
+}): Promise<PageResponse<DoctorPatientFlagsDTO>> => {
+  const response = await api.get<PageResponse<DoctorPatientFlagsDTO>>(
+    '/doctor/my-patients/flags/high-risk',
+    {
+      params: {
+        pageNumber: params?.pageNumber ?? 0,
+        pageSize: params?.pageSize ?? 10,
+      },
+    }
+  );
+  return response.data;
+};
+
+/**
+ * Get cohort statistics
+ * GET /api/doctor/my-patients/stats
+ */
+export const getPatientCohortStats =
+  async (): Promise<DoctorPatientCohortStatsDTO> => {
+    const response = await api.get<DoctorPatientCohortStatsDTO>(
+      '/doctor/my-patients/stats'
+    );
+    return response.data;
+  };
 
 // ============== DOCTOR'S APPOINTMENT MANAGEMENT API CALLS ==============
 

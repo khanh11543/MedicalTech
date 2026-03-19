@@ -284,7 +284,7 @@ export default function ExpandableAppointmentTable({
                                 </svg>
                                 Reschedule
                               </button>
-                              <button
+                              {/* <button
                                 onClick={() => {
                                   onCancel?.(appointment);
                                   setOpenMenuId(null);
@@ -305,7 +305,7 @@ export default function ExpandableAppointmentTable({
                                   />
                                 </svg>
                                 Cancel
-                              </button>
+                              </button> */}
                             </div>
                           )}
                         </div>

@@ -49,33 +49,33 @@ export default function DoctorAppointmentsUpcoming() {
     useState<AppointmentDTO | null>(null);
 
   // Fetch appointments from API
-  useEffect(() => {
-    const fetchAppointments = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const response = await appointmentService.getDoctorAppointments({
-          pageNumber: 0,
-          pageSize: 100,
-        });
-        console.log('Fetched appointments:', response.content);
-        if (response.content && response.content.length > 0) {
-          console.log(
-            'First appointment date format:',
-            response.content[0].appointmentDate
-          );
-        }
-        setAppointments(response.content || []);
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to fetch appointments';
-        setError(errorMessage);
-        console.error('Error fetching appointments:', err);
-      } finally {
-        setLoading(false);
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await appointmentService.getDoctorAppointments({
+        pageNumber: 0,
+        pageSize: 100,
+      });
+      console.log('Fetched appointments:', response.content);
+      if (response.content && response.content.length > 0) {
+        console.log(
+          'First appointment date format:',
+          response.content[0].appointmentDate
+        );
       }
-    };
+      setAppointments(response.content || []);
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to fetch appointments';
+      setError(errorMessage);
+      console.error('Error fetching appointments:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchAppointments();
   }, []);
 
@@ -99,24 +99,20 @@ export default function DoctorAppointmentsUpcoming() {
 
   // Process data: search, filter, sort, month filter
   const processedAppointments = useMemo(() => {
-    console.log('appointments:', appointments);
     let result = [...appointments];
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    console.log('result1:', result);
     // Filter by status: Only show CONFIRMED and SCHEDULED appointments
     // PENDING appointments are displayed on the Pending Confirmations page
     result = result.filter((apt) => {
       const allowedStatuses = ['CONFIRMED', 'SCHEDULED', 'RESCHEDULED'];
       return allowedStatuses.includes(apt.status);
     });
-    console.log('result2:', result);
     // Filter by date (only future appointments)
     result = result.filter((apt) => {
       const aptDate = new Date(apt.appointmentDate);
       return aptDate >= today;
     });
-    console.log('result3:', result);
     // Filter by month
     result = result.filter((apt) => {
       // Extract YYYY-MM from appointmentDate (handles both "YYYY-MM-DD" and "YYYY-MM-DDTHH:mm:ss" formats)
@@ -126,9 +122,6 @@ export default function DoctorAppointmentsUpcoming() {
     });
 
     // Search filter - search across multiple fields
-    console.log('result4:', result);
-    console.log('searchQuery:', searchQuery);
-    console.log('searchQuery.trim():', searchQuery.trim() ? 'ok' : 'no');
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
@@ -216,6 +209,7 @@ export default function DoctorAppointmentsUpcoming() {
   const handleCloseRescheduleModal = () => {
     setIsRescheduleModalOpen(false);
     setAppointmentToReschedule(null);
+    fetchAppointments();
   };
 
   const handleCancel = (appointment: AppointmentDTO) => {
