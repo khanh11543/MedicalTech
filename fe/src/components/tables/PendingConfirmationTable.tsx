@@ -315,7 +315,7 @@ export default function PendingConfirmationTable({
             </svg>
             Request Reschedule
           </button>
-          <button
+          {/* <button
             onClick={() => {
               const appointment = appointments.find(
                 (apt) => apt.id === openMenuId
@@ -343,7 +343,7 @@ export default function PendingConfirmationTable({
               />
             </svg>
             Cancel
-          </button>
+          </button> */}
         </div>
       )}
     </>
