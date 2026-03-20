@@ -158,7 +158,7 @@ function AboutSection() {
               At MediTech Medical Center, our mission is to provide high-quality healthcare through advanced medical technology, experienced physicians, and compassionate patient-centered care.
             </p>
             <p className="text-[#2c3031] mb-4 text-justify">
-             We combine modern medical expertise with personalized treatment plans to ensure every patient receives safe, effective, and comfortable healthcare services. Our team is dedicated to improving patient outcomes and supporting long-term health and wellness.
+              We combine modern medical expertise with personalized treatment plans to ensure every patient receives safe, effective, and comfortable healthcare services. Our team is dedicated to improving patient outcomes and supporting long-term health and wellness.
             </p>
 
             {/* Feature Items */}
@@ -238,7 +238,7 @@ function DepartmentsSection() {
           slug: s.slug || s.name.toLowerCase().replace(/\s+/g, "-"),
         })));
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   return (
@@ -425,7 +425,7 @@ function DoctorSection() {
           isAvailable: d.isAvailable,
         })));
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   if (doctors.length === 0) return null;
@@ -615,7 +615,7 @@ function CTASection() {
               className="inline-flex items-center bg-white text-[#049ebb] py-[15px] px-[25px] rounded-full font-bold text-[1.1rem] no-underline transition-all hover:-translate-y-[2px] hover:shadow-[0_8px_25px_rgba(0,0,0,0.2)] whitespace-nowrap"
             >
               <i className="bi bi-telephone-fill mr-[10px] text-[1.2rem]"></i>
-              Call  
+              Call
             </a>
           </div>
         </div>
@@ -659,49 +659,47 @@ function EmergencySection() {
 
           {/* Contact Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-  {[
-    {
-      icon: "bi bi-hospital",
-      title: "Emergency Medical Service",
-      phone: "115",
-      address: "Ho Chi Minh City Emergency Center 115",
-      hours: "Open 24/7",
-      urgent: true,
-    },
-    {
-      icon: "bi bi-clock",
-      title: "After-hours Clinic",
-      phone: "+84 28 3855 4269",
-      address: "Cho Ray Hospital, 201B Nguyen Chi Thanh St, District 5, Ho Chi Minh City",
-      hours: "Mon - Sun: 7:00 AM - 10:00 PM",
-    },
-    {
-      icon: "bi bi-headset",
-      title: "Medical Consultation Hotline",
-      phone: "1900 9095",
-      address: "VietNam Ministry of Health Medical Advisory Service",
-      hours: "Available 24/7",
-    },
-    {
-      icon: "bi bi-heart-pulse",
-      title: "Poison Control Center",
-      phone: "+84 28 3855 4137",
-      address: "Poison Control Center - Cho Ray Hospital, Ho Chi Minh City",
-      hours: "Available 24/7",
-    },
+            {[
+              {
+                icon: "bi bi-hospital",
+                title: "Emergency Medical Service",
+                phone: "115",
+                address: "Ho Chi Minh City Emergency Center 115",
+                hours: "Open 24/7",
+                urgent: true,
+              },
+              {
+                icon: "bi bi-clock",
+                title: "After-hours Clinic",
+                phone: "+84 28 3855 4269",
+                address: "Cho Ray Hospital, 201B Nguyen Chi Thanh St, District 5, Ho Chi Minh City",
+                hours: "Mon - Sun: 7:00 AM - 10:00 PM",
+              },
+              {
+                icon: "bi bi-headset",
+                title: "Medical Consultation Hotline",
+                phone: "1900 9095",
+                address: "VietNam Ministry of Health Medical Advisory Service",
+                hours: "Available 24/7",
+              },
+              {
+                icon: "bi bi-heart-pulse",
+                title: "Poison Control Center",
+                phone: "+84 28 3855 4137",
+                address: "Poison Control Center - Cho Ray Hospital, Ho Chi Minh City",
+                hours: "Available 24/7",
+              },
             ].map((card) => (
               <div
                 key={card.title}
-                className={`bg-white rounded-xl p-6 shadow-[0_5px_20px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[5px] hover:shadow-[0_10px_30px_rgba(0,0,0,0.15)] border-l-4 ${
-                  card.urgent ? "border-l-[#dc3545]" : "border-l-[#049ebb]"
-                }`}
+                className={`bg-white rounded-xl p-6 shadow-[0_5px_20px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-[5px] hover:shadow-[0_10px_30px_rgba(0,0,0,0.15)] border-l-4 ${card.urgent ? "border-l-[#dc3545]" : "border-l-[#049ebb]"
+                  }`}
               >
                 {/* Icon — centered */}
                 <div className="text-center mb-5">
                   <i
-                    className={`${card.icon} text-[2.5rem] ${
-                      card.urgent ? "text-[#dc3545]" : "text-[#049ebb]"
-                    }`}
+                    className={`${card.icon} text-[2.5rem] ${card.urgent ? "text-[#dc3545]" : "text-[#049ebb]"
+                      }`}
                   ></i>
                 </div>
                 {/* Content — centered */}
@@ -745,7 +743,7 @@ function EmergencySection() {
                 { icon: "bi bi-calendar-check", label: "Book Appointment" },
                 { icon: "bi bi-person-badge", label: "Find a Doctor" },
                 { icon: "bi bi-chat-dots", label: "Live Chat" },
-                { icon: "bi bi-chat-dots", label: "Live Chat" },
+
               ].map((action) => (
                 <a
                   key={action.label}
