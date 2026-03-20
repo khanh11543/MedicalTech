@@ -65,9 +65,6 @@ const SecurityAudit = lazy(() => import('./pages/SecurityAudit/SecurityAudit'));
 const ReportsAnalytics = lazy(
   () => import('./pages/ReportsAnalytics/ReportsAnalytics')
 );
-const RevenueReports = lazy(
-  () => import('./pages/RevenueReports/RevenueReports')
-);
 const GDPRCompliance = lazy(
   () => import('./pages/GDPRCompliance/GDPRCompliance')
 );
@@ -384,12 +381,6 @@ export default function App() {
                 <Route
                   path='/admin/security-audit'
                   element={<SecurityAudit />}
-                />
-
-                {/* Revenue Reports */}
-                <Route
-                  path='/admin/revenue-reports'
-                  element={<RevenueReports />}
                 />
 
                 {/* GDPR & Compliance */}

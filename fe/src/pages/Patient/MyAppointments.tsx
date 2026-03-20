@@ -4,7 +4,11 @@ import PageMeta from "../../components/common/PageMeta";
 import patientService, {
   type Appointment,
   type Payment,
+  type Prescription,
 } from "../../services/patientService";
+import medicalRecordService, {
+  type MedicalRecordDTO,
+} from "../../services/medicalRecordService";
 import MomoQrModal from "../../components/payment/MomoQrModal";
 
 const statusConfig: Record<string, { label: string; classes: string }> = {
@@ -237,6 +241,113 @@ function AppointmentCard({
   const fee = a.consultationFee != null ? Number(a.consultationFee) : null;
   const initial = (a.doctorName || "D").charAt(0).toUpperCase();
 
+  const appointmentDateStr = (() => {
+    const d = new Date(a.appointmentDate);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toISOString().slice(0, 10);
+  })();
+
+  // Patient view: show medical record summary for this specific appointment
+  const [medicalRecord, setMedicalRecord] = useState<MedicalRecordDTO | null>(null);
+  const [medicalLoading, setMedicalLoading] = useState(false);
+  const [medicalError, setMedicalError] = useState<string | null>(null);
+
+  // Patient view: show prescriptions for this specific appointment (lazy-loaded by button)
+  const [showPrescriptions, setShowPrescriptions] = useState(false);
+  const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [prescriptionsLoading, setPrescriptionsLoading] = useState(false);
+  const [prescriptionsError, setPrescriptionsError] = useState<string | null>(null);
+  const [prescriptionsFetched, setPrescriptionsFetched] = useState(false);
+
+  useEffect(() => {
+    if (!expanded) return;
+    if (a.status !== "COMPLETED") return;
+
+    let cancelled = false;
+    let attempts = 0;
+    const fetchMedicalRecord = async () => {
+      attempts += 1;
+      let shouldRetry = false;
+      setMedicalLoading(true);
+      setMedicalError(null);
+      try {
+        const result = await medicalRecordService.getMyRecords({
+          from: appointmentDateStr ?? undefined,
+          to: appointmentDateStr ?? undefined,
+          pageNumber: 0,
+          pageSize: 50,
+        });
+
+        const found =
+          result.content?.find((r) => r.appointmentId === a.id) ?? null;
+        if (!cancelled) {
+          setMedicalRecord(found);
+        }
+
+        // If doctor just completed and the record isn't available yet,
+        // retry a couple times to reflect the latest data.
+        shouldRetry = found == null && attempts < 3;
+      } catch (err: unknown) {
+        const msg =
+          err instanceof Error ? err.message : "Failed to load medical record";
+        if (!cancelled) setMedicalError(msg);
+
+        shouldRetry = false;
+      } finally {
+        if (!cancelled && !shouldRetry) setMedicalLoading(false);
+      }
+
+      if (!cancelled && shouldRetry) {
+        window.setTimeout(() => {
+          if (!cancelled) void fetchMedicalRecord();
+        }, 2500);
+      }
+    };
+
+    // Reset prescriptions panel when (re-)opening the details
+    setShowPrescriptions(false);
+    setPrescriptions([]);
+    setPrescriptionsError(null);
+    setPrescriptionsFetched(false);
+
+    void fetchMedicalRecord();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [expanded, a.id, a.status, appointmentDateStr]);
+
+  const handleTogglePrescriptions = async () => {
+    if (showPrescriptions) {
+      setShowPrescriptions(false);
+      return;
+    }
+
+    setShowPrescriptions(true);
+
+    if (prescriptionsFetched) return;
+
+    setPrescriptionsLoading(true);
+    setPrescriptionsError(null);
+    try {
+      // Patient endpoint returns paginated list; we fetch the first page then filter by appointmentId.
+      const page = await patientService.getMyPrescriptions({
+        pageNumber: 0,
+        pageSize: 100,
+      });
+      const list =
+        page.content?.filter((p) => p.appointmentId === a.id) ?? [];
+      setPrescriptions(list);
+      setPrescriptionsFetched(true);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error ? err.message : "Failed to load prescriptions";
+      setPrescriptionsError(msg);
+    } finally {
+      setPrescriptionsLoading(false);
+    }
+  };
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-800/50 overflow-hidden hover:shadow-md transition-shadow">
       <div className="flex flex-wrap items-center gap-4 p-4 sm:p-5">
@@ -317,6 +428,181 @@ function AppointmentCard({
             <DetailRow label="Booked By" value={a.bookedByUserName || a.bookedBy || "—"} />
             <DetailRow label="Created" value={new Date(a.createdAt).toLocaleString()} />
           </div>
+
+          {a.status === "COMPLETED" && (
+            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Visit Results
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Diagnosis, treatment plan, and follow-up for this appointment
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleTogglePrescriptions}
+                  disabled={prescriptionsLoading}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-[#049ebb] hover:bg-[#037a94] disabled:opacity-60 disabled:cursor-not-allowed border-none cursor-pointer"
+                >
+                  {prescriptionsLoading ? "Loading..." : showPrescriptions ? "Hide prescriptions" : "Show prescriptions"}
+                </button>
+              </div>
+
+              {medicalLoading ? (
+                <div className="text-sm text-gray-600 dark:text-gray-300">
+                  Loading visit results...
+                </div>
+              ) : medicalError ? (
+                <div className="text-sm text-red-500">{medicalError}</div>
+              ) : medicalRecord ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  {medicalRecord.chiefComplaint && (
+                    <DetailRow label="Chief Complaint" value={medicalRecord.chiefComplaint} />
+                  )}
+                  {medicalRecord.presentIllness && (
+                    <DetailRow label="Present Illness" value={medicalRecord.presentIllness} />
+                  )}
+                  {medicalRecord.diagnosis && (
+                    <DetailRow label="Diagnosis" value={medicalRecord.diagnosis} />
+                  )}
+                  {medicalRecord.treatmentPlan && (
+                    <DetailRow
+                      label="Treatment Plan"
+                      value={medicalRecord.treatmentPlan}
+                    />
+                  )}
+                  {medicalRecord.physicalExam && (
+                    <DetailRow label="Physical Exam" value={medicalRecord.physicalExam} />
+                  )}
+                  {medicalRecord.followUpDate && (
+                    <DetailRow
+                      label="Follow-up Date"
+                      value={medicalRecordService.formatDate(medicalRecord.followUpDate)}
+                    />
+                  )}
+                  {medicalRecord.followUpNotes && (
+                    <DetailRow label="Follow-up Notes" value={medicalRecord.followUpNotes} />
+                  )}
+
+                  {medicalRecord.vitalSigns?.bloodPressure && (
+                    <DetailRow label="BP" value={medicalRecord.vitalSigns.bloodPressure} />
+                  )}
+                  {medicalRecord.vitalSigns?.heartRate != null && (
+                    <DetailRow
+                      label="HR"
+                      value={`${medicalRecord.vitalSigns.heartRate} bpm`}
+                    />
+                  )}
+                  {medicalRecord.vitalSigns?.temperature != null && (
+                    <DetailRow
+                      label="Temp"
+                      value={`${medicalRecord.vitalSigns.temperature} °C`}
+                    />
+                  )}
+                  {medicalRecord.vitalSigns?.respiratoryRate != null && (
+                    <DetailRow
+                      label="RR"
+                      value={`${medicalRecord.vitalSigns.respiratoryRate} /min`}
+                    />
+                  )}
+                  {medicalRecord.vitalSigns?.oxygenSaturation != null && (
+                    <DetailRow
+                      label="O2"
+                      value={`${medicalRecord.vitalSigns.oxygenSaturation}%`}
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                  No medical record has been created for this appointment yet.
+                </div>
+              )}
+
+              {showPrescriptions && (
+                <div className="space-y-3">
+                  {prescriptionsLoading ? (
+                    <div className="text-sm text-gray-600 dark:text-gray-300">
+                      Loading prescriptions...
+                    </div>
+                  ) : prescriptionsError ? (
+                    <div className="text-sm text-red-500">{prescriptionsError}</div>
+                  ) : prescriptions.length === 0 ? (
+                    <div className="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                      No prescriptions found for this visit.
+                    </div>
+                  ) : (
+                    prescriptions.map((rx) => (
+                      <div
+                        key={rx.id}
+                        className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/20 p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                              Prescription {rx.prescriptionCode}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Prescribed:{" "}
+                              {rx.prescriptionDate
+                                ? new Date(rx.prescriptionDate).toLocaleDateString("en-US")
+                                : "—"}
+                            </p>
+                          </div>
+                          <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 border border-blue-100 dark:border-blue-900/30">
+                            {rx.status || "—"}
+                          </span>
+                        </div>
+
+                        {rx.diagnosis && (
+                          <p className="text-sm text-gray-700 dark:text-gray-300 mt-3">
+                            <span className="font-semibold">Diagnosis:</span> {rx.diagnosis}
+                          </p>
+                        )}
+
+                        <div className="mt-3 space-y-2">
+                          {rx.items?.map((it) => (
+                            <div
+                              key={it.id ?? `${rx.id}-${it.medicineName}-${it.itemOrder ?? "x"}`}
+                              className="bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-3"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                                  {it.medicineName}
+                                </p>
+                                {it.quantity != null && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Qty: {it.quantity}
+                                  </p>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
+                                {it.dosage} · {it.frequency}
+                                {it.duration ? ` · ${it.duration}` : ""}
+                              </p>
+                              {it.instructions && (
+                                <p className="text-xs text-gray-600 dark:text-gray-300 mt-2 whitespace-pre-wrap">
+                                  {it.instructions}
+                                </p>
+                              )}
+                              {it.notes && (
+                                <p className="text-xs text-gray-600 dark:text-gray-300 mt-2 whitespace-pre-wrap">
+                                  {it.notes}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {canReview && (
             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50">
               <button

@@ -137,7 +137,6 @@ const navItems: NavItem[] = [
     subItems: [
       { name: "Payment List", path: "/admin/payment-list", pro: false },
       { name: "Refund Management", path: "/admin/refund-list", pro: false },
-      { name: "Revenue Reports", path: "/admin/revenue-reports", pro: false },
     ],
   },
   {
