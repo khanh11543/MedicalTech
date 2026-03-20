@@ -112,12 +112,17 @@ public interface DoctorScheduleService {
 
     /**
      * Block a specific time slot
+     * Checks for conflicting booked appointments first
+     * If conflicts exist, returns conflict details without blocking
+     * If no conflicts, successfully blocks the slot with metadata
+     * 
      * @param doctorId Doctor ID
      * @param slotId Slot ID
-     * @param dto Block reason (optional)
-     * @return Updated slot
+     * @param dto Block request with REQUIRED reason
+     * @return Response containing either blocked slot or conflict details
+     * @throws BadRequestException if reason is not provided or slot is not available
      */
-    TimeSlotDTO blockSlot(Long doctorId, Long slotId, BlockSlotDTO dto);
+    BlockSlotResponseDTO blockSlot(Long doctorId, Long slotId, BlockSlotDTO dto);
 
     /**
      * Unblock a specific time slot

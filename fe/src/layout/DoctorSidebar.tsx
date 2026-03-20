@@ -57,7 +57,7 @@ const clinicalNavItems: NavItem[] = [
     path: '/doctor/schedule',
     subItems: [
       { name: 'Weekly Schedule', path: '/doctor/schedule/weekly' },
-      { name: 'Time Off & Breaks', path: '/doctor/schedule/time-off-breaks' },
+      // { name: 'Time Off & Breaks', path: '/doctor/schedule/time-off-breaks' },
       { name: 'Block slots', path: '/doctor/schedule/block-slots' },
     ],
   },

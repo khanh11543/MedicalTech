@@ -6,6 +6,28 @@ export type TimeSlotStatus = 'AVAILABLE' | 'BOOKED' | 'BLOCKED' | 'COMPLETED';
 
 // =========== INTERFACES ===========
 
+// Conflicting Appointment in Block Response
+export interface ConflictingAppointmentDTO {
+  appointmentId: number;
+  patientName: string;
+  patientPhone: string;
+  appointmentDate: string; // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  appointmentType: string;
+  reason: string;
+  status: string;
+}
+
+// Block Slot Response (can contain success or conflicts)
+export interface BlockSlotResponseDTO {
+  success: boolean;
+  blockedSlot?: TimeSlotDTO;
+  hasConflicts: boolean;
+  conflictingAppointments?: ConflictingAppointmentDTO[];
+  message: string;
+}
+
 // Doctor Schedule DTO (weekly recurring schedule)
 export interface DoctorScheduleDTO {
   id?: number;
@@ -51,7 +73,7 @@ export interface GenerateSlotsDTO {
 
 // Block/Unblock DTO
 export interface BlockSlotDTO {
-  reason?: string; // Optional reason for blocking
+  reason: string; // REQUIRED reason for blocking
 }
 
 // Response types
@@ -242,16 +264,17 @@ const doctorScheduleService = {
   },
 
   /**
-   * Block a time slot
+   * Block a time slot with conflict detection
+   * Returns either successful block or conflicts that need to be rescheduled
    */
   blockTimeSlot: async (
     slotId: number,
-    reason?: string
-  ): Promise<TimeSlotDTO> => {
-    const response = await api.patch<TimeSlotDTO>(
+    reason: string
+  ): Promise<BlockSlotResponseDTO> => {
+    const response = await api.patch<BlockSlotResponseDTO>(
       `/doctor/time-slots/${slotId}/block`,
       {
-        reason: reason || '',
+        reason: reason,
       }
     );
     return response.data;

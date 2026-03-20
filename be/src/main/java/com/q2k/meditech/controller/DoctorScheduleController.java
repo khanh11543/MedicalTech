@@ -331,25 +331,34 @@ public class DoctorScheduleController {
 
     /**
      * PATCH /api/doctor/time-slots/{slotId}/block
-     * Block a time slot
+     * Block a time slot with conflict detection
+     * Checks for booked appointments that would be blocked
+     * If conflicts exist, returns conflict details without blocking
+     * If no conflicts, blocks the slot with metadata
      */
     @PatchMapping("/time-slots/{slotId}/block")
-    @Operation(summary = "Block time slot", description = "Block a specific time slot")
+    @Operation(summary = "Block time slot", description = "Block a specific time slot. Detects if there are booked appointments that need to be rescheduled first.")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Slot blocked successfully"),
-            @ApiResponse(responseCode = "400", description = "Slot is not available to block"),
+            @ApiResponse(responseCode = "200", description = "Slot blocked successfully or conflicts detected"),
+            @ApiResponse(responseCode = "400", description = "Invalid input, missing reason, or slot is not available"),
             @ApiResponse(responseCode = "401", description = "Unauthorized"),
             @ApiResponse(responseCode = "403", description = "Forbidden - Not your slot"),
-            @ApiResponse(responseCode = "404", description = "Slot not found")
+            @ApiResponse(responseCode = "404", description = "Slot not found"),
+            @ApiResponse(responseCode = "409", description = "Conflict - Slot has booked appointments that need to be rescheduled")
     })
-    public ResponseEntity<TimeSlotDTO> blockSlot(
+    public ResponseEntity<BlockSlotResponseDTO> blockSlot(
             @Parameter(description = "Slot ID") @PathVariable Long slotId,
-            @RequestBody(required = false) BlockSlotDTO dto) {
+            @Valid @RequestBody BlockSlotDTO dto) {
 
         Long doctorId = getCurrentDoctorId();
-        log.info("PATCH /api/doctor/time-slots/{}/block - doctorId: {}", slotId, doctorId);
+        log.info("PATCH /api/doctor/time-slots/{}/block - doctorId: {}, reason: {}", slotId, doctorId, dto.getReason());
 
-        TimeSlotDTO result = scheduleService.blockSlot(doctorId, slotId, dto != null ? dto : new BlockSlotDTO());
+        BlockSlotResponseDTO result = scheduleService.blockSlot(doctorId, slotId, dto);
+
+        // Return 409 Conflict if there are conflicting appointments
+        if (result.isHasConflicts()) {
+            return ResponseEntity.status(409).body(result);
+        }
 
         return ResponseEntity.ok(result);
     }

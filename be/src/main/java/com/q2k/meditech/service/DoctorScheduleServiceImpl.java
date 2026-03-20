@@ -3,6 +3,7 @@ package com.q2k.meditech.service;
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.dto.mapper.DoctorScheduleMapper;
 import com.q2k.meditech.entity.*;
+import com.q2k.meditech.entity.enums.BlockReason;
 import com.q2k.meditech.entity.enums.SlotSource;
 import com.q2k.meditech.entity.enums.TimeSlotStatus;
 import com.q2k.meditech.exception.BadRequestException;
@@ -14,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +34,7 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
     private final DoctorScheduleRepository scheduleRepository;
     private final ScheduleExceptionRepository exceptionRepository;
     private final TimeSlotRepository timeSlotRepository;
+    private final AppointmentRepository appointmentRepository;
     private final DoctorScheduleMapper mapper;
 
     // ========== SCHEDULE MANAGEMENT ==========
@@ -316,27 +319,102 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
 
     @Override
     @Transactional
-    public TimeSlotDTO blockSlot(Long doctorId, Long slotId, BlockSlotDTO dto) {
-        log.info("Blocking slot ID: {} for doctor ID: {}", slotId, doctorId);
+    public BlockSlotResponseDTO blockSlot(Long doctorId, Long slotId, BlockSlotDTO dto) {
+        log.info("Blocking slot ID: {} for doctor ID: {}, reason: {}", slotId, doctorId, dto.getReason());
 
+        // ========== STEP 1: VALIDATE INPUTS ==========
+        // Validate doctor and slot ownership
         TimeSlot slot = timeSlotRepository.findByIdWithDoctor(slotId)
                 .orElseThrow(() -> new ResourceNotFoundException("TimeSlot", "id", slotId));
 
-        // Validate ownership
         if (!slot.getDoctor().getId().equals(doctorId)) {
             throw new BadRequestException("You can only block your own time slots");
         }
 
-        // Can only block AVAILABLE slots
+        // Validate slot is available
         if (slot.getStatus() != TimeSlotStatus.AVAILABLE) {
             throw new BadRequestException("Can only block AVAILABLE slots. Current status: " + slot.getStatus());
         }
 
+        // Validate reason is provided
+        if (dto.getReason() == null || dto.getReason().trim().isEmpty()) {
+            throw new BadRequestException("Reason for blocking is required");
+        }
+
+        // ========== STEP 2: MAP REASON STRING TO ENUM ==========
+        BlockReason blockReason = mapReasonToBlockReason(dto.getReason());
+
+        // ========== STEP 3: CHECK FOR CONFLICTING APPOINTMENTS ==========
+        List<Appointment> conflictingAppointments = appointmentRepository.findConflictingAppointments(
+                doctorId,
+                slot.getSlotDate(),
+                slot.getStartTime(),
+                slot.getEndTime()
+        );
+
+        // ========== STEP 4: HANDLE CONFLICTS ==========
+        if (!conflictingAppointments.isEmpty()) {
+            log.warn("Slot ID {} has {} conflicting appointments", slotId, conflictingAppointments.size());
+
+            // Build conflict response WITHOUT blocking the slot
+            List<BlockSlotResponseDTO.ConflictingAppointmentDTO> conflictDetails = conflictingAppointments.stream()
+                    .map(apt -> BlockSlotResponseDTO.ConflictingAppointmentDTO.builder()
+                            .appointmentId(apt.getId())
+                            .patientName(apt.getPatient().getUser().getFullName())
+                        .patientPhone(apt.getPatient().getUser().getPhone())
+                        .appointmentDate(apt.getAppointmentDate().toString())
+                        .startTime(apt.getStartTime().toString())
+                        .endTime(apt.getEndTime().toString())
+                        .appointmentType(apt.getAppointmentType())
+                        .reason(apt.getReasonForVisit())
+                    "This slot has %d booked appointment(s) that would be blocked. Please reschedule these appointments first.",
+                    conflictingAppointments.size()
+            );
+
+            return BlockSlotResponseDTO.builder()
+                    .success(false)
+                    .hasConflicts(true)
+                    .conflictingAppointments(conflictDetails)
+                    .message(message)
+                    .build();
+        }
+
+        // ========== STEP 5: NO CONFLICTS - PROCEED TO BLOCK ==========
+        log.info("No conflicting appointments found. Proceeding to block slot ID: {}", slotId);
+
+        // Set all block metadata
         slot.setStatus(TimeSlotStatus.BLOCKED);
+        slot.setBlockReason(blockReason);
+        slot.setBlockNote(dto.getReason());
+        slot.setBlockedBy(doctorId);
+        slot.setBlockedAt(LocalDateTime.now());
+
+        // Persist the blocked slot
         slot = timeSlotRepository.save(slot);
 
-        log.info("Slot blocked successfully: {}", slotId);
-        return mapper.toTimeSlotDTO(slot);
+        log.info("Slot blocked successfully with ID: {}", slotId);
+
+        return BlockSlotResponseDTO.builder()
+                .success(true)
+                .hasConflicts(false)
+                .blockedSlot(mapper.toTimeSlotDTO(slot))
+                .message("Slot blocked successfully")
+                .build();
+    }
+
+    /**
+     * Helper method to map reason string to BlockReason enum
+     * Tries to match against enum values, defaults to OTHER if no match
+     */
+    private BlockReason mapReasonToBlockReason(String reason) {
+        String upperReason = reason.toUpperCase().trim();
+
+        try {
+            return BlockReason.valueOf(upperReason);
+        } catch (IllegalArgumentException e) {
+            log.debug("Reason '{}' doesn't match predefined BlockReason enum, using OTHER", reason);
+            return BlockReason.OTHER;
+        }
     }
 
     @Override
