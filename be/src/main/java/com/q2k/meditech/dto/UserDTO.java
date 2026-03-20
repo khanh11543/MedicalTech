@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -22,6 +23,8 @@ public class UserDTO {
     private String email;
     private String fullName;
     private String phone;
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate dateOfBirth;
     private String avatarUrl;
     private Boolean isActive;
     private Boolean isVerified;

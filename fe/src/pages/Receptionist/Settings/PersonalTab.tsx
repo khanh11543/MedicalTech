@@ -14,6 +14,10 @@ export default function PersonalTab() {
   // Edit form
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [dateOfBirth, setDateOfBirth] = useState<string>("");
+
+  const isDoctor =
+    (profile?.roles || authUser?.roles || []).some((r) => r === "DOCTOR");
 
   // Change password
   const [showPasswordForm, setShowPasswordForm] = useState(false);
@@ -39,6 +43,7 @@ export default function PersonalTab() {
       setProfile(data);
       setFullName(data.fullName || "");
       setPhone(data.phone || "");
+      setDateOfBirth(data.dateOfBirth || "");
     } catch {
       setMessage({ type: "error", text: "Failed to load profile" });
     } finally {
@@ -49,7 +54,12 @@ export default function PersonalTab() {
   const handleSaveProfile = async () => {
     try {
       setSaving(true);
-      const data = await userSettingsService.updateProfile({ fullName, phone });
+      const payload = {
+        fullName,
+        phone,
+        ...(isDoctor ? { dateOfBirth: dateOfBirth || null } : {}),
+      };
+      const data = await userSettingsService.updateProfile(payload);
       setProfile(data);
       setMessage({ type: "success", text: "Profile updated successfully" });
     } catch (err: any) {
@@ -148,6 +158,23 @@ export default function PersonalTab() {
   };
 
   const strength = getPasswordStrength();
+
+  const calculateAge = (dateString: string | null | undefined) => {
+    if (!dateString) return null;
+    const dob = new Date(dateString);
+    if (Number.isNaN(dob.getTime())) return null;
+
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+      age -= 1;
+    }
+
+    return age >= 0 ? age : null;
+  };
+
+  const doctorAge = calculateAge(dateOfBirth);
 
   if (loading) {
     return (
@@ -250,6 +277,25 @@ export default function PersonalTab() {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
                 />
               </div>
+
+              {isDoctor && (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-brand-500 focus:ring-1 focus:ring-brand-500 dark:border-gray-600 dark:bg-gray-900 dark:text-white"
+                  />
+                  {doctorAge != null && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Age: {doctorAge}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex justify-end">
               <button

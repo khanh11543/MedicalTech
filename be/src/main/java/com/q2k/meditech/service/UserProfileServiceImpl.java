@@ -73,6 +73,12 @@ public class UserProfileServiceImpl implements UserProfileService {
             user.setPhone(dto.getPhone());
         }
 
+        if (dto.getDateOfBirth() != null) {
+            // If the user is a doctor, persist DOB into doctor profile.
+            doctorRepository.findByUserId(userId)
+                    .ifPresent(d -> d.setDateOfBirth(dto.getDateOfBirth()));
+        }
+
         user = userRepository.save(user);
         log.info("Profile updated for user {}", userId);
         activityLoggingService.log(userId, ActivityType.PROFILE_UPDATE,
@@ -460,11 +466,15 @@ public class UserProfileServiceImpl implements UserProfileService {
     // ==================== DTO Converters ====================
 
     private UserDTO convertToUserDTO(User user) {
+        java.time.LocalDate doctorDob = doctorRepository.findByUserId(user.getId())
+                .map(Doctor::getDateOfBirth)
+                .orElse(null);
         return UserDTO.builder()
                 .id(user.getId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .phone(user.getPhone())
+                .dateOfBirth(doctorDob)
                 .avatarUrl(user.getAvatarUrl())
                 .isActive(user.getIsActive())
                 .isVerified(user.getIsVerified())

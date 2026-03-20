@@ -234,6 +234,21 @@ export default function UserList() {
     });
   };
 
+  const calculateAge = (dateString: string | null | undefined) => {
+    if (!dateString) return null;
+    const dob = new Date(dateString);
+    if (Number.isNaN(dob.getTime())) return null;
+
+    const today = new Date();
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+      age -= 1;
+    }
+
+    return age >= 0 ? age : null;
+  };
+
   const formatDateTime = (dateString: string | null) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleString("en-US", {
@@ -646,6 +661,14 @@ export default function UserList() {
                     <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                       <InfoRow label="Full Name" value={`${selectedUser.patientProfile.firstName} ${selectedUser.patientProfile.lastName}`} />
                       <InfoRow label="Date of Birth" value={formatDate(selectedUser.patientProfile.dateOfBirth)} />
+                      <InfoRow
+                        label="Age"
+                        value={
+                          calculateAge(selectedUser.patientProfile.dateOfBirth) != null
+                            ? `${calculateAge(selectedUser.patientProfile.dateOfBirth)} years`
+                            : "N/A"
+                        }
+                      />
                       <InfoRow label="Gender" value={selectedUser.patientProfile.gender || "N/A"} />
                       <InfoRow label="Blood Type" value={selectedUser.patientProfile.bloodType || "N/A"} />
                       <InfoRow label="City" value={selectedUser.patientProfile.city || "N/A"} />
@@ -663,6 +686,14 @@ export default function UserList() {
                     <h4 className="text-sm font-semibold text-green-700 dark:text-green-300 uppercase tracking-wider mb-3">Doctor Profile</h4>
                     <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                       <InfoRow label="Full Name" value={selectedUser.doctorProfile.fullName || "N/A"} />
+                      <InfoRow
+                        label="Age"
+                        value={
+                          calculateAge(selectedUser.doctorProfile.dateOfBirth) != null
+                            ? `${calculateAge(selectedUser.doctorProfile.dateOfBirth)} years`
+                            : "N/A"
+                        }
+                      />
                       <InfoRow label="License Number" value={selectedUser.doctorProfile.licenseNumber || "N/A"} />
                       <InfoRow label="Specialization" value={selectedUser.doctorProfile.specialization || "N/A"} />
                       <InfoRow label="Experience" value={`${selectedUser.doctorProfile.yearsOfExperience} years`} />

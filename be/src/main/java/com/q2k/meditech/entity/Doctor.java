@@ -7,6 +7,7 @@ import lombok.*;
 import org.hibernate.annotations.BatchSize;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,6 +62,9 @@ public class Doctor {
 
     @Column(columnDefinition = "TEXT")
     private String education;
+
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
 
     @Column(name="specialization", length = 255)
     private String specialization;

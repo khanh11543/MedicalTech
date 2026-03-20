@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -52,6 +53,8 @@ public class UserDetailDTO {
     public static class DoctorProfileInfo {
         private Long id;
         private String fullName;
+        @JsonFormat(pattern = "yyyy-MM-dd")
+        private LocalDate dateOfBirth;
         private String licenseNumber;
         private String specialization;
         private Integer yearsOfExperience;

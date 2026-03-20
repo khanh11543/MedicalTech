@@ -123,6 +123,7 @@ public class UserServiceImpl implements UserService {
                 dto.setDoctorProfile(UserDetailDTO.DoctorProfileInfo.builder()
                         .id(doctor.getId())
                         .fullName(doctor.getFullName())
+                        .dateOfBirth(doctor.getDateOfBirth())
                         .licenseNumber(doctor.getLicenseNumber())
                         .specialization(doctor.getSpecialization())
                         .yearsOfExperience(doctor.getExperienceYears())

@@ -99,6 +99,7 @@ export interface DoctorProfile {
   fullName: string;
   licenseNumber: string;
   specialization: string;
+  dateOfBirth?: string | null;
   yearsOfExperience: number;
   bio: string;
   consultationFee: number;
