@@ -1,27 +1,34 @@
-import axios from "axios";
-import { authStorage } from "../utils/authStorage";
-import { sanitizeData } from "../utils/xss";
+import axios from 'axios';
+import { authStorage } from '../utils/authStorage';
+import { sanitizeData } from '../utils/xss';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  // Note: Do NOT set default Content-Type header here
+  // Let axios handle it automatically:
+  // - For JSON requests: axios auto-sets "application/json"
+  // - For FormData (multipart): axios auto-sets "multipart/form-data" with boundary
+  // Setting a default header breaks FormData detection
 });
 
 // Request interceptor: sanitize data & attach access token
 api.interceptors.request.use(
   (config) => {
-    // Sanitize request data (POST/PUT/PATCH body) to strip XSS patterns
-    // Skip FormData (multipart uploads) — sanitizing it destroys the binary payload
-    if (config.data && typeof config.data === "object" && !(config.data instanceof FormData)) {
+    // Handle FormData (multipart uploads) — let axios set Content-Type with boundary
+    if (config.data instanceof FormData) {
+      // Delete any inherited Content-Type header to allow axios to set it
+      delete config.headers['Content-Type'];
+    } else if (config.data && typeof config.data === 'object') {
+      // For JSON data, axios will auto-set Content-Type: application/json
+      // Sanitize request data (POST/PUT/PATCH body) to strip XSS patterns
       config.data = sanitizeData(config.data);
     }
 
     // Sanitize query parameters
-    if (config.params && typeof config.params === "object") {
+    if (config.params && typeof config.params === 'object') {
       config.params = sanitizeData(config.params);
     }
 
@@ -54,10 +61,9 @@ api.interceptors.response.use(
     const originalRequest = error.config;
 
     // Skip interceptor for auth endpoints (login, register, etc.) — let errors propagate directly
-    const requestUrl = originalRequest?.url || "";
+    const requestUrl = originalRequest?.url || '';
     const isAuthEndpoint =
-      requestUrl.startsWith("/auth/") ||
-      requestUrl === "/auth";
+      requestUrl.startsWith('/auth/') || requestUrl === '/auth';
 
     if (isAuthEndpoint) {
       return Promise.reject(error);
@@ -66,7 +72,9 @@ api.interceptors.response.use(
     // Detect auth failure: either explicit 401 or "Network Error" (CORS-blocked 401/403)
     const isAuthError =
       error.response?.status === 401 ||
-      (!error.response && error.message === "Network Error" && authStorage.getAccessToken());
+      (!error.response &&
+        error.message === 'Network Error' &&
+        authStorage.getAccessToken());
 
     if (isAuthError && !originalRequest._retry) {
       originalRequest._retry = true;
@@ -84,13 +92,13 @@ api.interceptors.response.use(
       const refreshToken = authStorage.getRefreshToken();
       if (!refreshToken) {
         authStorage.clear();
-        window.location.href = "/signin";
+        window.location.href = '/signin';
         return Promise.reject(error);
       }
 
       isRefreshing = true;
       try {
-        const response = await api.post("/auth/refresh", { refreshToken });
+        const response = await api.post('/auth/refresh', { refreshToken });
         const accessToken = response.data.accessToken;
         authStorage.setTokens(accessToken, refreshToken);
         onTokenRefreshed(accessToken);
@@ -99,7 +107,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         // Refresh failed — clear tokens and redirect to login
         authStorage.clear();
-        window.location.href = "/signin";
+        window.location.href = '/signin';
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

@@ -35,10 +35,9 @@ public class DoctorConsultationController {
     
     /**
      * Get consultation record for an appointment
-     * GET /api/appointments/{appointmentId}/consultation
+     * GET /api/doctor/consultations/{appointmentId}
      */
-    @GetMapping
-    @RequestMapping("/{appointmentId}")
+    @GetMapping("/{appointmentId}")
     public ResponseEntity<ConsultationDTO> getConsultation(@PathVariable Long appointmentId) {
         ConsultationDTO consultation = consultationService.getConsultationByAppointmentId(appointmentId);
         return ResponseEntity.ok(consultation);
@@ -46,10 +45,9 @@ public class DoctorConsultationController {
     
     /**
      * Save draft consultation
-     * POST /api/appointments/{appointmentId}/consultation/draft
+     * POST /api/doctor/consultations/{appointmentId}/draft
      */
-    @PostMapping
-    @RequestMapping("/{appointmentId}/draft")
+    @PostMapping("/{appointmentId}/draft")
     public ResponseEntity<ConsultationDTO> saveDraftConsultation(
             @PathVariable Long appointmentId,
             @RequestBody ConsultationCreateUpdateDTO consultationData) {
@@ -59,10 +57,9 @@ public class DoctorConsultationController {
     
     /**
      * Finalize consultation and lock record
-     * POST /api/appointments/{appointmentId}/consultation/finalize
+     * POST /api/doctor/consultations/{appointmentId}/finalize
      */
-    @PostMapping
-    @RequestMapping("/{appointmentId}/finalize")
+    @PostMapping("/{appointmentId}/finalize")
     public ResponseEntity<ConsultationDTO> finalizeConsultation(
             @PathVariable Long appointmentId,
             @RequestBody ConsultationCreateUpdateDTO consultationData) {
@@ -71,8 +68,18 @@ public class DoctorConsultationController {
     }
     
     /**
+     * Sign a finalized consultation
+     * POST /api/doctor/consultations/{appointmentId}/sign
+     */
+    @PostMapping("/{appointmentId}/sign")
+    public ResponseEntity<ConsultationDTO> signConsultation(@PathVariable Long appointmentId) {
+        ConsultationDTO signed = consultationService.signConsultation(appointmentId);
+        return ResponseEntity.ok(signed);
+    }
+    
+    /**
      * Add amendment to finalized consultation
-     * POST /api/appointments/{appointmentId}/consultation/amendments
+     * POST /api/doctor/consultations/{appointmentId}/amendments
      */
     @PostMapping("/{appointmentId}/amendments")
     public ResponseEntity<AmendmentDTO> addAmendment(
@@ -84,7 +91,7 @@ public class DoctorConsultationController {
     
     /**
      * Get all amendments for a consultation
-     * GET /api/appointments/{appointmentId}/consultation/amendments
+     * GET /api/doctor/consultations/{appointmentId}/amendments
      */
     @GetMapping("/{appointmentId}/amendments")
     public ResponseEntity<List<AmendmentDTO>> getAmendments(@PathVariable Long appointmentId) {
@@ -94,10 +101,9 @@ public class DoctorConsultationController {
     
     /**
      * Sign/approve an amendment
-     * POST /api/appointments/{appointmentId}/consultation/amendments/{amendmentId}/sign
+     * POST /api/doctor/consultations/{appointmentId}/amendments/{amendmentId}/sign
      */
-    @PostMapping
-    @RequestMapping("/{appointmentId}/amendments/{amendmentId}/sign")
+    @PostMapping("/{appointmentId}/amendments/{amendmentId}/sign")
     public ResponseEntity<AmendmentDTO> signAmendment(
             @PathVariable Long appointmentId,
             @PathVariable String amendmentId) {
@@ -107,10 +113,9 @@ public class DoctorConsultationController {
     
     /**
      * Upload attachment to consultation
-     * POST /api/appointments/{appointmentId}/consultation/attachments
+     * POST /api/doctor/consultations/{appointmentId}/attachments
      */
-    @PostMapping
-    @RequestMapping("/{appointmentId}/attachments")
+    @PostMapping("/{appointmentId}/attachments")
     public ResponseEntity<ConsultationAttachmentDTO> uploadAttachment(
             @PathVariable Long appointmentId,
             @RequestParam("file") MultipartFile file) throws IOException {
@@ -120,7 +125,7 @@ public class DoctorConsultationController {
     
     /**
      * Delete attachment from consultation
-     * DELETE /api/appointments/{appointmentId}/consultation/attachments/{attachmentId}
+     * DELETE /api/doctor/consultations/{appointmentId}/attachments/{attachmentId}
      */
     @DeleteMapping("/{appointmentId}/attachments/{attachmentId}")
     public ResponseEntity<Void> deleteAttachment(
@@ -132,10 +137,9 @@ public class DoctorConsultationController {
     
     /**
      * Print consultation summary (generates PDF)
-     * GET /api/appointments/{appointmentId}/consultation/summary/print
+     * GET /api/doctor/consultations/{appointmentId}/summary/print
      */
-    @GetMapping
-    @RequestMapping("/{appointmentId}/summary/print")
+    @GetMapping("/{appointmentId}/summary/print")
     public ResponseEntity<byte[]> printSummary(@PathVariable Long appointmentId) {
         // This would generate a PDF, implementation depends on your PDF library
         // For now, returning a placeholder response

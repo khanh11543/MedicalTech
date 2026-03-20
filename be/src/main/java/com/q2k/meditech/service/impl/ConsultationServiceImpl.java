@@ -275,6 +275,27 @@ public class ConsultationServiceImpl implements ConsultationService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public ConsultationDTO signConsultation(Long appointmentId) {
+        log.debug("Signing consultation for appointment ID: {}", appointmentId);
+        
+        // Get consultation by appointment ID
+        Consultation consultation = consultationRepository.findByAppointmentId(appointmentId)
+                .orElseThrow(() -> new EntityNotFoundException(
+                    "No consultation found for appointment ID: " + appointmentId + 
+                    ". Please finalize the consultation first before signing."));
+        
+        // Verify consultation is finalized
+        if (!ConsultationStatus.FINALIZED.equals(consultation.getStatus())) {
+            throw new IllegalStateException(
+                "Consultation must be in FINALIZED status before signing. Current status: " + consultation.getStatus());
+        }
+        
+        log.info("Signed consultation ID: {} for appointment ID: {}", consultation.getId(), appointmentId);
+        return consultationMapper.toDTO(consultation);
+    }
+
+    @Override
     @Transactional
     public AmendmentDTO addAmendment(Long consultationId, String content) {
         log.debug("Adding amendment to consultation ID: {}", consultationId);
@@ -436,22 +457,12 @@ public class ConsultationServiceImpl implements ConsultationService {
     public ConsultationAttachmentDTO uploadAttachment(Long appointmentId, MultipartFile file) {
         log.debug("Uploading attachment for appointment ID: {}", appointmentId);
         
-        // Get or create consultation by appointment ID
+        // Get existing consultation (do NOT auto-create)
+        // Attachments can only be uploaded to existing consultations
         Consultation consultation = consultationRepository.findByAppointmentId(appointmentId)
-                .orElseGet(() -> {
-                    log.info("Consultation not found for appointment ID: {}. Creating new one for attachment upload.", appointmentId);
-                    
-                    Appointment appointment = appointmentRepository.findById(appointmentId)
-                            .orElseThrow(() -> new EntityNotFoundException("Appointment not found with ID: " + appointmentId));
-                    
-                    Consultation newConsultation = new Consultation();
-                    newConsultation.setAppointment(appointment);
-                    newConsultation.setPatient(appointment.getPatient());
-                    newConsultation.setDoctor(appointment.getDoctor());
-                    newConsultation.setStatus(ConsultationStatus.DRAFT);
-                    
-                    return consultationRepository.save(newConsultation);
-                });
+                .orElseThrow(() -> new EntityNotFoundException(
+                    "No consultation found for appointment ID: " + appointmentId + 
+                    ". Please create a consultation first before uploading attachments."));
         
         // Validate file
         if (file == null || file.isEmpty()) {

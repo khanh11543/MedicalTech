@@ -118,6 +118,12 @@ public interface ConsultationService {
     void deleteConsultation(Long consultationId);
 
     /**
+     * Sign a finalized consultation
+     * Verifies that consultation is FINALIZED and returns it
+     */
+    ConsultationDTO signConsultation(Long appointmentId);
+
+    /**
      * Get consultations by status
      */
     Page<ConsultationDTO> getConsultationsByStatus(ConsultationStatus status, Pageable pageable);

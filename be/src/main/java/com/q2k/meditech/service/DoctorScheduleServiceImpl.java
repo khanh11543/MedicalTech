@@ -361,12 +361,17 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
                     .map(apt -> BlockSlotResponseDTO.ConflictingAppointmentDTO.builder()
                             .appointmentId(apt.getId())
                             .patientName(apt.getPatient().getUser().getFullName())
-                        .patientPhone(apt.getPatient().getUser().getPhone())
-                        .appointmentDate(apt.getAppointmentDate().toString())
-                        .startTime(apt.getStartTime().toString())
-                        .endTime(apt.getEndTime().toString())
-                        .appointmentType(apt.getAppointmentType())
-                        .reason(apt.getReasonForVisit())
+                            .patientPhone(apt.getPatient().getUser().getPhone())
+                            .appointmentDate(apt.getAppointmentDate().toString())
+                            .startTime(apt.getStartTime().toString())
+                            .endTime(apt.getEndTime().toString())
+                            .appointmentType(apt.getAppointmentType())
+                            .reason(apt.getReasonForVisit())
+                            .status(apt.getStatus().toString())
+                            .build())
+                    .collect(Collectors.toList());
+
+            String message = String.format(
                     "This slot has %d booked appointment(s) that would be blocked. Please reschedule these appointments first.",
                     conflictingAppointments.size()
             );

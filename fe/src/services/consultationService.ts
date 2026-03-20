@@ -296,6 +296,29 @@ class ConsultationService {
   }
 
   /**
+   * Sign/approve a finalized consultation
+   *
+   * Marks a finalized consultation as reviewed and approved by the current user.
+   * Sets signedAt timestamp and signedByUserName.
+   * Can only be called on FINALIZED consultations.
+   *
+   * @param appointmentId - The appointment ID
+   * @returns Signed consultation (signedAt and signedByUserName populated)
+   * @throws Error if consultation is not finalized or already signed
+   */
+  async signConsultation(appointmentId: number): Promise<ConsultationDTO> {
+    try {
+      const response = await api.post<ConsultationDTO>(
+        `/doctor/consultations/${appointmentId}/sign`
+      );
+      return response.data;
+    } catch (error) {
+      console.error('Error signing consultation:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Add amendment to finalized consultation
    *
    * Creates a new amendment/addendum to a FINALIZED consultation.
@@ -413,14 +436,11 @@ class ConsultationService {
       const formData = new FormData();
       formData.append('file', file);
 
+      // Note: Do NOT set Content-Type header manually for FormData.
+      // Axios automatically sets it with proper boundary parameters.
       const response = await api.post<ConsultationAttachmentDTO>(
         `/doctor/consultations/${appointmentId}/attachments`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        }
+        formData
       );
       return response.data;
     } catch (error) {

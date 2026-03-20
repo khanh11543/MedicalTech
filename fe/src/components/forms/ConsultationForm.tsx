@@ -36,6 +36,7 @@ export default function ConsultationForm({
   const { toast, showToast, dismissToast } = useToast();
   const [saving, setSaving] = useState(false);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [formData, setFormData] = useState<ConsultationRecord>({
     id: 0,
     appointmentId: appointmentId || 0,
@@ -198,16 +199,11 @@ export default function ConsultationForm({
         payload
       );
       console.log('Finalization successful:', finalizedConsultation);
+      setFormData(finalizedConsultation);
       showToast(
-        '✅ Consultation finalized and appointment approved',
+        '✅ Consultation finalized successfully. You can now sign it to approve.',
         'success'
       );
-      // Show modal instead of immediately going back
-      setFormData((prev) => ({
-        ...prev,
-        patientId: finalizedConsultation.patientId,
-      }));
-      setShowFinalizeModal(true);
     } catch (error) {
       console.error('Error finalizing record - full error object:', error);
 
@@ -248,6 +244,59 @@ export default function ConsultationForm({
       }
 
       showToast(`❌ Failed to finalize record: ${errorMessage}`, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSign = async () => {
+    if (!appointmentId) {
+      showToast('❌ Appointment not found', 'error');
+      return;
+    }
+
+    if (formData.status !== 'FINALIZED') {
+      showToast('⚠️ Consultation must be finalized before signing', 'error');
+      return;
+    }
+
+    setSaving(true);
+    showToast('✍️ Signing consultation...', 'info');
+    try {
+      const signedConsultation =
+        await consultationService.signConsultation(appointmentId);
+      console.log('Sign successful:', signedConsultation);
+      setFormData(signedConsultation);
+      showToast('✅ Consultation signed successfully', 'success');
+      // Show modal after signing
+      setShowFinalizeModal(true);
+    } catch (error) {
+      console.error('Error signing consultation:', error);
+
+      let errorMessage = 'Unknown error occurred';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        const axiosError = error as {
+          response?: {
+            data?: {
+              message?: string;
+              error?: string;
+            };
+          };
+          message?: string;
+        };
+
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        } else if (axiosError.response?.data?.error) {
+          errorMessage = axiosError.response.data.error;
+        } else if (axiosError.message) {
+          errorMessage = axiosError.message;
+        }
+      }
+
+      showToast(`❌ Failed to sign consultation: ${errorMessage}`, 'error');
     } finally {
       setSaving(false);
     }
@@ -297,9 +346,24 @@ export default function ConsultationForm({
     return 'Obese';
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
+
+    // Store selected files without uploading yet
+    const newFiles = Array.from(files);
+    setSelectedFiles((prev) => [...prev, ...newFiles]);
+    showToast(`✅ ${newFiles.length} file(s) selected`, 'success');
+
+    // Reset the input
+    e.target.value = '';
+  };
+
+  const handleUploadAttachments = async () => {
+    if (selectedFiles.length === 0) {
+      showToast('❌ No files selected', 'error');
+      return;
+    }
 
     if (!appointmentId) {
       showToast('❌ Appointment not found', 'error');
@@ -307,9 +371,9 @@ export default function ConsultationForm({
     }
 
     setSaving(true);
-    showToast(`📤 Uploading ${files.length} file(s)...`, 'info');
+    showToast(`📤 Uploading ${selectedFiles.length} file(s)...`, 'info');
     try {
-      for (const file of Array.from(files)) {
+      for (const file of selectedFiles) {
         const attachment = await consultationService.uploadAttachment(
           appointmentId,
           file
@@ -319,19 +383,55 @@ export default function ConsultationForm({
           attachments: [...prev.attachments, attachment],
         }));
       }
-      showToast(`✅ ${files.length} file(s) uploaded successfully`, 'success');
+      showToast(
+        `✅ ${selectedFiles.length} file(s) uploaded successfully`,
+        'success'
+      );
+      setSelectedFiles([]);
     } catch (error) {
       console.error('Error uploading file:', error);
-      showToast(
-        '❌ Failed to upload file(s): ' +
-          (error instanceof Error ? error.message : 'Unknown error'),
-        'error'
-      );
+
+      // Extract detailed error message
+      let errorMessage = 'Unknown error occurred';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        const axiosError = error as {
+          response?: {
+            data?: {
+              message?: string;
+              error?: string;
+            };
+          };
+          message?: string;
+        };
+
+        if (axiosError.response?.data?.message) {
+          errorMessage = axiosError.response.data.message;
+        } else if (axiosError.response?.data?.error) {
+          errorMessage = axiosError.response.data.error;
+        } else if (axiosError.message) {
+          errorMessage = axiosError.message;
+        }
+      }
+
+      // Check if error is "no consultation" and provide guidance
+      if (errorMessage.toLowerCase().includes('no consultation')) {
+        showToast(
+          '⚠️ Please save the consultation form first before uploading attachments.',
+          'error'
+        );
+      } else {
+        showToast(`❌ Failed to upload file(s): ${errorMessage}`, 'error');
+      }
     } finally {
       setSaving(false);
-      // Reset the input
-      e.target.value = '';
     }
+  };
+
+  const handleRemoveSelectedFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleDeleteAttachment = async (attachmentId: number) => {
@@ -489,20 +589,29 @@ export default function ConsultationForm({
           </div>
 
           {/* Actions */}
-          <div className='flex gap-3'>
+          <div className='flex gap-3 flex-wrap'>
             <Button variant='outline' onClick={onBack} disabled={saving}>
               Back
             </Button>
-            <Button
-              variant='outline'
-              onClick={handleSaveDraft}
-              disabled={saving}
-            >
-              {saving ? 'Saving...' : '💾 Save Draft'}
-            </Button>
-            <Button onClick={handleFinalize} disabled={saving}>
-              {saving ? 'Finalizing...' : 'Finalize & Sign'}
-            </Button>
+            {formData.status === 'DRAFT' && (
+              <Button
+                variant='outline'
+                onClick={handleSaveDraft}
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : '💾 Save Draft'}
+              </Button>
+            )}
+            {formData.status === 'DRAFT' && (
+              <Button onClick={handleFinalize} disabled={saving}>
+                {saving ? 'Finalizing...' : '🔒 Finalize'}
+              </Button>
+            )}
+            {formData.status === 'FINALIZED' && (
+              <Button onClick={handleSign} disabled={saving}>
+                {saving ? 'Signing...' : '✍️ Sign'}
+              </Button>
+            )}
             <Button variant='outline' onClick={handlePrint} disabled={saving}>
               Print Summary
             </Button>
@@ -753,7 +862,35 @@ export default function ConsultationForm({
 
           {/* Attachments */}
           <Section title='8. Attachments'>
-            <div className='rounded-lg border-2 border-dashed border-gray-300 p-6 text-center dark:border-gray-600'>
+            <div
+              className='rounded-lg border-2 border-dashed border-gray-300 p-6 text-center transition-colors dark:border-gray-600 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10'
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.currentTarget.classList.add('border-blue-400', 'bg-blue-50');
+              }}
+              onDragLeave={(e) => {
+                e.currentTarget.classList.remove(
+                  'border-blue-400',
+                  'bg-blue-50'
+                );
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove(
+                  'border-blue-400',
+                  'bg-blue-50'
+                );
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                  const newFiles = Array.from(files);
+                  setSelectedFiles((prev) => [...prev, ...newFiles]);
+                  showToast(
+                    `✅ ${newFiles.length} file(s) selected`,
+                    'success'
+                  );
+                }
+              }}
+            >
               <svg
                 className='mx-auto h-12 w-12 text-gray-400 dark:text-gray-500'
                 stroke='currentColor'
@@ -771,7 +908,7 @@ export default function ConsultationForm({
                 Upload Images or Test Results
               </p>
               <p className='mt-1 text-xs text-gray-600 dark:text-gray-400'>
-                Drag and drop or click to select files
+                Drag and drop or click to select files (Images, PDF - Max 10MB)
               </p>
               <input
                 type='file'
@@ -782,41 +919,169 @@ export default function ConsultationForm({
                 onChange={handleFileUpload}
                 id='file-upload'
               />
-              <label htmlFor='file-upload' className='cursor-pointer'>
-                <span className='mt-2 text-sm font-medium text-gray-900 dark:text-white'>
-                  Click to upload or drag and drop
-                </span>
+
+              <label
+                htmlFor='file-upload'
+                className={`mt-4 inline-flex items-center justify-center gap-2 rounded-lg transition px-5 py-3.5 text-sm 
+    bg-white text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 
+    dark:bg-gray-800 dark:text-gray-400 dark:ring-gray-700 dark:hover:bg-white/[0.03] dark:hover:text-gray-300
+    ${
+      formData.status === 'FINALIZED' || saving
+        ? 'cursor-not-allowed opacity-50'
+        : 'cursor-pointer'
+    }`}
+              >
+                {saving ? '📤 Uploading...' : '📁 Select Files'}
               </label>
             </div>
 
-            {formData.attachments.length > 0 && (
-              <div className='mt-4 space-y-2'>
-                {formData.attachments.map((attachment) => (
-                  <div
-                    key={attachment.id}
-                    className='flex items-center justify-between rounded-lg bg-gray-50 p-3 dark:bg-gray-700'
-                  >
-                    <div>
-                      <p className='text-sm font-medium text-gray-900 dark:text-white'>
-                        {attachment.filename}
-                      </p>
-                      <p className='text-xs text-gray-600 dark:text-gray-400'>
-                        {new Date(attachment.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                    {formData.status !== 'FINALIZED' && (
+            {/* Selected Files (Pending Upload) */}
+            {selectedFiles.length > 0 && (
+              <div className='mt-6 p-4 rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900'>
+                <h4 className='mb-3 font-medium text-amber-900 dark:text-amber-200 flex items-center gap-2'>
+                  <span>⏳ Files Pending Upload</span>
+                  <span className='text-xs bg-amber-200 text-amber-900 rounded-full px-2.5 py-0.5 dark:bg-amber-900/30 dark:text-amber-200'>
+                    {selectedFiles.length}
+                  </span>
+                </h4>
+                <div className='space-y-2 mb-4'>
+                  {selectedFiles.map((file, index) => (
+                    <div
+                      key={index}
+                      className='flex items-center justify-between rounded-lg bg-white p-3 dark:bg-gray-700'
+                    >
+                      <div className='flex items-start gap-3 flex-1'>
+                        <div className='text-xl pt-0'>
+                          {file.type === 'application/pdf' ? '📄' : '🖼️'}
+                        </div>
+                        <div className='flex-1 min-w-0'>
+                          <p className='text-sm font-medium text-gray-900 dark:text-white truncate'>
+                            {file.name}
+                          </p>
+                          <p className='text-xs text-gray-600 dark:text-gray-400'>
+                            {(file.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                      </div>
                       <button
-                        onClick={() => handleDeleteAttachment(attachment.id)}
+                        onClick={() => handleRemoveSelectedFile(index)}
                         disabled={saving}
-                        className='text-red-600 hover:text-red-700 disabled:opacity-50'
+                        className='ml-4 flex-shrink-0 text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+                        title='Remove file'
                       >
-                        ✕
+                        <svg
+                          className='w-5 h-5'
+                          fill='currentColor'
+                          viewBox='0 0 20 20'
+                        >
+                          <path
+                            fillRule='evenodd'
+                            d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z'
+                            clipRule='evenodd'
+                          />
+                        </svg>
                       </button>
-                    )}
-                  </div>
-                ))}
+                    </div>
+                  ))}
+                </div>
+                <div className='flex gap-2'>
+                  <button
+                    onClick={handleUploadAttachments}
+                    disabled={saving}
+                    className='flex-1 inline-flex items-center justify-center gap-2 rounded-lg transition px-4 py-2.5 text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed font-medium'
+                  >
+                    {saving
+                      ? '📤 Uploading...'
+                      : `✅ Upload ${selectedFiles.length} File(s)`}
+                  </button>
+                  <button
+                    onClick={() => setSelectedFiles([])}
+                    disabled={saving}
+                    className='inline-flex items-center justify-center gap-2 rounded-lg transition px-4 py-2.5 text-sm bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed'
+                  >
+                    Clear
+                  </button>
+                </div>
               </div>
             )}
+
+            {/* Attachments List */}
+            {formData.attachments.length > 0 && (
+              <div className='mt-6'>
+                <h4 className='mb-3 font-medium text-gray-900 dark:text-white flex items-center gap-2'>
+                  <span>📎 Attached Files</span>
+                  <span className='text-xs bg-blue-100 text-blue-800 rounded-full px-2.5 py-0.5 dark:bg-blue-900/30 dark:text-blue-300'>
+                    {formData.attachments.length}
+                  </span>
+                </h4>
+                <div className='space-y-2'>
+                  {formData.attachments.map((attachment) => (
+                    <div
+                      key={attachment.id}
+                      className='flex items-center justify-between rounded-lg bg-gray-50 p-4 dark:bg-gray-700'
+                    >
+                      <div className='flex items-start gap-3 flex-1'>
+                        <div className='text-2xl pt-0.5'>
+                          {attachment.fileType === 'pdf' ? '📄' : '🖼️'}
+                        </div>
+                        <div className='flex-1 min-w-0'>
+                          <p className='text-sm font-medium text-gray-900 dark:text-white truncate'>
+                            {attachment.filename}
+                          </p>
+                          <div className='mt-1 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400'>
+                            <span>
+                              {(attachment.fileSize / 1024).toFixed(1)} KB
+                            </span>
+                            <span>•</span>
+                            <span>
+                              {new Date(attachment.createdAt).toLocaleString()}
+                            </span>
+                            {attachment.uploadedByUserName && (
+                              <>
+                                <span>•</span>
+                                <span>by {attachment.uploadedByUserName}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {formData.status !== 'FINALIZED' && (
+                        <button
+                          onClick={() => handleDeleteAttachment(attachment.id)}
+                          disabled={saving}
+                          className='ml-4 flex-shrink-0 text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors'
+                          title='Delete attachment'
+                        >
+                          <svg
+                            className='w-5 h-5'
+                            fill='currentColor'
+                            viewBox='0 0 20 20'
+                          >
+                            <path
+                              fillRule='evenodd'
+                              d='M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z'
+                              clipRule='evenodd'
+                            />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Empty State Message */}
+            {formData.attachments.length === 0 &&
+              selectedFiles.length === 0 && (
+                <div className='mt-4 rounded-lg bg-blue-50 border border-blue-200 p-4 dark:bg-blue-900/10 dark:border-blue-900'>
+                  <p className='text-sm text-blue-700 dark:text-blue-300'>
+                    💡 <span className='font-medium'>Tip:</span> Attach medical
+                    images, test results, or other relevant documents to support
+                    this consultation record.
+                  </p>
+                </div>
+              )}
           </Section>
         </div>
       </div>
