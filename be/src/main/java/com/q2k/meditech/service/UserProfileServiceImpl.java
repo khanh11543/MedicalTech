@@ -31,6 +31,7 @@ public class UserProfileServiceImpl implements UserProfileService {
 
     private final UserRepository userRepository;
     private final DoctorRepository doctorRepository;
+    private final PatientRepository patientRepository;
     private final NotificationPreferenceRepository notificationPreferenceRepository;
     private final UserDisplaySettingRepository displaySettingRepository;
     private final UserPrinterSettingRepository printerSettingRepository;
@@ -62,6 +63,8 @@ public class UserProfileServiceImpl implements UserProfileService {
             user.setFullName(dto.getFullName());
             // Keep Doctor.fullName in sync for public discovery & booking UIs
             doctorRepository.findByUserId(userId).ifPresent(d -> d.setFullName(dto.getFullName()));
+            // Keep Patient.fullName in sync for patient-facing and clinical modules
+            patientRepository.findByUserId(userId).ifPresent(p -> p.setFullName(dto.getFullName()));
         }
         if (dto.getPhone() != null) {
             // Check phone uniqueness

@@ -5,13 +5,11 @@ import com.q2k.meditech.repository.DoctorRepository;
 import com.q2k.meditech.service.DoctorPatientManagementService;
 import com.q2k.meditech.util.SecurityUtil;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -85,6 +83,29 @@ public class DoctorPatientManagementController {
 
         DoctorPatientDetailDTO result = patientManagementService.getPatientDetail(
                 doctorId, patientId);
+
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Get paginated medical records (from consultations) for a specific patient.
+     * GET /api/doctor/my-patients/{patientId}/medical-records
+     */
+    @GetMapping("/{patientId}/medical-records")
+    @Operation(summary = "Get patient medical records", description = "Get paginated medical records from finalized consultations for a specific patient")
+    public ResponseEntity<PageResponse<DoctorPatientDetailDTO.MedicalRecordSummaryDTO>> getPatientMedicalRecords(
+            @PathVariable Long patientId,
+            @RequestParam(required = false, defaultValue = "0") Integer pageNumber,
+            @RequestParam(required = false, defaultValue = "10") Integer pageSize,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        log.info("Fetching patient medical records - patientId: {}, page: {}, size: {}", patientId, pageNumber, pageSize);
+
+        Long doctorId = getDoctorIdFromUser(userDetails);
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+
+        PageResponse<DoctorPatientDetailDTO.MedicalRecordSummaryDTO> result =
+                patientManagementService.getPatientMedicalRecords(doctorId, patientId, pageable);
 
         return ResponseEntity.ok(result);
     }

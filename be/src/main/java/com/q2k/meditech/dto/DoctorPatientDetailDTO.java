@@ -69,10 +69,17 @@ public class DoctorPatientDetailDTO {
     @Builder
     public static class MedicalRecordSummaryDTO {
         private Long id;
+        private Long appointmentId;
         private LocalDate visitDate;
+        private String healthHistory;
         private String chiefComplaint;
+        private String presentIllness;
+        private Object vitalSigns;
+        private String physicalExam;
         private String diagnosis;
         private String treatmentPlan;
+        private Object labResults;
+        private String followUpNotes;
     }
 
     @Getter

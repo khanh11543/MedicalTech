@@ -3,9 +3,6 @@ package com.q2k.meditech.service;
 import com.q2k.meditech.dto.*;
 import org.springframework.data.domain.Pageable;
 
-import java.time.LocalDate;
-import java.util.List;
-
 /**
  * Service interface for Doctor Patient Management
  * Provides APIs for doctors to manage their patient cohort
@@ -34,6 +31,19 @@ public interface DoctorPatientManagementService {
      * @return Detailed patient information
      */
     DoctorPatientDetailDTO getPatientDetail(Long doctorId, Long patientId);
+
+    /**
+     * Get paginated medical records (from finalized consultations) for a doctor-patient pair.
+     *
+     * @param doctorId Doctor ID
+     * @param patientId Patient ID
+     * @param pageable Pagination info
+     * @return Page of medical record summaries
+     */
+    PageResponse<DoctorPatientDetailDTO.MedicalRecordSummaryDTO> getPatientMedicalRecords(
+            Long doctorId,
+            Long patientId,
+            Pageable pageable);
 
     // ==================== RECENT TAB ====================
 

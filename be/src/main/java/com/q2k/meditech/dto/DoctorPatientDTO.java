@@ -22,6 +22,7 @@ public class DoctorPatientDTO {
     private String fullName;
     private String email;
     private String phone;
+    private String avatarUrl;
     private LocalDate dateOfBirth;
     private String gender;
     private String bloodGroup;

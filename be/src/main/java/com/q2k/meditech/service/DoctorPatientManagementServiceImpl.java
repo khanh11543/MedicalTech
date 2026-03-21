@@ -2,7 +2,6 @@ package com.q2k.meditech.service;
 
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.entity.*;
-import com.q2k.meditech.entity.enums.AppointmentStatus;
 import com.q2k.meditech.entity.enums.PrescriptionStatus;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.*;
@@ -11,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +35,7 @@ public class DoctorPatientManagementServiceImpl implements DoctorPatientManageme
     private final PatientRepository patientRepository;
     private final DoctorRepository doctorRepository;
     private final MedicalRecordRepository medicalRecordRepository;
+    private final ConsultationRepository consultationRepository;
     private final PrescriptionRepository prescriptionRepository;
 
     // ==================== MY PATIENTS TAB ====================
@@ -44,7 +45,7 @@ public class DoctorPatientManagementServiceImpl implements DoctorPatientManageme
         log.info("Fetching my patients for doctor ID: {}, search: {}", doctorId, search);
 
         // Validate doctor exists
-        Doctor doctor = doctorRepository.findById(doctorId)
+        doctorRepository.findById(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + doctorId));
 
         // Get patients with search if provided
@@ -118,14 +119,16 @@ public class DoctorPatientManagementServiceImpl implements DoctorPatientManageme
             result.setFirstVisitDate(LocalDateTime.of(appt.getAppointmentDate(), appt.getAppointmentTime()));
         }
 
-        // Get medical records (last 5)
-        List<MedicalRecord> medicalRecords = medicalRecordRepository
-                .findMedicalRecordsByDoctorIdAndPatientId(doctorId, patientId);
-        result.setTotalMedicalRecords(medicalRecords.size());
+        // Get medical records from finalized consultations of this patient (last 5)
+        List<Consultation> consultations = consultationRepository.findByPatientId(patientId);
+        List<Consultation> finalizedConsultations = consultations.stream()
+                .filter(c -> Boolean.TRUE.equals(c.getIsLocked()))
+                .collect(Collectors.toList());
+        result.setTotalMedicalRecords(finalizedConsultations.size());
         result.setRecentMedicalRecords(
-                medicalRecords.stream()
+                finalizedConsultations.stream()
                         .limit(5)
-                        .map(this::convertToMedicalRecordSummary)
+                        .map(this::convertConsultationToMedicalRecordSummary)
                         .collect(Collectors.toList())
         );
 
@@ -159,6 +162,41 @@ public class DoctorPatientManagementServiceImpl implements DoctorPatientManageme
         result.setChronicConditionsList(parseChronicConditionsList(patient.getMedicalHistory()));
 
         return result;
+    }
+
+    @Override
+    public PageResponse<DoctorPatientDetailDTO.MedicalRecordSummaryDTO> getPatientMedicalRecords(
+            Long doctorId,
+            Long patientId,
+            Pageable pageable) {
+        log.info("Fetching paginated patient medical records from consultations for doctor ID: {}, patient ID: {}", doctorId, patientId);
+
+        Boolean hasAppointment = appointmentRepository.hasAppointmentWithPatient(doctorId, patientId);
+        if (!Boolean.TRUE.equals(hasAppointment)) {
+            throw new ResourceNotFoundException("Doctor has no history with this patient");
+        }
+
+        Pageable sortedPageable = PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                Sort.by(Sort.Direction.DESC, "finalizedAt", "createdAt"));
+
+        Page<Consultation> consultationPage = consultationRepository
+                .findFinalizedByDoctorIdAndPatientId(doctorId, patientId, sortedPageable);
+
+        List<DoctorPatientDetailDTO.MedicalRecordSummaryDTO> content = consultationPage.getContent().stream()
+                .map(this::convertConsultationToMedicalRecordSummary)
+                .collect(Collectors.toList());
+
+        return PageResponse.<DoctorPatientDetailDTO.MedicalRecordSummaryDTO>builder()
+                .content(content)
+                .pageNumber(consultationPage.getNumber())
+                .pageSize(consultationPage.getSize())
+                .totalElements(consultationPage.getTotalElements())
+                .totalPages(consultationPage.getTotalPages())
+                .hasNext(consultationPage.hasNext())
+                .hasPrevious(consultationPage.hasPrevious())
+                .build();
     }
 
     // ==================== RECENT TAB ====================
@@ -337,6 +375,7 @@ public class DoctorPatientManagementServiceImpl implements DoctorPatientManageme
                 .fullName(patient.getFullName())
                 .email(patient.getUser().getEmail())
                 .phone(patient.getUser().getPhone())
+                .avatarUrl(patient.getUser().getAvatarUrl())
                 .dateOfBirth(patient.getDateOfBirth())
                 .gender(patient.getGender())
                 .bloodGroup(patient.getBloodGroup())
@@ -473,13 +512,31 @@ public class DoctorPatientManagementServiceImpl implements DoctorPatientManageme
         return dto;
     }
 
-    private DoctorPatientDetailDTO.MedicalRecordSummaryDTO convertToMedicalRecordSummary(MedicalRecord record) {
+    private DoctorPatientDetailDTO.MedicalRecordSummaryDTO convertConsultationToMedicalRecordSummary(Consultation consultation) {
+        LocalDate visitDate = consultation.getFinalizedAt() != null
+                ? consultation.getFinalizedAt().toLocalDate()
+                : (consultation.getAppointment() != null ? consultation.getAppointment().getAppointmentDate() : null);
+
+        MedicalRecord linkedMedicalRecord = null;
+        if (consultation.getAppointment() != null && consultation.getAppointment().getId() != null) {
+            linkedMedicalRecord = medicalRecordRepository
+                    .findByAppointmentId(consultation.getAppointment().getId())
+                    .orElse(null);
+        }
+
         return DoctorPatientDetailDTO.MedicalRecordSummaryDTO.builder()
-                .id(record.getId())
-                .visitDate(record.getVisitDate())
-                .chiefComplaint(record.getChiefComplaint())
-                .diagnosis(record.getDiagnosis())
-                .treatmentPlan(record.getTreatmentPlan())
+                .id(consultation.getId())
+                .appointmentId(consultation.getAppointment() != null ? consultation.getAppointment().getId() : null)
+                .visitDate(visitDate)
+                .healthHistory(consultation.getPatient() != null ? consultation.getPatient().getMedicalHistory() : null)
+                .chiefComplaint(consultation.getChiefComplaint())
+                .presentIllness(consultation.getHpi())
+                .vitalSigns(consultation.getVitals())
+                .physicalExam(consultation.getPhysicalExam())
+                .diagnosis(consultation.getDiagnosis())
+                .treatmentPlan(consultation.getPlan())
+                .labResults(linkedMedicalRecord != null ? linkedMedicalRecord.getLabResults() : null)
+                .followUpNotes(consultation.getFollowUpInstructions())
                 .build();
     }
 

@@ -91,6 +91,23 @@ public interface ConsultationRepository extends JpaRepository<Consultation, Long
     Page<Consultation> findByPatientId(@Param("patientId") Long patientId, Pageable pageable);
 
     /**
+     * Find finalized consultations for a doctor-patient pair with pagination
+     */
+    @Query(value = "SELECT c FROM Consultation c " +
+            "WHERE c.doctor.id = :doctorId " +
+            "AND c.patient.id = :patientId " +
+            "AND c.isLocked = true " +
+            "ORDER BY c.finalizedAt DESC, c.createdAt DESC",
+            countQuery = "SELECT COUNT(c) FROM Consultation c " +
+                    "WHERE c.doctor.id = :doctorId " +
+                    "AND c.patient.id = :patientId " +
+                    "AND c.isLocked = true")
+    Page<Consultation> findFinalizedByDoctorIdAndPatientId(
+            @Param("doctorId") Long doctorId,
+            @Param("patientId") Long patientId,
+            Pageable pageable);
+
+    /**
      * Find consultations by status with pagination
      */
     @Query("SELECT c FROM Consultation c " +

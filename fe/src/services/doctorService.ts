@@ -333,6 +333,7 @@ export interface DoctorPatientDTO {
   fullName: string;
   email: string;
   phone: string;
+  avatarUrl?: string | null;
   dateOfBirth: string | null;
   gender: string | null;
   bloodGroup: string | null;
@@ -432,10 +433,17 @@ export interface DoctorPatientDetailDTO {
 
 export interface MedicalRecordSummary {
   id: number;
+  appointmentId?: number | null;
   visitDate: string;
+  healthHistory?: string | null;
   chiefComplaint: string | null;
+  presentIllness?: string | null;
+  vitalSigns?: unknown;
+  physicalExam?: string | null;
   diagnosis: string | null;
   treatmentPlan: string | null;
+  labResults?: unknown;
+  followUpNotes?: string | null;
 }
 
 export interface PrescriptionSummary {
@@ -581,6 +589,26 @@ export const getPatientDetail = async (
 ): Promise<DoctorPatientDetailDTO> => {
   const response = await api.get<DoctorPatientDetailDTO>(
     `/doctor/my-patients/${patientId}`
+  );
+  return response.data;
+};
+
+/**
+ * Get paginated medical records (from consultations) for a patient
+ * GET /api/doctor/my-patients/{patientId}/medical-records
+ */
+export const getPatientMedicalRecords = async (
+  patientId: number,
+  params?: { pageNumber?: number; pageSize?: number }
+): Promise<PageResponse<MedicalRecordSummary>> => {
+  const response = await api.get<PageResponse<MedicalRecordSummary>>(
+    `/doctor/my-patients/${patientId}/medical-records`,
+    {
+      params: {
+        pageNumber: params?.pageNumber ?? 0,
+        pageSize: params?.pageSize ?? 10,
+      },
+    }
   );
   return response.data;
 };

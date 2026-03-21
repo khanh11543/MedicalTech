@@ -6,9 +6,13 @@ import Badge from '../../components/ui/badge/Badge';
 import { useToast } from '../../hooks/useToast';
 import {
   getPatientDetail,
+  getPatientMedicalRecords,
   DoctorPatientDetailDTO,
+  MedicalRecordSummary,
 } from '../../services/doctorService';
-import medicalRecordService, { MedicalRecordDTO } from '../../services/medicalRecordService';
+import prescriptionService, {
+  PrescriptionDTO,
+} from '../../services/prescriptionService';
 
 // ============= Icons =============
 const IconArrowLeft = ({ className }: { className?: string }) => (
@@ -145,39 +149,20 @@ export default function DoctorPatientDetail() {
   const [activeTab, setActiveTab] = useState<
     'overview' | 'medical' | 'prescriptions' | 'appointments'
   >('overview');
-
-  // Medical Records tab state
-  const [medicalRecords, setMedicalRecords] = useState<MedicalRecordDTO[]>([]);
+  const [medicalRecords, setMedicalRecords] = useState<MedicalRecordSummary[]>([]);
   const [medRecordsLoading, setMedRecordsLoading] = useState(false);
   const [medRecordsPage, setMedRecordsPage] = useState(0);
   const [medRecordsTotalPages, setMedRecordsTotalPages] = useState(0);
   const [medRecordsTotalElements, setMedRecordsTotalElements] = useState(0);
+  const [selectedMedicalRecord, setSelectedMedicalRecord] =
+    useState<MedicalRecordSummary | null>(null);
+  const [selectedPrescription, setSelectedPrescription] =
+    useState<PrescriptionDTO | null>(null);
+  const [prescriptionLoadingId, setPrescriptionLoadingId] = useState<
+    number | null
+  >(null);
 
   const previousPage = location.state?.tab || 'my-patients';
-
-  const loadMedicalRecords = useCallback(async (page: number = 0) => {
-    if (!patientId) return;
-    try {
-      setMedRecordsLoading(true);
-      const data = await medicalRecordService.getDoctorPatientRecords(
-        Number(patientId),
-        page,
-        10
-      );
-      if (page === 0) {
-        setMedicalRecords(data.content);
-      } else {
-        setMedicalRecords((prev) => [...prev, ...data.content]);
-      }
-      setMedRecordsPage(page);
-      setMedRecordsTotalPages(data.totalPages);
-      setMedRecordsTotalElements(data.totalElements);
-    } catch (error) {
-      console.error('Error loading medical records:', error);
-    } finally {
-      setMedRecordsLoading(false);
-    }
-  }, [patientId]);
 
   const loadPatientDetail = useCallback(async () => {
     if (!patientId) return;
@@ -198,15 +183,60 @@ export default function DoctorPatientDetail() {
     loadPatientDetail();
   }, [loadPatientDetail]);
 
+  const loadMedicalRecordsPage = useCallback(
+    async (page: number) => {
+      if (!patientId) return;
+      try {
+        setMedRecordsLoading(true);
+        const data = await getPatientMedicalRecords(Number(patientId), {
+          pageNumber: page,
+          pageSize: 10,
+        });
+        setMedicalRecords(data.content);
+        setMedRecordsPage(data.pageNumber);
+        setMedRecordsTotalPages(data.totalPages);
+        setMedRecordsTotalElements(data.totalElements);
+      } catch (error) {
+        console.error('Error loading patient medical records:', error);
+        showToast('Failed to load medical records', 'error');
+      } finally {
+        setMedRecordsLoading(false);
+      }
+    },
+    [patientId, showToast]
+  );
+
   useEffect(() => {
     if (activeTab === 'medical') {
-      loadMedicalRecords(0);
+      loadMedicalRecordsPage(0);
     }
-  }, [activeTab, loadMedicalRecords]);
+  }, [activeTab, loadMedicalRecordsPage]);
 
   const handleBack = () => {
-    navigate(`/doctor/patients?tab=${previousPage}`);
+    const backPathMap: Record<string, string> = {
+      'my-patients': '/doctor/patients/my-patients',
+      recent: '/doctor/patients/recent',
+      flags: '/doctor/patients/chronic-allergy-flags',
+      'chronic-allergy-flags': '/doctor/patients/chronic-allergy-flags',
+    };
+    navigate(backPathMap[previousPage] || '/doctor/patients/my-patients');
   };
+
+  const handleViewPrescription = useCallback(
+    async (prescriptionId: number) => {
+      try {
+        setPrescriptionLoadingId(prescriptionId);
+        const detail = await prescriptionService.getPrescription(prescriptionId);
+        setSelectedPrescription(detail);
+      } catch (error) {
+        console.error('Error loading prescription detail:', error);
+        showToast('Failed to load prescription detail', 'error');
+      } finally {
+        setPrescriptionLoadingId(null);
+      }
+    },
+    [showToast]
+  );
 
   if (loading) {
     return (
@@ -516,7 +546,7 @@ export default function DoctorPatientDetail() {
               </p>
             </div>
 
-            {medRecordsLoading && medicalRecords.length === 0 ? (
+            {medRecordsLoading ? (
               <div className='space-y-4'>
                 {[...Array(3)].map((_, i) => (
                   <div
@@ -538,23 +568,22 @@ export default function DoctorPatientDetail() {
                     key={record.id}
                     className='rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/[0.05] p-6 hover:shadow-lg transition-shadow'
                   >
-                    <div className='flex items-start justify-between mb-4'>
+                    <div className='flex items-start justify-between mb-4 gap-3'>
                       <div className='flex items-center gap-2'>
                         <IconActivity className='w-5 h-5 text-blue-600 dark:text-blue-400' />
                         <div>
                           <h4 className='font-semibold text-gray-900 dark:text-white'>
                             {formatDate(record.visitDate)}
                           </h4>
-                          <p className='text-xs text-gray-500 dark:text-gray-400'>
-                            {record.recordCode}
-                          </p>
                         </div>
                       </div>
-                      {record.diagnosisCode && (
-                        <Badge variant='light' color='info' size='sm'>
-                          ICD: {record.diagnosisCode}
-                        </Badge>
-                      )}
+                      <button
+                        type='button'
+                        onClick={() => setSelectedMedicalRecord(record)}
+                        className='px-3 py-1.5 text-xs font-medium rounded bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40'
+                      >
+                        View
+                      </button>
                     </div>
 
                     <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
@@ -588,40 +617,27 @@ export default function DoctorPatientDetail() {
                           </p>
                         </div>
                       )}
-                      {record.followUpDate && (
-                        <div>
-                          <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
-                            Follow-up
-                          </p>
-                          <p className='text-sm text-gray-700 dark:text-gray-300'>
-                            {formatDate(record.followUpDate)}
-                          </p>
-                        </div>
-                      )}
                     </div>
-
-                    {record.followUpNotes && (
-                      <div className='mt-3 pt-3 border-t border-gray-100 dark:border-gray-700'>
-                        <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
-                          Follow-up Notes
-                        </p>
-                        <p className='text-sm text-gray-700 dark:text-gray-300'>
-                          {record.followUpNotes}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 ))}
-
-                {/* Load More */}
-                {medRecordsPage < medRecordsTotalPages - 1 && (
-                  <div className='text-center pt-2'>
+                {medRecordsTotalPages > 1 && (
+                  <div className='flex items-center justify-center gap-2'>
                     <button
-                      onClick={() => loadMedicalRecords(medRecordsPage + 1)}
-                      disabled={medRecordsLoading}
-                      className='px-6 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50'
+                      onClick={() => loadMedicalRecordsPage(medRecordsPage - 1)}
+                      disabled={medRecordsPage === 0 || medRecordsLoading}
+                      className='px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200'
                     >
-                      {medRecordsLoading ? 'Loading...' : 'Load More'}
+                      Previous
+                    </button>
+                    <span className='text-sm text-gray-600 dark:text-gray-400'>
+                      Page {medRecordsPage + 1} / {medRecordsTotalPages}
+                    </span>
+                    <button
+                      onClick={() => loadMedicalRecordsPage(medRecordsPage + 1)}
+                      disabled={medRecordsPage >= medRecordsTotalPages - 1 || medRecordsLoading}
+                      className='px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200'
+                    >
+                      Next
                     </button>
                   </div>
                 )}
@@ -674,6 +690,18 @@ export default function DoctorPatientDetail() {
                       {prescription.diagnosis}
                     </p>
                   )}
+                  <div className='mt-4 flex justify-end'>
+                    <button
+                      type='button'
+                      onClick={() => handleViewPrescription(prescription.id)}
+                      disabled={prescriptionLoadingId === prescription.id}
+                      className='px-3 py-1.5 text-xs font-medium rounded bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/40 disabled:opacity-50 disabled:cursor-not-allowed'
+                    >
+                      {prescriptionLoadingId === prescription.id
+                        ? 'Loading...'
+                        : 'View'}
+                    </button>
+                  </div>
                 </div>
               ))
             ) : (
@@ -752,6 +780,230 @@ export default function DoctorPatientDetail() {
           </div>
         )}
       </div>
+      {selectedPrescription && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'>
+          <div className='bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto'>
+            <div className='px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between'>
+              <div>
+                <h3 className='text-lg font-semibold text-gray-800 dark:text-white'>
+                  Prescription Detail
+                </h3>
+                <p className='text-xs text-gray-500 dark:text-gray-400'>
+                  {selectedPrescription.prescriptionCode ||
+                    `PRE-${selectedPrescription.id}`}
+                </p>
+              </div>
+              <button
+                type='button'
+                onClick={() => setSelectedPrescription(null)}
+                className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none'
+              >
+                ×
+              </button>
+            </div>
+
+            <div className='px-6 py-4 space-y-4'>
+              <div className='flex items-center gap-3'>
+                <span className='text-xs text-gray-500 dark:text-gray-400'>
+                  Date: {formatDate(selectedPrescription.prescriptionDate)}
+                </span>
+                <span
+                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    selectedPrescription.isActive
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  {selectedPrescription.isActive ? 'ACTIVE' : 'INACTIVE'}
+                </span>
+              </div>
+
+              {selectedPrescription.diagnosis && (
+                <div>
+                  <p className='text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1'>
+                    Diagnosis
+                  </p>
+                  <p className='text-sm text-gray-700 dark:text-gray-300'>
+                    {selectedPrescription.diagnosis}
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <p className='text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-2'>
+                  Medications ({selectedPrescription.items?.length || 0})
+                </p>
+                <div className='space-y-2'>
+                  {(selectedPrescription.items || []).map((item, idx) => (
+                    <div
+                      key={idx}
+                      className='rounded-lg border border-gray-200 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-800'
+                    >
+                      <p className='text-sm font-semibold text-gray-900 dark:text-white'>
+                        {idx + 1}. {item.medicineName}
+                      </p>
+                      <p className='text-xs text-gray-600 dark:text-gray-400 mt-1'>
+                        {item.dosage} • {item.frequency}
+                        {item.duration ? ` • ${item.duration}` : ''}
+                        {item.quantity ? ` • Qty: ${item.quantity}` : ''}
+                        {item.unit ? ` ${item.unit}` : ''}
+                      </p>
+                      {item.instructions && (
+                        <p className='text-xs text-gray-600 dark:text-gray-400 mt-1'>
+                          Instructions: {item.instructions}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedPrescription.notes && (
+                <div>
+                  <p className='text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1'>
+                    Notes
+                  </p>
+                  <p className='text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap'>
+                    {selectedPrescription.notes}
+                  </p>
+                </div>
+              )}
+
+              {selectedPrescription.followUpDate && (
+                <div>
+                  <p className='text-xs font-medium text-gray-500 dark:text-gray-400 uppercase mb-1'>
+                    Follow-up Date
+                  </p>
+                  <p className='text-sm text-gray-700 dark:text-gray-300'>
+                    {formatDate(selectedPrescription.followUpDate)}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className='px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end'>
+              <button
+                type='button'
+                onClick={() => setSelectedPrescription(null)}
+                className='px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600'
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {selectedMedicalRecord && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'>
+          <div className='bg-white dark:bg-gray-900 rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto'>
+            <div className='px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between'>
+              <div>
+                <h3 className='text-lg font-semibold text-gray-800 dark:text-white'>
+                  Medical Record Detail
+                </h3>
+                <p className='text-xs text-gray-500 dark:text-gray-400'>
+                  Visit date: {formatDate(selectedMedicalRecord.visitDate)}
+                </p>
+              </div>
+              <button
+                type='button'
+                onClick={() => setSelectedMedicalRecord(null)}
+                className='text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none'
+              >
+                ×
+              </button>
+            </div>
+            <div className='px-6 py-5 space-y-5'>
+              <div>
+                <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                  Health History
+                </p>
+                <p className='text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap'>
+                  {selectedMedicalRecord.healthHistory || 'No health history'}
+                </p>
+              </div>
+              <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                <div>
+                  <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                    Chief Complaint
+                  </p>
+                  <p className='text-sm text-gray-700 dark:text-gray-300'>
+                    {selectedMedicalRecord.chiefComplaint || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                    Present Illness
+                  </p>
+                  <p className='text-sm text-gray-700 dark:text-gray-300'>
+                    {selectedMedicalRecord.presentIllness || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                    Diagnosis
+                  </p>
+                  <p className='text-sm text-gray-700 dark:text-gray-300'>
+                    {selectedMedicalRecord.diagnosis || 'N/A'}
+                  </p>
+                </div>
+                <div>
+                  <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                    Treatment Plan
+                  </p>
+                  <p className='text-sm text-gray-700 dark:text-gray-300'>
+                    {selectedMedicalRecord.treatmentPlan || 'N/A'}
+                  </p>
+                </div>
+              </div>
+              <div>
+                <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                  Physical Exam
+                </p>
+                <p className='text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap'>
+                  {selectedMedicalRecord.physicalExam || 'N/A'}
+                </p>
+              </div>
+              <div>
+                <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                  Vital Signs
+                </p>
+                <pre className='text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap'>
+                  {selectedMedicalRecord.vitalSigns
+                    ? JSON.stringify(selectedMedicalRecord.vitalSigns, null, 2)
+                    : 'No vital signs'}
+                </pre>
+              </div>
+              <div>
+                <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                  Lab Results
+                </p>
+                <pre className='text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-800 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap'>
+                  {selectedMedicalRecord.labResults
+                    ? JSON.stringify(selectedMedicalRecord.labResults, null, 2)
+                    : 'No lab results'}
+                </pre>
+              </div>
+              <div>
+                <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                  Follow-up Notes
+                </p>
+                <p className='text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap'>
+                  {selectedMedicalRecord.followUpNotes || 'N/A'}
+                </p>
+              </div>
+            </div>
+            <div className='px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end'>
+              <button
+                type='button'
+                onClick={() => setSelectedMedicalRecord(null)}
+                className='px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600'
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

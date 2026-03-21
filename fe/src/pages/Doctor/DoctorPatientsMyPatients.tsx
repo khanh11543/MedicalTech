@@ -160,9 +160,17 @@ function PatientCard({
       <div className='flex items-start justify-between mb-4'>
         <div className='flex items-center gap-3 flex-1'>
           <div className='flex-shrink-0'>
-            <div className='w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center font-semibold text-white text-sm shadow-lg'>
-              {getInitials(patient.fullName)}
-            </div>
+            {patient.avatarUrl ? (
+              <img
+                src={patient.avatarUrl}
+                alt={patient.fullName}
+                className='w-12 h-12 rounded-full object-cover shadow-lg'
+              />
+            ) : (
+              <div className='w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center font-semibold text-white text-sm shadow-lg'>
+                {getInitials(patient.fullName)}
+              </div>
+            )}
           </div>
           <div className='flex-1 min-w-0'>
             <h3 className='text-base font-semibold text-gray-900 dark:text-white truncate'>
