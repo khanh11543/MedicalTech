@@ -51,12 +51,13 @@ public interface PrescriptionRepository extends JpaRepository<Prescription, Long
             @Param("to") LocalDate to,
             Pageable pageable);
     
-    // Find by doctor
+    // Find by doctor (with items eagerly fetched to prevent session-level lazy-loading contamination)
     @Query("SELECT DISTINCT p FROM Prescription p " +
            "JOIN FETCH p.patient pat " +
            "JOIN FETCH pat.user " +
            "JOIN FETCH p.doctor doc " +
            "JOIN FETCH doc.user " +
+           "LEFT JOIN FETCH p.items " +
            "WHERE doc.id = :doctorId " +
            "ORDER BY p.prescriptionDate DESC")
     List<Prescription> findByDoctorId(@Param("doctorId") Long doctorId);

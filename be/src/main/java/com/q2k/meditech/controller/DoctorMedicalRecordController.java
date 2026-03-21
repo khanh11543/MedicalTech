@@ -124,6 +124,28 @@ public class DoctorMedicalRecordController {
         return ResponseEntity.ok(stats);
     }
 
+    /**
+     * Get medical record by appointment ID
+     * GET /api/doctor/medical-records/appointment/{appointmentId}
+     */
+    @GetMapping("/appointment/{appointmentId}")
+    @Operation(summary = "Get medical record by appointment",
+            description = "Get the medical record linked to a specific appointment")
+    public ResponseEntity<MedicalRecordDTO> getMedicalRecordByAppointmentId(
+            @Parameter(description = "Appointment ID") @PathVariable Long appointmentId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        Long doctorId = getDoctorIdFromUser(userDetails);
+
+        log.info("GET /doctor/medical-records/appointment/{} for doctorId: {}", appointmentId, doctorId);
+
+        MedicalRecordDTO record = medicalRecordService.getDoctorMedicalRecordByAppointmentId(appointmentId, doctorId);
+        if (record == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(record);
+    }
+
     // ==================== HELPER METHODS ====================
 
     /**

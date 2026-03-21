@@ -4,7 +4,6 @@ import { AppointmentDTO } from '../../services/appointmentService';
 interface ExpandableAppointmentTableProps {
   appointments: AppointmentDTO[];
   onViewDetails?: (appointment: AppointmentDTO) => void;
-  onCancel?: (appointment: AppointmentDTO) => void;
   onReschedule?: (appointment: AppointmentDTO) => void;
 }
 
@@ -28,7 +27,6 @@ const getStatusColor = (status: string) => {
 export default function ExpandableAppointmentTable({
   appointments,
   onViewDetails,
-  onCancel,
   onReschedule,
 }: ExpandableAppointmentTableProps) {
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
@@ -184,9 +182,16 @@ export default function ExpandableAppointmentTable({
                         </div>
                       </td>
                       <td className='px-6 py-4'>
-                        <p className='text-sm text-gray-700 dark:text-gray-300 line-clamp-2'>
-                          {appointment.symptoms || 'No symptoms noted'}
-                        </p>
+                        <div className='flex flex-col gap-1'>
+                          <p className='text-sm text-gray-700 dark:text-gray-300 line-clamp-2'>
+                            {appointment.reasonForVisit || appointment.symptoms || 'No reason noted'}
+                          </p>
+                          {appointment.appointmentType && (
+                            <span className='text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide'>
+                              {appointment.appointmentType.replace(/_/g, ' ')}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className='px-6 py-4'>
                         <span
@@ -284,28 +289,7 @@ export default function ExpandableAppointmentTable({
                                 </svg>
                                 Reschedule
                               </button>
-                              {/* <button
-                                onClick={() => {
-                                  onCancel?.(appointment);
-                                  setOpenMenuId(null);
-                                }}
-                                className='w-full px-4 py-2.5 text-left text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-3 border-b border-gray-100 dark:border-gray-700'
-                              >
-                                <svg
-                                  className='w-4 h-4'
-                                  fill='none'
-                                  stroke='currentColor'
-                                  viewBox='0 0 24 24'
-                                >
-                                  <path
-                                    strokeLinecap='round'
-                                    strokeLinejoin='round'
-                                    strokeWidth={2}
-                                    d='M6 18L18 6M6 6l12 12'
-                                  />
-                                </svg>
-                                Cancel
-                              </button> */}
+
                             </div>
                           )}
                         </div>

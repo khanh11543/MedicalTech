@@ -119,8 +119,8 @@ const navItems: NavItem[] = [
       { name: "Calendar View", path: "/admin/timeslot-calendar", pro: false },
       { name: "Slot List", path: "/admin/timeslot-list", pro: false },
       { name: "Bulk Create", path: "/admin/timeslot-bulk-create", pro: false },
-      { name: "Templates", path: "/admin/timeslot-templates", pro: false },
       { name: "Rules & Holidays", path: "/admin/timeslot-rules", pro: false },
+      { name: "Doctor Time Off", path: "/admin/timeslot-time-off-requests", pro: false },
     ],
   },
   {

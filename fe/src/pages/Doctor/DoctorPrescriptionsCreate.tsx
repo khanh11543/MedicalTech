@@ -16,6 +16,15 @@ interface ConsultationData {
   diagnosis?: string;
   followUpInstructions?: string;
   consultationId?: number;
+  // Template pre-fill (from Templates page)
+  templateItems?: PrescriptionItemDTO[];
+  templateName?: string;
+  notes?: string;
+  followUpDays?: number;
+  // Reissue mode
+  reissueMode?: boolean;
+  reissueFromCode?: string;
+  followUpDate?: string;
 }
 
 interface PrescriptionForm {
@@ -35,31 +44,33 @@ export default function DoctorPrescriptionsCreate() {
 
   const consultationData = (location.state as ConsultationData) || {};
 
-  console.log(consultationData);
-
   const [creating, setCreating] = useState(false);
   const [formData, setFormData] = useState<PrescriptionForm>({
     patientId: consultationData.patientId || 0,
     appointmentId: consultationData.appointmentId,
     prescriptionDate: new Date().toISOString().split('T')[0],
     diagnosis: consultationData.diagnosis || '',
-    notes: consultationData.followUpInstructions || '',
-    followUpDate: '',
+    notes: consultationData.notes || consultationData.followUpInstructions || '',
+    followUpDate: consultationData.followUpDate || '',
     items: [],
   });
 
-  const [medicines, setMedicines] = useState<PrescriptionItemDTO[]>([
-    {
-      medicineName: '',
-      dosage: '',
-      frequency: '',
-      duration: '',
-      quantity: undefined,
-      unit: '',
-      instructions: '',
-      notes: '',
-    },
-  ]);
+  const [medicines, setMedicines] = useState<PrescriptionItemDTO[]>(
+    consultationData.templateItems?.length
+      ? consultationData.templateItems
+      : [
+          {
+            medicineName: '',
+            dosage: '',
+            frequency: '',
+            duration: '',
+            quantity: undefined,
+            unit: '',
+            instructions: '',
+            notes: '',
+          },
+        ]
+  );
 
   const handleFormChange = (
     field: keyof PrescriptionForm,
@@ -193,66 +204,89 @@ export default function DoctorPrescriptionsCreate() {
         {/* Only show form if consultation data is available */}
         {consultationData.patientId && (
           <>
-            {/* Consultation Summary - if from consultation flow */}
-            {consultationData.patientId && (
-              <div className='rounded-lg border border-brand-200 bg-brand-50 p-6 dark:border-brand-900 dark:bg-brand-900/10'>
-                <div className='mb-4 flex items-center justify-between'>
+            {/* Context banner */}
+            {consultationData.reissueMode ? (
+              <div className='rounded-lg border border-amber-200 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-900/10'>
+                <div className='mb-3 flex items-center gap-3'>
+                  <span className='text-xl'>📋</span>
                   <h3 className='text-lg font-semibold text-gray-900 dark:text-white'>
-                    📋 Consultation Summary
+                    Reissuing Prescription
                   </h3>
-                  <span className='inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300'>
-                    Just Finalized
+                  <span className='inline-flex items-center rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'>
+                    {consultationData.reissueFromCode}
                   </span>
                 </div>
-
-                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-                  <div>
-                    <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                      Patient
-                    </p>
-                    <p className='text-sm font-semibold text-gray-900 dark:text-white'>
-                      {consultationData.patientName || 'N/A'}
-                    </p>
-                  </div>
-                  {consultationData.appointmentId && (
-                    <div>
-                      <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                        Appointment ID
-                      </p>
-                      <p className='text-sm font-semibold text-gray-900 dark:text-white'>
-                        #{consultationData.appointmentId}
-                      </p>
-                    </div>
-                  )}
-                  {consultationData.diagnosis && (
-                    <div className='md:col-span-2'>
-                      <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                        Diagnosis
-                      </p>
-                      <p className='text-sm text-gray-900 dark:text-white'>
-                        {consultationData.diagnosis}
-                      </p>
-                    </div>
-                  )}
-                  {consultationData.followUpInstructions && (
-                    <div className='md:col-span-2'>
-                      <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                        Follow-up Instructions
-                      </p>
-                      <p className='text-sm text-gray-900 dark:text-white'>
-                        {consultationData.followUpInstructions}
-                      </p>
-                    </div>
-                  )}
+                <p className='text-sm text-gray-600 dark:text-gray-400 mb-3'>
+                  Review and adjust the details below, then click <strong>Sign</strong> to issue the new prescription.
+                </p>
+                <div>
+                  <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>Patient</p>
+                  <p className='text-sm font-semibold text-gray-900 dark:text-white'>
+                    {consultationData.patientName || 'N/A'}
+                  </p>
                 </div>
               </div>
+            ) : (
+              consultationData.patientId && (
+                <div className='rounded-lg border border-brand-200 bg-brand-50 p-6 dark:border-brand-900 dark:bg-brand-900/10'>
+                  <div className='mb-4 flex items-center justify-between'>
+                    <h3 className='text-lg font-semibold text-gray-900 dark:text-white'>
+                      📋 Consultation Summary
+                    </h3>
+                    <span className='inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-300'>
+                      Just Finalized
+                    </span>
+                  </div>
+
+                  <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                    <div>
+                      <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
+                        Patient
+                      </p>
+                      <p className='text-sm font-semibold text-gray-900 dark:text-white'>
+                        {consultationData.patientName || 'N/A'}
+                      </p>
+                    </div>
+                    {consultationData.appointmentId && (
+                      <div>
+                        <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
+                          Appointment ID
+                        </p>
+                        <p className='text-sm font-semibold text-gray-900 dark:text-white'>
+                          #{consultationData.appointmentId}
+                        </p>
+                      </div>
+                    )}
+                    {consultationData.diagnosis && (
+                      <div className='md:col-span-2'>
+                        <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
+                          Diagnosis
+                        </p>
+                        <p className='text-sm text-gray-900 dark:text-white'>
+                          {consultationData.diagnosis}
+                        </p>
+                      </div>
+                    )}
+                    {consultationData.followUpInstructions && (
+                      <div className='md:col-span-2'>
+                        <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
+                          Follow-up Instructions
+                        </p>
+                        <p className='text-sm text-gray-900 dark:text-white'>
+                          {consultationData.followUpInstructions}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
             )}
 
             {/* Prescription Form */}
             <div className='rounded-lg border border-gray-200 bg-white shadow-md dark:border-gray-800 dark:bg-gray-900'>
               <div className='border-b border-gray-200 px-6 py-4 dark:border-gray-700'>
                 <h3 className='text-lg font-semibold text-gray-900 dark:text-white'>
-                  New Prescription
+                  {consultationData.reissueMode ? 'Reissue Prescription' : 'New Prescription'}
                 </h3>
               </div>
 
@@ -548,7 +582,9 @@ export default function DoctorPrescriptionsCreate() {
                     disabled={creating || medicines.length === 0}
                     className='px-6 py-2 bg-brand-600 hover:bg-brand-700 dark:bg-brand-700 dark:hover:bg-brand-800 text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed'
                   >
-                    {creating ? 'Creating...' : '💊 Create Prescription'}
+                    {creating
+                      ? consultationData.reissueMode ? 'Signing…' : 'Creating...'
+                      : consultationData.reissueMode ? '✍️ Sign' : '💊 Create Prescription'}
                   </button>
                 </div>
               </form>

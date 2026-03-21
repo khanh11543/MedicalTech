@@ -85,6 +85,15 @@ public interface DoctorPatientManagementService {
      */
     PageResponse<DoctorPatientFlagsDTO> getHighRiskPatients(Long doctorId, Pageable pageable);
 
+    /**
+     * Get patients with medication risk (polypharmacy: 2+ active prescriptions).
+     *
+     * @param doctorId Doctor ID
+     * @param pageable Pagination info
+     * @return Page of DoctorPatientFlagsDTO
+     */
+    PageResponse<DoctorPatientFlagsDTO> getPatientsWithMedicationRisk(Long doctorId, Pageable pageable);
+
     // ==================== STATISTICS ====================
 
     /**

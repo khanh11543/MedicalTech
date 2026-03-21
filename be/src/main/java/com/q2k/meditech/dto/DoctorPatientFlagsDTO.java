@@ -40,6 +40,10 @@ public class DoctorPatientFlagsDTO {
     private Boolean hasActivePrescriptions;
     private Integer activePrescriptionsCount;
 
+    // Medication risk flag (polypharmacy: >= 2 active prescriptions)
+    private Boolean hasMedicationRisk;
+    private String medicationRiskNote;
+
     // Metadata
     private LocalDateTime updatedAt;
 }

@@ -57,4 +57,10 @@ public interface MedicalRecordService {
      * Get total medical records created by a doctor
      */
     Long countDoctorRecords(Long doctorId);
+
+    /**
+     * Get medical record by appointment ID (doctor access)
+     * Returns null if no record exists for this appointment
+     */
+    MedicalRecordDTO getDoctorMedicalRecordByAppointmentId(Long appointmentId, Long doctorId);
 }

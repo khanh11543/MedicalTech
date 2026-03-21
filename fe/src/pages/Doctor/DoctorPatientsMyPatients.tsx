@@ -238,9 +238,24 @@ function PatientCard({
           <p className='text-xs text-gray-600 dark:text-gray-400'>
             Prescriptions
           </p>
-          <p className='text-lg font-bold text-gray-900 dark:text-white mt-0.5'>
-            {patient.activePrescriptionsCount}
+          <p className='text-sm font-bold text-gray-900 dark:text-white mt-0.5'>
+            <span className='text-blue-600 dark:text-blue-400'>
+              {patient.activePrescriptionsCount}
+            </span>
+            <span className='text-xs font-normal text-gray-500 dark:text-gray-400 mx-1'>
+              active
+            </span>
+            {patient.totalPrescriptionsCount > 0 && (
+              <span className='text-xs font-normal text-gray-500 dark:text-gray-400'>
+                / {patient.totalPrescriptionsCount} total
+              </span>
+            )}
           </p>
+          {patient.mostRecentPrescriptionDate && (
+            <p className='text-xs text-gray-500 dark:text-gray-400 mt-0.5'>
+              Last: {formatDateFromTimestamp(patient.mostRecentPrescriptionDate)}
+            </p>
+          )}
         </div>
       </div>
 
@@ -270,13 +285,17 @@ function PatientCard({
           <span className='text-xs font-medium text-green-700 dark:text-green-400'>
             Upcoming Appointment
           </span>
-          <span className='inline-block w-2 h-2 rounded-full bg-green-500'></span>
+          <span className='text-xs font-semibold text-green-700 dark:text-green-400'>
+            {patient.nextAppointmentDate
+              ? formatDateFromTimestamp(patient.nextAppointmentDate)
+              : '●'}
+          </span>
         </div>
       )}
 
       {/* View Detail Button */}
       <button className='w-full flex items-center justify-between px-4 py-2.5 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 font-medium group-hover:bg-blue-100 dark:group-hover:bg-blue-500/20 transition-colors duration-200'>
-        <span>View Details</span>
+        <span>Open consultation record</span>
         <IconChevronRight className='w-4 h-4' />
       </button>
     </div>

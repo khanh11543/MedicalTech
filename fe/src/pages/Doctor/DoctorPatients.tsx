@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { useToast } from '../../hooks/useToast';
@@ -10,6 +11,7 @@ import {
 
 export default function DoctorPatients() {
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const [patients, setPatients] = useState<DoctorPatientDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -257,8 +259,11 @@ export default function DoctorPatients() {
                           </div>
                         </td>
                         <td className='px-6 py-4'>
-                          <button className='inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition'>
-                            View Details →
+                          <button
+                            onClick={() => navigate(`/doctor/patients/${patient.id}`, { state: { tab: 'my-patients' } })}
+                            className='inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition'
+                          >
+                            Open consultation record →
                           </button>
                         </td>
                       </tr>

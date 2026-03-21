@@ -347,6 +347,7 @@ export interface DoctorPatientDTO {
   allergyList: string[];
   chronicConditions: string[];
   hasUpcomingAppointment: boolean;
+  nextAppointmentDate: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -389,6 +390,8 @@ export interface DoctorPatientFlagsDTO {
   lastVisitNotes: string | null;
   hasActivePrescriptions: boolean;
   activePrescriptionsCount: number;
+  hasMedicationRisk: boolean;
+  medicationRiskNote: string | null;
   updatedAt: string;
 }
 
@@ -672,6 +675,26 @@ export const getHighRiskPatients = async (params?: {
 }): Promise<PageResponse<DoctorPatientFlagsDTO>> => {
   const response = await api.get<PageResponse<DoctorPatientFlagsDTO>>(
     '/doctor/my-patients/flags/high-risk',
+    {
+      params: {
+        pageNumber: params?.pageNumber ?? 0,
+        pageSize: params?.pageSize ?? 10,
+      },
+    }
+  );
+  return response.data;
+};
+
+/**
+ * Get patients with medication risk (polypharmacy: 2+ active prescriptions)
+ * GET /api/doctor/my-patients/flags/medication-risk
+ */
+export const getPatientsWithMedicationRisk = async (params?: {
+  pageNumber?: number;
+  pageSize?: number;
+}): Promise<PageResponse<DoctorPatientFlagsDTO>> => {
+  const response = await api.get<PageResponse<DoctorPatientFlagsDTO>>(
+    '/doctor/my-patients/flags/medication-risk',
     {
       params: {
         pageNumber: params?.pageNumber ?? 0,

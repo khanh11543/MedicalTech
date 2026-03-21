@@ -101,11 +101,11 @@ const TimeSlotList = lazy(
 const TimeSlotBulkCreate = lazy(
   () => import('./pages/TimeSlotManagement/TimeSlotBulkCreate')
 );
-const TimeSlotTemplates = lazy(
-  () => import('./pages/TimeSlotManagement/TimeSlotTemplates')
-);
 const TimeSlotRules = lazy(
   () => import('./pages/TimeSlotManagement/TimeSlotRules')
+);
+const AdminTimeOffRequests = lazy(
+  () => import('./pages/TimeSlotManagement/AdminTimeOffRequests')
 );
 const AdminSettings = lazy(() => import('./pages/AdminSettings/AdminSettings'));
 
@@ -198,12 +198,11 @@ const DoctorVerificationCenter = lazy(
 const DoctorSettings = lazy(() => import('./pages/Doctor/DoctorSettings'));
 import DoctorProtectedRoute from './components/auth/DoctorProtectedRoute';
 import DoctorAppointmentsUpcoming from './pages/Doctor/DoctorAppointmentsUpcoming';
-import DoctorAppointmentsPending from './pages/Doctor/DoctorAppointmentsPending';
+
 import DoctorAppointmentsHistory from './pages/Doctor/DoctorAppointmentsHistory';
 import DoctorScheduleWeekly from './pages/Doctor/DoctorScheduleWeekly';
 import DoctorScheduleTimeOff from './pages/Doctor/DoctorScheduleTimeOff';
 import DoctorScheduleTemplates from './pages/Doctor/DoctorScheduleTemplates';
-import DoctorScheduleBlockSlots from './pages/Doctor/DoctorScheduleBlockSlots';
 import DoctorPrescriptionsCreate from './pages/Doctor/DoctorPrescriptionsCreate';
 import DoctorPrescriptionsHistory from './pages/Doctor/DoctorPrescriptionsHistory';
 import DoctorPrescriptionsTemplates from './pages/Doctor/DoctorPrescriptionsTemplates';
@@ -332,6 +331,10 @@ export default function App() {
                 <Route
                   path='/admin/timeslot-rules'
                   element={<TimeSlotRules />}
+                />
+                <Route
+                  path='/admin/timeslot-time-off-requests'
+                  element={<AdminTimeOffRequests />}
                 />
 
                 {/* Prescription Management */}
@@ -488,10 +491,6 @@ export default function App() {
                   element={<DoctorAppointmentsUpcoming />}
                 />
                 <Route
-                  path='appointments/pending'
-                  element={<DoctorAppointmentsPending />}
-                />
-                <Route
                   path='appointments/history'
                   element={<DoctorAppointmentsHistory />}
                 />
@@ -510,11 +509,6 @@ export default function App() {
                   path='schedule/templates'
                   element={<DoctorScheduleTemplates />}
                 />
-                <Route
-                  path='schedule/block-slots'
-                  element={<DoctorScheduleBlockSlots />}
-                />
-
                 <Route path='consultation' element={<DoctorConsultation />} />
 
                 {/* Prescriptions Routes */}

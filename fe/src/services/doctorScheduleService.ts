@@ -4,6 +4,10 @@ import api from './api';
 export type ExceptionType = 'OFF' | 'MODIFIED' | 'EXTRA';
 export type TimeSlotStatus = 'AVAILABLE' | 'BOOKED' | 'BLOCKED' | 'COMPLETED';
 
+// Time Off & Breaks
+export type TimeOffType = 'FULL_DAY' | 'PARTIAL_DAY' | 'BREAK' | 'BLOCKED_TIME';
+export type TimeOffStatus = 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+
 // =========== INTERFACES ===========
 
 // Doctor Schedule DTO (weekly recurring schedule)
@@ -59,6 +63,35 @@ export interface MessageDTO {
   message: string;
   success: boolean;
   data?: any;
+}
+
+// =========== TIME OFF & BREAKS ===========
+
+export interface AffectedAppointmentDTO {
+  appointmentId: number;
+  patientName: string;
+  appointmentDate: string;  // YYYY-MM-DD
+  startTime: string;         // HH:mm
+  endTime: string;           // HH:mm
+  status: string;            // AppointmentStatus name
+  heavyConflict: boolean;    // CHECKED_IN / IN_PROGRESS
+}
+
+export interface TimeOffRequestDTO {
+  id?: number;
+  type: TimeOffType;
+  date: string;              // YYYY-MM-DD
+  startTime?: string;        // HH:mm (null for FULL_DAY)
+  endTime?: string;          // HH:mm (null for FULL_DAY)
+  reason: string;
+  notes?: string;
+  // response-only
+  status?: TimeOffStatus;
+  affectedAppointmentsCount?: number;
+  hasHeavyConflict?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  affectedAppointments?: AffectedAppointmentDTO[];
 }
 
 // =========== HELPER FUNCTIONS ===========
@@ -263,6 +296,51 @@ const doctorScheduleService = {
   unblockTimeSlot: async (slotId: number): Promise<TimeSlotDTO> => {
     const response = await api.patch<TimeSlotDTO>(
       `/doctor/time-slots/${slotId}/unblock`
+    );
+    return response.data;
+  },
+
+  // ========== TIME OFF & BREAKS ==========
+
+  /** Create a time-off / break / blocked-time request */
+  createTimeOffRequest: async (
+    dto: Omit<TimeOffRequestDTO, 'id' | 'status' | 'affectedAppointmentsCount' | 'hasHeavyConflict' | 'createdAt' | 'updatedAt' | 'affectedAppointments'>
+  ): Promise<TimeOffRequestDTO> => {
+    const response = await api.post<TimeOffRequestDTO>('/doctor/time-off', dto);
+    return response.data;
+  },
+
+  /** List all time-off requests for the authenticated doctor */
+  listTimeOffRequests: async (): Promise<TimeOffRequestDTO[]> => {
+    const response = await api.get<TimeOffRequestDTO[]>('/doctor/time-off');
+    return response.data;
+  },
+
+  /** Get a single time-off request by ID */
+  getTimeOffRequest: async (id: number): Promise<TimeOffRequestDTO> => {
+    const response = await api.get<TimeOffRequestDTO>(`/doctor/time-off/${id}`);
+    return response.data;
+  },
+
+  /** Update a PENDING_REVIEW (or future APPROVED) time-off request */
+  updateTimeOffRequest: async (
+    id: number,
+    dto: Omit<TimeOffRequestDTO, 'id' | 'status' | 'affectedAppointmentsCount' | 'hasHeavyConflict' | 'createdAt' | 'updatedAt' | 'affectedAppointments'>
+  ): Promise<TimeOffRequestDTO> => {
+    const response = await api.put<TimeOffRequestDTO>(`/doctor/time-off/${id}`, dto);
+    return response.data;
+  },
+
+  /** Cancel a time-off request */
+  cancelTimeOffRequest: async (id: number): Promise<TimeOffRequestDTO> => {
+    const response = await api.patch<TimeOffRequestDTO>(`/doctor/time-off/${id}/cancel`);
+    return response.data;
+  },
+
+  /** List appointments affected by a time-off request */
+  getAffectedAppointments: async (id: number): Promise<AffectedAppointmentDTO[]> => {
+    const response = await api.get<AffectedAppointmentDTO[]>(
+      `/doctor/time-off/${id}/affected-appointments`
     );
     return response.data;
   },

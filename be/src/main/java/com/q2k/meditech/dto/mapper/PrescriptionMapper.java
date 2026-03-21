@@ -98,10 +98,9 @@ public class PrescriptionMapper {
                 .itemOrder(item.getItemOrder())
                 .build();
     }
-    
+
     public PrescriptionItem toItemEntity(PrescriptionItemDTO dto) {
         if (dto == null) return null;
-        
         return PrescriptionItem.builder()
                 .medicineName(dto.getMedicineName())
                 .dosage(dto.getDosage())
@@ -114,12 +113,12 @@ public class PrescriptionMapper {
                 .itemOrder(dto.getItemOrder())
                 .build();
     }
-    
+
     // ==================== TEMPLATE ====================
-    
+
     public TemplateDTO toTemplateDTO(PrescriptionTemplate template) {
         if (template == null) return null;
-        
+
         TemplateDTO.TemplateDTOBuilder builder = TemplateDTO.builder()
                 .id(template.getId())
                 .templateName(template.getTemplateName())
@@ -131,34 +130,31 @@ public class PrescriptionMapper {
                 .usageCount(template.getUsageCount())
                 .createdAt(template.getCreatedAt())
                 .updatedAt(template.getUpdatedAt());
-        
-        // Doctor info
+
         if (template.getDoctor() != null) {
             builder.doctorId(template.getDoctor().getId());
             if (template.getDoctor().getUser() != null) {
                 builder.doctorName(template.getDoctor().getUser().getFullName());
             }
         }
-        
-        // Items
+
         if (template.getItems() != null) {
             builder.items(template.getItems().stream()
                     .map(this::toTemplateItemDTO)
                     .collect(Collectors.toList()));
         }
-        
+
         return builder.build();
     }
-    
+
     public List<TemplateDTO> toTemplateDTOList(List<PrescriptionTemplate> templates) {
         return templates.stream()
                 .map(this::toTemplateDTO)
                 .collect(Collectors.toList());
     }
-    
+
     public TemplateItemDTO toTemplateItemDTO(PrescriptionTemplateItem item) {
         if (item == null) return null;
-        
         return TemplateItemDTO.builder()
                 .id(item.getId())
                 .medicineName(item.getMedicineName())
@@ -172,10 +168,9 @@ public class PrescriptionMapper {
                 .itemOrder(item.getItemOrder())
                 .build();
     }
-    
+
     public PrescriptionTemplateItem toTemplateItemEntity(TemplateItemDTO dto) {
         if (dto == null) return null;
-        
         return PrescriptionTemplateItem.builder()
                 .medicineName(dto.getMedicineName())
                 .defaultDosage(dto.getDefaultDosage())
@@ -188,11 +183,9 @@ public class PrescriptionMapper {
                 .itemOrder(dto.getItemOrder())
                 .build();
     }
-    
-    // Convert template item to prescription item (khi apply template)
+
     public PrescriptionItem templateItemToPrescriptionItem(PrescriptionTemplateItem templateItem) {
         if (templateItem == null) return null;
-        
         return PrescriptionItem.builder()
                 .medicineName(templateItem.getMedicineName())
                 .dosage(templateItem.getDefaultDosage())

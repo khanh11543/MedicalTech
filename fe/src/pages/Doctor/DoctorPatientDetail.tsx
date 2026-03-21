@@ -8,6 +8,7 @@ import {
   getPatientDetail,
   DoctorPatientDetailDTO,
 } from '../../services/doctorService';
+import medicalRecordService, { MedicalRecordDTO } from '../../services/medicalRecordService';
 
 // ============= Icons =============
 const IconArrowLeft = ({ className }: { className?: string }) => (
@@ -145,7 +146,38 @@ export default function DoctorPatientDetail() {
     'overview' | 'medical' | 'prescriptions' | 'appointments'
   >('overview');
 
+  // Medical Records tab state
+  const [medicalRecords, setMedicalRecords] = useState<MedicalRecordDTO[]>([]);
+  const [medRecordsLoading, setMedRecordsLoading] = useState(false);
+  const [medRecordsPage, setMedRecordsPage] = useState(0);
+  const [medRecordsTotalPages, setMedRecordsTotalPages] = useState(0);
+  const [medRecordsTotalElements, setMedRecordsTotalElements] = useState(0);
+
   const previousPage = location.state?.tab || 'my-patients';
+
+  const loadMedicalRecords = useCallback(async (page: number = 0) => {
+    if (!patientId) return;
+    try {
+      setMedRecordsLoading(true);
+      const data = await medicalRecordService.getDoctorPatientRecords(
+        Number(patientId),
+        page,
+        10
+      );
+      if (page === 0) {
+        setMedicalRecords(data.content);
+      } else {
+        setMedicalRecords((prev) => [...prev, ...data.content]);
+      }
+      setMedRecordsPage(page);
+      setMedRecordsTotalPages(data.totalPages);
+      setMedRecordsTotalElements(data.totalElements);
+    } catch (error) {
+      console.error('Error loading medical records:', error);
+    } finally {
+      setMedRecordsLoading(false);
+    }
+  }, [patientId]);
 
   const loadPatientDetail = useCallback(async () => {
     if (!patientId) return;
@@ -165,6 +197,12 @@ export default function DoctorPatientDetail() {
   useEffect(() => {
     loadPatientDetail();
   }, [loadPatientDetail]);
+
+  useEffect(() => {
+    if (activeTab === 'medical') {
+      loadMedicalRecords(0);
+    }
+  }, [activeTab, loadMedicalRecords]);
 
   const handleBack = () => {
     navigate(`/doctor/patients?tab=${previousPage}`);
@@ -469,52 +507,125 @@ export default function DoctorPatientDetail() {
 
         {activeTab === 'medical' && (
           <div className='space-y-4'>
-            {patient.recentMedicalRecords.length > 0 ? (
-              patient.recentMedicalRecords.map((record) => (
-                <div
-                  key={record.id}
-                  className='rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/[0.05] p-6 hover:shadow-lg transition-shadow'
-                >
-                  <div className='flex items-start justify-between mb-3'>
-                    <div className='flex items-center gap-2'>
-                      <IconActivity className='w-5 h-5 text-blue-600 dark:text-blue-400' />
-                      <h4 className='font-semibold text-gray-900 dark:text-white'>
-                        {formatDate(record.visitDate)}
-                      </h4>
+            {/* Header with count */}
+            <div className='flex items-center justify-between'>
+              <p className='text-sm text-gray-600 dark:text-gray-400'>
+                {medRecordsTotalElements > 0
+                  ? `${medRecordsTotalElements} record${medRecordsTotalElements !== 1 ? 's' : ''} found`
+                  : ''}
+              </p>
+            </div>
+
+            {medRecordsLoading && medicalRecords.length === 0 ? (
+              <div className='space-y-4'>
+                {[...Array(3)].map((_, i) => (
+                  <div
+                    key={i}
+                    className='p-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/[0.05] animate-pulse'
+                  >
+                    <div className='space-y-3'>
+                      <div className='h-4 bg-gray-200 dark:bg-gray-700 rounded w-32' />
+                      <div className='h-3 bg-gray-200 dark:bg-gray-700 rounded w-3/4' />
+                      <div className='h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2' />
                     </div>
                   </div>
-                  {record.chiefComplaint && (
-                    <div className='mb-3'>
-                      <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                        Chief Complaint
-                      </p>
-                      <p className='text-gray-700 dark:text-gray-300'>
-                        {record.chiefComplaint}
-                      </p>
+                ))}
+              </div>
+            ) : medicalRecords.length > 0 ? (
+              <>
+                {medicalRecords.map((record) => (
+                  <div
+                    key={record.id}
+                    className='rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/[0.05] p-6 hover:shadow-lg transition-shadow'
+                  >
+                    <div className='flex items-start justify-between mb-4'>
+                      <div className='flex items-center gap-2'>
+                        <IconActivity className='w-5 h-5 text-blue-600 dark:text-blue-400' />
+                        <div>
+                          <h4 className='font-semibold text-gray-900 dark:text-white'>
+                            {formatDate(record.visitDate)}
+                          </h4>
+                          <p className='text-xs text-gray-500 dark:text-gray-400'>
+                            {record.recordCode}
+                          </p>
+                        </div>
+                      </div>
+                      {record.diagnosisCode && (
+                        <Badge variant='light' color='info' size='sm'>
+                          ICD: {record.diagnosisCode}
+                        </Badge>
+                      )}
                     </div>
-                  )}
-                  {record.diagnosis && (
-                    <div className='mb-3'>
-                      <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                        Diagnosis
-                      </p>
-                      <p className='text-gray-700 dark:text-gray-300'>
-                        {record.diagnosis}
-                      </p>
+
+                    <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                      {record.chiefComplaint && (
+                        <div>
+                          <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                            Chief Complaint
+                          </p>
+                          <p className='text-sm text-gray-700 dark:text-gray-300'>
+                            {record.chiefComplaint}
+                          </p>
+                        </div>
+                      )}
+                      {record.diagnosis && (
+                        <div>
+                          <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                            Diagnosis
+                          </p>
+                          <p className='text-sm text-gray-700 dark:text-gray-300'>
+                            {record.diagnosis}
+                          </p>
+                        </div>
+                      )}
+                      {record.treatmentPlan && (
+                        <div>
+                          <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                            Treatment Plan
+                          </p>
+                          <p className='text-sm text-gray-700 dark:text-gray-300'>
+                            {record.treatmentPlan}
+                          </p>
+                        </div>
+                      )}
+                      {record.followUpDate && (
+                        <div>
+                          <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                            Follow-up
+                          </p>
+                          <p className='text-sm text-gray-700 dark:text-gray-300'>
+                            {formatDate(record.followUpDate)}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {record.treatmentPlan && (
-                    <div>
-                      <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                        Treatment Plan
-                      </p>
-                      <p className='text-gray-700 dark:text-gray-300'>
-                        {record.treatmentPlan}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ))
+
+                    {record.followUpNotes && (
+                      <div className='mt-3 pt-3 border-t border-gray-100 dark:border-gray-700'>
+                        <p className='text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1'>
+                          Follow-up Notes
+                        </p>
+                        <p className='text-sm text-gray-700 dark:text-gray-300'>
+                          {record.followUpNotes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Load More */}
+                {medRecordsPage < medRecordsTotalPages - 1 && (
+                  <div className='text-center pt-2'>
+                    <button
+                      onClick={() => loadMedicalRecords(medRecordsPage + 1)}
+                      disabled={medRecordsLoading}
+                      className='px-6 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50'
+                    >
+                      {medRecordsLoading ? 'Loading...' : 'Load More'}
+                    </button>
+                  </div>
+                )}
+              </>
             ) : (
               <div className='text-center py-12'>
                 <IconActivity className='w-12 h-12 text-gray-400 mx-auto mb-4' />

@@ -325,25 +325,6 @@ export default function AppointmentDetailModal({
                         </div>
                       );
                     })()}
-                    {/* Status Badge */}
-                    <div
-                      className={`${statusColor.bg} rounded-xl p-4 border border-opacity-30`}
-                    >
-                      <div className='flex items-center gap-3'>
-                        <span className='text-3xl'>{statusColor.icon}</span>
-                        <div>
-                          <p className='text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider'>
-                            Current Status
-                          </p>
-                          <p
-                            className={`text-xl font-bold ${statusColor.text}`}
-                          >
-                            {statusLabel}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
                     {/* Appointment Schedule */}
                     <InfoCard icon='📅' title='Appointment Schedule'>
                       <div className='space-y-4'>

@@ -126,6 +126,27 @@ const medicalRecordService = {
   },
 
   /**
+   * Get the medical record linked to a specific appointment (doctor access)
+   * Returns null if no medical record exists for the appointment
+   */
+  getRecordByAppointmentId: async (
+    appointmentId: number
+  ): Promise<MedicalRecordDTO | null> => {
+    try {
+      const response = await api.get<MedicalRecordDTO>(
+        `/doctor/medical-records/appointment/${appointmentId}`
+      );
+      if (response.status === 204) return null;
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 204 || error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  /**
    * Get medical records statistics for the authenticated doctor
    */
   getMedicalRecordStats: async (): Promise<MedicalRecordStatsDTO> => {

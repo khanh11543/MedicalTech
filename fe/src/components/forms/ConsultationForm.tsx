@@ -1,14 +1,18 @@
-import { useState, useCallback, useEffect } from 'react';
-import InputField from '../form/input/InputField';
-import TextArea from '../form/input/TextArea';
-import Label from '../form/Label';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Button from '../ui/button/Button';
 import Toast from '../common/Toast';
 import { useToast } from '../../hooks/useToast';
-import { useNavigate } from 'react-router-dom';
 import consultationService, {
-  ConsultationRecord,
+  type ConsultationDTO,
 } from '../../services/consultationService';
+import appointmentService, {
+  type AppointmentDTO,
+} from '../../services/appointmentService';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface PatientInfo {
   appointmentCode?: string;
@@ -27,844 +31,1119 @@ interface ConsultationFormProps {
   patientInfo?: PatientInfo;
 }
 
+interface FormFields {
+  chiefComplaint: string;
+  hpi: string;
+  temperature: number | null;
+  systolic: number | null;
+  diastolic: number | null;
+  heartRate: number | null;
+  respiratoryRate: number | null;
+  height: number | null;
+  weight: number | null;
+  bmi: number | null;
+  physicalExam: string;
+  diagnosis: string;
+  diagnosticCode: string;
+  plan: string;
+  followUpInstructions: string;
+}
+
+// ---------------------------------------------------------------------------
+// Constants & pure helpers
+// ---------------------------------------------------------------------------
+
+const AUTOSAVE_DELAY_MS = 30_000;
+
+const EMPTY_FORM: FormFields = {
+  chiefComplaint: '',
+  hpi: '',
+  temperature: null,
+  systolic: null,
+  diastolic: null,
+  heartRate: null,
+  respiratoryRate: null,
+  height: null,
+  weight: null,
+  bmi: null,
+  physicalExam: '',
+  diagnosis: '',
+  diagnosticCode: '',
+  plan: '',
+  followUpInstructions: '',
+};
+
+function consultationToForm(c: ConsultationDTO): FormFields {
+  return {
+    chiefComplaint: c.chiefComplaint || '',
+    hpi: c.hpi || '',
+    temperature: c.vitals?.temperature ?? null,
+    systolic: c.vitals?.systolic ?? null,
+    diastolic: c.vitals?.diastolic ?? null,
+    heartRate: c.vitals?.heartRate ?? null,
+    respiratoryRate: c.vitals?.respiratoryRate ?? null,
+    height: c.vitals?.height ?? null,
+    weight: c.vitals?.weight ?? null,
+    bmi: c.vitals?.bmi ?? null,
+    physicalExam: c.physicalExam || '',
+    diagnosis: c.diagnosis || '',
+    diagnosticCode: c.diagnosticCode || '',
+    plan: c.plan || '',
+    followUpInstructions: c.followUpInstructions || '',
+  };
+}
+
+function bmiLabel(bmi: number): string {
+  if (bmi < 18.5) return 'Underweight';
+  if (bmi < 25) return 'Normal';
+  if (bmi < 30) return 'Overweight';
+  return 'Obese';
+}
+
+function bmiColor(bmi: number): string {
+  if (bmi < 18.5) return 'text-blue-600 dark:text-blue-400';
+  if (bmi < 25) return 'text-green-600 dark:text-green-400';
+  if (bmi < 30) return 'text-yellow-600 dark:text-yellow-400';
+  return 'text-red-600 dark:text-red-400';
+}
+
+function bmiCardBg(bmi: number): string {
+  if (bmi < 18.5) return 'bg-blue-50 dark:bg-blue-900/20';
+  if (bmi < 25) return 'bg-green-50 dark:bg-green-900/20';
+  if (bmi < 30) return 'bg-yellow-50 dark:bg-yellow-900/20';
+  return 'bg-red-50 dark:bg-red-900/20';
+}
+
+function fmtTime(t: string): string {
+  // Backend returns "HH:MM:SS" — display "HH:MM"
+  return t.slice(0, 5);
+}
+
+// ---------------------------------------------------------------------------
+// UI sub-components
+// ---------------------------------------------------------------------------
+
+function RecordStatusBadge({ status }: { status?: string }) {
+  if (!status) return null;
+  const styles: Record<string, string> = {
+    DRAFT:
+      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+    FINALIZED:
+      'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+    AMENDED:
+      'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
+  };
+  const icons: Record<string, string> = {
+    DRAFT: '📝',
+    FINALIZED: '🔒',
+    AMENDED: '📝',
+  };
+  const cls =
+    styles[status] ??
+    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300';
+  return (
+    <span
+      className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${cls}`}
+    >
+      {icons[status] ?? '•'} {status}
+    </span>
+  );
+}
+
+function ApptStatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    IN_PROGRESS:
+      'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300',
+    COMPLETED:
+      'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+    CHECKED_IN:
+      'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300',
+    CONFIRMED:
+      'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+    PENDING:
+      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+  };
+  const cls =
+    styles[status] ??
+    'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300';
+  return (
+    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${cls}`}>
+      {status.replace(/_/g, ' ')}
+    </span>
+  );
+}
+
+function SectionCard({
+  number,
+  title,
+  required = false,
+  error,
+  locked = false,
+  children,
+}: {
+  number: number;
+  title: string;
+  required?: boolean;
+  error?: string;
+  locked?: boolean;
+  children: React.ReactNode;
+}) {
+  const hasError = !!error;
+  return (
+    <div
+      className={`rounded-2xl border overflow-hidden transition-shadow hover:shadow-sm ${
+        hasError
+          ? 'border-red-300 dark:border-red-700'
+          : 'border-gray-200 dark:border-gray-700'
+      }`}
+    >
+      <div
+        className={`flex items-center gap-3 px-6 py-3.5 border-b ${
+          hasError
+            ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-700'
+            : 'bg-gray-50 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700'
+        }`}
+      >
+        <span className='flex-shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center'>
+          {number}
+        </span>
+        <h3 className='font-semibold text-sm text-gray-900 dark:text-white flex-1'>
+          {title}
+          {required && <span className='ml-1 text-red-500'>*</span>}
+        </h3>
+        {locked && (
+          <span className='text-xs text-gray-400 dark:text-gray-500 flex items-center gap-1'>
+            🔒 Read-only
+          </span>
+        )}
+        {hasError && (
+          <span className='ml-auto text-xs font-medium text-red-600 dark:text-red-400'>
+            {error}
+          </span>
+        )}
+      </div>
+      <div className='px-6 py-5 bg-white dark:bg-gray-900'>{children}</div>
+    </div>
+  );
+}
+
+function NoteArea({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+  rows = 4,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+  rows?: number;
+}) {
+  return (
+    <textarea
+      rows={rows}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      disabled={disabled}
+      className='w-full px-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-800 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed resize-none'
+    />
+  );
+}
+
+function VitalInput({
+  label,
+  value,
+  onChange,
+  placeholder,
+  step = '1',
+  disabled,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (v: number | null) => void;
+  placeholder: string;
+  step?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <div>
+      <label className='block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5'>
+        {label}
+      </label>
+      <input
+        type='number'
+        step={step}
+        placeholder={placeholder}
+        value={value ?? ''}
+        onChange={(e) =>
+          onChange(e.target.value !== '' ? parseFloat(e.target.value) : null)
+        }
+        disabled={disabled}
+        className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed'
+      />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main Component
+// ---------------------------------------------------------------------------
+
 export default function ConsultationForm({
   appointmentId,
   onBack,
-  patientInfo,
+  patientInfo: passedInfo,
 }: ConsultationFormProps) {
   const navigate = useNavigate();
   const { toast, showToast, dismissToast } = useToast();
+
+  const [consultation, setConsultation] = useState<ConsultationDTO | null>(null);
+  const [appointment, setAppointment] = useState<AppointmentDTO | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState<FormFields>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
-  const [formData, setFormData] = useState<ConsultationRecord>({
-    id: 0,
-    appointmentId: appointmentId || 0,
-    patientId: 0,
-    patientName: patientInfo?.patientName || '',
-    doctorId: 0,
-    doctorName: '',
-    status: 'DRAFT',
-    chiefComplaint: '',
-    hpi: '',
-    vitals: {
-      temperature: null,
-      systolic: null,
-      diastolic: null,
-      heartRate: null,
-      respiratoryRate: null,
-      height: null,
-      weight: null,
-      bmi: null,
-    },
-    physicalExam: '',
-    diagnosis: '',
-    diagnosticCode: '',
-    plan: '',
-    followUpInstructions: '',
-    isLocked: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    amendments: [],
-    attachments: [],
-  });
+  const [isDirty, setIsDirty] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [showFinalizeConfirm, setShowFinalizeConfirm] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [addendumText, setAddendumText] = useState('');
+  const [showAddendumInput, setShowAddendumInput] = useState(false);
+  const [addendumSaving, setAddendumSaving] = useState(false);
 
-  // Field validation errors
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const formRef = useRef<FormFields>(form);
+  formRef.current = form;
 
-  // Load existing draft consultation when component mounts
+  const isFinalized =
+    consultation?.status === 'FINALIZED' || consultation?.status === 'AMENDED';
+
+  // â”€â”€ Initial load â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   useEffect(() => {
     if (!appointmentId) {
+      setLoading(false);
       return;
     }
-
-    const loadDraftConsultation = async () => {
+    const load = async () => {
+      setLoading(true);
       try {
-        const consultation =
-          await consultationService.getConsultation(appointmentId);
-        setFormData(consultation);
-      } catch (error) {
-        console.error('Error loading draft consultation:', error);
-        // If loading fails, keep the empty form state
-        // Form will still work for new draft creation
+        const [consResult, apptResult] = await Promise.allSettled([
+          consultationService.getConsultation(appointmentId),
+          appointmentService.getDoctorAppointmentDetail(appointmentId),
+        ]);
+        if (apptResult.status === 'fulfilled') setAppointment(apptResult.value);
+        if (consResult.status === 'fulfilled') {
+          const c = consResult.value;
+          setConsultation(c);
+          setForm(consultationToForm(c));
+          setLastSavedAt(new Date(c.updatedAt));
+        }
+      } catch (err) {
+        console.error('Failed to load consultation:', err);
+        showToast('Failed to load consultation data', 'error');
+      } finally {
+        setLoading(false);
       }
     };
-
-    loadDraftConsultation();
+    load();
   }, [appointmentId]);
 
-  // Memoize handleSaveDraft to avoid unnecessary re-renders
-  const handleSaveDraft = useCallback(async () => {
-    if (!appointmentId) {
-      showToast('❌ Appointment not found', 'error');
-      return;
-    }
-
-    setSaving(true);
-    showToast('💾 Saving consultation draft...', 'info');
-    try {
-      // Convert formData to the API payload format
-      const payload = {
-        appointmentId,
-        chiefComplaint: formData.chiefComplaint,
-        hpi: formData.hpi,
-        temperature: formData.vitals.temperature,
-        systolic: formData.vitals.systolic,
-        diastolic: formData.vitals.diastolic,
-        heartRate: formData.vitals.heartRate,
-        respiratoryRate: formData.vitals.respiratoryRate,
-        height: formData.vitals.height,
-        weight: formData.vitals.weight,
-        physicalExam: formData.physicalExam,
-        diagnosis: formData.diagnosis,
-        diagnosticCode: formData.diagnosticCode,
-        plan: formData.plan,
-        followUpInstructions: formData.followUpInstructions,
-      };
-
-      const updatedConsultation = await consultationService.saveDraft(
-        appointmentId,
-        payload
-      );
-      setFormData(updatedConsultation);
-      showToast('✅ Consultation draft saved successfully', 'success');
-    } catch (error) {
-      console.error('Error saving draft:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Unknown error';
-      showToast(`❌ Failed to save draft: ${errorMessage}`, 'error');
-    } finally {
-      setSaving(false);
-    }
-  }, [appointmentId, formData, showToast]);
-
-  const handleFinalize = async () => {
-    // Clear previous errors
-    setFieldErrors({});
-
-    // Validate all required fields
-    const errors: Record<string, string> = {};
-
-    if (!formData.chiefComplaint.trim()) {
-      errors['chiefComplaint'] = 'Chief Complaint is required';
-    }
-
-    if (!formData.diagnosis.trim()) {
-      errors['diagnosis'] = 'Diagnosis is required';
-    }
-
-    if (Object.values(formData.vitals).every((v) => v === null)) {
-      errors['vitals'] = 'At least one vital sign is required';
-    }
-
-    // If there are errors, show them and return
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors);
-
-      // Show toast with error count
-      const errorCount = Object.keys(errors).length;
-      showToast(
-        `⚠️ Please fix ${errorCount} validation error${errorCount > 1 ? 's' : ''} before finalizing`,
-        'error'
-      );
-      return;
-    }
-
-    setSaving(true);
-    showToast('🔒 Finalizing consultation...', 'info');
-    try {
-      console.log('Attempting to finalize consultation:', formData);
-
-      // Convert formData to the API payload format
-      const payload = {
-        appointmentId: formData.appointmentId,
-        chiefComplaint: formData.chiefComplaint,
-        hpi: formData.hpi,
-        temperature: formData.vitals.temperature,
-        systolic: formData.vitals.systolic,
-        diastolic: formData.vitals.diastolic,
-        heartRate: formData.vitals.heartRate,
-        respiratoryRate: formData.vitals.respiratoryRate,
-        height: formData.vitals.height,
-        weight: formData.vitals.weight,
-        physicalExam: formData.physicalExam,
-        diagnosis: formData.diagnosis,
-        diagnosticCode: formData.diagnosticCode,
-        plan: formData.plan,
-        followUpInstructions: formData.followUpInstructions,
-      };
-
-      const finalizedConsultation = await consultationService.finalize(
-        formData.appointmentId,
-        payload
-      );
-      console.log('Finalization successful:', finalizedConsultation);
-      showToast(
-        '✅ Consultation finalized and appointment approved',
-        'success'
-      );
-      // Show modal instead of immediately going back
-      setFormData((prev) => ({
-        ...prev,
-        patientId: finalizedConsultation.patientId,
-      }));
-      setShowFinalizeModal(true);
-    } catch (error) {
-      console.error('Error finalizing record - full error object:', error);
-
-      // Extract detailed error message from various possible error formats
-      let errorMessage = 'Unknown error occurred';
-
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (typeof error === 'object' && error !== null) {
-        const axiosError = error as {
-          response?: {
-            data?: {
-              message?: string;
-              error?: string;
-              statusText?: string;
-              status?: number;
-            };
-            statusText?: string;
-          };
-          message?: string;
-        };
-
-        // Check for axios error response
-        if (axiosError.response?.data?.message) {
-          errorMessage = axiosError.response.data.message;
-        } else if (axiosError.response?.data?.error) {
-          errorMessage = axiosError.response.data.error;
-        } else if (axiosError.response?.data?.statusText) {
-          const status = axiosError.response.data.status || 'Unknown';
-          errorMessage = `${status} - ${axiosError.response.data.statusText}`;
-        } else if (axiosError.response?.statusText) {
-          errorMessage = axiosError.response.statusText;
-        } else if (axiosError.message) {
-          errorMessage = axiosError.message;
-        }
-
-        console.error('Detailed error response:', axiosError.response);
+  // â”€â”€ Autosave (30 s debounce) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  useEffect(() => {
+    if (!isDirty || isFinalized || !appointmentId) return;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(async () => {
+      try {
+        const f = formRef.current;
+        const updated = await consultationService.saveDraft(appointmentId, {
+          chiefComplaint: f.chiefComplaint,
+          hpi: f.hpi,
+          temperature: f.temperature,
+          systolic: f.systolic,
+          diastolic: f.diastolic,
+          heartRate: f.heartRate,
+          respiratoryRate: f.respiratoryRate,
+          height: f.height,
+          weight: f.weight,
+          physicalExam: f.physicalExam,
+          diagnosis: f.diagnosis,
+          diagnosticCode: f.diagnosticCode,
+          plan: f.plan,
+          followUpInstructions: f.followUpInstructions,
+        });
+        setConsultation(updated);
+        setIsDirty(false);
+        setLastSavedAt(new Date());
+      } catch {
+        /* silent autosave failure */
       }
+    }, AUTOSAVE_DELAY_MS);
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    };
+  }, [form, isDirty, isFinalized, appointmentId]);
 
-      showToast(`❌ Failed to finalize record: ${errorMessage}`, 'error');
+  // â”€â”€ Build payload â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const buildPayload = useCallback(() => {
+    const f = formRef.current;
+    return {
+      chiefComplaint: f.chiefComplaint,
+      hpi: f.hpi,
+      temperature: f.temperature,
+      systolic: f.systolic,
+      diastolic: f.diastolic,
+      heartRate: f.heartRate,
+      respiratoryRate: f.respiratoryRate,
+      height: f.height,
+      weight: f.weight,
+      physicalExam: f.physicalExam,
+      diagnosis: f.diagnosis,
+      diagnosticCode: f.diagnosticCode,
+      plan: f.plan,
+      followUpInstructions: f.followUpInstructions,
+    };
+  }, [appointmentId]);
+
+  // â”€â”€ Save Draft â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const handleSaveDraft = async () => {
+    if (!appointmentId) {
+      showToast('No appointment selected', 'error');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const updated = await consultationService.saveDraft(
+        appointmentId,
+        buildPayload()
+      );
+      setConsultation(updated);
+      setIsDirty(false);
+      setLastSavedAt(new Date());
+      showToast('Draft saved', 'success');
+    } catch (err) {
+      const msg =
+        (err as any)?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Failed to save');
+      showToast(msg, 'error');
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-    showToast('Printing summary...', 'info');
-  };
-
-  const handleFieldChange = (field: string, value: string | number | null) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
-
-  const handleVitalChange = (vital: string, value: number | null) => {
-    const updatedVitals = { ...formData.vitals, [vital]: value };
-
-    if (vital === 'height' || vital === 'weight') {
-      if (updatedVitals.height && updatedVitals.weight) {
-        const heightInMeters = updatedVitals.height / 100;
-        updatedVitals.bmi =
-          Math.round(
-            (updatedVitals.weight / (heightInMeters * heightInMeters)) * 10
-          ) / 10;
-      }
-    }
-
-    setFormData((prev) => ({
-      ...prev,
-      vitals: updatedVitals,
-    }));
-
-    // Clear vitals error when user enters any vital sign
-    if (fieldErrors.vitals) {
-      setFieldErrors({ ...fieldErrors, vitals: '' });
-    }
-  };
-
-  const calculateBMICategory = (bmi: number | null) => {
-    if (!bmi) return '';
-    if (bmi < 18.5) return 'Underweight';
-    if (bmi < 25) return 'Normal';
-    if (bmi < 30) return 'Overweight';
-    return 'Obese';
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-
-    if (!appointmentId) {
-      showToast('❌ Appointment not found', 'error');
+  // â”€â”€ Finalize â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const handleFinalizeSubmit = async () => {
+    if (!appointmentId) return;
+    if (!form.chiefComplaint.trim()) {
+      showToast('Chief Complaint is required before finalizing', 'error');
       return;
     }
-
+    if (!form.diagnosis.trim()) {
+      showToast('Diagnosis is required before finalizing', 'error');
+      return;
+    }
     setSaving(true);
-    showToast(`📤 Uploading ${files.length} file(s)...`, 'info');
     try {
-      for (const file of Array.from(files)) {
-        const attachment = await consultationService.uploadAttachment(
+      const updated = await consultationService.finalize(
+        appointmentId,
+        buildPayload()
+      );
+      setConsultation(updated);
+      setIsDirty(false);
+      setShowFinalizeConfirm(false);
+      setShowSuccessModal(true);
+    } catch (err) {
+      const msg =
+        (err as any)?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Failed to finalize');
+      showToast(msg, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // â”€â”€ Addendum â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const handleAddAmendment = async () => {
+    if (!appointmentId || !addendumText.trim()) return;
+    setAddendumSaving(true);
+    try {
+      const newAmendment = await consultationService.addAmendment(
+        appointmentId,
+        addendumText.trim()
+      );
+      setConsultation((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: 'AMENDED' as const,
+              amendments: [...(prev.amendments ?? []), newAmendment],
+            }
+          : prev
+      );
+      setAddendumText('');
+      setShowAddendumInput(false);
+      showToast('Addendum added', 'success');
+    } catch (err) {
+      const msg =
+        (err as any)?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Failed to add addendum');
+      showToast(msg, 'error');
+    } finally {
+      setAddendumSaving(false);
+    }
+  };
+
+  const handleSignAmendment = async (amendmentId: number) => {
+    if (!appointmentId) return;
+    try {
+      const signedAmendment = await consultationService.signAmendment(
+        appointmentId,
+        amendmentId
+      );
+      setConsultation((prev) =>
+        prev
+          ? {
+              ...prev,
+              amendments: (prev.amendments ?? []).map((a) =>
+                a.id === signedAmendment.id ? signedAmendment : a
+              ),
+            }
+          : prev
+      );
+      showToast('Addendum signed', 'success');
+    } catch (err) {
+      const msg =
+        (err as any)?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Failed to sign');
+      showToast(msg, 'error');
+    }
+  };
+
+  // â”€â”€ Field helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const setTextField = (field: keyof FormFields, value: string) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    setIsDirty(true);
+  };
+
+  const setVital = (field: keyof FormFields, value: number | null) => {
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      const h = field === 'height' ? value : prev.height;
+      const w = field === 'weight' ? value : prev.weight;
+      if (h && w && h > 0) {
+        next.bmi = Math.round((w / (h / 100) ** 2) * 10) / 10;
+      }
+      return next;
+    });
+    setIsDirty(true);
+  };
+
+  // â”€â”€ File helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!appointmentId || !e.target.files?.length) return;
+    const files = Array.from(e.target.files);
+    setSaving(true);
+    try {
+      for (const file of files) {
+        const att = await consultationService.uploadAttachment(
           appointmentId,
           file
         );
-        setFormData((prev) => ({
-          ...prev,
-          attachments: [...prev.attachments, attachment],
-        }));
+        setConsultation((prev) =>
+          prev
+            ? { ...prev, attachments: [...(prev.attachments ?? []), att] }
+            : prev
+        );
       }
-      showToast(`✅ ${files.length} file(s) uploaded successfully`, 'success');
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      showToast(
-        '❌ Failed to upload file(s): ' +
-          (error instanceof Error ? error.message : 'Unknown error'),
-        'error'
-      );
+      showToast(`${files.length} file(s) uploaded`, 'success');
+    } catch {
+      showToast('Upload failed', 'error');
     } finally {
       setSaving(false);
-      // Reset the input
       e.target.value = '';
     }
   };
 
-  const handleDeleteAttachment = async (attachmentId: number) => {
-    if (!appointmentId) {
-      showToast('❌ Appointment not found', 'error');
-      return;
-    }
-
+  const handleRemoveAttachment = async (attachmentId: number) => {
+    if (!appointmentId) return;
     setSaving(true);
-    showToast('🗑️ Deleting file...', 'info');
     try {
       await consultationService.deleteAttachment(
         appointmentId,
         attachmentId.toString()
       );
-      setFormData((prev) => ({
-        ...prev,
-        attachments: prev.attachments.filter((a) => a.id !== attachmentId),
-      }));
-      showToast('✅ File deleted successfully', 'success');
-    } catch (error) {
-      console.error('Error deleting file:', error);
-      showToast(
-        '❌ Failed to delete file: ' +
-          (error instanceof Error ? error.message : 'Unknown error'),
-        'error'
+      setConsultation((prev) =>
+        prev
+          ? {
+              ...prev,
+              attachments: (prev.attachments ?? []).filter(
+                (a) => a.id !== attachmentId
+              ),
+            }
+          : prev
       );
+      showToast('Attachment removed', 'success');
+    } catch {
+      showToast('Failed to remove attachment', 'error');
     } finally {
       setSaving(false);
     }
   };
 
+  // â”€â”€ Derived display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const displayName =
+    consultation?.patientName ?? passedInfo?.patientName ?? '—';
+  const displayCode =
+    appointment?.appointmentCode ?? passedInfo?.appointmentCode ?? '—';
+  const visitType = appointment?.appointmentType ?? '—';
+  const doctorName = consultation?.doctorName ?? '—';
+  const apptStatus = appointment?.status ?? null;
+  const recordStatus = consultation?.status ?? 'DRAFT';
+  const attachments = consultation?.attachments ?? [];
+  const amendments = consultation?.amendments ?? [];
+
+  // â”€â”€ Loading â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  if (loading) {
+    return (
+      <div className='flex items-center justify-center min-h-[400px]'>
+        <div className='text-center'>
+          <div className='mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent' />
+          <p className='text-sm text-gray-500 dark:text-gray-400'>
+            Loading consultation...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   return (
     <>
-      <div className='p-6'>
-        {/* Patient Info Section (from DoctorToday) */}
-        {patientInfo && (
-          <div className='mb-6 rounded-lg border border-brand-200 bg-brand-50 p-4 dark:border-brand-900 dark:bg-brand-900/10'>
-            <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
-              {/* Left side: Basic info */}
-              <div className='space-y-2'>
-                <div>
-                  <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                    Appointment Code
-                  </p>
-                  <p className='text-sm font-semibold text-gray-900 dark:text-white'>
-                    {patientInfo.appointmentCode || 'N/A'}
-                  </p>
-                </div>
-                <div>
-                  <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                    Patient Name
-                  </p>
-                  <p className='text-sm font-semibold text-gray-900 dark:text-white'>
-                    {patientInfo.patientName || 'N/A'}
-                  </p>
-                </div>
-                {patientInfo.queueNumber && (
-                  <div>
-                    <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                      Queue Number
-                    </p>
-                    <p className='text-sm font-semibold text-gray-900 dark:text-white'>
-                      #{patientInfo.queueNumber}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Right side: Demographics & clinical info */}
-              <div className='space-y-2'>
-                <div>
-                  <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                    Demographics
-                  </p>
-                  <div className='text-sm text-gray-900 dark:text-white'>
-                    {patientInfo.age && (
-                      <span>{patientInfo.age} years old</span>
-                    )}
-                    {patientInfo.age && patientInfo.gender && (
-                      <span className='mx-1'>•</span>
-                    )}
-                    {patientInfo.gender && <span>{patientInfo.gender}</span>}
-                  </div>
-                </div>
-                {patientInfo.reasonForVisit && (
-                  <div>
-                    <p className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                      Reason for Visit
-                    </p>
-                    <p className='text-sm text-gray-900 dark:text-white'>
-                      {patientInfo.reasonForVisit}
-                    </p>
-                  </div>
-                )}
-              </div>
+      {/* Sticky Header */}
+      <div className='sticky top-0 z-20 border-b border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900'>
+        <div className='flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between'>
+          {/* Left: patient info */}
+          <div className='flex min-w-0 flex-wrap items-center gap-3'>
+            <div className='min-w-0'>
+              <p className='truncate text-base font-bold text-gray-900 dark:text-white'>
+                {displayName}
+              </p>
+              <p className='truncate text-xs text-gray-500 dark:text-gray-400'>
+                {displayCode} · {visitType} · {doctorName}
+                {appointment?.appointmentDate &&
+                  ` · ${appointment.appointmentDate}`}
+                {appointment?.startTime &&
+                  ` ${fmtTime(appointment.startTime)}`}
+                {appointment?.endTime && `–${fmtTime(appointment.endTime)}`}
+              </p>
             </div>
-
-            {/* Alerts section */}
-            <div className='mt-3 space-y-2 pt-3 border-t border-brand-200 dark:border-brand-900'>
-              {patientInfo.allergies && (
-                <div className='flex items-start gap-2 rounded bg-red-50 p-2 dark:bg-red-900/20'>
-                  <span className='flex-shrink-0 text-red-500 font-bold'>
-                    ⚠️
-                  </span>
-                  <div>
-                    <p className='text-xs font-semibold text-red-700 dark:text-red-400'>
-                      ALLERGIES
-                    </p>
-                    <p className='text-xs text-red-600 dark:text-red-300'>
-                      {patientInfo.allergies}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {patientInfo.medicalHistory && (
-                <div className='flex items-start gap-2 rounded bg-amber-50 p-2 dark:bg-amber-900/20'>
-                  <span className='flex-shrink-0 text-amber-600 font-bold'>
-                    📋
-                  </span>
-                  <div>
-                    <p className='text-xs font-semibold text-amber-700 dark:text-amber-400'>
-                      MEDICAL HISTORY
-                    </p>
-                    <p className='text-xs text-amber-600 dark:text-amber-300 line-clamp-2'>
-                      {patientInfo.medicalHistory}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Header */}
-        <div className='mb-6 flex items-start justify-between'>
-          <div>
-            <h1 className='text-2xl font-bold text-gray-900 dark:text-white'>
-              Medical Examination Record
-            </h1>
-            <div className='mt-2 flex items-center gap-4'>
-              <span
-                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
-                  formData.status === 'FINALIZED'
-                    ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
-                    : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-                }`}
-              >
-                {formData.status === 'FINALIZED' ? '🔒 Finalized' : '📝 Draft'}
-              </span>
-              <span className='text-xs text-gray-500 dark:text-gray-400'>
-                Last Updated: {new Date(formData.updatedAt).toLocaleString()}
-              </span>
+            <div className='flex flex-shrink-0 items-center gap-2'>
+              {apptStatus && <ApptStatusBadge status={apptStatus} />}
+              <RecordStatusBadge status={recordStatus} />
             </div>
           </div>
 
-          {/* Actions */}
-          <div className='flex gap-3'>
+          {/* Right: actions */}
+          <div className='flex flex-shrink-0 items-center gap-2'>
+            {lastSavedAt && (
+              <span className='hidden text-xs text-gray-400 sm:inline'>
+                Saved {lastSavedAt.toLocaleTimeString()}
+              </span>
+            )}
+            {isDirty && !isFinalized && (
+              <span className='text-xs font-medium text-amber-500'>
+                Unsaved changes
+              </span>
+            )}
             <Button variant='outline' onClick={onBack} disabled={saving}>
               Back
             </Button>
+            {!isFinalized && (
+              <Button
+                variant='outline'
+                onClick={handleSaveDraft}
+                disabled={saving}
+              >
+                {saving ? 'Saving...' : '💾 Save Draft'}
+              </Button>
+            )}
+            {!isFinalized && (
+              <Button
+                onClick={() => setShowFinalizeConfirm(true)}
+                disabled={saving}
+              >
+                Finalize &amp; Sign
+              </Button>
+            )}
+            {isFinalized && (
+              <Button
+                variant='outline'
+                onClick={() => setShowAddendumInput((v) => !v)}
+              >
+                + Addendum
+              </Button>
+            )}
             <Button
               variant='outline'
-              onClick={handleSaveDraft}
+              onClick={() => window.print()}
               disabled={saving}
             >
-              {saving ? 'Saving...' : '💾 Save Draft'}
-            </Button>
-            <Button onClick={handleFinalize} disabled={saving}>
-              {saving ? 'Finalizing...' : 'Finalize & Sign'}
-            </Button>
-            <Button variant='outline' onClick={handlePrint} disabled={saving}>
-              Print Summary
+              Print
             </Button>
           </div>
         </div>
+      </div>
 
-        {/* Examination Section */}
-        <div className='space-y-8'>
-          {/* Chief Complaint */}
-          <Section
-            title='1. Chief Complaint'
-            required
-            error={fieldErrors.chiefComplaint}
-          >
-            <TextArea
-              placeholder="Enter the patient's main reason for visit (e.g., headache, high fever)"
-              value={formData.chiefComplaint}
-              onChange={(value) => {
-                handleFieldChange('chiefComplaint', value);
-                // Clear error when user starts typing
-                if (fieldErrors.chiefComplaint) {
-                  setFieldErrors({ ...fieldErrors, chiefComplaint: '' });
-                }
-              }}
-              disabled={formData.status === 'FINALIZED'}
-              rows={3}
+      {/* Page body */}
+      <div className='mx-auto max-w-4xl space-y-6 px-4 py-6'>
+        {/* Clinical alerts */}
+        {(passedInfo?.allergies || passedInfo?.medicalHistory) && (
+          <div className='space-y-2'>
+            {passedInfo.allergies && (
+              <div className='flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-900/20'>
+                <span className='flex-shrink-0 font-bold text-red-600'>⚠</span>
+                <div>
+                  <p className='text-xs font-semibold uppercase tracking-wide text-red-700 dark:text-red-400'>
+                    Allergies
+                  </p>
+                  <p className='text-sm text-red-600 dark:text-red-300'>
+                    {passedInfo.allergies}
+                  </p>
+                </div>
+              </div>
+            )}
+            {passedInfo.medicalHistory && (
+              <div className='flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/20'>
+                <span className='flex-shrink-0 font-bold text-amber-600'>
+                  📋
+                </span>
+                <div>
+                  <p className='text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400'>
+                    Medical History
+                  </p>
+                  <p className='text-sm text-amber-600 dark:text-amber-300'>
+                    {passedInfo.medicalHistory}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Finalized notice */}
+        {isFinalized && (
+          <div className='rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-800 dark:bg-emerald-900/20'>
+            <p className='text-sm font-medium text-emerald-700 dark:text-emerald-300'>
+              🔒 This record is finalized and locked.
+              {consultation?.finalizedAt &&
+                ` Signed on ${new Date(consultation.finalizedAt).toLocaleString()}`}
+              {consultation?.finalizedByUserName &&
+                ` by ${consultation.finalizedByUserName}`}
+              .
+            </p>
+          </div>
+        )}
+
+        {/* 1. Chief Complaint */}
+        <SectionCard number={1} title='Chief Complaint' required>
+          <NoteArea
+            placeholder="Enter the patient's main reason for visit"
+            value={form.chiefComplaint}
+            onChange={(v) => setTextField('chiefComplaint', v)}
+            disabled={isFinalized}
+            rows={3}
+          />
+        </SectionCard>
+
+        {/* 2. HPI */}
+        <SectionCard number={2} title='History of Present Illness'>
+          <NoteArea
+            placeholder='Describe the onset, duration, severity, and associated symptoms'
+            value={form.hpi}
+            onChange={(v) => setTextField('hpi', v)}
+            disabled={isFinalized}
+            rows={4}
+          />
+        </SectionCard>
+
+        {/* 3. Vitals */}
+        <SectionCard number={3} title='Vital Signs'>
+          <div className='grid grid-cols-2 gap-4 sm:grid-cols-3'>
+            <VitalInput
+              label='Temperature (°C)'
+              placeholder='36.5'
+              step='0.1'
+              value={form.temperature}
+              onChange={(v) => setVital('temperature', v)}
+              disabled={isFinalized}
             />
-          </Section>
-
-          {/* HPI */}
-          <Section title='2. History of Present Illness'>
-            <TextArea
-              placeholder='Describe in detail the development of the current illness (when it started, severity, associated symptoms)'
-              value={formData.hpi}
-              onChange={(value) => handleFieldChange('hpi', value)}
-              disabled={formData.status === 'FINALIZED'}
-              rows={4}
+            <VitalInput
+              label='Systolic BP (mmHg)'
+              placeholder='120'
+              value={form.systolic}
+              onChange={(v) => setVital('systolic', v)}
+              disabled={isFinalized}
             />
-          </Section>
-
-          {/* Vitals */}
-          <Section title='3. Vital Signs' required error={fieldErrors.vitals}>
+            <VitalInput
+              label='Diastolic BP (mmHg)'
+              placeholder='80'
+              value={form.diastolic}
+              onChange={(v) => setVital('diastolic', v)}
+              disabled={isFinalized}
+            />
+            <VitalInput
+              label='Heart Rate (bpm)'
+              placeholder='72'
+              value={form.heartRate}
+              onChange={(v) => setVital('heartRate', v)}
+              disabled={isFinalized}
+            />
+            <VitalInput
+              label='Respiratory Rate (/min)'
+              placeholder='16'
+              value={form.respiratoryRate}
+              onChange={(v) => setVital('respiratoryRate', v)}
+              disabled={isFinalized}
+            />
+          </div>
+          {/* BMI */}
+          <div className='mt-5 border-t border-gray-200 pt-4 dark:border-gray-700'>
+            <p className='mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'>
+              Body Measurements
+            </p>
             <div className='grid grid-cols-2 gap-4 sm:grid-cols-3'>
-              <div>
-                <Label htmlFor='temperature'>Temperature (°C)</Label>
-                <InputField
-                  id='temperature'
-                  type='number'
-                  placeholder='36.5'
-                  value={formData.vitals.temperature ?? ''}
-                  onChange={(e) =>
-                    handleVitalChange(
-                      'temperature',
-                      e.target.value ? parseFloat(e.target.value) : null
-                    )
-                  }
-                  disabled={formData.status === 'FINALIZED'}
-                />
-              </div>
-              <div>
-                <Label htmlFor='systolic'>Systolic BP (mmHg)</Label>
-                <InputField
-                  id='systolic'
-                  type='number'
-                  placeholder='120'
-                  value={formData.vitals.systolic ?? ''}
-                  onChange={(e) =>
-                    handleVitalChange(
-                      'systolic',
-                      e.target.value ? parseInt(e.target.value) : null
-                    )
-                  }
-                  disabled={formData.status === 'FINALIZED'}
-                />
-              </div>
-              <div>
-                <Label htmlFor='diastolic'>Diastolic BP (mmHg)</Label>
-                <InputField
-                  id='diastolic'
-                  type='number'
-                  placeholder='80'
-                  value={formData.vitals.diastolic ?? ''}
-                  onChange={(e) =>
-                    handleVitalChange(
-                      'diastolic',
-                      e.target.value ? parseInt(e.target.value) : null
-                    )
-                  }
-                  disabled={formData.status === 'FINALIZED'}
-                />
-              </div>
-              <div>
-                <Label htmlFor='heartRate'>Heart Rate (bpm)</Label>
-                <InputField
-                  id='heartRate'
-                  type='number'
-                  placeholder='72'
-                  value={formData.vitals.heartRate ?? ''}
-                  onChange={(e) =>
-                    handleVitalChange(
-                      'heartRate',
-                      e.target.value ? parseInt(e.target.value) : null
-                    )
-                  }
-                  disabled={formData.status === 'FINALIZED'}
-                />
-              </div>
-              <div>
-                <Label htmlFor='respiratoryRate'>Respiratory Rate (bpm)</Label>
-                <InputField
-                  id='respiratoryRate'
-                  type='number'
-                  placeholder='16'
-                  value={formData.vitals.respiratoryRate ?? ''}
-                  onChange={(e) =>
-                    handleVitalChange(
-                      'respiratoryRate',
-                      e.target.value ? parseInt(e.target.value) : null
-                    )
-                  }
-                  disabled={formData.status === 'FINALIZED'}
-                />
-              </div>
-            </div>
-
-            {/* BMI Calculation */}
-            <div className='mt-6 border-t border-gray-200 pt-6 dark:border-gray-700'>
-              <h4 className='mb-4 font-medium text-gray-900 dark:text-white'>
-                Body Mass Index (BMI)
-              </h4>
-              <div className='grid grid-cols-2 gap-4 sm:grid-cols-3'>
-                <div>
-                  <Label htmlFor='height'>Height (cm)</Label>
-                  <InputField
-                    id='height'
-                    type='number'
-                    placeholder='170'
-                    value={formData.vitals.height ?? ''}
-                    onChange={(e) =>
-                      handleVitalChange(
-                        'height',
-                        e.target.value ? parseInt(e.target.value) : null
-                      )
-                    }
-                    disabled={formData.status === 'FINALIZED'}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor='weight'>Weight (kg)</Label>
-                  <InputField
-                    id='weight'
-                    type='number'
-                    placeholder='70'
-                    value={formData.vitals.weight ?? ''}
-                    onChange={(e) =>
-                      handleVitalChange(
-                        'weight',
-                        e.target.value ? parseFloat(e.target.value) : null
-                      )
-                    }
-                    disabled={formData.status === 'FINALIZED'}
-                  />
-                </div>
-                {formData.vitals.bmi && (
-                  <div className='rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20'>
-                    <div className='text-xs font-medium text-gray-600 dark:text-gray-400'>
-                      BMI
-                    </div>
-                    <div className='mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400'>
-                      {formData.vitals.bmi}
-                    </div>
-                    <div className='mt-1 text-xs text-gray-600 dark:text-gray-400'>
-                      {calculateBMICategory(formData.vitals.bmi)}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </Section>
-
-          {/* Physical Exam */}
-          <Section title='4. Physical Exam'>
-            <TextArea
-              placeholder='Detailed findings from physical examination (skin condition, pulses, respiration, heart sounds, abdomen, etc.)'
-              value={formData.physicalExam}
-              onChange={(value) => handleFieldChange('physicalExam', value)}
-              disabled={formData.status === 'FINALIZED'}
-              rows={4}
-            />
-          </Section>
-
-          {/* Diagnosis */}
-          <Section title='5. Diagnosis' required error={fieldErrors.diagnosis}>
-            <div className='space-y-4'>
-              <TextArea
-                placeholder='Detailed clinical diagnosis'
-                value={formData.diagnosis}
-                onChange={(value) => {
-                  handleFieldChange('diagnosis', value);
-                  // Clear error when user starts typing
-                  if (fieldErrors.diagnosis) {
-                    setFieldErrors({ ...fieldErrors, diagnosis: '' });
-                  }
-                }}
-                disabled={formData.status === 'FINALIZED'}
-                rows={3}
+              <VitalInput
+                label='Height (cm)'
+                placeholder='170'
+                value={form.height}
+                onChange={(v) => setVital('height', v)}
+                disabled={isFinalized}
               />
-              <div>
-                <Label htmlFor='diagnosticCode'>
-                  ICD-10 Code (if applicable)
-                </Label>
-                <InputField
-                  id='diagnosticCode'
-                  placeholder='e.g: J00.9'
-                  value={formData.diagnosticCode}
-                  onChange={(e) =>
-                    handleFieldChange('diagnosticCode', e.target.value)
-                  }
-                  disabled={formData.status === 'FINALIZED'}
-                />
-              </div>
+              <VitalInput
+                label='Weight (kg)'
+                placeholder='70'
+                step='0.1'
+                value={form.weight}
+                onChange={(v) => setVital('weight', v)}
+                disabled={isFinalized}
+              />
+              {form.bmi != null && (
+                <div className={`rounded-xl p-4 ${bmiCardBg(form.bmi)}`}>
+                  <p className='text-xs font-medium text-gray-500 dark:text-gray-400'>
+                    BMI
+                  </p>
+                  <p className={`mt-1 text-2xl font-bold ${bmiColor(form.bmi)}`}>
+                    {form.bmi}
+                  </p>
+                  <p className={`mt-1 text-xs ${bmiColor(form.bmi)}`}>
+                    {bmiLabel(form.bmi)}
+                  </p>
+                </div>
+              )}
             </div>
-          </Section>
+          </div>
+        </SectionCard>
 
-          {/* Plan */}
-          <Section title='6. Treatment Plan'>
-            <TextArea
-              placeholder='Describe detailed treatment plan (medications, tests, procedures, etc.)'
-              value={formData.plan}
-              onChange={(value) => handleFieldChange('plan', value)}
-              disabled={formData.status === 'FINALIZED'}
-              rows={4}
+        {/* 4. Physical Exam */}
+        <SectionCard number={4} title='Physical Examination'>
+          <NoteArea
+            placeholder='General appearance, cardiovascular, respiratory, abdomen, neurological, etc.'
+            value={form.physicalExam}
+            onChange={(v) => setTextField('physicalExam', v)}
+            disabled={isFinalized}
+            rows={4}
+          />
+        </SectionCard>
+
+        {/* 5. Diagnosis */}
+        <SectionCard number={5} title='Diagnosis' required>
+          <NoteArea
+            placeholder='Primary and secondary diagnoses'
+            value={form.diagnosis}
+            onChange={(v) => setTextField('diagnosis', v)}
+            disabled={isFinalized}
+            rows={3}
+          />
+          <div className='mt-3'>
+            <label className='mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400'>
+              ICD-10 Code (optional)
+            </label>
+            <input
+              type='text'
+              placeholder='e.g. J00.9'
+              value={form.diagnosticCode}
+              onChange={(e) => setTextField('diagnosticCode', e.target.value)}
+              disabled={isFinalized}
+              className='w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500 sm:w-48'
             />
-          </Section>
+          </div>
+        </SectionCard>
 
-          {/* Follow-up */}
-          <Section title='7. Follow-up Instructions'>
-            <TextArea
-              placeholder='Guidance for patient regarding follow-up appointments and home care instructions'
-              value={formData.followUpInstructions}
-              onChange={(value) =>
-                handleFieldChange('followUpInstructions', value)
+        {/* 6. Treatment Plan */}
+        <SectionCard number={6} title='Treatment Plan'>
+          <NoteArea
+            placeholder='Medications, investigations ordered, procedures planned, referrals'
+            value={form.plan}
+            onChange={(v) => setTextField('plan', v)}
+            disabled={isFinalized}
+            rows={4}
+          />
+        </SectionCard>
+
+        {/* 7. Prescription */}
+        <SectionCard number={7} title='Prescription'>
+          <div className='flex items-center justify-between gap-4'>
+            <p className='text-sm text-gray-600 dark:text-gray-400'>
+              {isFinalized
+                ? 'Record is finalized. Use the button to manage the prescription.'
+                : 'Finalize this record first, then create the prescription.'}
+            </p>
+            <Button
+              variant='outline'
+              disabled={!isFinalized}
+              onClick={() =>
+                navigate('/doctor/prescriptions/create', {
+                  state: {
+                    appointmentId,
+                    patientId: consultation?.patientId,
+                    patientName: consultation?.patientName,
+                    diagnosis: form.diagnosis,
+                    followUpInstructions: form.followUpInstructions,
+                    consultationId: consultation?.id,
+                  },
+                })
               }
-              disabled={formData.status === 'FINALIZED'}
-              rows={3}
-            />
-          </Section>
+            >
+              Create Prescription
+            </Button>
+          </div>
+        </SectionCard>
 
-          {/* Attachments */}
-          <Section title='8. Attachments'>
-            <div className='rounded-lg border-2 border-dashed border-gray-300 p-6 text-center dark:border-gray-600'>
+        {/* 8. Follow-up */}
+        <SectionCard number={8} title='Follow-up Instructions'>
+          <NoteArea
+            placeholder='Return visit schedule, home care, warning signs to watch for'
+            value={form.followUpInstructions}
+            onChange={(v) => setTextField('followUpInstructions', v)}
+            disabled={isFinalized}
+            rows={3}
+          />
+        </SectionCard>
+
+        {/* 9. Attachments */}
+        <SectionCard number={9} title='Attachments'>
+          {!isFinalized && (
+            <label className='flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-8 text-center transition-colors hover:border-brand-400 hover:bg-brand-50 dark:border-gray-600 dark:bg-gray-800/50 dark:hover:bg-brand-900/10'>
               <svg
-                className='mx-auto h-12 w-12 text-gray-400 dark:text-gray-500'
-                stroke='currentColor'
+                className='mb-2 h-8 w-8 text-gray-400'
                 fill='none'
-                viewBox='0 0 48 48'
+                stroke='currentColor'
+                viewBox='0 0 24 24'
               >
                 <path
-                  d='M28 8H12a4 4 0 00-4 4v20a4 4 0 004 4h24a4 4 0 004-4V20m-14-12l6 6m-6-6v12'
-                  strokeWidth={2}
                   strokeLinecap='round'
                   strokeLinejoin='round'
+                  strokeWidth={2}
+                  d='M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12'
                 />
               </svg>
-              <p className='mt-2 text-sm font-medium text-gray-900 dark:text-white'>
-                Upload Images or Test Results
-              </p>
-              <p className='mt-1 text-xs text-gray-600 dark:text-gray-400'>
-                Drag and drop or click to select files
-              </p>
+              <span className='text-sm font-medium text-gray-700 dark:text-gray-300'>
+                Click to upload files
+              </span>
+              <span className='mt-1 text-xs text-gray-500 dark:text-gray-400'>
+                Images, PDFs up to 10 MB each
+              </span>
               <input
                 type='file'
                 multiple
                 accept='image/*,.pdf'
-                className='mt-4 hidden'
-                disabled={formData.status === 'FINALIZED' || saving}
-                onChange={handleFileUpload}
-                id='file-upload'
+                className='hidden'
+                onChange={handleUpload}
+                disabled={saving}
               />
-              <label htmlFor='file-upload' className='cursor-pointer'>
-                <span className='mt-2 text-sm font-medium text-gray-900 dark:text-white'>
-                  Click to upload or drag and drop
-                </span>
-              </label>
-            </div>
-
-            {formData.attachments.length > 0 && (
-              <div className='mt-4 space-y-2'>
-                {formData.attachments.map((attachment) => (
-                  <div
-                    key={attachment.id}
-                    className='flex items-center justify-between rounded-lg bg-gray-50 p-3 dark:bg-gray-700'
-                  >
-                    <div>
-                      <p className='text-sm font-medium text-gray-900 dark:text-white'>
-                        {attachment.filename}
-                      </p>
-                      <p className='text-xs text-gray-600 dark:text-gray-400'>
-                        {new Date(attachment.createdAt).toLocaleString()}
-                      </p>
-                    </div>
-                    {formData.status !== 'FINALIZED' && (
-                      <button
-                        onClick={() => handleDeleteAttachment(attachment.id)}
-                        disabled={saving}
-                        className='text-red-600 hover:text-red-700 disabled:opacity-50'
-                      >
-                        ✕
-                      </button>
-                    )}
+            </label>
+          )}
+          {attachments.length > 0 && (
+            <ul className={`${!isFinalized ? 'mt-4' : ''} space-y-2`}>
+              {attachments.map((att) => (
+                <li
+                  key={att.id}
+                  className='flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-700/50'
+                >
+                  <div className='min-w-0'>
+                    <p className='truncate text-sm font-medium text-gray-900 dark:text-white'>
+                      {att.filename}
+                    </p>
+                    <p className='text-xs text-gray-500 dark:text-gray-400'>
+                      {new Date(att.createdAt).toLocaleString()}
+                    </p>
                   </div>
-                ))}
+                  {!isFinalized && (
+                    <button
+                      onClick={() => handleRemoveAttachment(att.id)}
+                      disabled={saving}
+                      aria-label='Remove'
+                      className='ml-3 flex-shrink-0 text-red-500 hover:text-red-700 disabled:opacity-40'
+                    >
+                      ×
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {attachments.length === 0 && isFinalized && (
+            <p className='text-sm italic text-gray-400 dark:text-gray-500'>
+              No attachments.
+            </p>
+          )}
+        </SectionCard>
+
+        {/* 10. Addenda */}
+        {(isFinalized || amendments.length > 0) && (
+          <SectionCard number={10} title='Addenda'>
+            {showAddendumInput && (
+              <div className='mb-4 space-y-2'>
+                <NoteArea
+                  placeholder='Enter addendum text...'
+                  value={addendumText}
+                  onChange={setAddendumText}
+                  rows={3}
+                />
+                <div className='flex justify-end gap-2'>
+                  <Button
+                    variant='outline'
+                    onClick={() => {
+                      setShowAddendumInput(false);
+                      setAddendumText('');
+                    }}
+                    disabled={addendumSaving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleAddAmendment}
+                    disabled={addendumSaving || !addendumText.trim()}
+                  >
+                    {addendumSaving ? 'Saving...' : 'Add Addendum'}
+                  </Button>
+                </div>
               </div>
             )}
-          </Section>
-        </div>
+            {amendments.length === 0 && (
+              <p className='text-sm italic text-gray-400 dark:text-gray-500'>
+                No addenda yet.
+              </p>
+            )}
+            {amendments.map((am, idx) => (
+              <div
+                key={am.id ?? idx}
+                className='mb-3 rounded-lg border border-gray-200 p-4 last:mb-0 dark:border-gray-700'
+              >
+                <div className='mb-2 flex items-center justify-between'>
+                  <span className='text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400'>
+                    Addendum {idx + 1}
+                    {am.createdAt &&
+                      ` - ${new Date(am.createdAt).toLocaleString()}`}
+                    {am.createdByUserName && ` - ${am.createdByUserName}`}
+                  </span>
+                  {!am.signedAt ? (
+                    <Button
+                      variant='outline'
+                      onClick={() => handleSignAmendment(am.id!)}
+                    >
+                      Sign
+                    </Button>
+                  ) : (
+                    <span className='text-xs font-medium text-emerald-600 dark:text-emerald-400'>
+                      ✓ Signed {new Date(am.signedAt).toLocaleString()}
+                      {am.signedByUserName && ` by ${am.signedByUserName}`}
+                    </span>
+                  )}
+                </div>
+                <p className='whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200'>
+                  {am.content}
+                </p>
+              </div>
+            ))}
+          </SectionCard>
+        )}
       </div>
 
-      {/* Finalize Success Modal */}
-      {showFinalizeModal && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50'>
-          <div className='max-w-lg rounded-lg bg-white p-8 shadow-lg dark:bg-gray-800'>
-            <div className='mb-4 text-center'>
-              <div className='mx-auto mb-4 text-5xl'>🎉</div>
-              <h2 className='text-2xl font-bold text-gray-900 dark:text-white'>
-                Consultation Finalized!
-              </h2>
-            </div>
-
-            <p className='mb-6 text-center text-gray-600 dark:text-gray-400'>
-              The consultation record has been successfully finalized and
-              locked. Next, please create a prescription for this consultation.
+      {/* Finalize Confirm Modal */}
+      {showFinalizeConfirm && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4'>
+          <div className='w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-800'>
+            <h2 className='mb-2 text-lg font-bold text-gray-900 dark:text-white'>
+              Finalize &amp; Sign Record?
+            </h2>
+            <p className='mb-6 text-sm text-gray-600 dark:text-gray-400'>
+              Once finalized, this record is locked. You can add addenda later
+              but cannot edit the main content.
+              <br />
+              Please confirm Chief Complaint and Diagnosis are complete.
             </p>
-
             <div className='flex gap-3'>
               <Button
                 variant='outline'
+                className='flex-1'
+                onClick={() => setShowFinalizeConfirm(false)}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button
+                className='flex-1'
+                onClick={handleFinalizeSubmit}
+                disabled={saving}
+              >
+                {saving ? 'Finalizing...' : 'Confirm & Sign'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4'>
+          <div className='w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl dark:bg-gray-800'>
+            <div className='mb-4 text-5xl'>🎉</div>
+            <h2 className='mb-2 text-xl font-bold text-gray-900 dark:text-white'>
+              Record Finalized!
+            </h2>
+            <p className='mb-6 text-sm text-gray-600 dark:text-gray-400'>
+              The medical record has been signed and locked. You can now create
+              a prescription for this patient.
+            </p>
+            <div className='flex gap-3'>
+              <Button
+                variant='outline'
+                className='flex-1'
                 onClick={() => {
-                  setShowFinalizeModal(false);
+                  setShowSuccessModal(false);
                   onBack();
                 }}
-                className='flex-1'
               >
                 Done
               </Button>
               <Button
-                onClick={() => {
-                  setShowFinalizeModal(false);
+                className='flex-1'
+                onClick={() =>
                   navigate('/doctor/prescriptions/create', {
                     state: {
-                      appointmentId: formData.appointmentId,
-                      patientId: formData.patientId,
-                      patientName: formData.patientName,
-                      diagnosis: formData.diagnosis,
-                      followUpInstructions: formData.followUpInstructions,
-                      consultationId: formData.id,
+                      appointmentId,
+                      patientId: consultation?.patientId,
+                      patientName: consultation?.patientName,
+                      diagnosis: form.diagnosis,
+                      followUpInstructions: form.followUpInstructions,
+                      consultationId: consultation?.id,
                     },
-                  });
-                }}
-                className='flex-1'
+                  })
+                }
               >
-                Create Prescription Now
+                Create Prescription
               </Button>
             </div>
           </div>
@@ -873,37 +1152,5 @@ export default function ConsultationForm({
 
       <Toast toast={toast} onDismiss={dismissToast} />
     </>
-  );
-}
-
-// Section Component
-function Section({
-  title,
-  required = false,
-  error,
-  children,
-}: {
-  title: string;
-  required?: boolean;
-  error?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={`rounded-lg p-6 ${error ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' : 'bg-gray-50 dark:bg-gray-700/50'}`}
-    >
-      <div className='mb-4 flex items-center gap-2'>
-        <h3 className='text-sm font-semibold text-gray-900 dark:text-white'>
-          {title}
-        </h3>
-        {required && <span className='text-red-600'>*</span>}
-      </div>
-      {error && (
-        <div className='mb-4 rounded bg-red-100 dark:bg-red-900/30 p-3 border-l-4 border-red-500'>
-          <p className='text-sm text-red-700 dark:text-red-300'>{error}</p>
-        </div>
-      )}
-      {children}
-    </div>
   );
 }

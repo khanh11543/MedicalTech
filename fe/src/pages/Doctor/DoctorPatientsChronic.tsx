@@ -8,11 +8,13 @@ import {
   getPatientsWithFlags,
   getPatientsWithAllergies,
   getPatientsWithChronicConditions,
+  getHighRiskPatients,
+  getPatientsWithMedicationRisk,
   DoctorPatientFlagsDTO,
   PageResponse,
 } from '../../services/doctorService';
 
-type FilterType = 'ALL' | 'ALLERGIES' | 'CHRONIC';
+type FilterType = 'ALL' | 'ALLERGIES' | 'CHRONIC' | 'MEDICATION_RISK' | 'HIGH_RISK';
 
 // ============= Icons =============
 const IconAlertTriangle = ({ className }: { className?: string }) => (
@@ -69,6 +71,16 @@ export default function DoctorPatientsChronic() {
           });
         } else if (type === 'CHRONIC') {
           response = await getPatientsWithChronicConditions({
+            pageNumber: pageNum,
+            pageSize: 12,
+          });
+        } else if (type === 'MEDICATION_RISK') {
+          response = await getPatientsWithMedicationRisk({
+            pageNumber: pageNum,
+            pageSize: 12,
+          });
+        } else if (type === 'HIGH_RISK') {
+          response = await getHighRiskPatients({
             pageNumber: pageNum,
             pageSize: 12,
           });
@@ -135,9 +147,11 @@ export default function DoctorPatientsChronic() {
   };
 
   const filterButtons: Array<{ label: string; value: FilterType }> = [
-    { label: 'All', value: 'ALL' },
+    { label: 'All Flags', value: 'ALL' },
     { label: 'Allergies', value: 'ALLERGIES' },
     { label: 'Chronic', value: 'CHRONIC' },
+    { label: 'Medication Risk', value: 'MEDICATION_RISK' },
+    { label: 'High Risk', value: 'HIGH_RISK' },
   ];
 
   const getInitials = (name: string): string => {
@@ -201,7 +215,11 @@ export default function DoctorPatientsChronic() {
                 ? 'Patients with allergies or chronic conditions'
                 : filterType === 'ALLERGIES'
                   ? 'Patients with documented allergies'
-                  : 'Patients with chronic conditions'}
+                  : filterType === 'CHRONIC'
+                    ? 'Patients with chronic conditions'
+                    : filterType === 'MEDICATION_RISK'
+                      ? 'Patients with 2+ active prescriptions (polypharmacy risk)'
+                      : 'Patients with severe allergies, multiple chronic conditions, or polypharmacy'}
             </p>
           </div>
           <div className='text-right'>
@@ -245,7 +263,11 @@ export default function DoctorPatientsChronic() {
                 ? 'No patients with allergies or chronic conditions found'
                 : filterType === 'ALLERGIES'
                   ? 'No patients with allergies found'
-                  : 'No patients with chronic conditions found'}
+                  : filterType === 'CHRONIC'
+                    ? 'No patients with chronic conditions found'
+                    : filterType === 'MEDICATION_RISK'
+                      ? 'No patients with medication risk (2+ active prescriptions) found'
+                      : 'No high-risk patients found'}
             </p>
           </div>
         ) : (
@@ -339,6 +361,18 @@ export default function DoctorPatientsChronic() {
                         </div>
                       </div>
                     )}
+
+                  {/* Medication Risk */}
+                  {patient.hasMedicationRisk && (
+                    <div className='mb-4'>
+                      <p className='text-xs font-semibold text-blue-700 dark:text-blue-400 mb-2 uppercase'>
+                        💊 Medication Risk
+                      </p>
+                      <Badge variant='light' color='info' size='sm'>
+                        {patient.medicationRiskNote ?? `${patient.activePrescriptionsCount} active prescriptions`}
+                      </Badge>
+                    </div>
+                  )}
 
                   {/* Last Visit & Active Prescriptions */}
                   <div className='grid grid-cols-2 gap-2 mb-4 pt-4 border-t border-gray-200 dark:border-gray-600'>

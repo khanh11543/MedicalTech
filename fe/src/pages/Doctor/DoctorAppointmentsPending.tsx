@@ -49,10 +49,11 @@ export default function DoctorAppointmentsPending() {
       });
       setAppointments(response.content || []);
     } catch (err) {
+      const axiosErr = err as any;
       const errorMessage =
-        err instanceof Error
-          ? err.message
-          : 'Failed to fetch pending appointments';
+        axiosErr?.response?.data?.message ||
+        axiosErr?.response?.data?.error ||
+        (err instanceof Error ? err.message : 'Failed to fetch pending appointments');
       setError(errorMessage);
       console.error('Error fetching pending appointments:', err);
     } finally {
@@ -124,10 +125,11 @@ export default function DoctorAppointmentsPending() {
       });
       setAppointments(response.content || []);
     } catch (err) {
+      const axiosErr = err as any;
       const errorMessage =
-        err instanceof Error
-          ? err.message
-          : 'Failed to fetch pending appointments';
+        axiosErr?.response?.data?.message ||
+        axiosErr?.response?.data?.error ||
+        (err instanceof Error ? err.message : 'Failed to fetch pending appointments');
       setError(errorMessage);
       console.error('Error fetching pending appointments:', err);
     } finally {

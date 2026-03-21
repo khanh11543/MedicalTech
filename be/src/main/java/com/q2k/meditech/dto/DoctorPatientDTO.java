@@ -44,6 +44,7 @@ public class DoctorPatientDTO {
     private List<String> allergyList; // Parsed from allergies field
     private List<String> chronicConditions; // Parsed from medicalHistory field
     private Boolean hasUpcomingAppointment;
+    private LocalDate nextAppointmentDate; // Date of the nearest upcoming appointment
 
     // Metadata
     private LocalDateTime createdAt;

@@ -124,14 +124,24 @@ function RecentPatientCard({
     patient.medicalHistory && patient.medicalHistory.length > 0;
   const timeStatus = getDaysSinceVisit(patient.daysSinceLastVisit);
 
+  const isUrgent = patient.daysSinceLastVisit <= 1;
+  const cardBorderClass = isUrgent
+    ? 'border-emerald-300 dark:border-emerald-600 bg-emerald-50/30 dark:bg-emerald-900/10'
+    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-white/[0.05]';
+  const timeBadgeClass = isUrgent
+    ? 'bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+    : 'bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400';
+
   return (
     <div
       onClick={onClick}
-      className='group relative p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/[0.05] hover:shadow-lg dark:hover:shadow-lg/20 hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-200 cursor-pointer'
+      className={`group relative p-5 rounded-xl border hover:shadow-lg dark:hover:shadow-lg/20 hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-200 cursor-pointer ${cardBorderClass}`}
     >
       {/* Time Badge */}
       <div className='absolute top-4 right-4'>
-        <span className='inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-500/10 text-sm font-medium text-blue-700 dark:text-blue-400'>
+        <span
+          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium ${timeBadgeClass}`}
+        >
           <IconClock className='w-3.5 h-3.5' />
           {timeStatus}
         </span>
@@ -227,7 +237,7 @@ function RecentPatientCard({
 
       {/* Follow-up Button */}
       <button className='w-full flex items-center justify-between px-4 py-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium group-hover:bg-emerald-100 dark:group-hover:bg-emerald-500/20 transition-colors duration-200'>
-        <span>View Details</span>
+        <span>{isUrgent ? 'Follow-up Now' : 'View Details'}</span>
         <IconChevronRight className='w-4 h-4' />
       </button>
     </div>

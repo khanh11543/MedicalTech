@@ -5,6 +5,7 @@ import { TimeSlotDTO } from './doctorScheduleService';
 export enum AppointmentStatus {
   PENDING = 'PENDING',
   CONFIRMED = 'CONFIRMED',
+  SCHEDULED = 'SCHEDULED',
   CHECKED_IN = 'CHECKED_IN',
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',

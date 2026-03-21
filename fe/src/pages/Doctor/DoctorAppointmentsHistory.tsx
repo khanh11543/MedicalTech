@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
+import Toast from '../../components/common/Toast';
+import { useToast } from '../../hooks/useToast';
 import HistoryAppointmentTable from '../../components/tables/HistoryAppointmentTable';
 import AppointmentSummaryModal from '../../components/modals/AppointmentSummaryModal';
 import AppointmentDetailModal from '../../components/modals/AppointmentDetailModal';
@@ -10,6 +12,9 @@ import appointmentService, {
 } from '../../services/appointmentService';
 
 export default function DoctorAppointmentsHistory() {
+  // Toast notification
+  const { toast, showToast, dismissToast } = useToast();
+
   // Data fetching states
   const [appointments, setAppointments] = useState<AppointmentDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -152,6 +157,13 @@ export default function DoctorAppointmentsHistory() {
   const handleViewMedicalRecord = (appointment: AppointmentDTO) => {
     setSelectedAppointment(appointment);
     setMedicalRecordModalOpen(true);
+  };
+
+  const handleCreateFollowUp = (appointment: AppointmentDTO) => {
+    showToast(
+      `Follow-up request noted for ${appointment.patientName}. Please coordinate with reception to schedule the follow-up appointment.`,
+      'success'
+    );
   };
 
   const handleResetFilters = () => {
@@ -448,6 +460,7 @@ export default function DoctorAppointmentsHistory() {
                 appointments={processedAppointments}
                 onViewDetail={handleViewDetail}
                 onViewMedicalRecord={handleViewMedicalRecord}
+                onCreateFollowUp={handleCreateFollowUp}
               />
             ) : (
               <div className='rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] p-12 text-center'>
@@ -502,6 +515,9 @@ export default function DoctorAppointmentsHistory() {
           setSelectedAppointment(null);
         }}
       />
+
+      {/* Toast Notifications */}
+      <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );
 }

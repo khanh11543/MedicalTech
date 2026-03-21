@@ -700,4 +700,39 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long>,
     Boolean hasAppointmentWithPatient(
             @Param("doctorId") Long doctorId,
             @Param("patientId") Long patientId);
+
+    // ==================== TIME OFF CONFLICT QUERIES ====================
+
+    /**
+     * Find all active (non-cancelled/no-show) appointments for a doctor on a specific date.
+     * Used for FULL_DAY time-off conflict detection.
+     */
+    @Query("SELECT a FROM Appointment a " +
+           "JOIN FETCH a.patient p " +
+           "JOIN FETCH p.user " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.appointmentDate = :date " +
+           "AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'COMPLETED') " +
+           "ORDER BY a.startTime")
+    List<Appointment> findActiveAppointmentsByDoctorOnDate(
+            @Param("doctorId") Long doctorId,
+            @Param("date") LocalDate date);
+
+    /**
+     * Find active appointments for a doctor within a time range on a specific date.
+     * Used for PARTIAL_DAY / BREAK / BLOCKED_TIME conflict detection.
+     */
+    @Query("SELECT a FROM Appointment a " +
+           "JOIN FETCH a.patient p " +
+           "JOIN FETCH p.user " +
+           "WHERE a.doctor.id = :doctorId " +
+           "AND a.appointmentDate = :date " +
+           "AND a.status NOT IN ('CANCELLED', 'NO_SHOW', 'COMPLETED') " +
+           "AND a.startTime < :endTime AND a.endTime > :startTime " +
+           "ORDER BY a.startTime")
+    List<Appointment> findActiveAppointmentsInTimeRange(
+            @Param("doctorId") Long doctorId,
+            @Param("date") LocalDate date,
+            @Param("startTime") LocalTime startTime,
+            @Param("endTime") LocalTime endTime);
 }

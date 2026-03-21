@@ -110,6 +110,21 @@ public class PrescriptionTemplateController {
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
     
+    /**
+     * Get template items for pre-filling the create prescription form.
+     * Increments usage count. Does NOT create a prescription.
+     * POST /api/doctor/prescription-templates/{id}/apply-items
+     */
+    @PostMapping("/{id}/apply-items")
+    public ResponseEntity<List<PrescriptionItemDTO>> applyTemplateItems(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        Long doctorUserId = getCurrentUserId(userDetails);
+        List<PrescriptionItemDTO> items = templateService.getTemplateItems(id, doctorUserId);
+        return ResponseEntity.ok(items);
+    }
+
     // Helper method
     private Long getCurrentUserId(UserDetails userDetails) {
         return SecurityUtil.getCurrentUserId();

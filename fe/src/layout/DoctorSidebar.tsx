@@ -47,7 +47,6 @@ const clinicalNavItems: NavItem[] = [
     path: '/doctor/appointments',
     subItems: [
       { name: 'Upcomming', path: '/doctor/appointments/upcoming' },
-      { name: 'Pending Confirm', path: '/doctor/appointments/pending' },
       { name: 'History', path: '/doctor/appointments/history' },
     ],
   },
@@ -58,7 +57,6 @@ const clinicalNavItems: NavItem[] = [
     subItems: [
       { name: 'Weekly Schedule', path: '/doctor/schedule/weekly' },
       { name: 'Time Off & Breaks', path: '/doctor/schedule/time-off-breaks' },
-      { name: 'Block slots', path: '/doctor/schedule/block-slots' },
     ],
   },
   {

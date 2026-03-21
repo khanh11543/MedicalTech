@@ -214,6 +214,29 @@ public class DoctorPatientManagementController {
         return ResponseEntity.ok(result);
     }
 
+    /**
+     * Get patients with medication risk (polypharmacy: 2+ active prescriptions).
+     * GET /api/doctor/my-patients/flags/medication-risk
+     */
+    @GetMapping("/flags/medication-risk")
+    @Operation(summary = "Get patients with medication risk", description = "Get patients with 2+ active prescriptions (polypharmacy risk)")
+    public ResponseEntity<PageResponse<DoctorPatientFlagsDTO>> getPatientsWithMedicationRisk(
+            @RequestParam(required = false, defaultValue = "0") Integer pageNumber,
+            @RequestParam(required = false, defaultValue = "10") Integer pageSize,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        log.info("Fetching patients with medication risk - page: {}, size: {}", pageNumber, pageSize);
+
+        Long doctorId = getDoctorIdFromUser(userDetails);
+
+        Pageable pageable = PageRequest.of(pageNumber, pageSize);
+
+        PageResponse<DoctorPatientFlagsDTO> result = patientManagementService.getPatientsWithMedicationRisk(
+                doctorId, pageable);
+
+        return ResponseEntity.ok(result);
+    }
+
     // ==================== STATISTICS ====================
 
     /**

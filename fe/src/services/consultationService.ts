@@ -66,8 +66,8 @@ export interface ConsultationDTO {
   chiefComplaint: string;
   hpi: string;
 
-  // Vitals
-  vitals: VitalsDTO;
+  // Vitals (null if no vitals recorded yet)
+  vitals: VitalsDTO | null;
 
   // Examination findings and diagnosis
   physicalExam: string;

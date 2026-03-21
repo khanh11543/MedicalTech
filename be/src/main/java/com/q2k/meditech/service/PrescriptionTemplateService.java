@@ -43,4 +43,6 @@ public interface PrescriptionTemplateService {
     void deleteTemplate(Long id, Long doctorUserId);
 
     PrescriptionDTO applyTemplate(Long id, ApplyTemplateDTO dto, Long doctorUserId);
+
+    List<PrescriptionItemDTO> getTemplateItems(Long id, Long doctorUserId);
 }

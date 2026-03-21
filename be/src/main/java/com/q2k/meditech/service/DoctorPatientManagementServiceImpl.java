@@ -9,6 +9,7 @@ import com.q2k.meditech.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -251,6 +252,20 @@ public class DoctorPatientManagementServiceImpl implements DoctorPatientManageme
     }
 
     @Override
+    public PageResponse<DoctorPatientFlagsDTO> getPatientsWithMedicationRisk(Long doctorId, Pageable pageable) {
+        log.info("Fetching patients with medication risk for doctor ID: {}", doctorId);
+
+        Page<Patient> allPatients = appointmentRepository.findDistinctPatientsByDoctorId(doctorId, pageable);
+
+        List<DoctorPatientFlagsDTO> medicationRiskPatients = allPatients.getContent().stream()
+                .map(patient -> convertToFlagsDTO(patient, doctorId))
+                .filter(dto -> Boolean.TRUE.equals(dto.getHasMedicationRisk()))
+                .collect(Collectors.toList());
+
+        return buildFlaggedPageResponse(medicationRiskPatients, pageable, medicationRiskPatients.size());
+    }
+
+    @Override
     public DoctorPatientCohortStatsDTO getPatientCohortStats(Long doctorId) {
         log.info("Fetching cohort stats for doctor ID: {}", doctorId);
 
@@ -261,16 +276,44 @@ public class DoctorPatientManagementServiceImpl implements DoctorPatientManageme
         LocalDate thirtyDaysAgo = LocalDate.now().minusDays(30);
         LocalDate ninetyDaysAgo = LocalDate.now().minusDays(90);
 
-        // TODO: Implement aggregation queries in repository for these metrics
-        // For now, using simpler approach
+        // Load all patients (use a large page — doctors typically have hundreds, not millions)
+        Page<Patient> allPatientsPage = appointmentRepository.findDistinctPatientsByDoctorId(
+                doctorId, PageRequest.of(0, 10000));
+        List<Patient> allPatients = allPatientsPage.getContent();
+        long totalPatients = allPatientsPage.getTotalElements();
+
+        // Patients seen in recent time windows (only count using total elements)
+        long patientsInLast30Days = appointmentRepository
+                .findRecentPatientsByDoctorId(doctorId, thirtyDaysAgo, PageRequest.of(0, 1))
+                .getTotalElements();
+        long patientsInLast90Days = appointmentRepository
+                .findRecentPatientsByDoctorId(doctorId, ninetyDaysAgo, PageRequest.of(0, 1))
+                .getTotalElements();
+
+        // Count patients with allergies / chronic conditions
+        long patientsWithAllergies = allPatients.stream()
+                .filter(p -> p.getAllergies() != null && !p.getAllergies().isBlank())
+                .count();
+        long patientsWithChronicConditions = allPatients.stream()
+                .filter(p -> p.getMedicalHistory() != null && !p.getMedicalHistory().isBlank())
+                .count();
+
+        // Count high-risk patients (based on flag counts only — avoids N+1 for prescriptions)
+        long highRiskPatients = allPatients.stream()
+                .filter(p -> {
+                    List<String> al = parseAllergyList(p.getAllergies());
+                    List<String> ch = parseChronicConditionsList(p.getMedicalHistory());
+                    return al.size() >= 3 || ch.size() >= 3;
+                })
+                .count();
 
         return DoctorPatientCohortStatsDTO.builder()
-                .totalPatients(0L)
-                .patientsInLast30Days(0L)
-                .patientsInLast90Days(0L)
-                .patientsWithAllergies(0L)
-                .patientsWithChronicConditions(0L)
-                .highRiskPatients(0L)
+                .totalPatients(totalPatients)
+                .patientsInLast30Days(patientsInLast30Days)
+                .patientsInLast90Days(patientsInLast90Days)
+                .patientsWithAllergies(patientsWithAllergies)
+                .patientsWithChronicConditions(patientsWithChronicConditions)
+                .highRiskPatients(highRiskPatients)
                 .totalPrescriptions(0L)
                 .activePrescriptions(0L)
                 .patientsWithActivePrescriptions(0L)
@@ -338,6 +381,9 @@ public class DoctorPatientManagementServiceImpl implements DoctorPatientManageme
         List<Appointment> upcomingAppts = appointmentRepository
                 .findUpcomingAppointmentsByDoctorAndPatient(doctorId, patient.getId());
         dto.setHasUpcomingAppointment(!upcomingAppts.isEmpty());
+        if (!upcomingAppts.isEmpty()) {
+            dto.setNextAppointmentDate(upcomingAppts.get(0).getAppointmentDate());
+        }
 
         return dto;
     }
@@ -387,8 +433,15 @@ public class DoctorPatientManagementServiceImpl implements DoctorPatientManageme
         List<String> allergies = parseAllergyList(patient.getAllergies());
         List<String> chronicConditions = parseChronicConditionsList(patient.getMedicalHistory());
 
-        // Determine risk level based on severity
-        String riskLevel = determineRiskLevel(allergies, chronicConditions);
+        // Get active prescriptions FIRST — needed for risk level and medication risk flag
+        List<Prescription> prescriptions = prescriptionRepository.findByPatientId(patient.getId());
+        long activePres = prescriptions.stream()
+                .filter(p -> p.getIsActive() && PrescriptionStatus.ACTIVE.equals(p.getStatus()))
+                .count();
+        boolean hasMedicationRisk = activePres >= 2;
+
+        // Determine risk level based on allergies, chronic conditions, and active prescriptions
+        String riskLevel = determineRiskLevel(allergies, chronicConditions, (int) activePres);
 
         Optional<Appointment> lastAppt = appointmentRepository
                 .findLastAppointmentByDoctorAndPatient(doctorId, patient.getId());
@@ -402,6 +455,12 @@ public class DoctorPatientManagementServiceImpl implements DoctorPatientManageme
                 .allergies(allergies)
                 .chronicConditions(chronicConditions)
                 .riskLevel(riskLevel)
+                .hasMedicationRisk(hasMedicationRisk)
+                .medicationRiskNote(hasMedicationRisk
+                        ? activePres + " active prescription" + (activePres > 1 ? "s" : "") + " (polypharmacy risk)"
+                        : null)
+                .hasActivePrescriptions(activePres > 0)
+                .activePrescriptionsCount((int) activePres)
                 .updatedAt(patient.getUpdatedAt())
                 .build();
 
@@ -410,14 +469,6 @@ public class DoctorPatientManagementServiceImpl implements DoctorPatientManageme
             dto.setLastVisitDate(LocalDateTime.of(appt.getAppointmentDate(), appt.getAppointmentTime()));
             dto.setLastVisitNotes(appt.getNotes());
         }
-
-        // Get active prescriptions
-        List<Prescription> prescriptions = prescriptionRepository.findByPatientId(patient.getId());
-        long activePres = prescriptions.stream()
-                .filter(p -> p.getIsActive() && PrescriptionStatus.ACTIVE.equals(p.getStatus()))
-                .count();
-        dto.setHasActivePrescriptions(activePres > 0);
-        dto.setActivePrescriptionsCount((int) activePres);
 
         return dto;
     }
@@ -479,16 +530,16 @@ public class DoctorPatientManagementServiceImpl implements DoctorPatientManageme
                 (patient.getMedicalHistory() != null && !patient.getMedicalHistory().isBlank());
     }
 
-    private String determineRiskLevel(List<String> allergies, List<String> chronicConditions) {
-        // HIGH: Multiple severe flags
-        if ((allergies.size() >= 3) || (chronicConditions.size() >= 3)) {
+    private String determineRiskLevel(List<String> allergies, List<String> chronicConditions, int activePrescriptions) {
+        // HIGH: severe allergies, multiple chronic conditions, or polypharmacy (3+ active Rx)
+        if (allergies.size() >= 3 || chronicConditions.size() >= 3 || activePrescriptions >= 3) {
             return "HIGH";
         }
-        // MEDIUM: Some flags
-        if ((allergies.size() + chronicConditions.size()) >= 2) {
+        // MEDIUM: moderate flags or 2+ active prescriptions
+        if ((allergies.size() + chronicConditions.size()) >= 2 || activePrescriptions >= 2) {
             return "MEDIUM";
         }
-        // LOW: One flag or none
+        // LOW: minimal flags
         return "LOW";
     }
 

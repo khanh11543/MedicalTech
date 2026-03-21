@@ -1,11 +1,15 @@
 package com.q2k.meditech.service;
 
 import com.q2k.meditech.dto.*;
+import com.q2k.meditech.dto.mapper.PrescriptionMapper;
 import com.q2k.meditech.entity.*;
 import com.q2k.meditech.entity.enums.PrescriptionStatus;
+import com.q2k.meditech.exception.AppException;
+import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,6 +18,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Service
@@ -23,6 +28,9 @@ import java.util.stream.Collectors;
 public class PrescriptionTemplateServiceImpl implements PrescriptionTemplateService {
 
     private final PrescriptionRepository prescriptionRepository;
+    private final PrescriptionTemplateRepository prescriptionTemplateRepository;
+    private final DoctorRepository doctorRepository;
+    private final PrescriptionMapper prescriptionMapper;
 
     // ==================== ADMIN ANALYTICS ====================
 
@@ -357,40 +365,155 @@ public class PrescriptionTemplateServiceImpl implements PrescriptionTemplateServ
     @Override
     @Transactional
     public TemplateDTO createTemplate(TemplateCreateDTO dto, Long doctorUserId) {
-        // TODO: Implement template creation
-        throw new UnsupportedOperationException("Template creation not yet implemented");
+        Doctor doctor = doctorRepository.findByUserId(doctorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "userId", doctorUserId));
+
+        PrescriptionTemplate template = PrescriptionTemplate.builder()
+                .doctor(doctor)
+                .templateName(dto.getTemplateName())
+                .description(dto.getDescription())
+                .diagnosisTemplate(dto.getDiagnosisTemplate())
+                .notesTemplate(dto.getNotesTemplate())
+                .defaultFollowUpDays(dto.getDefaultFollowUpDays())
+                .isActive(true)
+                .usageCount(0)
+                .build();
+
+        if (dto.getItems() != null) {
+            AtomicInteger order = new AtomicInteger(1);
+            dto.getItems().forEach(itemDto -> {
+                PrescriptionTemplateItem item = PrescriptionTemplateItem.builder()
+                        .medicineName(itemDto.getMedicineName())
+                        .defaultDosage(itemDto.getDefaultDosage())
+                        .defaultFrequency(itemDto.getDefaultFrequency())
+                        .defaultDuration(itemDto.getDefaultDuration())
+                        .defaultQuantity(itemDto.getDefaultQuantity())
+                        .unit(itemDto.getUnit())
+                        .defaultInstructions(itemDto.getDefaultInstructions())
+                        .notes(itemDto.getNotes())
+                        .itemOrder(order.getAndIncrement())
+                        .build();
+                template.addItem(item);
+            });
+        }
+
+        return prescriptionMapper.toTemplateDTO(prescriptionTemplateRepository.save(template));
     }
 
     @Override
     public List<TemplateDTO> getDoctorTemplates(Long doctorUserId, Boolean activeOnly) {
-        // TODO: Implement template listing
-        return new ArrayList<>();
+        Doctor doctor = doctorRepository.findByUserId(doctorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "userId", doctorUserId));
+        if (Boolean.TRUE.equals(activeOnly)) {
+            return prescriptionTemplateRepository.findByDoctorIdAndIsActiveTrue(doctor.getId())
+                    .stream().map(prescriptionMapper::toTemplateDTO).collect(Collectors.toList());
+        }
+        return prescriptionTemplateRepository.findByDoctorId(doctor.getId())
+                .stream().map(prescriptionMapper::toTemplateDTO).collect(Collectors.toList());
     }
 
     @Override
     public TemplateDTO getTemplateById(Long id, Long doctorUserId) {
-        // TODO: Implement template detail
-        throw new UnsupportedOperationException("Template detail not yet implemented");
+        Doctor doctor = doctorRepository.findByUserId(doctorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "userId", doctorUserId));
+        PrescriptionTemplate template = prescriptionTemplateRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Template", "id", id));
+        if (!template.getDoctor().getId().equals(doctor.getId())) {
+            throw new AppException("Access denied: template belongs to another doctor", HttpStatus.FORBIDDEN);
+        }
+        return prescriptionMapper.toTemplateDTO(template);
     }
 
     @Override
     @Transactional
     public TemplateDTO updateTemplate(Long id, TemplateUpdateDTO dto, Long doctorUserId) {
-        // TODO: Implement template update
-        throw new UnsupportedOperationException("Template update not yet implemented");
+        Doctor doctor = doctorRepository.findByUserId(doctorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "userId", doctorUserId));
+        PrescriptionTemplate template = prescriptionTemplateRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Template", "id", id));
+
+        if (!template.getDoctor().getId().equals(doctor.getId())) {
+            throw new AppException("Access denied: template belongs to another doctor", HttpStatus.FORBIDDEN);
+        }
+
+        template.setTemplateName(dto.getTemplateName());
+        template.setDescription(dto.getDescription());
+        template.setDiagnosisTemplate(dto.getDiagnosisTemplate());
+        template.setNotesTemplate(dto.getNotesTemplate());
+        template.setDefaultFollowUpDays(dto.getDefaultFollowUpDays());
+        if (dto.getIsActive() != null) template.setIsActive(dto.getIsActive());
+
+        template.getItems().clear();
+        if (dto.getItems() != null) {
+            AtomicInteger order = new AtomicInteger(1);
+            dto.getItems().forEach(itemDto -> {
+                PrescriptionTemplateItem item = PrescriptionTemplateItem.builder()
+                        .medicineName(itemDto.getMedicineName())
+                        .defaultDosage(itemDto.getDefaultDosage())
+                        .defaultFrequency(itemDto.getDefaultFrequency())
+                        .defaultDuration(itemDto.getDefaultDuration())
+                        .defaultQuantity(itemDto.getDefaultQuantity())
+                        .unit(itemDto.getUnit())
+                        .defaultInstructions(itemDto.getDefaultInstructions())
+                        .notes(itemDto.getNotes())
+                        .itemOrder(order.getAndIncrement())
+                        .build();
+                template.addItem(item);
+            });
+        }
+
+        return prescriptionMapper.toTemplateDTO(prescriptionTemplateRepository.save(template));
     }
 
     @Override
     @Transactional
     public void deleteTemplate(Long id, Long doctorUserId) {
-        // TODO: Implement template deletion
-        throw new UnsupportedOperationException("Template deletion not yet implemented");
+        Doctor doctor = doctorRepository.findByUserId(doctorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "userId", doctorUserId));
+        PrescriptionTemplate template = prescriptionTemplateRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Template", "id", id));
+
+        if (!template.getDoctor().getId().equals(doctor.getId())) {
+            throw new AppException("Access denied: template belongs to another doctor", HttpStatus.FORBIDDEN);
+        }
+
+        template.setIsActive(false);
+        prescriptionTemplateRepository.save(template);
     }
 
     @Override
     @Transactional
     public PrescriptionDTO applyTemplate(Long id, ApplyTemplateDTO dto, Long doctorUserId) {
-        // TODO: Implement template application
-        throw new UnsupportedOperationException("Template application not yet implemented");
+        throw new UnsupportedOperationException("Use POST /{id}/apply-items for pre-fill flow");
+    }
+
+    @Override
+    @Transactional
+    public List<PrescriptionItemDTO> getTemplateItems(Long id, Long doctorUserId) {
+        Doctor doctor = doctorRepository.findByUserId(doctorUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "userId", doctorUserId));
+        PrescriptionTemplate template = prescriptionTemplateRepository.findByIdWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Template", "id", id));
+
+        if (!template.getDoctor().getId().equals(doctor.getId())) {
+            throw new AppException("Access denied: template belongs to another doctor", HttpStatus.FORBIDDEN);
+        }
+
+        template.incrementUsageCount();
+        prescriptionTemplateRepository.save(template);
+
+        return template.getItems().stream()
+                .map(item -> PrescriptionItemDTO.builder()
+                        .medicineName(item.getMedicineName())
+                        .dosage(item.getDefaultDosage())
+                        .frequency(item.getDefaultFrequency())
+                        .duration(item.getDefaultDuration())
+                        .quantity(item.getDefaultQuantity())
+                        .unit(item.getUnit())
+                        .instructions(item.getDefaultInstructions())
+                        .notes(item.getNotes())
+                        .itemOrder(item.getItemOrder())
+                        .build())
+                .collect(Collectors.toList());
     }
 }

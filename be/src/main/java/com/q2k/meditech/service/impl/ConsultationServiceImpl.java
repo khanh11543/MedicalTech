@@ -282,8 +282,9 @@ public class ConsultationServiceImpl implements ConsultationService {
         Consultation consultation = consultationRepository.findById(consultationId)
                 .orElseThrow(() -> new EntityNotFoundException("Consultation not found with ID: " + consultationId));
         
-        if (!ConsultationStatus.FINALIZED.equals(consultation.getStatus())) {
-            throw new IllegalStateException("Amendments can only be added to FINALIZED consultations. Current status: " + consultation.getStatus());
+        if (!ConsultationStatus.FINALIZED.equals(consultation.getStatus())
+                && !ConsultationStatus.AMENDED.equals(consultation.getStatus())) {
+            throw new IllegalStateException("Amendments can only be added to FINALIZED or AMENDED consultations. Current status: " + consultation.getStatus());
         }
         
         // Get current user
@@ -449,6 +450,7 @@ public class ConsultationServiceImpl implements ConsultationService {
                     newConsultation.setPatient(appointment.getPatient());
                     newConsultation.setDoctor(appointment.getDoctor());
                     newConsultation.setStatus(ConsultationStatus.DRAFT);
+                    newConsultation.setChiefComplaint(""); // satisfy NOT NULL constraint for new draft
                     
                     return consultationRepository.save(newConsultation);
                 });

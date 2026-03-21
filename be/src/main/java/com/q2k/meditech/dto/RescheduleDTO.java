@@ -1,6 +1,6 @@
 package com.q2k.meditech.dto;
 
-import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
@@ -14,7 +14,7 @@ import java.time.LocalTime;
 public class RescheduleDTO {
 
     @NotNull(message = "New appointment date is required")
-    @Future(message = "New appointment date must be in the future")
+    @FutureOrPresent(message = "New appointment date must be today or in the future")
     private LocalDate newDate;
 
     @NotNull(message = "New start time is required")

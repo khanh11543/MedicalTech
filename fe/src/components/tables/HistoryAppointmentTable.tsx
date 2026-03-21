@@ -8,6 +8,7 @@ interface HistoryAppointmentTableProps {
   appointments: AppointmentDTO[];
   onViewDetail?: (appointment: AppointmentDTO) => void;
   onViewMedicalRecord?: (appointment: AppointmentDTO) => void;
+  onCreateFollowUp?: (appointment: AppointmentDTO) => void;
   isDoctorView?: boolean;
 }
 
@@ -44,6 +45,8 @@ const getStatusLabel = (status: string) => {
 export default function HistoryAppointmentTable({
   appointments,
   onViewDetail,
+  onViewMedicalRecord,
+  onCreateFollowUp,
   isDoctorView = true,
 }: HistoryAppointmentTableProps) {
   const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -149,7 +152,9 @@ export default function HistoryAppointmentTable({
                   </td>
                   <td className='px-6 py-4'>
                     <p className='text-sm text-gray-700 dark:text-gray-300'>
-                      Consultation
+                      {appointment.appointmentType
+                        ? appointment.appointmentType.replace(/_/g, ' ')
+                        : 'Consultation'}
                     </p>
                   </td>
                   <td className='px-6 py-4'>
@@ -266,14 +271,13 @@ export default function HistoryAppointmentTable({
           <button
             onClick={() => {
               const apt = appointments.find((apt) => apt.id === openMenuId);
-              if (apt) {
-                setSelectedAppointmentForRecords(apt);
-                setRecordsListOpen(true);
+              if (apt && onViewMedicalRecord) {
+                onViewMedicalRecord(apt);
               }
               setOpenMenuId(null);
               setMenuPosition(null);
             }}
-            className='w-full px-4 py-2.5 text-left text-sm text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 flex items-center gap-3 last:rounded-b-lg'
+            className='w-full px-4 py-2.5 text-left text-sm text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 flex items-center gap-3'
           >
             <svg
               className='w-4 h-4'
@@ -289,8 +293,38 @@ export default function HistoryAppointmentTable({
                 d='M9 4.5v15m6-15v15m-11.995.75V3.75a2.25 2.25 0 0 1 2.25-2.25h15.5a2.25 2.25 0 0 1 2.25 2.25v16.5c0 1.035-.84 1.89-1.89 1.89H3.75a1.89 1.89 0 0 1-1.895-1.89Z'
               />
             </svg>
-            View Medical Records
+            Open consultation record
           </button>
+          {/* Create Follow-up — only for COMPLETED appointments */}
+          {appointments.find((apt) => apt.id === openMenuId)?.status === 'COMPLETED' && (
+            <button
+              onClick={() => {
+                const apt = appointments.find((apt) => apt.id === openMenuId);
+                if (apt && onCreateFollowUp) {
+                  onCreateFollowUp(apt);
+                }
+                setOpenMenuId(null);
+                setMenuPosition(null);
+              }}
+              className='w-full px-4 py-2.5 text-left text-sm text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 flex items-center gap-3 last:rounded-b-lg'
+            >
+              <svg
+                className='w-4 h-4'
+                xmlns='http://www.w3.org/2000/svg'
+                fill='none'
+                viewBox='0 0 24 24'
+                strokeWidth='1.5'
+                stroke='currentColor'
+              >
+                <path
+                  strokeLinecap='round'
+                  strokeLinejoin='round'
+                  d='M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z'
+                />
+              </svg>
+              Create Follow-up
+            </button>
+          )}
         </div>
       )}
 

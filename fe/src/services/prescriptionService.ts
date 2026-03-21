@@ -183,6 +183,46 @@ export interface SendPrescriptionEmailDTO {
   patientRequested?: boolean;
 }
 
+// ==================== TEMPLATE TYPES (Doctor CRUD) ====================
+
+export interface TemplateItemDTO {
+  id?: number;
+  medicineName: string;
+  defaultDosage: string;
+  defaultFrequency: string;
+  defaultDuration?: string;
+  defaultQuantity?: number;
+  unit?: string;
+  defaultInstructions?: string;
+  notes?: string;
+  itemOrder?: number;
+}
+
+export interface TemplateSaveDTO {
+  templateName: string;
+  description?: string;
+  diagnosisTemplate?: string;
+  notesTemplate?: string;
+  defaultFollowUpDays?: number;
+  items: TemplateItemDTO[];
+}
+
+export interface TemplateDTOFE {
+  id: number;
+  doctorId: number;
+  doctorName: string;
+  templateName: string;
+  description?: string;
+  diagnosisTemplate?: string;
+  notesTemplate?: string;
+  defaultFollowUpDays?: number;
+  isActive: boolean;
+  usageCount: number;
+  items: TemplateItemDTO[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface PageResponse<T> {
   content: T[];
   totalElements: number;
@@ -338,6 +378,57 @@ const prescriptionService = {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
+  },
+
+  // ==================== PRESCRIPTION LIFECYCLE (Doctor) ====================
+
+  // Void a prescription (sets status to CANCELLED)
+  voidPrescription: async (id: number, reason: string): Promise<PrescriptionDTO> => {
+    const response = await api.patch(`/doctor/prescriptions/${id}/void`, { reason });
+    return response.data;
+  },
+
+  // Reissue: creates a new ACTIVE prescription copied from an existing one
+  reissuePrescription: async (id: number): Promise<PrescriptionDTO> => {
+    const response = await api.post(`/doctor/prescriptions/${id}/reissue`);
+    return response.data;
+  },
+
+  // ==================== PRESCRIPTION TEMPLATES (Doctor CRUD) ====================
+
+  // Get all personal templates
+  getDoctorTemplates: async (): Promise<TemplateDTOFE[]> => {
+    const response = await api.get('/doctor/prescription-templates');
+    return response.data;
+  },
+
+  // Get single template
+  getDoctorTemplateById: async (id: number): Promise<TemplateDTOFE> => {
+    const response = await api.get(`/doctor/prescription-templates/${id}`);
+    return response.data;
+  },
+
+  // Create a new template
+  createDoctorTemplate: async (dto: TemplateSaveDTO): Promise<TemplateDTOFE> => {
+    const response = await api.post('/doctor/prescription-templates', dto);
+    return response.data;
+  },
+
+  // Update an existing template
+  updateDoctorTemplate: async (id: number, dto: TemplateSaveDTO): Promise<TemplateDTOFE> => {
+    const response = await api.put(`/doctor/prescription-templates/${id}`, dto);
+    return response.data;
+  },
+
+  // Soft-delete a template
+  deleteDoctorTemplate: async (id: number): Promise<void> => {
+    await api.delete(`/doctor/prescription-templates/${id}`);
+  },
+
+  // Apply a template: increments usage count, returns items as PrescriptionItemDTO[]
+  applyDoctorTemplate: async (id: number): Promise<PrescriptionItemDTO[]> => {
+    const response = await api.post(`/doctor/prescription-templates/${id}/apply-items`);
+    return response.data;
   },
 };
 

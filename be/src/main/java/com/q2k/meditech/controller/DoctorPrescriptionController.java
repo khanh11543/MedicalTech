@@ -13,6 +13,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 /**
  * Controller for Doctor to manage prescriptions
  */
@@ -33,7 +35,8 @@ public class DoctorPrescriptionController {
             @Valid @RequestBody PrescriptionCreateDTO dto,
             @AuthenticationPrincipal UserDetails userDetails) {
         
-        Long doctorUserId = getDoctorIdFromUser(userDetails);
+        // createPrescription expects the logged-in user's ID (not the Doctor entity's PK)
+        Long doctorUserId = SecurityUtil.getCurrentUserId();
         PrescriptionDTO result = prescriptionService.createPrescription(dto, doctorUserId);
         return ResponseEntity.status(HttpStatus.CREATED).body(result);
     }
@@ -80,7 +83,33 @@ public class DoctorPrescriptionController {
         PrescriptionDTO result = prescriptionService.getPrescriptionById(id);
         return ResponseEntity.ok(result);
     }
-    
+
+    /**
+     * Void (cancel) a prescription owned by the current doctor.
+     * PATCH /api/doctor/prescriptions/{id}/void
+     * Body: { "reason": "..." }
+     */
+    @PatchMapping("/{id}/void")
+    public ResponseEntity<PrescriptionDTO> voidPrescription(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        String reason = body.getOrDefault("reason", "No reason provided");
+        Long doctorUserId = SecurityUtil.getCurrentUserId();
+        PrescriptionDTO result = prescriptionService.voidPrescription(id, doctorUserId, reason);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Reissue a prescription: creates an ACTIVE copy from an existing one.
+     * POST /api/doctor/prescriptions/{id}/reissue
+     */
+    @PostMapping("/{id}/reissue")
+    public ResponseEntity<PrescriptionDTO> reissuePrescription(@PathVariable Long id) {
+        Long doctorUserId = SecurityUtil.getCurrentUserId();
+        PrescriptionDTO result = prescriptionService.reissuePrescription(id, doctorUserId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
     // Helper method
     private Long getDoctorIdFromUser(UserDetails userDetails) {
         Long userId = SecurityUtil.getCurrentUserId();

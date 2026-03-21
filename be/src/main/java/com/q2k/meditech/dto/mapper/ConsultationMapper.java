@@ -144,7 +144,7 @@ public class ConsultationMapper {
             return;
         }
 
-        consultation.setChiefComplaint(dto.getChiefComplaint());
+        consultation.setChiefComplaint(dto.getChiefComplaint() != null ? dto.getChiefComplaint() : "");
         consultation.setHpi(dto.getHpi());
         consultation.setPhysicalExam(dto.getPhysicalExam());
         consultation.setDiagnosis(dto.getDiagnosis());

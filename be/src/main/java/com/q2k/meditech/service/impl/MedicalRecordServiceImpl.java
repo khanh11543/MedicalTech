@@ -122,6 +122,14 @@ public class MedicalRecordServiceImpl implements MedicalRecordService {
         return medicalRecordRepository.countByDoctorId(doctorId);
     }
 
+    @Override
+    public MedicalRecordDTO getDoctorMedicalRecordByAppointmentId(Long appointmentId, Long doctorId) {
+        return medicalRecordRepository.findByAppointmentId(appointmentId)
+                .filter(r -> r.getDoctor().getId().equals(doctorId))
+                .map(this::toDTO)
+                .orElse(null);
+    }
+
     // =========== HELPER METHODS ===========
 
     /**
