@@ -4,6 +4,7 @@ import userSettingsService from "../../services/userSettingsService";
 import patientService from "../../services/patientService";
 import { useAuth } from "../../context/AuthContext";
 import { getAvatarUrl } from "../../utils/avatar";
+import ImageCropModal from "../../components/common/ImageCropModal";
 
 interface Profile {
   id: number;
@@ -51,13 +52,14 @@ export default function PatientProfile() {
   const [activeProfileId, setActiveProfileId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [showInsurance, setShowInsurance] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const { updateUserProfile } = useAuth();
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
 
   // Load profile from API (patient profile when available, else user profile)
   useEffect(() => {
@@ -124,10 +126,18 @@ export default function PatientProfile() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const closeCropModal = () => {
+    setCropModalOpen(false);
+    if (cropImageSrc) {
+      URL.revokeObjectURL(cropImageSrc);
+      setCropImageSrc(null);
+    }
+  };
+
+  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (avatarInputRef.current) avatarInputRef.current.value = "";
     if (!file) return;
-    // Validate file type and size
     const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
       alert("Please select a valid image file (JPG, PNG, GIF, or WebP)");
@@ -137,6 +147,11 @@ export default function PatientProfile() {
       alert("File size must be less than 5MB");
       return;
     }
+    setCropImageSrc(URL.createObjectURL(file));
+    setCropModalOpen(true);
+  };
+
+  const handleAvatarCropped = async (file: File) => {
     setUploadingAvatar(true);
     try {
       const updated = await userSettingsService.uploadAvatar(file);
@@ -151,7 +166,6 @@ export default function PatientProfile() {
       alert("Failed to upload avatar. Please try again.");
     } finally {
       setUploadingAvatar(false);
-      if (avatarInputRef.current) avatarInputRef.current.value = "";
     }
   };
 
@@ -177,7 +191,6 @@ export default function PatientProfile() {
     allergies: "",
     medicalHistory: "",
   });
-  const [addForm, setAddForm] = useState({ name: "", dateOfBirth: "", gender: "Male", phone: "", email: "", address: "", relationship: "" });
   const [isPatientProfile, setIsPatientProfile] = useState(false);
 
   const handleOpenEdit = () => {
@@ -265,36 +278,6 @@ export default function PatientProfile() {
     }
   };
 
-  const handleAddProfile = () => {
-    const np: Profile = {
-      id: Date.now(),
-      name: addForm.name,
-      dateOfBirth: addForm.dateOfBirth,
-      gender: addForm.gender,
-      phone: addForm.phone,
-      email: addForm.email,
-      address: addForm.address,
-      mrn: `YMP${Date.now().toString().slice(-9)}`,
-      cccd: "",
-      bhyt: "",
-      ethnicity: "",
-      occupation: "",
-      insuranceNumber: "",
-      insuranceProvider: "",
-      emergencyContact: "",
-      bloodGroup: "",
-      allergies: "",
-      medicalHistory: "",
-      avatarUrl: null,
-      isSelf: false,
-      isComplete: false,
-    };
-    setProfiles((prev) => [...prev, np]);
-    setActiveProfileId(np.id);
-    setShowAddModal(false);
-    setAddForm({ name: "", dateOfBirth: "", gender: "Male", phone: "", email: "", address: "", relationship: "" });
-  };
-
   if (loading) {
     return (
       <div className="space-y-6">
@@ -324,18 +307,9 @@ export default function PatientProfile() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">Medical Profile</h2>
-          <p className="text-sm text-gray-400 mt-1">Manage your medical records and family members</p>
-        </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#049ebb] rounded-xl hover:bg-[#037a94] transition-all shadow-md shadow-[#049ebb]/20 border-none cursor-pointer shrink-0"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-          Add Profile
-        </button>
+      <div>
+        <h2 className="text-xl font-bold text-gray-900">Medical Profile</h2>
+        <p className="text-sm text-gray-400 mt-1">Manage your medical records</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-5">
@@ -398,7 +372,7 @@ export default function PatientProfile() {
                   type="file"
                   accept="image/jpeg,image/png,image/gif,image/webp"
                   className="hidden"
-                  onChange={handleAvatarUpload}
+                  onChange={handleAvatarFileSelect}
                 />
                 <button
                   type="button"
@@ -586,53 +560,14 @@ export default function PatientProfile() {
         </div>
       )}
 
-      {/* Add Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-xl flex flex-col max-h-[90vh] sm:max-h-[85vh] mt-auto sm:mt-0" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-100 shrink-0">
-              <h3 className="text-sm font-semibold text-gray-800">Add New Profile</h3>
-              <button type="button" aria-label="Close add modal" onClick={() => setShowAddModal(false)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all bg-transparent border-none cursor-pointer">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <div className="px-4 sm:px-5 pt-4 pb-6 space-y-3 overflow-y-auto min-h-0 flex-1 overscroll-contain">
-              <ModalInput label="Full Name" value={addForm.name} onChange={(v) => setAddForm((f) => ({ ...f, name: v }))} placeholder="Enter full name" required />
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Date of Birth <span className="text-red-500">*</span></label>
-                  <input id="add-dob" type="date" aria-label="Date of Birth" value={addForm.dateOfBirth} onChange={(e) => setAddForm((f) => ({ ...f, dateOfBirth: e.target.value }))} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#049ebb]/30 focus:border-[#049ebb]" />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Gender <span className="text-red-500">*</span></label>
-                  <select id="add-gender" aria-label="Gender" value={addForm.gender} onChange={(e) => setAddForm((f) => ({ ...f, gender: e.target.value }))} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#049ebb]/30 focus:border-[#049ebb] bg-white">
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-              </div>
-              <ModalInput label="Phone Number" value={addForm.phone} onChange={(v) => setAddForm((f) => ({ ...f, phone: v }))} placeholder="Phone number" required />
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Relationship</label>
-                <select id="add-relationship" aria-label="Relationship" value={addForm.relationship} onChange={(e) => setAddForm((f) => ({ ...f, relationship: e.target.value }))} className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#049ebb]/30 focus:border-[#049ebb] bg-white">
-                  <option value="">Select relationship</option>
-                  <option value="Parent">Parent</option>
-                  <option value="Child">Child</option>
-                  <option value="Spouse">Spouse</option>
-                  <option value="Sibling">Sibling</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <ModalInput label="Address" value={addForm.address} onChange={(v) => setAddForm((f) => ({ ...f, address: v }))} placeholder="Enter address" />
-            </div>
-            <div className="flex justify-end gap-2 px-4 sm:px-5 py-3 border-t border-gray-100 shrink-0 bg-gray-50/50 rounded-b-2xl">
-              <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all cursor-pointer">Cancel</button>
-              <button onClick={handleAddProfile} disabled={!addForm.name || !addForm.dateOfBirth || !addForm.phone} className="px-4 py-2 text-sm font-medium text-white bg-[#049ebb] rounded-xl hover:bg-[#037a94] disabled:opacity-50 disabled:cursor-not-allowed transition-all border-none cursor-pointer">Add Profile</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ImageCropModal
+        open={cropModalOpen}
+        imageSrc={cropImageSrc}
+        onClose={closeCropModal}
+        onCropped={handleAvatarCropped}
+        aspect={1}
+        title="Crop avatar"
+      />
     </div>
   );
 }

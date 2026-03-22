@@ -2223,6 +2223,70 @@
   gap: 12px;
 }
 
+/* Balanced 2×2 booking fields */
+.appt-form-grid--main {
+  gap: 18px 22px;
+  align-items: start;
+}
+
+.appt-form-grid--main .appt-field-wrap--span-2 {
+  grid-column: 1 / -1;
+}
+
+.appt-readonly-name-row {
+  margin-bottom: 18px;
+}
+
+.appt-readonly-name-row .appt-field-label {
+  margin-bottom: 6px;
+}
+
+input.appt-input-readonly {
+  min-height: 46px;
+  background: linear-gradient(180deg, #f8fbfc 0%, #f0f6f8 100%);
+  color: #1a3d47;
+  cursor: default;
+  font-weight: 600;
+  border-color: #cfe3e8;
+}
+
+.appt-readonly-hint {
+  font-size: 0.72rem;
+  color: #7a9aa3;
+  margin: 6px 0 0;
+  line-height: 1.4;
+}
+
+.appt-field-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #5a7580;
+  margin-bottom: 6px;
+}
+
+.appt-field-label-optional {
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: #94a3b8;
+}
+
+.appt-form-textarea-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 20px;
+}
+
+.appt-form-textarea-block .appt-textarea {
+  margin-top: 0;
+  min-height: 108px;
+  resize: vertical;
+}
+
 .appt-input {
   width: 100%;
   padding: 12px 16px;
@@ -2276,8 +2340,7 @@
 }
 
 .appt-textarea {
-  margin-top: 12px;
-  resize: none;
+  line-height: 1.5;
 }
 
 .appt-submit-btn {
@@ -2304,7 +2367,7 @@
 
 /* --- Time Slot Picker --- */
 .appt-timeslot-section {
-  margin-top: 8px;
+  margin-top: 16px;
   margin-bottom: 4px;
 }
 

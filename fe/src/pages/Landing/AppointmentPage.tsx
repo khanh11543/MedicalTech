@@ -7,9 +7,6 @@ import { useAuth } from "../../context/AuthContext";
 import "./landing.css";
 
 interface FormData {
-  name: string;
-  email: string;
-  phone: string;
   department: string;
   date: string;
   doctor: string;
@@ -23,7 +20,7 @@ const steps = [
     icon: "bi bi-person-fill",
     title: "Fill Details",
     description:
-      "Provide your personal information and select your preferred department",
+      "Choose department, date, and doctor — your name comes from your profile",
   },
   {
     number: 2,
@@ -73,9 +70,6 @@ export default function AppointmentPage() {
   const preselectedDoctor = searchParams.get("doctor") || "";
 
   const [formData, setFormData] = useState<FormData>({
-    name: "",
-    email: "",
-    phone: "",
     department: preselectedDepartment,
     date: "",
     doctor: preselectedDoctor,
@@ -132,14 +126,10 @@ export default function AppointmentPage() {
 
   const selectedSlot = timeSlots.find((s) => String(s.id) === formData.timeSlotId);
 
-  const validatePhone = (phone: string): string | null => {
-    const digits = phone.replace(/\D/g, "");
-    if (!digits) return "Please enter your phone number.";
-    if (digits.length !== 10 && digits.length !== 11) return "Phone number should be 10–11 digits.";
-    const withoutLeadingZero = digits.replace(/^0+/, "") || digits;
-    if ((digits.length === 10 || digits.length === 11) && !/^[3-9]/.test(withoutLeadingZero)) return "Vietnamese number should start with 3, 5, 7, 8, or 9.";
-    return null;
-  };
+  const profileDisplayName =
+    user?.fullName?.trim() ||
+    (user?.email ? user.email.split("@")[0] : "") ||
+    "";
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -174,16 +164,6 @@ export default function AppointmentPage() {
     }
 
     const err: Record<string, string> = {};
-    if (!formData.name?.trim()) err.name = "Please enter your full name.";
-    if (!formData.email?.trim()) err.email = "Please enter your email.";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
-      err.email = "Please enter a valid email address (e.g. name@example.com).";
-    }
-    if (!formData.phone?.trim()) err.phone = "Please enter your phone number.";
-    else {
-      const phoneErr = validatePhone(formData.phone);
-      if (phoneErr) err.phone = phoneErr;
-    }
     if (!formData.department) err.department = "Please select a department.";
     if (!formData.date) err.date = "Please select appointment date.";
     else {
@@ -214,7 +194,7 @@ export default function AppointmentPage() {
         reasonForVisit: formData.message || undefined,
       });
       setSubmitted(true);
-      setFormData({ name: "", email: "", phone: "", department: "", date: "", doctor: "", timeSlotId: "", message: "" });
+      setFormData({ department: "", date: "", doctor: "", timeSlotId: "", message: "" });
       setTimeSlots([]);
       setTimeout(() => setSubmitted(false), 5000);
     } catch (err: unknown) {
@@ -298,45 +278,34 @@ export default function AppointmentPage() {
               )}
 
               <form onSubmit={handleSubmit} noValidate>
-                <div className="appt-form-grid">
-                  <div className="appt-field-wrap">
+                {isAuthenticated && user && (
+                  <div className="appt-field-wrap appt-readonly-name-row">
+                    <label className="appt-field-label" htmlFor="appt-profile-name">
+                      Full name
+                    </label>
                     <input
+                      id="appt-profile-name"
                       type="text"
-                      name="name"
-                      placeholder="Your Full Name"
-                      required
-                      value={formData.name}
-                      onChange={handleChange}
-                      className={`appt-input ${fieldErrors.name ? "appt-input--error" : ""}`}
+                      readOnly
+                      tabIndex={-1}
+                      value={profileDisplayName || "—"}
+                      className="appt-input appt-input-readonly"
+                      title="From your account profile"
+                      aria-describedby="appt-profile-name-hint"
                     />
-                    {fieldErrors.name && <p className="appt-field-error">{fieldErrors.name}</p>}
+                    <p id="appt-profile-name-hint" className="appt-readonly-hint">
+                      From your profile. You can change it in account settings.
+                    </p>
                   </div>
+                )}
+
+                <div className="appt-form-grid appt-form-grid--main">
                   <div className="appt-field-wrap">
-                    <input
-                      type="email"
-                      name="email"
-                      placeholder="Your Email"
-                      required
-                      value={formData.email}
-                      onChange={handleChange}
-                      className={`appt-input ${fieldErrors.email ? "appt-input--error" : ""}`}
-                    />
-                    {fieldErrors.email && <p className="appt-field-error">{fieldErrors.email}</p>}
-                  </div>
-                  <div className="appt-field-wrap">
-                    <input
-                      type="tel"
-                      name="phone"
-                      placeholder="Your Phone Number"
-                      required
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className={`appt-input ${fieldErrors.phone ? "appt-input--error" : ""}`}
-                    />
-                    {fieldErrors.phone && <p className="appt-field-error">{fieldErrors.phone}</p>}
-                  </div>
-                  <div className="appt-field-wrap">
+                    <label className="appt-field-label" htmlFor="appt-department">
+                      Department
+                    </label>
                     <select
+                      id="appt-department"
                       name="department"
                       required
                       value={formData.department}
@@ -344,7 +313,7 @@ export default function AppointmentPage() {
                       className={`appt-input appt-select ${fieldErrors.department ? "appt-input--error" : ""}`}
                       aria-label="Select Department"
                     >
-                      <option value="">Select Department</option>
+                      <option value="">Select department</option>
                       {departments.map((dep) => (
                         <option key={dep.id} value={dep.name}>{dep.name}</option>
                       ))}
@@ -352,7 +321,11 @@ export default function AppointmentPage() {
                     {fieldErrors.department && <p className="appt-field-error">{fieldErrors.department}</p>}
                   </div>
                   <div className="appt-field-wrap">
+                    <label className="appt-field-label" htmlFor="appt-date">
+                      Appointment date
+                    </label>
                     <input
+                      id="appt-date"
                       type="date"
                       name="date"
                       required
@@ -364,8 +337,12 @@ export default function AppointmentPage() {
                     />
                     {fieldErrors.date && <p className="appt-field-error">{fieldErrors.date}</p>}
                   </div>
-                  <div className="appt-field-wrap">
+                  <div className="appt-field-wrap appt-field-wrap--span-2">
+                    <label className="appt-field-label" htmlFor="appt-doctor">
+                      Doctor
+                    </label>
                     <select
+                      id="appt-doctor"
                       name="doctor"
                       required
                       value={formData.doctor}
@@ -373,7 +350,7 @@ export default function AppointmentPage() {
                       className={`appt-input appt-select ${fieldErrors.doctor ? "appt-input--error" : ""}`}
                       aria-label="Select Doctor"
                     >
-                      <option value="">Select Doctor</option>
+                      <option value="">Select doctor</option>
                       {filteredDoctors.map((doc) => (
                         <option key={doc.id} value={String(doc.id)}>{doc.fullName}</option>
                       ))}
@@ -465,14 +442,21 @@ export default function AppointmentPage() {
                   </div>
                 )}
 
-                <textarea
-                  name="message"
-                  rows={5}
-                  placeholder="Please describe your symptoms or reason for visit (optional)"
-                  value={formData.message}
-                  onChange={handleChange}
-                  className="appt-input appt-textarea"
-                />
+                <div className="appt-form-textarea-block">
+                  <label className="appt-field-label" htmlFor="appt-message">
+                    Reason for visit{" "}
+                    <span className="appt-field-label-optional">(optional)</span>
+                  </label>
+                  <textarea
+                    id="appt-message"
+                    name="message"
+                    rows={4}
+                    placeholder="Describe your symptoms or reason for visit…"
+                    value={formData.message}
+                    onChange={handleChange}
+                    className="appt-input appt-textarea"
+                  />
+                </div>
 
                 {error && (
                   <div className="appt-alert-error">
