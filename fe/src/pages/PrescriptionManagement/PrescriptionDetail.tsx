@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import dayjs from "dayjs";
+import DOMPurify from "dompurify";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import ComponentCard from "../../components/common/ComponentCard";
 import PageMeta from "../../components/common/PageMeta";
@@ -159,7 +160,13 @@ export default function PrescriptionDetail() {
       if (result.content) {
         const printWindow = window.open('', '_blank');
         if (printWindow) {
-          printWindow.document.write(result.content);
+          // Sanitize server-generated HTML to prevent Stored XSS from DB content
+          const safeHtml = DOMPurify.sanitize(result.content, {
+            WHOLE_DOCUMENT: true,
+            ADD_TAGS: ['html', 'head', 'body', 'style', 'title'],
+            ADD_ATTR: ['charset', 'http-equiv', 'content', 'name'],
+          });
+          printWindow.document.write(safeHtml);
           printWindow.document.close();
           printWindow.print();
         }

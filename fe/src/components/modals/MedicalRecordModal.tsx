@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect } from "react";
 import { AppointmentDTO } from "../../services/appointmentService";
 import consultationService, { ConsultationDTO } from "../../services/consultationService";
+import { escHtml } from "../../utils/xss";
 
 interface MedicalRecordModalProps {
     appointment: AppointmentDTO | null;
@@ -40,7 +41,8 @@ function handleDownloadPDF(appointment: AppointmentDTO, consultation: Consultati
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>Consultation Record - ${appointment.patientName}</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
+  <title>Consultation Record - ${escHtml(appointment.patientName)}</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 40px; color: #111; }
     h1 { font-size: 22px; margin-bottom: 4px; }
@@ -57,65 +59,65 @@ function handleDownloadPDF(appointment: AppointmentDTO, consultation: Consultati
 </head>
 <body>
   <h1>Consultation Record</h1>
-  <div class="subtitle">Doctor: ${consultation.doctorName}</div>
+  <div class="subtitle">Doctor: ${escHtml(consultation.doctorName)}</div>
 
   <div class="section">
     <div class="section-title">Consultation Summary</div>
     <div class="grid">
-      <div><div class="field-label">Date</div><div class="field-value">${formatDateTime(appointment.appointmentDate)}</div></div>
+      <div><div class="field-label">Date</div><div class="field-value">${escHtml(formatDateTime(appointment.appointmentDate))}</div></div>
       <div><div class="field-label">Duration</div><div class="field-value">${appointment.startTime} â€“ ${appointment.endTime}</div></div>
     </div>
   </div>
 
   <div class="section">
     <div class="section-title">Patient Information</div>
-    <div class="field-value"><strong>${appointment.patientName}</strong></div>
-    <div class="field-value">${appointment.patientEmail}</div>
-    ${appointment.patientPhone ? `<div class="field-value">${appointment.patientPhone}</div>` : ""}
+    <div class="field-value"><strong>${escHtml(appointment.patientName)}</strong></div>
+    <div class="field-value">${escHtml(appointment.patientEmail)}</div>
+    ${appointment.patientPhone ? `<div class="field-value">${escHtml(appointment.patientPhone)}</div>` : ""}
   </div>
 
   ${consultation.chiefComplaint ? `
   <div class="section">
     <div class="section-title">Chief Complaint</div>
-    <div class="box">${consultation.chiefComplaint}</div>
+    <div class="box">${escHtml(consultation.chiefComplaint)}</div>
   </div>` : ""}
 
   ${consultation.hpi ? `
   <div class="section">
     <div class="section-title">History of Present Illness</div>
-    <div class="box">${consultation.hpi}</div>
+    <div class="box">${escHtml(consultation.hpi)}</div>
   </div>` : ""}
 
   ${vitalLines.length > 0 ? `
   <div class="section">
     <div class="section-title">Vital Signs</div>
-    <div class="box">${vitalLines.join("  |  ")}</div>
+    <div class="box">${escHtml(vitalLines.join("  |  "))}</div>
   </div>` : ""}
 
   <div class="section">
     <div class="section-title">Physical Examination</div>
-    <div class="box">${consultation.physicalExam || '<span class="no-data">Not recorded</span>'}</div>
+    <div class="box">${consultation.physicalExam ? escHtml(consultation.physicalExam) : '<span class="no-data">Not recorded</span>'}</div>
   </div>
 
   <div class="section">
     <div class="section-title">Diagnosis</div>
-    <div class="box">${consultation.diagnosis || '<span class="no-data">Not recorded</span>'}${consultation.diagnosticCode ? ` (${consultation.diagnosticCode})` : ""}</div>
+    <div class="box">${consultation.diagnosis ? escHtml(consultation.diagnosis) : '<span class="no-data">Not recorded</span>'}${consultation.diagnosticCode ? ` (${escHtml(consultation.diagnosticCode)})` : ""}</div>
   </div>
 
   <div class="section">
     <div class="section-title">Treatment Plan</div>
-    <div class="box">${consultation.plan || '<span class="no-data">Not recorded</span>'}</div>
+    <div class="box">${consultation.plan ? escHtml(consultation.plan) : '<span class="no-data">Not recorded</span>'}</div>
   </div>
 
   ${consultation.followUpInstructions ? `
   <div class="section">
     <div class="section-title">Follow-up Instructions</div>
-    <div class="box">${consultation.followUpInstructions}</div>
+    <div class="box">${escHtml(consultation.followUpInstructions)}</div>
   </div>` : ""}
 
   <div class="section">
     <div class="section-title">Record Date</div>
-    <div class="field-value">${formatDateTime(consultation.createdAt)}</div>
+    <div class="field-value">${escHtml(formatDateTime(consultation.createdAt))}</div>
   </div>
 </body>
 </html>`;

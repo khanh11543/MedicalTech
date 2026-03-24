@@ -4,7 +4,7 @@ import PageMeta from '../../components/common/PageMeta';
 import PageBreadcrumb from '../../components/common/PageBreadCrumb';
 import { useToast } from '../../hooks/useToast';
 import {
-  getDoctorPatients,
+  getMyPatients,
   DoctorPatientDTO,
   PageResponse,
 } from '../../services/doctorService';
@@ -30,20 +30,20 @@ export default function DoctorPatients() {
       }
       try {
         const response: PageResponse<DoctorPatientDTO> =
-          await getDoctorPatients({
+          await getMyPatients({
             search: search,
-            page: page,
-            size: 20,
+            pageNumber: page,
+            pageSize: 20,
             sortBy: 'lastVisitDate',
-            sortDir: 'DESC',
+            sortOrder: 'DESC',
           });
 
         setPatients(response.content);
         setPagination({
-          currentPage: response.number,
+          currentPage: response.pageNumber,
           totalPages: response.totalPages,
           totalElements: response.totalElements,
-          pageSize: response.size,
+          pageSize: response.pageSize,
         });
 
         if (page === 0 && search === '') {
@@ -191,18 +191,17 @@ export default function DoctorPatients() {
                             <img
                               src={
                                 patient.avatarUrl ||
-                                'https://via.placeholder.com/40x40?text=' +
-                                  patient.name[0]
+                                `https://ui-avatars.com/api/?name=${encodeURIComponent(patient.fullName)}&size=40`
                               }
-                              alt={patient.name}
+                              alt={patient.fullName}
                               className='w-10 h-10 rounded-full object-cover'
                             />
                             <div>
                               <p className='font-medium text-gray-900 dark:text-white'>
-                                {patient.name}
+                                {patient.fullName}
                               </p>
                               <p className='text-xs text-gray-500 dark:text-gray-400'>
-                                MRN: {patient.mrn}
+                                ID: {patient.id}
                               </p>
                             </div>
                           </div>
@@ -218,7 +217,9 @@ export default function DoctorPatients() {
                         <td className='px-6 py-4'>
                           <div className='text-sm text-gray-800 dark:text-gray-200'>
                             <p>
-                              {patient.age ? `${patient.age} years` : 'N/A'}
+                              {patient.dateOfBirth
+                                ? `${new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()} years`
+                                : 'N/A'}
                             </p>
                             <p className='text-xs text-gray-500 dark:text-gray-400'>
                               {patient.gender || 'N/A'}
@@ -255,7 +256,7 @@ export default function DoctorPatients() {
                         </td>
                         <td className='px-6 py-4'>
                           <div className='text-sm font-medium text-gray-800 dark:text-gray-200'>
-                            {patient.totalCompletedAppointments} visits
+                            {patient.totalVisits} visits
                           </div>
                         </td>
                         <td className='px-6 py-4'>

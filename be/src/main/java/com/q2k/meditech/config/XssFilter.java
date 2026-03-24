@@ -37,6 +37,8 @@ public class XssFilter implements Filter {
         httpResponse.setHeader("X-XSS-Protection", "1; mode=block");
         httpResponse.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
         httpResponse.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+        // HSTS: enforce HTTPS for 1 year, including subdomains
+        httpResponse.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
         httpResponse.setHeader("Content-Security-Policy",
                 "default-src 'self'; " +
                 "script-src 'self'; " +
@@ -44,8 +46,11 @@ public class XssFilter implements Filter {
                 "img-src 'self' data: blob:; " +
                 "font-src 'self'; " +
                 "connect-src 'self'; " +
+                "object-src 'none'; " +
+                "base-uri 'self'; " +
                 "frame-ancestors 'none'; " +
-                "form-action 'self';");
+                "form-action 'self'; " +
+                "upgrade-insecure-requests;");
 
         chain.doFilter(wrappedRequest, httpResponse);
     }

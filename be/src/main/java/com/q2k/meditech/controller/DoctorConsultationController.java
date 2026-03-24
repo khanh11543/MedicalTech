@@ -3,6 +3,7 @@ package com.q2k.meditech.controller;
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.service.ConsultationService;
 import com.q2k.meditech.util.SecurityUtil;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -52,7 +53,7 @@ public class DoctorConsultationController {
     @RequestMapping("/{appointmentId}/draft")
     public ResponseEntity<ConsultationDTO> saveDraftConsultation(
             @PathVariable Long appointmentId,
-            @RequestBody ConsultationCreateUpdateDTO consultationData) {
+            @Valid @RequestBody ConsultationCreateUpdateDTO consultationData) {
         ConsultationDTO saved = consultationService.updateConsultationDraft(appointmentId, consultationData);
         return ResponseEntity.ok(saved);
     }
@@ -65,7 +66,7 @@ public class DoctorConsultationController {
     @RequestMapping("/{appointmentId}/finalize")
     public ResponseEntity<ConsultationDTO> finalizeConsultation(
             @PathVariable Long appointmentId,
-            @RequestBody ConsultationCreateUpdateDTO consultationData) {
+            @Valid @RequestBody ConsultationCreateUpdateDTO consultationData) {
         ConsultationDTO finalized = consultationService.finalizeConsultationWithData(appointmentId, consultationData);
         return ResponseEntity.ok(finalized);
     }

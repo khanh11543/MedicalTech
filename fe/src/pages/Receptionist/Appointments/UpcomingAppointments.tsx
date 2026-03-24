@@ -3,6 +3,7 @@ import receptionistService from "../../../services/receptionistService";
 import type { ReceptionistAppointmentListDTO } from "../../../services/receptionistService";
 import { StatusBadge, EmptyState, Pagination, Toast, ConfirmDialog } from "./SharedComponents";
 import { TableSkeleton } from "../../../components/ui/skeleton/Skeleton";
+import { escHtml } from "../../../utils/xss";
 
 // ── Upcoming-only allowed actions ──
 // NO check-in, payment, mark no-show, medical info
@@ -271,19 +272,23 @@ export default function UpcomingAppointments({ onViewDetail, onCreateNew: _onCre
       .map(
         (a) =>
           `<tr>
-            <td style="padding:4px 8px;border:1px solid #ddd">${a.startTime}–${a.endTime}</td>
-            <td style="padding:4px 8px;border:1px solid #ddd">${a.appointmentCode}</td>
-            <td style="padding:4px 8px;border:1px solid #ddd">${a.patientName}</td>
-            <td style="padding:4px 8px;border:1px solid #ddd">${a.doctorName}</td>
-            <td style="padding:4px 8px;border:1px solid #ddd">${a.doctorSpecialization}</td>
-            <td style="padding:4px 8px;border:1px solid #ddd">${a.status}</td>
+            <td style="padding:4px 8px;border:1px solid #ddd">${escHtml(a.startTime)}–${escHtml(a.endTime)}</td>
+            <td style="padding:4px 8px;border:1px solid #ddd">${escHtml(a.appointmentCode)}</td>
+            <td style="padding:4px 8px;border:1px solid #ddd">${escHtml(a.patientName)}</td>
+            <td style="padding:4px 8px;border:1px solid #ddd">${escHtml(a.doctorName)}</td>
+            <td style="padding:4px 8px;border:1px solid #ddd">${escHtml(a.doctorSpecialization)}</td>
+            <td style="padding:4px 8px;border:1px solid #ddd">${escHtml(a.status)}</td>
           </tr>`
       )
       .join("");
     printWindow.document.write(`
-      <html><head><title>Schedule ${date}</title></head>
+      <html><head>
+        <meta charset="utf-8">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
+        <title>Schedule ${escHtml(date)}</title>
+      </head>
       <body style="font-family:Arial,sans-serif;padding:20px">
-        <h2>Appointment Schedule — ${formatDateHeader(date)}</h2>
+        <h2>Appointment Schedule — ${escHtml(formatDateHeader(date))}</h2>
         <p>Total: ${apts.length} | Confirmed: ${apts.filter((a) => a.status === "CONFIRMED").length} | Pending: ${apts.filter((a) => a.status === "PENDING").length}</p>
         <table style="border-collapse:collapse;width:100%;font-size:13px">
           <thead><tr style="background:#f3f4f6">
@@ -296,7 +301,7 @@ export default function UpcomingAppointments({ onViewDetail, onCreateNew: _onCre
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
-        <p style="margin-top:16px;font-size:11px;color:#888">Printed at ${new Date().toLocaleString()}</p>
+        <p style="margin-top:16px;font-size:11px;color:#888">Printed at ${escHtml(new Date().toLocaleString())}</p>
       </body></html>
     `);
     printWindow.document.close();

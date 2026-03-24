@@ -33,12 +33,15 @@ public class UpdateDoctorProfileDTO {
     @Min(value = 0, message = "Experience years must be non-negative")
     private Integer experienceYears;
 
+    @Size(max = 2000, message = "Education must not exceed 2000 characters")
     private String education;
 
+    @Size(max = 3000, message = "Bio must not exceed 3000 characters")
     private String bio;
 
     @Size(max = 255, message = "Hospital affiliation must not exceed 255 characters")
     private String hospitalAffiliation;
 
+    @Size(max = 500, message = "Office address must not exceed 500 characters")
     private String officeAddress;
 }

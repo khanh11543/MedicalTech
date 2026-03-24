@@ -3,6 +3,7 @@ package com.q2k.meditech.dto;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -20,9 +21,11 @@ public class PrescriptionCreateDTO {
     private Long appointmentId; // Optional - linked to the appointment
     
     private LocalDate prescriptionDate; // If null, current date will be used
-    
+
+    @Size(max = 5000, message = "Diagnosis must not exceed 5000 characters")
     private String diagnosis; // Diagnosis
-    
+
+    @Size(max = 5000, message = "Notes must not exceed 5000 characters")
     private String notes; // Notes
     
     private LocalDate followUpDate; // Follow-up date

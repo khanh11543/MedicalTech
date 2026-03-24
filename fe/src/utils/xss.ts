@@ -59,3 +59,18 @@ export function sanitizeData<T>(data: T): T {
 
   return data;
 }
+
+/**
+ * HTML-escape a string so it is safe to embed as text inside an HTML template.
+ * Use this whenever inserting user/DB values into template-literal HTML strings
+ * to prevent Stored and Reflected XSS.
+ */
+export function escHtml(value: string | undefined | null): string {
+  if (value == null) return '';
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
