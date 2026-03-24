@@ -4,6 +4,11 @@ import { StarRating } from "./components/SharedComponents";
 import publicService, { type Specialty } from "../../services/publicService";
 import "./landing.css";
 
+/** Same address as Contact page — used for “Get Directions” in Quick Actions */
+const CLINIC_DIRECTIONS_URL =
+  "https://www.google.com/maps/search/?api=1&query=" +
+  encodeURIComponent("11/7 đường 385 Tăng Nhơn Phú A, Thủ Đức, TP.HCM");
+
 /* ============================================================
    HomePage — Pixel-accurate match to MediTech Bootstrap template
    ============================================================ */
@@ -738,26 +743,61 @@ function EmergencySection() {
               Quick Actions
             </h4>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                { icon: "bi bi-geo-alt-fill", label: "Get Directions" },
-                { icon: "bi bi-calendar-check", label: "Book Appointment" },
-                { icon: "bi bi-person-badge", label: "Find a Doctor" },
-                { icon: "bi bi-chat-dots", label: "Live Chat" },
-
-              ].map((action) => (
-                <a
-                  key={action.label}
-                  href="#"
-                  className="flex flex-col items-center p-5 rounded-lg no-underline text-[#2c3031] transition-all hover:bg-[rgba(4,158,187,0.1)] hover:text-[#049ebb] hover:-translate-y-[3px]"
-                >
-                  <i
-                    className={`${action.icon} text-[2rem] text-[#049ebb] mb-[10px]`}
-                  ></i>
-                  <span className="text-[0.9rem] font-medium text-center">
-                    {action.label}
-                  </span>
-                </a>
-              ))}
+              {(
+                [
+                  {
+                    icon: "bi bi-geo-alt-fill",
+                    label: "Get Directions",
+                    externalHref: CLINIC_DIRECTIONS_URL,
+                  },
+                  {
+                    icon: "bi bi-calendar-check",
+                    label: "Book Appointment",
+                    to: "/appointment",
+                  },
+                  {
+                    icon: "bi bi-person-badge",
+                    label: "Find a Doctor",
+                    to: "/doctors",
+                  },
+                  {
+                    icon: "bi bi-chat-dots",
+                    label: "Live Chat",
+                    to: "/contact",
+                  },
+                ] as const
+              ).map((action) => {
+                const className =
+                  "flex flex-col items-center p-5 rounded-lg no-underline text-[#2c3031] transition-all hover:bg-[rgba(4,158,187,0.1)] hover:text-[#049ebb] hover:-translate-y-[3px]";
+                const inner = (
+                  <>
+                    <i
+                      className={`${action.icon} text-[2rem] text-[#049ebb] mb-[10px]`}
+                    ></i>
+                    <span className="text-[0.9rem] font-medium text-center">
+                      {action.label}
+                    </span>
+                  </>
+                );
+                if ("externalHref" in action) {
+                  return (
+                    <a
+                      key={action.label}
+                      href={action.externalHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={className}
+                    >
+                      {inner}
+                    </a>
+                  );
+                }
+                return (
+                  <Link key={action.label} to={action.to} className={className}>
+                    {inner}
+                  </Link>
+                );
+              })}
             </div>
           </div>
 
