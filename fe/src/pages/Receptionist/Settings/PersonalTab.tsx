@@ -3,6 +3,7 @@ import userSettingsService from "../../../services/userSettingsService";
 import type { UserProfile } from "../../../services/userSettingsService";
 import { useAuth } from "../../../context/AuthContext";
 import { getAvatarUrl } from "../../../utils/avatar";
+import ImageCropModal from "../../../components/common/ImageCropModal";
 
 export default function PersonalTab() {
   const { user: authUser } = useAuth();
@@ -31,6 +32,8 @@ export default function PersonalTab() {
   // Avatar
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
 
   useEffect(() => {
     loadProfile();
@@ -70,8 +73,17 @@ export default function PersonalTab() {
     }
   };
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const closeCropModal = () => {
+    setCropModalOpen(false);
+    if (cropImageSrc) {
+      URL.revokeObjectURL(cropImageSrc);
+      setCropImageSrc(null);
+    }
+  };
+
+  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = "";
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
@@ -79,12 +91,22 @@ export default function PersonalTab() {
       return;
     }
 
+    const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (!allowed.includes(file.type)) {
+      setMessage({ type: "error", text: "Please use JPG, PNG, GIF, or WebP" });
+      return;
+    }
+
+    setCropImageSrc(URL.createObjectURL(file));
+    setCropModalOpen(true);
+  };
+
+  const handleAvatarCropped = async (file: File) => {
     try {
       setUploadingAvatar(true);
       const data = await userSettingsService.uploadAvatar(file);
       setProfile(data);
       setMessage({ type: "success", text: "Avatar updated" });
-      // Notify header to update avatar
       window.dispatchEvent(new CustomEvent("avatar-updated", { detail: data.avatarUrl }));
     } catch (err: any) {
       setMessage({ type: "error", text: err.response?.data?.message || "Failed to upload avatar" });
@@ -229,7 +251,7 @@ export default function PersonalTab() {
               type="file"
               accept="image/jpeg,image/png,image/gif,image/webp"
               className="hidden"
-              onChange={handleAvatarChange}
+              onChange={handleAvatarFileSelect}
             />
           </div>
 
@@ -407,6 +429,15 @@ export default function PersonalTab() {
           </div>
         )}
       </div>
+
+      <ImageCropModal
+        open={cropModalOpen}
+        imageSrc={cropImageSrc}
+        onClose={closeCropModal}
+        onCropped={handleAvatarCropped}
+        aspect={1}
+        title="Crop avatar"
+      />
     </div>
   );
 }

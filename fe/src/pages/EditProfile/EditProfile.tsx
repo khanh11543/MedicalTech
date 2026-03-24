@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import ImageCropModal from "../../components/common/ImageCropModal";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import Button from "../../components/ui/button/Button";
@@ -26,6 +27,8 @@ export default function EditProfile() {
 
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
 
   // Change Password state
   const [passwordForm, setPasswordForm] = useState<ChangePasswordRequest>({
@@ -94,11 +97,20 @@ export default function EditProfile() {
     setSuccess(null);
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const closeCropModal = () => {
+    setCropModalOpen(false);
+    if (cropImageSrc) {
+      URL.revokeObjectURL(cropImageSrc);
+      setCropImageSrc(null);
+    }
+  };
+
+  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = "";
+
     if (!file) return;
 
-    // Validate client-side
     const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
       setError("Invalid file type. Allowed: JPEG, PNG, GIF, WebP");
@@ -109,14 +121,21 @@ export default function EditProfile() {
       return;
     }
 
+    setError(null);
+    setSuccess(null);
+    const url = URL.createObjectURL(file);
+    setCropImageSrc(url);
+    setCropModalOpen(true);
+  };
+
+  const handleAvatarCropped = async (file: File) => {
     setUploading(true);
     setError(null);
     setSuccess(null);
     try {
       const result = await userService.uploadAvatar(file);
-      // Backend returns /uploads/avatars/filename — update local state
       setForm((prev) => ({ ...prev, avatarUrl: result.avatarUrl }));
-      setProfile((prev) => prev ? { ...prev, avatarUrl: result.avatarUrl } : prev);
+      setProfile((prev) => (prev ? { ...prev, avatarUrl: result.avatarUrl } : prev));
       updateUserProfile({ avatarUrl: result.avatarUrl });
       setSuccess("Avatar uploaded successfully!");
     } catch (err: unknown) {
@@ -124,8 +143,6 @@ export default function EditProfile() {
       setError(ex.response?.data?.message || "Failed to upload avatar.");
     } finally {
       setUploading(false);
-      // Reset input so the same file can be re-selected
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -230,7 +247,7 @@ export default function EditProfile() {
               type="file"
               accept="image/jpeg,image/png,image/gif,image/webp"
               className="hidden"
-              onChange={handleAvatarUpload}
+              onChange={handleAvatarFileSelect}
               title="Upload avatar image"
             />
           </div>
@@ -475,6 +492,15 @@ export default function EditProfile() {
           </div>
         </div>
       )}
+
+      <ImageCropModal
+        open={cropModalOpen}
+        imageSrc={cropImageSrc}
+        onClose={closeCropModal}
+        onCropped={handleAvatarCropped}
+        aspect={1}
+        title="Crop avatar"
+      />
     </>
   );
 }
