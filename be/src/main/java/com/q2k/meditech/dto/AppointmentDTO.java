@@ -56,6 +56,15 @@ public class AppointmentDTO {
     /** Id of the payment for this appointment (if any) — for patient portal Pay Now */
     private Long paymentId;
 
+    /** Prescription ID linked to this appointment (if any) */
+    private Long prescriptionId;
+
+    /** Payment status of the prescription (UNPAID/PENDING/PAID etc) */
+    private String prescriptionPaymentStatus;
+
+    /** Total cost of prescription medications */
+    private java.math.BigDecimal prescriptionTotalCost;
+
     /** Consultation fee (from doctor) for display on patient portal */
     private BigDecimal consultationFee;
 

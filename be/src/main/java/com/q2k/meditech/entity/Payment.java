@@ -20,8 +20,15 @@ public class Payment extends BaseEntity {
     @Column(name="payment_code", nullable = false, unique = true, length = 20)
     private String paymentCode;
 
-    @OneToOne(fetch = FetchType.LAZY) @JoinColumn(name="appointment_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="appointment_id")
     private Appointment appointment;
+
+    @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="prescription_id")
+    private Prescription prescription;
+
+    @Builder.Default
+    @Column(name="reference_type", length = 20)
+    private String referenceType = "APPOINTMENT"; // APPOINTMENT or PRESCRIPTION
 
     @ManyToOne(fetch = FetchType.LAZY) @JoinColumn(name="patient_id", nullable = false)
     private Patient patient;

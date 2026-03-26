@@ -553,7 +553,7 @@ export default function PrescriptionList() {
                             <TableCell className="px-5 py-4 text-start">
                               <div className="flex items-center gap-1">
                                 <button
-                                  onClick={() => navigate(`/prescription-list/${rx.id}`)}
+                                  onClick={() => navigate(`/admin/prescription-list/${rx.id}`)}
                                   className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20 transition-colors"
                                   title="View Details"
                                 >

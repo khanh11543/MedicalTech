@@ -5,8 +5,10 @@ import com.q2k.meditech.dto.AppointmentHistoryDTO;
 import com.q2k.meditech.entity.Appointment;
 import com.q2k.meditech.entity.AppointmentHistory;
 import com.q2k.meditech.entity.Payment;
+import com.q2k.meditech.entity.Prescription;
 import com.q2k.meditech.entity.User;
 import com.q2k.meditech.repository.PaymentRepository;
+import com.q2k.meditech.repository.PrescriptionRepository;
 import com.q2k.meditech.repository.ReviewRepository;
 import com.q2k.meditech.repository.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -27,6 +29,7 @@ public class AppointmentMapper {
     
     private final UserRepository userRepository;
     private final PaymentRepository paymentRepository;
+    private final PrescriptionRepository prescriptionRepository;
     private final ReviewRepository reviewRepository;
 
     /**
@@ -105,6 +108,19 @@ public class AppointmentMapper {
             log.debug("Could not fetch payment status for appointment {}: {}", appointment.getId(), e.getMessage());
         }
 
+        // Prescription info (for prescription payment feature)
+        try {
+            Optional<Prescription> prescription = prescriptionRepository.findByAppointmentId(appointment.getId());
+            if (prescription.isPresent()) {
+                Prescription p = prescription.get();
+                builder.prescriptionId(p.getId());
+                builder.prescriptionPaymentStatus(p.getPrescriptionPaymentStatus());
+                builder.prescriptionTotalCost(p.getTotalCost());
+            }
+        } catch (Exception e) {
+            log.debug("Could not fetch prescription for appointment {}: {}", appointment.getId(), e.getMessage());
+        }
+
         // Review status
         try {
             builder.hasReview(reviewRepository.existsByAppointmentId(appointment.getId()));
@@ -123,41 +139,24 @@ public class AppointmentMapper {
         
         AppointmentDTO dto = toDTOInternal(appointment);
 
+        // Prescription info
+        try {
+            Optional<Prescription> prescription = prescriptionRepository.findByAppointmentId(appointment.getId());
+            if (prescription.isPresent()) {
+                Prescription p = prescription.get();
+                dto.setPrescriptionId(p.getId());
+                dto.setPrescriptionPaymentStatus(p.getPrescriptionPaymentStatus());
+                dto.setPrescriptionTotalCost(p.getTotalCost());
+            }
+        } catch (Exception e) {
+            log.debug("Could not fetch prescription for appointment {}: {}", appointment.getId(), e.getMessage());
+        }
+
         // Use pre-loaded payment
         Payment payment = paymentMap.get(appointment.getId());
         if (payment != null) {
-            return AppointmentDTO.builder()
-                    .id(dto.getId())
-                    .appointmentCode(dto.getAppointmentCode())
-                    .appointmentDate(dto.getAppointmentDate())
-                    .startTime(dto.getStartTime())
-                    .endTime(dto.getEndTime())
-                    .status(dto.getStatus())
-                    .bookedBy(dto.getBookedBy())
-                    .queueNumber(dto.getQueueNumber())
-                    .reasonForVisit(dto.getReasonForVisit())
-                    .symptoms(dto.getSymptoms())
-                    .notes(dto.getNotes())
-                    .cancellationReason(dto.getCancellationReason())
-                    .checkedInAt(dto.getCheckedInAt())
-                    .createdAt(dto.getCreatedAt())
-                    .updatedAt(dto.getUpdatedAt())
-                    .patientId(dto.getPatientId())
-                    .patientName(dto.getPatientName())
-                    .patientEmail(dto.getPatientEmail())
-                    .patientPhone(dto.getPatientPhone())
-                    .doctorId(dto.getDoctorId())
-                    .doctorName(dto.getDoctorName())
-                    .doctorEmail(dto.getDoctorEmail())
-                    .doctorSpecialization(dto.getDoctorSpecialization())
-                    .consultationFee(dto.getConsultationFee())
-                    .bookedByUserName(dto.getBookedByUserName())
-                    .appointmentType(dto.getAppointmentType())
-                    .paymentStatus(payment.getPaymentStatus())
-                    .paymentId(payment.getId())
-                    .consultationFee(dto.getConsultationFee())
-                    .hasReview(dto.getHasReview())
-                    .build();
+            dto.setPaymentStatus(payment.getPaymentStatus());
+            dto.setPaymentId(payment.getId());
         }
         return dto;
     }

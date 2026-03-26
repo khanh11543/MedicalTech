@@ -502,7 +502,7 @@ export default function PrescriptionDetail() {
                     <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">#</TableCell>
                     <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Medicine Name</TableCell>
                     <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Dosage</TableCell>
-                    <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Frequency</TableCell>
+                    <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Dose Schedule</TableCell>
                     <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Duration</TableCell>
                     <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Quantity</TableCell>
                     <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">Unit</TableCell>
@@ -515,7 +515,19 @@ export default function PrescriptionDetail() {
                       <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">{idx + 1}</TableCell>
                       <TableCell className="px-5 py-3 font-medium text-gray-800 text-start text-theme-sm dark:text-white/90">{med.medicineName}</TableCell>
                       <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">{med.dosage || '-'}</TableCell>
-                      <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">{med.frequency || '-'}</TableCell>
+                      <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
+                        {(med.morningDose || med.noonDose || med.afternoonDose || med.eveningDose) ? (
+                          <span className="inline-flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+                            {[['Morning', med.morningDose], ['Noon', med.noonDose], ['Afternoon', med.afternoonDose], ['Evening', med.eveningDose]].map(([label, val]) => (
+                              <span key={String(label)} className={val ? 'text-gray-800 dark:text-white font-medium' : 'text-gray-400 dark:text-gray-600'}>
+                                {label}: <strong>{val ?? 0}</strong>
+                              </span>
+                            ))}
+                          </span>
+                        ) : (
+                          med.frequency || '-'
+                        )}
+                      </TableCell>
                       <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">{med.duration || '-'}</TableCell>
                       <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">{med.quantity ?? '-'}</TableCell>
                       <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">{med.unit || '-'}</TableCell>

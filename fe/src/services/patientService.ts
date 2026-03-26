@@ -429,6 +429,10 @@ export interface PrescriptionItem {
   unit: string;
   instructions: string;
   notes: string | null;
+  morningDose?: number | null;
+  noonDose?: number | null;
+  afternoonDose?: number | null;
+  eveningDose?: number | null;
   itemOrder: number;
 }
 

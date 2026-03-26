@@ -39,6 +39,9 @@ public class PrescriptionDTO {
     private String notes;
     private LocalDate followUpDate;
     private Boolean isActive;
+
+    private java.math.BigDecimal totalCost;
+    private String prescriptionPaymentStatus; // UNPAID, PENDING, PAID, FAILED, CANCELLED
     
     // Items
     private List<PrescriptionItemDTO> items;

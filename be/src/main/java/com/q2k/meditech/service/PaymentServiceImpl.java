@@ -51,6 +51,10 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentQrRepository paymentQrRepository;
     private final AppointmentRepository appointmentRepository;
+    private final PrescriptionRepository prescriptionRepository;
+    private final MedicationInventoryRepository medicationInventoryRepository;
+    private final MedicationInventoryLogRepository medicationInventoryLogRepository;
+    private final MedicationRepository medicationRepository;
     private final MomoClient momoClient;
     private final UserRepository userRepository;
     private final InvoiceService invoiceService;
@@ -195,6 +199,92 @@ public class PaymentServiceImpl implements PaymentService {
         } catch (Exception e) {
             log.warn("Failed to send new payment notification: {}", e.getMessage());
         }
+        return mapToDTO(payment);
+    }
+
+    @Override
+    @Transactional
+    public PaymentDTO createPrescriptionPayment(PrescriptionPaymentCreateDTO dto, Long currentUserId) {
+        log.info("Creating prescription payment for prescription ID: {}, method: {}", dto.getPrescriptionId(), dto.getPaymentMethod());
+
+        if (currentUserId == null) {
+            throw new BadRequestException("Current user ID cannot be null. Please ensure you are logged in.");
+        }
+        if (dto.getPrescriptionId() == null) {
+            throw new BadRequestException("Prescription ID cannot be null");
+        }
+
+        // Load prescription with items
+        Prescription prescription = prescriptionRepository.findByIdWithDetails(dto.getPrescriptionId())
+                .orElseThrow(() -> new ResourceNotFoundException("Prescription", "id", dto.getPrescriptionId()));
+
+        // Check prescription is active
+        if (prescription.getStatus() != com.q2k.meditech.entity.enums.PrescriptionStatus.ACTIVE) {
+            throw new BadRequestException("Prescription is not active. Current status: " + prescription.getStatus());
+        }
+
+        // Check no active payment already exists
+        Optional<Payment> existingPayment = paymentRepository.findActivePrescriptionPayment(dto.getPrescriptionId());
+        if (existingPayment.isPresent()) {
+            Payment existing = existingPayment.get();
+            if ("PAID".equals(existing.getPaymentStatus())) {
+                throw new BadRequestException("Prescription is already paid");
+            }
+            log.info("Active payment already exists for prescription {}, returning existing payment ID: {}",
+                    dto.getPrescriptionId(), existing.getId());
+            return mapToDTO(existing);
+        }
+
+        // Calculate total from prescription items using medication unit prices
+        BigDecimal totalMedicationCost = BigDecimal.ZERO;
+        for (var item : prescription.getItems()) {
+            BigDecimal itemPrice = item.getPrice();
+            // If price not stored on item, look up from medication
+            if (itemPrice == null && item.getMedicationId() != null) {
+                itemPrice = medicationRepository.findById(item.getMedicationId())
+                        .map(med -> med.getUnitPrice())
+                        .orElse(BigDecimal.ZERO);
+                // Snapshot the price on the item
+                item.setPrice(itemPrice);
+            }
+            if (itemPrice != null && item.getQuantity() != null && item.getQuantity() > 0) {
+                totalMedicationCost = totalMedicationCost.add(itemPrice.multiply(BigDecimal.valueOf(item.getQuantity())));
+            }
+        }
+
+        // Update prescription totalCost
+        prescription.setTotalCost(totalMedicationCost);
+        prescription.setPrescriptionPaymentStatus("PENDING");
+        prescriptionRepository.save(prescription);
+
+        BigDecimal amount = totalMedicationCost;
+        BigDecimal discountAmount = dto.getDiscountAmount() != null ? dto.getDiscountAmount() : BigDecimal.ZERO;
+        BigDecimal taxAmount = dto.getTaxAmount() != null ? dto.getTaxAmount() : BigDecimal.ZERO;
+        BigDecimal totalAmount = amount.subtract(discountAmount).add(taxAmount);
+
+        User processedBy = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", currentUserId));
+
+        Payment payment = Payment.builder()
+                .paymentCode(generatePaymentCode())
+                .prescription(prescription)
+                .appointment(prescription.getAppointment()) // link to appointment if available
+                .patient(prescription.getPatient())
+                .amount(amount)
+                .discountAmount(discountAmount)
+                .taxAmount(taxAmount)
+                .totalAmount(totalAmount)
+                .currency("VND")
+                .paymentMethod(dto.getPaymentMethod())
+                .paymentStatus("PENDING")
+                .referenceType("PRESCRIPTION")
+                .processedBy(processedBy)
+                .notes(dto.getNotes())
+                .build();
+
+        payment = paymentRepository.save(payment);
+        log.info("Prescription payment created with ID: {}, code: {}, total: {}", payment.getId(), payment.getPaymentCode(), totalAmount);
+
         return mapToDTO(payment);
     }
 
@@ -445,6 +535,9 @@ public class PaymentServiceImpl implements PaymentService {
         paymentStatusWebSocketService.broadcastPaymentStatusChange(
                 payment.getId(), payment.getPaymentCode(), "PAID", "CASH");
 
+        // If this is a prescription payment, deduct inventory and update prescription status
+        deductInventoryIfPrescriptionPayment(payment);
+
         log.info("Payment marked as paid: {}", paymentId);
         return mapToDTO(payment);
     }
@@ -485,6 +578,9 @@ public class PaymentServiceImpl implements PaymentService {
         });
 
         payment = paymentRepository.save(payment);
+
+        // Sync prescription payment status back so receptionist can retry
+        syncPrescriptionPaymentStatus(payment, "CANCELLED");
 
         log.info("Payment cancelled: {}", paymentId);
         return mapToDTO(payment);
@@ -620,6 +716,9 @@ public class PaymentServiceImpl implements PaymentService {
         paymentStatusWebSocketService.broadcastPaymentStatusChange(
                 saved.getId(), saved.getPaymentCode(), "PAID", saved.getPaymentMethod());
 
+        // If this is a prescription payment, deduct inventory and update prescription status
+        deductInventoryIfPrescriptionPayment(saved);
+
         // Send notification: payment received (to receptionists/admins)
         try {
             notificationEventService.onMomoPaymentReceived(saved);
@@ -642,6 +741,9 @@ public class PaymentServiceImpl implements PaymentService {
                 ? payment.getNotes() + " | FAILED: " + message
                 : "FAILED: " + message);
         Payment saved = paymentRepository.save(payment);
+
+        // Sync prescription payment status
+        syncPrescriptionPaymentStatus(saved, "FAILED");
 
         // Broadcast real-time update via WebSocket
         paymentStatusWebSocketService.broadcastPaymentStatusChange(
@@ -668,7 +770,14 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setNotes(payment.getNotes() != null
                 ? payment.getNotes() + " | " + status + ": " + message
                 : status + ": " + message);
-        return paymentRepository.save(payment);
+        Payment saved = paymentRepository.save(payment);
+
+        // Sync prescription payment status for terminal states
+        if ("FAILED".equals(status) || "CANCELLED".equals(status)) {
+            syncPrescriptionPaymentStatus(saved, status);
+        }
+
+        return saved;
     }
 
     @Override
@@ -817,14 +926,72 @@ public class PaymentServiceImpl implements PaymentService {
         paymentQrRepository.save(paymentQr);
     }
 
+    /**
+     * Sync prescription's prescriptionPaymentStatus when a prescription payment changes state.
+     * e.g. CANCELLED, FAILED, EXPIRED → prescription reverts so receptionist can retry.
+     */
+    private void syncPrescriptionPaymentStatus(Payment payment, String newStatus) {
+        if (!"PRESCRIPTION".equals(payment.getReferenceType()) || payment.getPrescription() == null) {
+            return;
+        }
+        prescriptionRepository.findById(payment.getPrescription().getId()).ifPresent(prescription -> {
+            String oldStatus = prescription.getPrescriptionPaymentStatus();
+            prescription.setPrescriptionPaymentStatus(newStatus);
+            prescriptionRepository.save(prescription);
+            log.info("Prescription {} payment status synced: {} → {}",
+                    prescription.getPrescriptionCode(), oldStatus, newStatus);
+        });
+    }
+
+    /**
+     * Deduct medication inventory when a prescription payment is marked as PAID.
+     * Also updates the prescription's prescriptionPaymentStatus to PAID.
+     */
+    private void deductInventoryIfPrescriptionPayment(Payment payment) {
+        if (!"PRESCRIPTION".equals(payment.getReferenceType()) || payment.getPrescription() == null) {
+            return;
+        }
+
+        Prescription prescription = prescriptionRepository.findByIdWithDetails(payment.getPrescription().getId())
+                .orElse(null);
+        if (prescription == null) return;
+
+        // Update prescription payment status
+        prescription.setPrescriptionPaymentStatus("PAID");
+        prescriptionRepository.save(prescription);
+
+        // Deduct inventory for each item
+        for (var item : prescription.getItems()) {
+            if (item.getMedicationId() != null && item.getQuantity() != null && item.getQuantity() > 0) {
+                medicationInventoryRepository.findByMedicationId(item.getMedicationId()).ifPresent(inventory -> {
+                    int before = inventory.getQuantity();
+                    int after = Math.max(0, before - item.getQuantity());
+                    inventory.setQuantity(after);
+                    medicationInventoryRepository.save(inventory);
+
+                    MedicationInventoryLog invLog = MedicationInventoryLog.builder()
+                            .medication(inventory.getMedication())
+                            .type("INVENTORY_DEDUCT_BY_PRESCRIPTION")
+                            .quantityBefore(before)
+                            .quantityAfter(after)
+                            .delta(after - before)
+                            .note("Prescription " + prescription.getPrescriptionCode() + " paid - Payment " + payment.getPaymentCode())
+                            .referenceType("PRESCRIPTION")
+                            .referenceId(prescription.getId())
+                            .changedAt(LocalDateTime.now())
+                            .build();
+                    medicationInventoryLogRepository.save(invLog);
+                    log.info("Deducted {} units from medication ID {} ({}→{}) on prescription payment",
+                            item.getQuantity(), item.getMedicationId(), before, after);
+                });
+            }
+        }
+    }
+
     private PaymentDTO mapToDTO(Payment payment) {
-        PaymentDTO dto = PaymentDTO.builder()
+        PaymentDTO.PaymentDTOBuilder dtoBuilder = PaymentDTO.builder()
                 .id(payment.getId())
                 .paymentCode(payment.getPaymentCode())
-                .appointmentId(payment.getAppointment().getId())
-                .appointmentCode(payment.getAppointment().getAppointmentCode() != null 
-                        ? payment.getAppointment().getAppointmentCode() 
-                        : "APT-" + payment.getAppointment().getId())
                 .patientId(payment.getPatient().getId())
                 .patientName(payment.getPatient().getUser().getFullName())
                 .amount(payment.getAmount())
@@ -844,19 +1011,31 @@ public class PaymentServiceImpl implements PaymentService {
                 .notes(payment.getNotes())
                 .createdAt(payment.getCreatedAt())
                 .updatedAt(payment.getUpdatedAt())
-                .doctorName(payment.getAppointment() != null 
-                        && payment.getAppointment().getDoctor() != null 
-                        && payment.getAppointment().getDoctor().getUser() != null
-                        ? payment.getAppointment().getDoctor().getUser().getFullName() : null)
-                .doctorSpecialty(payment.getAppointment() != null 
-                        && payment.getAppointment().getDoctor() != null
-                        ? payment.getAppointment().getDoctor().getSpecialization() : null)
-                .appointmentDate(payment.getAppointment() != null 
-                        ? payment.getAppointment().getAppointmentDate() : null)
-                .appointmentStatus(payment.getAppointment() != null 
-                        && payment.getAppointment().getStatus() != null
-                        ? payment.getAppointment().getStatus().name() : null)
-                .build();
+                .referenceType(payment.getReferenceType() != null ? payment.getReferenceType() : "APPOINTMENT");
+
+        // Appointment info (may be null for prescription-only payments)
+        if (payment.getAppointment() != null) {
+            dtoBuilder.appointmentId(payment.getAppointment().getId())
+                    .appointmentCode(payment.getAppointment().getAppointmentCode() != null
+                            ? payment.getAppointment().getAppointmentCode()
+                            : "APT-" + payment.getAppointment().getId());
+            if (payment.getAppointment().getDoctor() != null) {
+                dtoBuilder.doctorName(payment.getAppointment().getDoctor().getUser() != null
+                        ? payment.getAppointment().getDoctor().getUser().getFullName() : null);
+                dtoBuilder.doctorSpecialty(payment.getAppointment().getDoctor().getSpecialization());
+            }
+            dtoBuilder.appointmentDate(payment.getAppointment().getAppointmentDate());
+            dtoBuilder.appointmentStatus(payment.getAppointment().getStatus() != null
+                    ? payment.getAppointment().getStatus().name() : null);
+        }
+
+        // Prescription info
+        if (payment.getPrescription() != null) {
+            dtoBuilder.prescriptionId(payment.getPrescription().getId())
+                    .prescriptionCode(payment.getPrescription().getPrescriptionCode());
+        }
+
+        PaymentDTO dto = dtoBuilder.build();
 
         if (payment.getProcessedBy() != null) {
             dto.setProcessedBy(payment.getProcessedBy().getId());
@@ -1481,6 +1660,9 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setUpdatedAt(LocalDateTime.now());
         Payment saved = paymentRepository.save(payment);
 
+        // Sync prescription payment status back so receptionist can retry
+        syncPrescriptionPaymentStatus(saved, "CANCELLED");
+
         log.info("Payment cancelled by admin: {}", paymentId);
         return mapToDTO(saved);
     }
@@ -1519,6 +1701,9 @@ public class PaymentServiceImpl implements PaymentService {
                 payment.setNotes((payment.getNotes() != null ? payment.getNotes() + "\n" : "")
                         + "Auto-expired after " + dto.getExpiryMinutes() + " minutes");
                 paymentRepository.save(payment);
+
+                // Sync prescription payment status so receptionist can retry
+                syncPrescriptionPaymentStatus(payment, "EXPIRED");
             }
 
             // Expire QR codes

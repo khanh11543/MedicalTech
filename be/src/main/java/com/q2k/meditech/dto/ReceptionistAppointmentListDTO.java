@@ -53,11 +53,20 @@ public class ReceptionistAppointmentListDTO {
     private String paymentStatus;
     private BigDecimal fee;
 
+    // Prescription payment info
+    private Long prescriptionId;
+    private String prescriptionPaymentStatus;
+    private BigDecimal prescriptionTotalCost;
+
     /**
      * Convert from full AppointmentDTO to privacy-respecting receptionist DTO.
      */
     public static ReceptionistAppointmentListDTO fromAppointmentDTO(AppointmentDTO dto, String maskedOrFullPhone) {
-        return fromAppointmentDTO(dto, null, null, null, maskedOrFullPhone);
+        ReceptionistAppointmentListDTO result = fromAppointmentDTO(dto, null, null, null, maskedOrFullPhone);
+        result.setPrescriptionId(dto.getPrescriptionId());
+        result.setPrescriptionPaymentStatus(dto.getPrescriptionPaymentStatus());
+        result.setPrescriptionTotalCost(dto.getPrescriptionTotalCost());
+        return result;
     }
 
     /**
@@ -87,6 +96,9 @@ public class ReceptionistAppointmentListDTO {
                 .paymentId(paymentId)
                 .paymentStatus(paymentStatus)
                 .fee(fee)
+                .prescriptionId(dto.getPrescriptionId())
+                .prescriptionPaymentStatus(dto.getPrescriptionPaymentStatus())
+                .prescriptionTotalCost(dto.getPrescriptionTotalCost())
                 .build();
     }
 }

@@ -42,6 +42,9 @@ public class RefundServiceImpl implements RefundService {
     private final PaymentRepository paymentRepository;
     private final UserRepository userRepository;
     private final AuditLogRepository auditLogRepository;
+    private final PrescriptionRepository prescriptionRepository;
+    private final MedicationInventoryRepository medicationInventoryRepository;
+    private final MedicationInventoryLogRepository medicationInventoryLogRepository;
 
     // ========== LIST / FILTER ==========
 
@@ -502,6 +505,9 @@ public class RefundServiceImpl implements RefundService {
                 String.format("Refund processed. Method: %s, Type: %s, Transaction: %s",
                         refund.getRefundMethod(), refund.getRefundType(), dto.getTransactionReference()));
 
+        // Restore inventory if this is a prescription payment refund
+        restoreInventoryIfPrescriptionRefund(saved);
+
         // Send notification if requested
         if (Boolean.TRUE.equals(dto.getSendNotification())) {
             sendRefundNotification(refund, "COMPLETED");
@@ -887,6 +893,53 @@ public class RefundServiceImpl implements RefundService {
             case "createdat" -> "createdAt";
             default -> "requestedDate";
         };
+    }
+
+    private void restoreInventoryIfPrescriptionRefund(Refund refund) {
+        try {
+            Payment payment = refund.getPayment();
+            if (payment == null || !"PRESCRIPTION".equals(payment.getReferenceType())
+                    || payment.getPrescription() == null) {
+                return;
+            }
+
+            Prescription prescription = prescriptionRepository
+                    .findByIdWithDetails(payment.getPrescription().getId())
+                    .orElse(null);
+            if (prescription == null || prescription.getItems() == null) return;
+
+            for (var item : prescription.getItems()) {
+                if (item.getMedicationId() != null && item.getQuantity() != null && item.getQuantity() > 0) {
+                    medicationInventoryRepository.findByMedicationId(item.getMedicationId())
+                            .ifPresent(inventory -> {
+                                int before = inventory.getQuantity();
+                                int after = before + item.getQuantity();
+                                inventory.setQuantity(after);
+                                medicationInventoryRepository.save(inventory);
+
+                                MedicationInventoryLog invLog = MedicationInventoryLog.builder()
+                                        .medication(inventory.getMedication())
+                                        .type("INVENTORY_RESTORE_BY_REFUND")
+                                        .quantityBefore(before)
+                                        .quantityAfter(after)
+                                        .delta(after - before)
+                                        .note("Refund " + refund.getRefundCode()
+                                                + " for prescription " + prescription.getPrescriptionCode())
+                                        .referenceType("REFUND")
+                                        .referenceId(refund.getId())
+                                        .changedAt(java.time.LocalDateTime.now())
+                                        .build();
+                                medicationInventoryLogRepository.save(invLog);
+
+                                log.info("Restored {} units to medication ID {} ({}→{}) on refund {}",
+                                        item.getQuantity(), item.getMedicationId(), before, after,
+                                        refund.getRefundCode());
+                            });
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to restore inventory on refund {}: {}", refund.getRefundCode(), e.getMessage(), e);
+        }
     }
 
     private void logRefundAudit(Refund refund, String action, Long userId, String details) {

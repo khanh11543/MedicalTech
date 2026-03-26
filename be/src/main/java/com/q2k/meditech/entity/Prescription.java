@@ -63,6 +63,13 @@ public class Prescription extends BaseEntity {
     @Builder.Default
     private Boolean isActive = true;
 
+    @Column(name = "total_cost")
+    private java.math.BigDecimal totalCost; // Sum of (quantity * price) for all items
+
+    @Builder.Default
+    @Column(name = "prescription_payment_status", length = 20)
+    private String prescriptionPaymentStatus = "UNPAID"; // UNPAID, PENDING, PAID, FAILED, CANCELLED, EXPIRED
+
     @OneToMany(mappedBy = "prescription", cascade = CascadeType.ALL, orphanRemoval = true)
     @org.hibernate.annotations.BatchSize(size = 10)
     @Builder.Default

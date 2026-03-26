@@ -23,6 +23,12 @@ public class PaymentDTO {
     private Long appointmentId;
     
     private String appointmentCode;
+
+    private Long prescriptionId;
+
+    private String prescriptionCode;
+
+    private String referenceType; // APPOINTMENT or PRESCRIPTION
     
     private Long patientId;
     

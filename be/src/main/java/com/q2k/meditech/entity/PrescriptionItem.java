@@ -20,6 +20,9 @@ public class PrescriptionItem {
     @JoinColumn(name = "prescription_id", nullable = false)
     private Prescription prescription;
 
+    @Column(name = "medication_id")
+    private Long medicationId; // Optional FK to medications table for inventory tracking
+
     @Column(name = "medicine_name", nullable = false)
     private String medicineName; // Medicine name
 
@@ -44,6 +47,22 @@ public class PrescriptionItem {
     @Column(name = "notes")
     private String notes; // Additional notes
 
+    // ── Dose schedule fields (morning / noon / afternoon / evening) ──
+    @Column(name = "morning_dose")
+    private Double morningDose;
+
+    @Column(name = "noon_dose")
+    private Double noonDose;
+
+    @Column(name = "afternoon_dose")
+    private Double afternoonDose;
+
+    @Column(name = "evening_dose")
+    private Double eveningDose;
+
     @Column(name = "item_order")
     private Integer itemOrder; // Display order
+
+    @Column(name = "price")
+    private java.math.BigDecimal price; // Unit price snapshot at prescription time
 }

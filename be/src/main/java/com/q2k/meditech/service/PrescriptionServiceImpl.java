@@ -40,6 +40,8 @@ public class PrescriptionServiceImpl implements PrescriptionService {
     private final AppointmentRepository appointmentRepository;
     private final PrescriptionMapper prescriptionMapper;
     private final PrescriptionTemplateRepository prescriptionTemplateRepository;
+    private final MedicationInventoryRepository medicationInventoryRepository;
+    private final MedicationInventoryLogRepository medicationInventoryLogRepository;
 
     @Override
     public PrescriptionDTO createPrescription(PrescriptionCreateDTO dto, Long doctorUserId) {
@@ -103,6 +105,26 @@ public class PrescriptionServiceImpl implements PrescriptionService {
         }
 
         log.info("Prescription created with ID: {}, code: {}", savedPrescription.getId(), savedPrescription.getPrescriptionCode());
+
+        // Snapshot unit prices from medications and calculate total cost
+        java.math.BigDecimal totalCost = java.math.BigDecimal.ZERO;
+        for (PrescriptionItem item : savedPrescription.getItems()) {
+            if (item.getMedicationId() != null) {
+                medicationInventoryRepository.findByMedicationId(item.getMedicationId()).ifPresent(inv -> {
+                    if (inv.getMedication() != null && inv.getMedication().getUnitPrice() != null) {
+                        item.setPrice(inv.getMedication().getUnitPrice());
+                    }
+                });
+            }
+            if (item.getPrice() != null && item.getQuantity() != null && item.getQuantity() > 0) {
+                totalCost = totalCost.add(item.getPrice().multiply(java.math.BigDecimal.valueOf(item.getQuantity())));
+            }
+        }
+        savedPrescription.setTotalCost(totalCost);
+        savedPrescription.setPrescriptionPaymentStatus("UNPAID");
+        savedPrescription = prescriptionRepository.save(savedPrescription);
+
+        // Stock deduction is NOT done here — it happens when prescription payment is marked PAID
 
         return prescriptionMapper.toDTO(savedPrescription);
     }

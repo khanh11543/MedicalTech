@@ -169,125 +169,237 @@ function PrescriptionDetailModal({
   prescription: Prescription;
   onClose: () => void;
 }) {
+  /** Parse "10 days" → 10 */
+  const parseDays = (d?: string) => {
+    if (!d) return 0;
+    const m = d.match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : 0;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" />
-      <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-6 py-4 flex items-center justify-between rounded-t-2xl">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-gray-800 dark:text-white">Prescription Details</h2>
-            <span
-              className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                rx.isActive
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                  : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
-              }`}
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+
+        {/* ══════════ PRESCRIPTION HEADER ══════════ */}
+        <div className="border-b border-gray-200 dark:border-gray-700 px-6 pt-6 pb-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white tracking-wide uppercase">
+              Prescription
+            </h2>
+            <button
+              type="button"
+              title="Close"
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors print:hidden"
             >
-              {rx.isActive ? "Active" : "Expired"}
-            </span>
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <button
-            type="button"
-            title="Close"
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          >
-            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+
+          {/* Patient & Prescription Info */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
+            <div className="flex gap-2">
+              <span className="text-gray-500 dark:text-gray-400 w-28 shrink-0">Full Name:</span>
+              <span className="font-semibold text-gray-800 dark:text-white">{rx.patientName}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-gray-500 dark:text-gray-400 w-28 shrink-0">Date of Birth:</span>
+              <span className="text-gray-800 dark:text-white">
+                {rx.patientDateOfBirth
+                  ? new Date(rx.patientDateOfBirth).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+                  : "—"}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-gray-500 dark:text-gray-400 w-28 shrink-0">Gender:</span>
+              <span className="text-gray-800 dark:text-white">{rx.patientGender || "—"}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-gray-500 dark:text-gray-400 w-28 shrink-0">Phone:</span>
+              <span className="text-gray-800 dark:text-white">{rx.patientPhone || "—"}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-gray-500 dark:text-gray-400 w-28 shrink-0">Booked by:</span>
+              <span className="text-gray-800 dark:text-white">{rx.patientName}</span>
+            </div>
+            <div className="flex gap-2">
+              <span className="text-gray-500 dark:text-gray-400 w-28 shrink-0">Prescription #:</span>
+              <span className="font-mono font-semibold text-gray-800 dark:text-white">{rx.prescriptionCode || `RX-${rx.id}`}</span>
+            </div>
+          </div>
         </div>
 
-        <div className="px-6 py-5 space-y-6">
-          {/* Info Grid */}
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-            <div>
-              <p className="text-xs text-gray-400">Doctor</p>
-              <p className="text-sm text-gray-800 dark:text-white font-medium mt-0.5">Dr. {rx.doctorName}</p>
+        {/* ══════════ DIAGNOSIS ══════════ */}
+        {rx.diagnosis && (
+          <div className="px-6 pt-4">
+            <div className="flex gap-2 text-sm">
+              <span className="text-gray-500 dark:text-gray-400 w-28 shrink-0 font-medium">Diagnosis:</span>
+              <span className="text-gray-800 dark:text-white">{rx.diagnosis}</span>
             </div>
-            <div>
-              <p className="text-xs text-gray-400">Specialty</p>
-              <p className="text-sm text-gray-800 dark:text-white mt-0.5">{rx.doctorSpecialization}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400">Date</p>
-              <p className="text-sm text-gray-800 dark:text-white mt-0.5">
-                {new Date(rx.prescriptionDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-              </p>
-            </div>
-            {rx.followUpDate && (
-              <div>
-                <p className="text-xs text-gray-400">Follow-up</p>
-                <p className="text-sm text-gray-800 dark:text-white mt-0.5">
-                  {new Date(rx.followUpDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-                </p>
-              </div>
-            )}
           </div>
+        )}
 
-          {/* Diagnosis */}
-          {rx.diagnosis && (
-            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20">
-              <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase mb-1">Diagnosis</p>
-              <p className="text-sm text-gray-800 dark:text-white">{rx.diagnosis}</p>
-            </div>
-          )}
+        {/* ══════════ PRESCRIBED MEDICINES ══════════ */}
+        <div className="px-6 py-5">
+          <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">
+            Prescribed Medicines
+          </h3>
 
-          {/* Medications Table */}
-          <div>
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-              Medications ({rx.items.length})
-            </h3>
-            <div className="space-y-3">
-              {rx.items.map((item, idx) => (
+          <div className="space-y-4">
+            {rx.items.map((item, idx) => {
+              const hasDoseSchedule = !!(item.morningDose || item.noonDose || item.afternoonDose || item.eveningDose);
+              const dailyTotal = (item.morningDose || 0) + (item.noonDose || 0) + (item.afternoonDose || 0) + (item.eveningDose || 0);
+              const days = parseDays(item.duration);
+              const totalQty = item.quantity || (dailyTotal > 0 && days > 0 ? dailyTotal * days : 0);
+              const unit = item.unit || "units";
+
+              return (
                 <div
                   key={item.id}
-                  className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30"
+                  className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center text-xs font-bold">
-                      {idx + 1}
-                    </span>
-                    <h4 className="text-sm font-semibold text-gray-800 dark:text-white">
-                      {item.medicationName}
-                    </h4>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                    <div>
-                      <span className="text-gray-400">Dosage</span>
-                      <p className="text-gray-700 dark:text-gray-300 font-medium">{item.dosage}</p>
+                  {/* Medicine name header */}
+                  <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 px-4 py-2.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-xs font-bold">
+                        {idx + 1}
+                      </span>
+                      <h4 className="text-sm font-bold text-gray-800 dark:text-white">
+                        {item.medicineName}
+                      </h4>
+                      {item.dosage && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          ({item.dosage})
+                        </span>
+                      )}
                     </div>
-                    <div>
-                      <span className="text-gray-400">Frequency</span>
-                      <p className="text-gray-700 dark:text-gray-300 font-medium">{item.frequency}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Duration</span>
-                      <p className="text-gray-700 dark:text-gray-300 font-medium">{item.duration}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-400">Quantity</span>
-                      <p className="text-gray-700 dark:text-gray-300 font-medium">{item.quantity}</p>
+                    <div className="text-right text-xs text-gray-500 dark:text-gray-400">
+                      {item.duration && <span>x {item.duration}</span>}
+                      {totalQty > 0 && <span className="ml-1 font-semibold text-gray-700 dark:text-gray-200">= {totalQty} {unit}</span>}
                     </div>
                   </div>
+
+                  {/* Dose schedule table */}
+                  {hasDoseSchedule ? (
+                    <div className="px-4 py-3">
+                      <div className="grid grid-cols-4 gap-3 text-center text-xs mb-2">
+                        <div>
+                          <p className="text-gray-400 dark:text-gray-500 mb-1">Morning</p>
+                          <p className={`text-lg font-bold ${item.morningDose ? 'text-gray-800 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}>
+                            {item.morningDose || "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400 dark:text-gray-500 mb-1">Noon</p>
+                          <p className={`text-lg font-bold ${item.noonDose ? 'text-gray-800 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}>
+                            {item.noonDose || "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400 dark:text-gray-500 mb-1">Afternoon</p>
+                          <p className={`text-lg font-bold ${item.afternoonDose ? 'text-gray-800 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}>
+                            {item.afternoonDose || "—"}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400 dark:text-gray-500 mb-1">Evening</p>
+                          <p className={`text-lg font-bold ${item.eveningDose ? 'text-gray-800 dark:text-white' : 'text-gray-300 dark:text-gray-600'}`}>
+                            {item.eveningDose || "—"}
+                          </p>
+                        </div>
+                      </div>
+                      {/* Summary line */}
+                      {dailyTotal > 0 && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-700 pt-2 mt-1">
+                          Daily total: <span className="font-semibold text-gray-700 dark:text-gray-200">{dailyTotal} {unit}/day</span>
+                          {days > 0 && (
+                            <>
+                              {" · "}Duration: <span className="font-semibold text-gray-700 dark:text-gray-200">{days} days</span>
+                              {" · "}Total: <span className="font-bold text-gray-800 dark:text-white">{dailyTotal * days} {unit}</span>
+                            </>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    /* Fallback: old-style frequency/quantity display */
+                    <div className="px-4 py-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <span className="text-gray-400 dark:text-gray-500">Frequency</span>
+                          <p className="font-medium text-gray-700 dark:text-gray-300">{item.frequency || "—"}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 dark:text-gray-500">Duration</span>
+                          <p className="font-medium text-gray-700 dark:text-gray-300">{item.duration || "—"}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 dark:text-gray-500">Quantity</span>
+                          <p className="font-medium text-gray-700 dark:text-gray-300">{item.quantity || "—"}</p>
+                        </div>
+                        <div>
+                          <span className="text-gray-400 dark:text-gray-500">Unit</span>
+                          <p className="font-medium text-gray-700 dark:text-gray-300">{item.unit || "—"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Instructions */}
                   {item.instructions && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 italic">
-                      📋 {item.instructions}
-                    </p>
+                    <div className="px-4 pb-3 text-xs text-gray-600 dark:text-gray-400 italic border-t border-gray-100 dark:border-gray-700 pt-2 mx-4">
+                      Usage: {item.instructions}
+                    </div>
                   )}
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
+        </div>
 
-          {/* Notes */}
-          {rx.notes && (
-            <div>
-              <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Notes</h3>
+        {/* ══════════ NOTES ══════════ */}
+        {rx.notes && (
+          <div className="px-6 pb-4">
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 p-3">
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase mb-1">Notes</p>
               <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line">{rx.notes}</p>
             </div>
-          )}
+          </div>
+        )}
+
+        {/* ══════════ FOLLOW-UP ══════════ */}
+        {rx.followUpDate && (
+          <div className="px-6 pb-4">
+            <div className="flex items-center gap-2 rounded-lg bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 px-4 py-2.5 text-sm">
+              <svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+              <span className="text-blue-700 dark:text-blue-300">
+                <strong>Follow-up:</strong>{" "}
+                {new Date(rx.followUpDate).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* ══════════ FOOTER — DOCTOR SIGNATURE ══════════ */}
+        <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-5">
+          <div className="flex justify-between items-end">
+            <div className="text-xs text-gray-400 dark:text-gray-500">
+              <p>Prescribed: {new Date(rx.prescriptionDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
+              {rx.prescriptionCode && <p className="font-mono">{rx.prescriptionCode}</p>}
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">Prescribing Doctor</p>
+              <p className="text-sm font-bold text-gray-800 dark:text-white">Dr. {rx.doctorName}</p>
+              {rx.doctorSpecialization && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">{rx.doctorSpecialization}</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

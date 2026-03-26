@@ -46,6 +46,15 @@ const AppointmentStatistics = lazy(
 const PrescriptionList = lazy(
   () => import('./pages/PrescriptionManagement/PrescriptionList')
 );
+const MedicationList = lazy(
+  () => import('./pages/MedicationManagement/MedicationList')
+);
+const MedicationInventory = lazy(
+  () => import('./pages/MedicationManagement/MedicationInventory')
+);
+const InventoryAuditLog = lazy(
+  () => import('./pages/MedicationManagement/InventoryAuditLog')
+);
 const PrescriptionDetail = lazy(
   () => import('./pages/PrescriptionManagement/PrescriptionDetail')
 );
@@ -335,6 +344,20 @@ export default function App() {
                 <Route
                   path='/admin/timeslot-time-off-requests'
                   element={<AdminTimeOffRequests />}
+                />
+
+                {/* Medication Management */}
+                <Route
+                  path='/admin/medication-list'
+                  element={<MedicationList />}
+                />
+                <Route
+                  path='/admin/medication-inventory'
+                  element={<MedicationInventory />}
+                />
+                <Route
+                  path='/admin/inventory-audit-log'
+                  element={<InventoryAuditLog />}
                 />
 
                 {/* Prescription Management */}

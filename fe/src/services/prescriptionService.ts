@@ -4,6 +4,7 @@ import api from './api';
 
 export interface PrescriptionItemDTO {
   id?: number;
+  medicationId?: number;
   medicineName: string;
   dosage: string;
   frequency: string;
@@ -12,7 +13,12 @@ export interface PrescriptionItemDTO {
   unit?: string;
   instructions?: string;
   notes?: string;
+  morningDose?: number;
+  noonDose?: number;
+  afternoonDose?: number;
+  eveningDose?: number;
   itemOrder?: number;
+  price?: number; // Unit price snapshot
 }
 
 export interface PrescriptionCreateDTO {
@@ -43,6 +49,8 @@ export interface PrescriptionDTO {
   followUpDate?: string;
   isActive: boolean;
   items: PrescriptionItemDTO[];
+  totalCost?: number;
+  prescriptionPaymentStatus?: string; // UNPAID, PENDING, PAID, FAILED, CANCELLED
   createdAt: string;
   updatedAt: string;
 }

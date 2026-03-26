@@ -55,6 +55,9 @@ export interface AppointmentDTO {
   updatedAt: string;
   appointmentType?: AppointmentType;
   paymentStatus?: PaymentStatus;
+  prescriptionId?: number;
+  prescriptionPaymentStatus?: string; // UNPAID, PENDING, PAID, FAILED, CANCELLED
+  prescriptionTotalCost?: number;
 }
 
 export interface AppointmentFilterDTO {
