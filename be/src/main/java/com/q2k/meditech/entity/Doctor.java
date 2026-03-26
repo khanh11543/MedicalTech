@@ -99,6 +99,14 @@ public class Doctor {
     @Column(name = "queue_status", length = 20)
     private DoctorQueueStatus queueStatus = DoctorQueueStatus.OFFLINE;
 
+    /**
+     * Room assignment (admin-managed). One doctor per room.
+     * Keep currentRoom for backward compatibility with existing queue/display logic.
+     */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "room_id", unique = true, foreignKey = @ForeignKey(name = "fk_doctors_room"))
+    private Room room;
+
     @Column(name = "current_room", length = 20)
     private String currentRoom;
 

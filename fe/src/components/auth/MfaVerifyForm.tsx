@@ -3,6 +3,7 @@ import { useLocation, useNavigate, Link } from "react-router";
 import authService from "../../services/authService";
 import Button from "../ui/button/Button";
 import { useAuth } from "../../context/AuthContext";
+import { authStorage } from "../../utils/authStorage";
 
 /** Accept 6-digit TOTP or alphanumeric backup code (8–32 chars). */
 const isValidCode = (value: string): boolean => {
@@ -20,6 +21,7 @@ export default function MfaVerifyForm() {
   const mfaToken = state.mfaToken || "";
 
   const [code, setCode] = useState("");
+  const [rememberDevice, setRememberDevice] = useState(true);
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -59,7 +61,15 @@ export default function MfaVerifyForm() {
 
     setIsSubmitting(true);
     try {
-      const tokenData = await authService.verifyMfaLogin({ mfaToken, code: trimmed });
+      const tokenData = await authService.verifyMfaLogin({
+        mfaToken,
+        code: trimmed,
+        rememberDevice,
+        deviceId: authStorage.getOrCreateDeviceId(),
+      });
+      if (tokenData.trustedDeviceToken) {
+        authStorage.setTrustedDeviceToken(tokenData.trustedDeviceToken);
+      }
       setAuthFromToken(tokenData);
       redirectByRole(tokenData.roles || []);
     } catch (err: unknown) {
@@ -123,6 +133,15 @@ export default function MfaVerifyForm() {
                   {isSubmitting ? "Verifying..." : "Verify"}
                 </Button>
               </div>
+
+              <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 justify-center">
+                <input
+                  type="checkbox"
+                  checked={rememberDevice}
+                  onChange={(e) => setRememberDevice(e.target.checked)}
+                />
+                Remember this device for 7 days
+              </label>
 
               <div className="text-center">
                 <Link to="/signin" className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">

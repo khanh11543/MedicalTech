@@ -49,6 +49,7 @@ public class AuthService {
     private final EmailVerificationRepository emailVerificationRepository;
     private final UserSessionRepository userSessionRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final TrustedDeviceRepository trustedDeviceRepository;
     private final LoginAttemptRepository loginAttemptRepository;
     private final RoleRepository roleRepository;
     private final PasswordHistoryRepository passwordHistoryRepository;
@@ -121,6 +122,9 @@ public class AuthService {
     private int resetTokenExpiryMinutes;
 
     private static final SecureRandom secureRandom = new SecureRandom();
+
+    @Value("${app.mfa.trusted-device-days:7}")
+    private int trustedDeviceDays;
 
     /**
      * Register new patient account
@@ -396,6 +400,29 @@ public class AuthService {
 
             // If MFA enabled, return a short-lived MFA token instead of session tokens
             if (Boolean.TRUE.equals(user.getTwoFactorEnabled())) {
+                // Trusted-device bypass (optional)
+                if (loginDTO.getTrustedDeviceToken() != null
+                        && loginDTO.getDeviceId() != null
+                        && !loginDTO.getTrustedDeviceToken().isBlank()
+                        && !loginDTO.getDeviceId().isBlank()) {
+                    try {
+                        String tdHash = hashToken(loginDTO.getTrustedDeviceToken());
+                        boolean ok = trustedDeviceRepository
+                                .findActive(user, loginDTO.getDeviceId(), tdHash, LocalDateTime.now())
+                                .isPresent();
+                        if (ok) {
+                            TokenDTO token = generateTokens(user, loginDTO.getDeviceId(), loginDTO.getDeviceName(),
+                                    ipAddress, userAgent);
+                            return LoginResponseDTO.builder()
+                                    .mfaRequired(false)
+                                    .token(token)
+                                    .build();
+                        }
+                    } catch (Exception ignore) {
+                        // fall through to MFA required
+                    }
+                }
+
                 String mfaToken = jwtService.generateMfaLoginToken(user.getEmail(), user.getId());
                 return LoginResponseDTO.builder()
                         .mfaRequired(true)
@@ -959,13 +986,42 @@ public class AuthService {
 
         // Successful MFA completion — issue tokens
         recordLoginAttempt(user, user.getEmail(), true, null, ipAddress, userAgent);
-        return generateTokens(
+        TokenDTO token = generateTokens(
                 user,
                 request.getHeader("User-Agent"),
                 "MFA Verified (Web)",
                 ipAddress,
                 userAgent
         );
+
+        // Issue trusted-device token if requested
+        boolean rememberDevice = Boolean.TRUE.equals(dto.getRememberDevice());
+        if (rememberDevice && dto.getDeviceId() != null && !dto.getDeviceId().isBlank()) {
+            // rotate existing trusted token for same device
+            trustedDeviceRepository.revokeByUserAndDevice(user, dto.getDeviceId(), LocalDateTime.now());
+
+            String raw = generateTrustedDeviceToken();
+            TrustedDevice td = TrustedDevice.builder()
+                    .user(user)
+                    .deviceId(dto.getDeviceId())
+                    .tokenHash(hashToken(raw))
+                    .issuedAt(LocalDateTime.now())
+                    .expiresAt(LocalDateTime.now().plusDays(trustedDeviceDays))
+                    .ipAddress(ipAddress)
+                    .userAgent(request.getHeader("User-Agent"))
+                    .build();
+            trustedDeviceRepository.save(td);
+
+            token.setTrustedDeviceToken(raw);
+        }
+
+        return token;
+    }
+
+    private String generateTrustedDeviceToken() {
+        byte[] bytes = new byte[32];
+        secureRandom.nextBytes(bytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 
     // ==================== Google OAuth2 Methods ====================

@@ -9,6 +9,8 @@
  */
 
 const REMEMBER_KEY = "rememberMe";
+const TRUSTED_DEVICE_KEY = "trustedDeviceToken";
+const DEVICE_ID_KEY = "deviceId";
 
 /** Returns the storage backend that currently holds auth data. */
 function getStorage(): Storage {
@@ -24,6 +26,33 @@ export const authStorage = {
 
   getRememberMe(): boolean {
     return localStorage.getItem(REMEMBER_KEY) === "true";
+  },
+
+  // ---- device helpers ----
+
+  /** Stable device id for trusted-device MFA binding. */
+  getOrCreateDeviceId(): string {
+    const existing = localStorage.getItem(DEVICE_ID_KEY);
+    if (existing) return existing;
+    const id =
+      (crypto as any)?.randomUUID?.() ||
+      `dev-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem(DEVICE_ID_KEY, id);
+    return id;
+  },
+
+  // ---- trusted device (MFA) helpers ----
+
+  setTrustedDeviceToken(token: string) {
+    localStorage.setItem(TRUSTED_DEVICE_KEY, token);
+  },
+
+  getTrustedDeviceToken(): string | null {
+    return localStorage.getItem(TRUSTED_DEVICE_KEY);
+  },
+
+  clearTrustedDeviceToken() {
+    localStorage.removeItem(TRUSTED_DEVICE_KEY);
   },
 
   // ---- token helpers ----

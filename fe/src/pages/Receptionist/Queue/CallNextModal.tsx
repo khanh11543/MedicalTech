@@ -38,6 +38,7 @@ interface CallNextModalProps {
   isOpen: boolean;
   doctorId: number;
   doctorName: string;
+  roomNumber?: string;
   onClose: () => void;
   onSuccess: (result: QueueCallResultDTO) => void;
 }
@@ -46,11 +47,12 @@ export default function CallNextModal({
   isOpen,
   doctorId,
   doctorName,
+  roomNumber: roomNumberProp,
   onClose,
   onSuccess,
 }: CallNextModalProps) {
   const [notifyMethod, setNotifyMethod] = useState("DISPLAY");
-  const [roomNumber, setRoomNumber] = useState("");
+  const [roomNumber, setRoomNumber] = useState(roomNumberProp || "");
   const [queueNumber, setQueueNumber] = useState("");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
@@ -64,6 +66,7 @@ export default function CallNextModal({
       setError("");
       const req: CallNextRequest = {
         notifyMethod,
+        // Auto-fill: if receptionist leaves empty, backend uses doctor's assigned room
         roomNumber: roomNumber || undefined,
         queueNumber: queueNumber ? parseInt(queueNumber) : undefined,
         note: note || undefined,
@@ -93,7 +96,7 @@ export default function CallNextModal({
 
   const handleClose = () => {
     setNotifyMethod("DISPLAY");
-    setRoomNumber("");
+    setRoomNumber(roomNumberProp || "");
     setQueueNumber("");
     setNote("");
     setError("");
@@ -173,6 +176,11 @@ export default function CallNextModal({
               placeholder="e.g. 301"
               className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             />
+            {roomNumberProp && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Auto-filled from assigned room. You can override if needed.
+              </p>
+            )}
           </div>
 
           {/* Specific Queue Number (skip queue) */}

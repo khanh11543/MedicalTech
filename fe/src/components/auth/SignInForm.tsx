@@ -98,8 +98,9 @@ export default function SignInForm() {
         {
           email,
           password,
-          deviceId: navigator.userAgent,
+          deviceId: authStorage.getOrCreateDeviceId(),
           deviceName: `Web Browser - ${navigator.platform}`,
+          trustedDeviceToken: authStorage.getTrustedDeviceToken() || undefined,
         },
         isChecked
       );

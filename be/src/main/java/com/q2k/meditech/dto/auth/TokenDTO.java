@@ -37,4 +37,7 @@ public class TokenDTO {
     private Long userId;
     private String email;
     private Set<String> roles;
+
+    /** Optional: present when "remember this device" is enabled after MFA. */
+    private String trustedDeviceToken;
 }

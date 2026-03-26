@@ -109,6 +109,14 @@ export interface DoctorProfile {
   specialties: DoctorSpecialtyInfo[];
 }
 
+export interface DoctorBasicDTO {
+  id: number;
+  fullName: string;
+  email: string;
+  avatar: string | null;
+  specialization: string | null;
+}
+
 export interface CreateUserRequest {
   email: string;
   password: string;
@@ -312,6 +320,38 @@ const adminService = {
 
   updateDoctorSpecialties: async (doctorId: number, data: { specialtyIds: number[]; primarySpecialtyId: number }): Promise<void> => {
     await api.put(`/admin/doctors/${doctorId}/specialties`, data);
+  },
+
+  getDoctorsBasicList: async (): Promise<DoctorBasicDTO[]> => {
+    const response = await api.get("/admin/doctors/list");
+    return response.data;
+  },
+
+  // ============== ROOM MANAGEMENT ==============
+  getRooms: async (): Promise<Room[]> => {
+    const response = await api.get("/admin/rooms");
+    return response.data;
+  },
+
+  createRoom: async (data: UpsertRoomRequest): Promise<Room> => {
+    const response = await api.post("/admin/rooms", data);
+    return response.data;
+  },
+
+  updateRoom: async (roomId: number, data: UpsertRoomRequest): Promise<Room> => {
+    const response = await api.put(`/admin/rooms/${roomId}`, data);
+    return response.data;
+  },
+
+  deleteRoom: async (roomId: number): Promise<void> => {
+    await api.delete(`/admin/rooms/${roomId}`);
+  },
+
+  assignDoctorToRoom: async (roomId: number, doctorId?: number | null): Promise<Room> => {
+    const response = await api.put(`/admin/rooms/${roomId}/assign`, null, {
+      params: { doctorId: doctorId ?? undefined },
+    });
+    return response.data;
   },
 
   // ============== DOCTOR DOCUMENTS ==============
@@ -1035,6 +1075,24 @@ export interface UpdateReceptionistRequest {
   employeeId?: string;
   department?: string;
   shift?: string;
+  isActive?: boolean;
+}
+
+// ============== ROOM TYPES ==============
+export interface Room {
+  id: number;
+  roomNumber: string;
+  name: string | null;
+  floor: number | null;
+  isActive: boolean;
+  doctorId: number | null;
+  doctorName: string | null;
+}
+
+export interface UpsertRoomRequest {
+  roomNumber: string;
+  name?: string;
+  floor?: number | null;
   isActive?: boolean;
 }
 

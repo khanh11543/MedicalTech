@@ -1,13 +1,9 @@
 package com.q2k.meditech.exception;
 
-import com.q2k.meditech.entity.ErrorResponse;
-import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.AuthenticationException;
-import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -18,9 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -69,9 +62,10 @@ public class GlobalExceptionHandler {
             org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex,
             WebRequest request) {
         
+        Class<?> requiredType = ex.getRequiredType();
         String message = String.format("Invalid value '%s' for parameter '%s'. Expected type: %s",
                 ex.getValue(), ex.getName(), 
-                ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
+                requiredType != null ? requiredType.getSimpleName() : "unknown");
         
         ApiErrorResponse error = ApiErrorResponse.builder()
                 .timestamp(getCurrentTimestamp())
@@ -209,6 +203,40 @@ public class GlobalExceptionHandler {
                 .message(ex.getMessage())
                 .path(request.getDescription(false).replace("uri=", ""))
                 .build();
+        return new ResponseEntity<>(error, HttpStatus.CONFLICT);
+    }
+
+    /**
+     * Handle database constraint violations (409) — e.g. unique keys.
+     * This prevents leaking raw SQL errors to UI and avoids 500s for duplicates.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(
+            DataIntegrityViolationException ex,
+            WebRequest request) {
+
+        String raw = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        String msg = "Data integrity violation";
+
+        if (raw != null) {
+            // MySQL duplicate key pattern: "Duplicate entry '205' for key 'rooms.uk_rooms_room_number'"
+            if (raw.contains("Duplicate entry") && raw.contains("uk_rooms_room_number")) {
+                msg = "Room number already exists";
+            } else if (raw.contains("Duplicate entry")) {
+                msg = "Duplicate entry";
+            }
+        }
+
+        log.warn("Data integrity violation: {}", raw);
+
+        ApiErrorResponse error = ApiErrorResponse.builder()
+                .timestamp(getCurrentTimestamp())
+                .status(HttpStatus.CONFLICT.value())
+                .error(HttpStatus.CONFLICT.getReasonPhrase())
+                .message(msg)
+                .path(request.getDescription(false).replace("uri=", ""))
+                .build();
+
         return new ResponseEntity<>(error, HttpStatus.CONFLICT);
     }
 

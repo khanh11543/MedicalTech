@@ -37,6 +37,7 @@ export default function UpdateDoctorStatusModal({
       setError("");
       await queueService.updateDoctorStatus(doctorId, {
         status: selectedStatus,
+        // Auto-fill: if empty, keep existing room on backend
         roomNumber: roomNumber || undefined,
         reason: reason || undefined,
       });

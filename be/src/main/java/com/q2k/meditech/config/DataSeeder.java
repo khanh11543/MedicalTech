@@ -28,6 +28,7 @@ public class DataSeeder implements CommandLineRunner {
     private final SpecialtyRepository specialtyRepository;
     private final AppointmentRepository appointmentRepository;
     private final ReviewRepository reviewRepository;
+    private final RoomRepository roomRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -58,6 +59,9 @@ public class DataSeeder implements CommandLineRunner {
         // Ensure all doctors are available for appointments
         updateDoctorsAvailability();
 
+        // Seed rooms and assign doctors
+        seedRoomsAndAssignments();
+
         // Seed specialty metadata (slug, subtitle, highlights, icons)
         seedSpecialtyMetadata();
 
@@ -65,6 +69,77 @@ public class DataSeeder implements CommandLineRunner {
         seedSampleReviews();
         
         log.info("Data seeding completed!");
+    }
+
+    private void seedRoomsAndAssignments() {
+        // Create a small set of rooms if missing
+        String[] roomNumbers = {"101", "102", "103", "104", "201", "202", "203", "204"};
+        Map<String, Room> roomsByNumber = new HashMap<>();
+        for (String rn : roomNumbers) {
+            Room room = roomRepository.findByRoomNumber(rn).orElse(null);
+            if (room == null) {
+                room = Room.builder()
+                        .roomNumber(rn)
+                        .name("Consultation Room " + rn)
+                        .floor(parseFloor(rn))
+                        .isActive(true)
+                        .build();
+                room = roomRepository.save(room);
+            }
+            roomsByNumber.put(rn, room);
+        }
+
+        // Avoid violating unique constraint on doctors.room_id (one doctor per room)
+        List<Doctor> doctors = doctorRepository.findAll();
+        Set<Long> usedRoomIds = doctors.stream()
+                .filter(d -> d.getRoom() != null && d.getRoom().getId() != null)
+                .map(d -> d.getRoom().getId())
+                .collect(java.util.stream.Collectors.toSet());
+
+        // Prefer linking doctors that already have currentRoom -> Room entity (if not used)
+        for (Doctor d : doctors) {
+            if (d.getRoom() != null) continue;
+            String cr = d.getCurrentRoom();
+            if (cr == null || cr.isBlank()) continue;
+            Room room = roomsByNumber.get(cr);
+            if (room != null && room.getId() != null && !usedRoomIds.contains(room.getId())) {
+                d.setRoom(room);
+                usedRoomIds.add(room.getId());
+                doctorRepository.save(d);
+                log.info("Linked doctor {} (ID: {}) to existing room {}", d.getFullName(), d.getId(), cr);
+            }
+        }
+
+        // Assign remaining doctors (no room + no currentRoom) to free rooms
+        for (Doctor d : doctors) {
+            if (d.getRoom() != null) continue;
+            if (d.getCurrentRoom() != null && !d.getCurrentRoom().isBlank()) continue;
+
+            Room free = roomsByNumber.values().stream()
+                    .filter(r -> r.getId() != null && !usedRoomIds.contains(r.getId()))
+                    .sorted(java.util.Comparator.comparing(Room::getRoomNumber))
+                    .findFirst()
+                    .orElse(null);
+
+            if (free == null) break;
+
+            d.setRoom(free);
+            d.setCurrentRoom(free.getRoomNumber()); // backward compat
+            usedRoomIds.add(free.getId());
+            doctorRepository.save(d);
+            log.info("Assigned doctor {} (ID: {}) to room {}", d.getFullName(), d.getId(), free.getRoomNumber());
+        }
+    }
+
+    private Integer parseFloor(String roomNumber) {
+        try {
+            if (roomNumber != null && roomNumber.length() >= 1) {
+                char c = roomNumber.charAt(0);
+                if (Character.isDigit(c)) return Character.getNumericValue(c);
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     /**

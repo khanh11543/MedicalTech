@@ -28,4 +28,10 @@ public class LoginDTO {
     // Device information for session tracking
     private String deviceId;
     private String deviceName;
+
+    /**
+     * Optional: trusted device token to skip MFA on this device.
+     * Issued after a successful MFA verification, stored by the client.
+     */
+    private String trustedDeviceToken;
 }
