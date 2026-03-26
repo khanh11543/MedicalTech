@@ -34,6 +34,7 @@ const TABS: { key: TabKey; label: string; icon: React.ComponentType<React.SVGPro
 interface ModalCallNext {
   doctorId: number;
   doctorName: string;
+  roomNumber?: string | null;
 }
 interface ModalReorder {
   doctorId: number;
@@ -118,8 +119,8 @@ export default function ReceptionistQueue() {
   };
 
   // ─── Handlers ───────────────────────────────────────────
-  const handleCallNext = (doctorId: number, doctorName: string) => {
-    setCallNextModal({ doctorId, doctorName });
+  const handleCallNext = (doctorId: number, doctorName: string, roomNumber?: string | null) => {
+    setCallNextModal({ doctorId, doctorName, roomNumber });
   };
 
   const handleReorder = (doctorId: number, doctorName: string, patients: QueuePatientDTO[]) => {
@@ -288,6 +289,7 @@ export default function ReceptionistQueue() {
           isOpen={true}
           doctorId={callNextModal.doctorId}
           doctorName={callNextModal.doctorName}
+          roomNumber={callNextModal.roomNumber || undefined}
           onClose={() => setCallNextModal(null)}
           onSuccess={() => onCallNextSuccess()}
         />

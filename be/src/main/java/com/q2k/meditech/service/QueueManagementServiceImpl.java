@@ -1,6 +1,5 @@
 package com.q2k.meditech.service;
 
-import com.q2k.meditech.dto.AppointmentDTO;
 import com.q2k.meditech.dto.receptionist.*;
 import com.q2k.meditech.entity.Appointment;
 import com.q2k.meditech.entity.AppointmentHistory;
@@ -73,7 +72,10 @@ public class QueueManagementServiceImpl implements QueueManagementService {
 
         List<Doctor> doctors = doctorRepository.findDoctorsWithAppointmentsOnDate(today);
         return doctors.stream()
-                .filter(d -> d.getCurrentRoom() != null && !d.getCurrentRoom().isBlank())
+                .filter(d -> {
+                    String roomNumber = d.getRoom() != null ? d.getRoom().getRoomNumber() : d.getCurrentRoom();
+                    return roomNumber != null && !roomNumber.isBlank();
+                })
                 .map(doctor -> buildDoctorQueueStatus(doctor, today, true))
                 .sorted(Comparator.comparing(dto -> dto.getRoomNumber() != null ? dto.getRoomNumber() : "ZZZ"))
                 .toList();
@@ -313,7 +315,7 @@ public class QueueManagementServiceImpl implements QueueManagementService {
                 .startTime(startTime)
                 .newStatus(AppointmentStatus.CHECKED_IN)
                 .remainingInQueue(remaining)
-                .roomNumber(doctor.getCurrentRoom())
+                .roomNumber(doctor.getRoom() != null ? doctor.getRoom().getRoomNumber() : doctor.getCurrentRoom())
                 .build();
     }
 
@@ -429,8 +431,7 @@ public class QueueManagementServiceImpl implements QueueManagementService {
         Appointment appointment = nextPatient.get();
 
         // Transition CHECKED_IN → IN_PROGRESS
-        AppointmentDTO result = appointmentService.startConsultation(
-                appointment.getId(), receptionistUserId, "RECEPTIONIST");
+        appointmentService.startConsultation(appointment.getId(), receptionistUserId, "RECEPTIONIST");
 
         // Auto-set doctor status to BUSY
         if (doctor.getQueueStatus() == DoctorQueueStatus.AVAILABLE) {
@@ -439,6 +440,9 @@ public class QueueManagementServiceImpl implements QueueManagementService {
         }
 
         // Add queue-specific audit
+        String effectiveRoom = (dto != null && dto.getRoomNumber() != null)
+                ? dto.getRoomNumber()
+                : (doctor.getRoom() != null ? doctor.getRoom().getRoomNumber() : doctor.getCurrentRoom());
         AppointmentHistory callHistory = AppointmentHistory.builder()
                 .appointment(appointment)
                 .action("QUEUE_CALL")
@@ -446,7 +450,7 @@ public class QueueManagementServiceImpl implements QueueManagementService {
                 .newStatus(AppointmentStatus.IN_PROGRESS)
                 .changedByUserId(receptionistUserId)
                 .changedByRole("RECEPTIONIST")
-                .reason("Called to " + (dto != null && dto.getRoomNumber() != null ? dto.getRoomNumber() : doctor.getCurrentRoom())
+                .reason("Called to " + effectiveRoom
                         + " | Notify: " + (dto != null && dto.getNotifyMethod() != null ? dto.getNotifyMethod() : "DISPLAY"))
                 .changedAt(LocalDateTime.now())
                 .build();
@@ -464,8 +468,7 @@ public class QueueManagementServiceImpl implements QueueManagementService {
                 .min(Integer::compareTo)
                 .orElse(null);
 
-        String roomNumber = (dto != null && dto.getRoomNumber() != null)
-                ? dto.getRoomNumber() : doctor.getCurrentRoom();
+        String roomNumber = effectiveRoom;
         String notifyMethod = (dto != null && dto.getNotifyMethod() != null)
                 ? dto.getNotifyMethod() : "DISPLAY";
 
@@ -612,7 +615,7 @@ public class QueueManagementServiceImpl implements QueueManagementService {
                 .doctorName(doctor.getFullName())
                 .specialization(doctor.getSpecialization())
                 .doctorStatus(derivedStatus)
-                .roomNumber(doctor.getCurrentRoom())
+                .roomNumber(doctor.getRoom() != null ? doctor.getRoom().getRoomNumber() : doctor.getCurrentRoom())
                 .totalAppointmentsToday(total)
                 .checkedInWaiting(checkedIn)
                 .inProgress(inProgress)

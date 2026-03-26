@@ -18,7 +18,7 @@ import {
 
 interface QueueByDoctorProps {
   refreshKey: number;
-  onCallNext: (doctorId: number, doctorName: string) => void;
+  onCallNext: (doctorId: number, doctorName: string, roomNumber?: string | null) => void;
   onReorder: (doctorId: number, doctorName: string, patients: QueuePatientDTO[]) => void;
   onAddWalkIn: (doctorId: number, doctorName: string) => void;
   onMarkNoShow: (appointmentId: number, patientName: string) => void;
@@ -85,7 +85,7 @@ export default function QueueByDoctor({
           doctor={doctor}
           isExpanded={expandedDoctors.has(doctor.doctorId)}
           onToggle={() => toggleDoctor(doctor.doctorId)}
-          onCallNext={() => onCallNext(doctor.doctorId, doctor.doctorName)}
+          onCallNext={() => onCallNext(doctor.doctorId, doctor.doctorName, doctor.roomNumber)}
           onReorder={() =>
             onReorder(doctor.doctorId, doctor.doctorName, doctor.waitingPatients || [])
           }

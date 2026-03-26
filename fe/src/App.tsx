@@ -108,6 +108,7 @@ const AdminTimeOffRequests = lazy(
   () => import('./pages/TimeSlotManagement/AdminTimeOffRequests')
 );
 const AdminSettings = lazy(() => import('./pages/AdminSettings/AdminSettings'));
+const RoomManagement = lazy(() => import('./pages/RoomManagement/RoomManagement'));
 
 // Receptionist Pages
 const ReceptionistDashboard = lazy(
@@ -379,6 +380,9 @@ export default function App() {
 
                 {/* Admin Personal Settings */}
                 <Route path='/admin/settings' element={<AdminSettings />} />
+
+                {/* Room Management */}
+                <Route path='/admin/rooms' element={<RoomManagement />} />
 
                 {/* Security & Audit */}
                 <Route

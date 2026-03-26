@@ -100,6 +100,11 @@ const navItems: NavItem[] = [
     path: "/admin/user-list",
   },
   {
+    icon: <GridIcon />,
+    name: "Room Management",
+    path: "/admin/rooms",
+  },
+  {
     icon: <CheckCircleIcon />,
     name: "Doctor Verification",
     path: "/admin/doctor-verification",

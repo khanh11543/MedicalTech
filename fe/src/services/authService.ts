@@ -6,6 +6,7 @@ export interface LoginRequest {
   password: string;
   deviceId?: string;
   deviceName?: string;
+  trustedDeviceToken?: string;
 }
 
 export interface RegisterRequest {
@@ -47,6 +48,7 @@ export interface TokenResponse {
   userId: number;
   email: string;
   roles: string[];
+  trustedDeviceToken?: string;
 }
 
 export interface LoginResponse {
@@ -59,6 +61,8 @@ export interface LoginResponse {
 export interface MfaVerifyLoginRequest {
   mfaToken: string;
   code: string;
+  rememberDevice?: boolean;
+  deviceId?: string;
 }
 
 export interface MfaSetupResponse {

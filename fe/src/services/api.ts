@@ -92,7 +92,9 @@ api.interceptors.response.use(
       try {
         const response = await api.post("/auth/refresh", { refreshToken });
         const accessToken = response.data.accessToken;
-        authStorage.setTokens(accessToken, refreshToken);
+        const newRefreshToken = response.data.refreshToken || refreshToken;
+        // IMPORTANT: backend rotates refresh tokens; we must persist the new one
+        authStorage.setTokens(accessToken, newRefreshToken);
         onTokenRefreshed(accessToken);
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
