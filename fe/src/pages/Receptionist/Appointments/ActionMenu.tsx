@@ -111,6 +111,12 @@ const ACTION_BUTTON_CONFIG: Record<
     hover: "hover:bg-brand-600",
     text: "text-white",
   },
+  COLLECT_RX_PAYMENT: {
+    label: "Pay Rx",
+    bg: "bg-teal-600",
+    hover: "hover:bg-teal-700",
+    text: "text-white",
+  },
 };
 
 export default function ActionMenu({ appointment, onAction }: ActionMenuProps) {
@@ -121,6 +127,11 @@ export default function ActionMenu({ appointment, onAction }: ActionMenuProps) {
     const paid = appointment.paymentStatus === "PAID";
     if (action === "COLLECT_PAYMENT" && paid) return false;   // already paid → hide Collect
     if (action === "RECEIPT" && !paid) return false;           // not paid yet → no receipt
+    // Hide COLLECT_RX_PAYMENT if no prescription or already paid
+    if (action === "COLLECT_RX_PAYMENT") {
+      if (!appointment.prescriptionId) return false;
+      if (appointment.prescriptionPaymentStatus === "PAID") return false;
+    }
     return true;
   });
 

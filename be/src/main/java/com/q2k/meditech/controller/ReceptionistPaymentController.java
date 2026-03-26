@@ -64,6 +64,27 @@ public class ReceptionistPaymentController {
     }
 
     /**
+     * POST /api/receptionist/payments/prescription
+     * Create payment request for a prescription
+     */
+    @PostMapping("/prescription")
+    @Operation(
+        summary = "Create prescription payment",
+        description = "Create a payment request for prescription medications."
+    )
+    public ResponseEntity<PaymentDTO> createPrescriptionPayment(
+            @Valid @RequestBody PrescriptionPaymentCreateDTO dto) {
+
+        log.info("POST /receptionist/payments/prescription - prescriptionId: {}, method: {}",
+                dto.getPrescriptionId(), dto.getPaymentMethod());
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        PaymentDTO result = paymentService.createPrescriptionPayment(dto, currentUserId);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(result);
+    }
+
+    /**
      * POST /api/receptionist/payments/{id}/momo/init
      * Initialize MoMo payment (create order, get QR/pay URL)
      */

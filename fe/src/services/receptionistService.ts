@@ -9,7 +9,8 @@ export type AppointmentStatus =
   | "IN_PROGRESS"
   | "COMPLETED"
   | "CANCELLED"
-  | "NO_SHOW";
+  | "NO_SHOW"
+  | "RESCHEDULED";
 
 export interface ReceptionistAppointmentDTO {
   id: number;
@@ -230,6 +231,9 @@ export interface ReceptionistAppointmentListDTO {
   fee?: number;
   paymentId?: number | null;
   paymentStatus?: string;
+  prescriptionId?: number | null;
+  prescriptionPaymentStatus?: string;
+  prescriptionTotalCost?: number;
 }
 
 // ==================== APPOINTMENT DETAIL TYPES ====================

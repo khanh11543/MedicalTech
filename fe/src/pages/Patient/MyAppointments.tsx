@@ -562,38 +562,63 @@ function AppointmentCard({
                           </p>
                         )}
 
-                        <div className="mt-3 space-y-2">
-                          {rx.items?.map((it) => (
-                            <div
-                              key={it.id ?? `${rx.id}-${it.medicineName}-${it.itemOrder ?? "x"}`}
-                              className="bg-gray-50 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 rounded-xl p-3"
-                            >
-                              <div className="flex items-start justify-between gap-3">
+                        {rx.items && rx.items.length > 0 && (
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500 mt-3 mb-1">
+                            Medications ({rx.items.length})
+                          </p>
+                        )}
+                        <div className="mt-1 space-y-2">
+                          {rx.items?.map((it, idx) => {
+                            const hasDoseSchedule = !!(it.morningDose || it.noonDose || it.afternoonDose || it.eveningDose);
+                            const sessions = [
+                              { label: 'Morning',   value: it.morningDose },
+                              { label: 'Noon',      value: it.noonDose },
+                              { label: 'Afternoon', value: it.afternoonDose },
+                              { label: 'Evening',   value: it.eveningDose },
+                            ];
+                            return (
+                              <div
+                                key={it.id ?? `${rx.id}-${it.medicineName}-${it.itemOrder ?? idx}`}
+                                className="rounded-lg border border-gray-200 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-800"
+                              >
                                 <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                                  {it.medicineName}
+                                  {idx + 1}. {it.medicineName}
                                 </p>
-                                {it.quantity != null && (
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    Qty: {it.quantity}
-                                  </p>
-                                )}
+                                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5">
+                                  <span><strong>Dosage:</strong> {it.dosage || '-'}</span>
+
+                                  {hasDoseSchedule ? (
+                                    <span className="col-span-2 mt-1">
+                                      <strong>Dose Schedule:</strong>
+                                      <span className="inline-flex gap-3 ml-2">
+                                        {sessions.map(({ label, value }) => (
+                                          <span
+                                            key={label}
+                                            className={value ? 'text-gray-800 dark:text-white font-medium' : 'text-gray-400 dark:text-gray-600'}
+                                          >
+                                            {label}: <strong>{value ?? 0}</strong>
+                                          </span>
+                                        ))}
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span><strong>Frequency:</strong> {it.frequency || '-'}</span>
+                                  )}
+
+                                  {it.duration && <span><strong>Duration:</strong> {it.duration}</span>}
+                                  {it.quantity != null && (
+                                    <span><strong>Qty:</strong> {it.quantity} {it.unit || ''}</span>
+                                  )}
+                                  {it.instructions && (
+                                    <span className="col-span-2"><strong>Instructions:</strong> {it.instructions}</span>
+                                  )}
+                                  {it.notes && (
+                                    <span className="col-span-2 whitespace-pre-wrap"><strong>Notes:</strong> {it.notes}</span>
+                                  )}
+                                </div>
                               </div>
-                              <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">
-                                {it.dosage} · {it.frequency}
-                                {it.duration ? ` · ${it.duration}` : ""}
-                              </p>
-                              {it.instructions && (
-                                <p className="text-xs text-gray-600 dark:text-gray-300 mt-2 whitespace-pre-wrap">
-                                  {it.instructions}
-                                </p>
-                              )}
-                              {it.notes && (
-                                <p className="text-xs text-gray-600 dark:text-gray-300 mt-2 whitespace-pre-wrap">
-                                  {it.notes}
-                                </p>
-                              )}
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     ))

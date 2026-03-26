@@ -15,6 +15,9 @@ export interface PaymentDTO {
   status: 'PENDING' | 'PAID' | 'INITIATED' | 'PROCESSING' | 'FAILED' | 'REFUNDED' | 'CANCELLED' | 'EXPIRED';
   paymentStatus: string;
   currency: string;
+  prescriptionId?: number;
+  prescriptionCode?: string;
+  referenceType?: 'APPOINTMENT' | 'PRESCRIPTION';
 }
 
 export interface PaymentDetailDTO {
@@ -430,6 +433,128 @@ export const getPaymentMethodLabel = (method: string): string => {
   return labels[method] || method;
 };
 
+// ==================== RECEPTIONIST PAYMENT API ====================
+
+export interface ReceptionistPaymentCreateDTO {
+  appointmentId: number;
+  paymentMethod: 'CASH' | 'MOMO';
+  discountAmount?: number;
+  taxAmount?: number;
+  notes?: string;
+}
+
+export interface PrescriptionPaymentCreateDTO {
+  prescriptionId: number;
+  paymentMethod: 'CASH' | 'MOMO';
+  discountAmount?: number;
+  taxAmount?: number;
+  notes?: string;
+}
+
+export interface MarkCashDTO {
+  amountReceived?: number;
+  changeGiven?: number;
+  transactionId?: string;
+  notes?: string;
+  printReceipt?: boolean;
+  emailReceipt?: boolean;
+  smsReceipt?: boolean;
+}
+
+export interface PaymentInitResult {
+  paymentId: number;
+  paymentCode: string;
+  payUrl: string;
+  qrCodeUrl: string;
+  orderId: string;
+  message: string;
+  success: boolean;
+}
+
+export interface PaymentQrResult {
+  id: number;
+  paymentId: number;
+  provider: string;
+  qrPayload: string;
+  qrDataUrl?: string;
+  payUrl: string;
+  expiresAt: string;
+  status: string;
+  createdAt: string;
+}
+
+/**
+ * Create payment for an appointment (receptionist)
+ * POST /api/receptionist/payments
+ */
+export const createReceptionistPayment = async (dto: ReceptionistPaymentCreateDTO): Promise<PaymentDTO> => {
+  const response = await api.post('/receptionist/payments', dto);
+  return response.data;
+};
+
+/**
+ * Create prescription payment (receptionist)
+ * POST /api/receptionist/payments/prescription
+ */
+export const createPrescriptionPayment = async (dto: PrescriptionPaymentCreateDTO): Promise<PaymentDTO> => {
+  const response = await api.post('/receptionist/payments/prescription', dto);
+  return response.data;
+};
+
+/**
+ * Initialize MoMo payment (receptionist)
+ * POST /api/receptionist/payments/{id}/momo/init
+ */
+export const initMomoPayment = async (paymentId: number): Promise<PaymentInitResult> => {
+  const response = await api.post(`/receptionist/payments/${paymentId}/momo/init`, {});
+  return response.data;
+};
+
+/**
+ * Get QR code for payment (receptionist)
+ * GET /api/receptionist/payments/{id}/qr
+ */
+export const getPaymentQr = async (paymentId: number): Promise<PaymentQrResult> => {
+  const response = await api.get(`/receptionist/payments/${paymentId}/qr`);
+  return response.data;
+};
+
+/**
+ * Refresh QR code (receptionist)
+ * POST /api/receptionist/payments/{id}/qr/refresh
+ */
+export const refreshPaymentQr = async (paymentId: number): Promise<PaymentInitResult> => {
+  const response = await api.post(`/receptionist/payments/${paymentId}/qr/refresh`);
+  return response.data;
+};
+
+/**
+ * Mark payment as paid with cash (receptionist)
+ * PATCH /api/receptionist/payments/{id}/mark-cash
+ */
+export const markPaymentCash = async (paymentId: number, dto?: MarkCashDTO): Promise<PaymentDTO> => {
+  const response = await api.patch(`/receptionist/payments/${paymentId}/mark-cash`, dto || {});
+  return response.data;
+};
+
+/**
+ * Cancel payment (receptionist)
+ * PATCH /api/receptionist/payments/{id}/cancel
+ */
+export const cancelReceptionistPayment = async (paymentId: number, reason?: string): Promise<PaymentDTO> => {
+  const response = await api.patch(`/receptionist/payments/${paymentId}/cancel`, { reason: reason || 'Cancelled by receptionist' });
+  return response.data;
+};
+
+/**
+ * Get payment by ID (receptionist)
+ * GET /api/receptionist/payments/{id}
+ */
+export const getReceptionistPayment = async (paymentId: number): Promise<PaymentDTO> => {
+  const response = await api.get(`/receptionist/payments/${paymentId}`);
+  return response.data;
+};
+
 export default {
   getAllPayments,
   getPaymentStatistics,
@@ -444,6 +569,14 @@ export default {
   refundPayment,
   cancelPayment,
   reconcileMomoStatus,
+  createReceptionistPayment,
+  createPrescriptionPayment,
+  initMomoPayment,
+  getPaymentQr,
+  refreshPaymentQr,
+  markPaymentCash,
+  cancelReceptionistPayment,
+  getReceptionistPayment,
   downloadFile,
   formatCurrency,
   getStatusColor,

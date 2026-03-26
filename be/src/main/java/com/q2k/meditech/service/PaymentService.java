@@ -29,6 +29,14 @@ public interface PaymentService {
     PaymentDTO createPaymentForAppointment(Long appointmentId, Long processedByUserId);
 
     /**
+     * Create payment request for a prescription
+     * @param dto Prescription payment creation data
+     * @param currentUserId User creating the payment
+     * @return Created payment
+     */
+    PaymentDTO createPrescriptionPayment(PrescriptionPaymentCreateDTO dto, Long currentUserId);
+
+    /**
      * Initialize MoMo payment (create order and get pay URL)
      * @param paymentId Payment ID
      * @param dto MoMo init parameters

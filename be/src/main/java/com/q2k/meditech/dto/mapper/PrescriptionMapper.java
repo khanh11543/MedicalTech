@@ -35,6 +35,8 @@ public class PrescriptionMapper {
                 .notes(prescription.getNotes())
                 .followUpDate(prescription.getFollowUpDate())
                 .isActive(prescription.getIsActive())
+                .totalCost(prescription.getTotalCost())
+                .prescriptionPaymentStatus(prescription.getPrescriptionPaymentStatus())
                 .createdAt(prescription.getCreatedAt())
                 .updatedAt(prescription.getUpdatedAt());
         
@@ -87,6 +89,7 @@ public class PrescriptionMapper {
         
         return PrescriptionItemDTO.builder()
                 .id(item.getId())
+                .medicationId(item.getMedicationId())
                 .medicineName(item.getMedicineName())
                 .dosage(item.getDosage())
                 .frequency(item.getFrequency())
@@ -95,13 +98,19 @@ public class PrescriptionMapper {
                 .unit(item.getUnit())
                 .instructions(item.getInstructions())
                 .notes(item.getNotes())
+                .morningDose(item.getMorningDose())
+                .noonDose(item.getNoonDose())
+                .afternoonDose(item.getAfternoonDose())
+                .eveningDose(item.getEveningDose())
                 .itemOrder(item.getItemOrder())
+                .price(item.getPrice())
                 .build();
     }
 
     public PrescriptionItem toItemEntity(PrescriptionItemDTO dto) {
         if (dto == null) return null;
         return PrescriptionItem.builder()
+                .medicationId(dto.getMedicationId())
                 .medicineName(dto.getMedicineName())
                 .dosage(dto.getDosage())
                 .frequency(dto.getFrequency())
@@ -110,7 +119,12 @@ public class PrescriptionMapper {
                 .unit(dto.getUnit())
                 .instructions(dto.getInstructions())
                 .notes(dto.getNotes())
+                .morningDose(dto.getMorningDose())
+                .noonDose(dto.getNoonDose())
+                .afternoonDose(dto.getAfternoonDose())
+                .eveningDose(dto.getEveningDose())
                 .itemOrder(dto.getItemOrder())
+                .price(dto.getPrice())
                 .build();
     }
 

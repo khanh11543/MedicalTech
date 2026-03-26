@@ -101,25 +101,49 @@ function PrescriptionDetailModal({
               Medications ({prescription.medicineCount})
             </p>
             <div className='space-y-2'>
-              {(prescription.items || []).map((item, idx) => (
-                <div
-                  key={idx}
-                  className='rounded-lg border border-gray-200 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-800'
-                >
-                  <p className='text-sm font-semibold text-gray-900 dark:text-white'>
-                    {idx + 1}. {item.medicineName}
-                  </p>
-                  <div className='text-xs text-gray-600 dark:text-gray-400 mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5'>
-                    <span><strong>Dosage:</strong> {item.dosage || '-'}</span>
-                    <span><strong>Frequency:</strong> {item.frequency || '-'}</span>
-                    {item.duration && <span><strong>Duration:</strong> {item.duration}</span>}
-                    {item.quantity && <span><strong>Qty:</strong> {item.quantity} {item.unit || ''}</span>}
-                    {item.instructions && (
-                      <span className='col-span-2'><strong>Instructions:</strong> {item.instructions}</span>
-                    )}
+              {(prescription.items || []).map((item, idx) => {
+                  const hasDoseSchedule = !!(item.morningDose || item.noonDose || item.afternoonDose || item.eveningDose);
+                  const sessions = [
+                    { label: 'Morning', value: item.morningDose },
+                    { label: 'Noon',    value: item.noonDose },
+                    { label: 'Afternoon', value: item.afternoonDose },
+                    { label: 'Evening', value: item.eveningDose },
+                  ];
+                  return (
+                  <div
+                    key={idx}
+                    className='rounded-lg border border-gray-200 dark:border-gray-700 p-3 bg-gray-50 dark:bg-gray-800'
+                  >
+                    <p className='text-sm font-semibold text-gray-900 dark:text-white'>
+                      {idx + 1}. {item.medicineName}
+                    </p>
+                    <div className='text-xs text-gray-600 dark:text-gray-400 mt-1 grid grid-cols-2 gap-x-4 gap-y-0.5'>
+                      <span><strong>Dosage:</strong> {item.dosage || '-'}</span>
+
+                      {hasDoseSchedule ? (
+                        <span className='col-span-2 mt-1'>
+                          <strong>Dose Schedule:</strong>
+                          <span className='inline-flex gap-3 ml-2'>
+                            {sessions.map(({ label, value }) => (
+                              <span key={label} className={value ? 'text-gray-800 dark:text-white font-medium' : 'text-gray-400 dark:text-gray-600'}>
+                                {label}: <strong>{value ?? 0}</strong>
+                              </span>
+                            ))}
+                          </span>
+                        </span>
+                      ) : (
+                        <span><strong>Frequency:</strong> {item.frequency || '-'}</span>
+                      )}
+
+                      {item.duration && <span><strong>Duration:</strong> {item.duration}</span>}
+                      {item.quantity && <span><strong>Qty:</strong> {item.quantity} {item.unit || ''}</span>}
+                      {item.instructions && (
+                        <span className='col-span-2'><strong>Instructions:</strong> {item.instructions}</span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                  );
+                })}
               {prescription.medicineCount === 0 && (
                 <p className='text-sm text-gray-400'>No medications listed</p>
               )}

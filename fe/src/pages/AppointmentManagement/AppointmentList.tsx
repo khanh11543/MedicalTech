@@ -31,6 +31,7 @@ import appointmentService, {
   RescheduleDTO,
 } from "../../services/appointmentService";
 
+
 // =========== HELPER FUNCTIONS ===========
 const getStatusBadgeColor = (status: AppointmentStatus) => {
   const colorMap: Record<AppointmentStatus, "warning" | "info" | "primary" | "error" | "success" | "light" | "dark"> = {
@@ -42,6 +43,7 @@ const getStatusBadgeColor = (status: AppointmentStatus) => {
     [AppointmentStatus.CANCELLED]: "error",
     [AppointmentStatus.NO_SHOW]: "light",
     [AppointmentStatus.RESCHEDULED]: "info",
+    [AppointmentStatus.SCHEDULED]: "info",
   };
   return colorMap[status] || "light";
 };
@@ -1238,6 +1240,7 @@ export default function AppointmentList() {
           </div>
         </div>
       </Modal>
+
       <Toast toast={toast} onDismiss={dismissToast} />
     </>
   );

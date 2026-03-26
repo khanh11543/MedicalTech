@@ -22,18 +22,20 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findByPaymentCode(String paymentCode);
 
     /**
-     * Find payment by appointment ID
+     * Find APPOINTMENT-type payment by appointment ID (excludes prescription payments)
      */
     @Query("SELECT p FROM Payment p " +
             "LEFT JOIN FETCH p.appointment a " +
             "LEFT JOIN FETCH p.patient pat " +
-            "WHERE p.appointment.id = :appointmentId")
+            "WHERE p.appointment.id = :appointmentId " +
+            "AND (p.referenceType IS NULL OR p.referenceType = 'APPOINTMENT')")
     Optional<Payment> findByAppointmentIdWithDetails(@Param("appointmentId") Long appointmentId);
 
     /**
-     * Find payments by a list of appointment IDs (batch lookup)
+     * Find APPOINTMENT-type payments by a list of appointment IDs (batch lookup).
+     * Excludes PRESCRIPTION-type payments to avoid overriding appointment payment data.
      */
-    @Query("SELECT p FROM Payment p WHERE p.appointment.id IN :appointmentIds")
+    @Query("SELECT p FROM Payment p WHERE p.appointment.id IN :appointmentIds AND (p.referenceType IS NULL OR p.referenceType = 'APPOINTMENT')")
     List<Payment> findByAppointmentIdIn(@Param("appointmentIds") List<Long> appointmentIds);
 
     /**
@@ -46,8 +48,21 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             "LEFT JOIN FETCH p.patient pat " +
             "LEFT JOIN FETCH pat.user pu " +
             "LEFT JOIN FETCH p.processedBy u " +
+            "LEFT JOIN FETCH p.prescription pre " +
             "WHERE p.id = :id")
     Optional<Payment> findByIdWithDetails(@Param("id") Long id);
+
+    /**
+     * Find payment by prescription ID (active/non-cancelled)
+     */
+    @Query("SELECT p FROM Payment p " +
+            "LEFT JOIN FETCH p.prescription pre " +
+            "LEFT JOIN FETCH p.patient pat " +
+            "LEFT JOIN FETCH pat.user pu " +
+            "LEFT JOIN FETCH p.processedBy u " +
+            "WHERE p.prescription.id = :prescriptionId " +
+            "AND p.paymentStatus NOT IN ('CANCELLED', 'FAILED', 'EXPIRED')")
+    Optional<Payment> findActivePrescriptionPayment(@Param("prescriptionId") Long prescriptionId);
 
     /**
      * Find payments by patient ID
