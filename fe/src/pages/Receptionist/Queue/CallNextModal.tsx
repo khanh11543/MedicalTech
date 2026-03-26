@@ -4,6 +4,36 @@ import queueService, {
   type QueueCallResultDTO,
 } from "../../../services/queueService";
 
+/**
+ * Speak an announcement using Web Speech API.
+ * Reads the text twice with a 2-second gap.
+ */
+function speakAnnouncement(text: string): void {
+  if (!("speechSynthesis" in window)) {
+    alert("Your browser does not support Speech Synthesis (Web Speech API).");
+    return;
+  }
+
+  // Cancel any ongoing speech
+  window.speechSynthesis.cancel();
+
+  const speak = () => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+    return utterance;
+  };
+
+  // First read
+  const first = speak();
+
+  // Second read after 2 seconds
+  first.onend = () => {
+    setTimeout(() => speak(), 2000);
+  };
+}
+
 interface CallNextModalProps {
   isOpen: boolean;
   doctorId: number;
@@ -39,6 +69,20 @@ export default function CallNextModal({
         note: note || undefined,
       };
       const result = await queueService.callNextPatient(doctorId, req);
+
+      // Speaker announcement via Web Speech API
+      if (notifyMethod === "SPEAKER") {
+        const name = result.patientName;
+        const qNum = result.queueNumber;
+        const room = result.roomNumber || roomNumber;
+
+        const text = room
+          ? `Patient ${name}, queue number ${qNum}, please proceed to room ${room} for your consultation.`
+          : `Patient ${name}, queue number ${qNum}, please proceed for your consultation.`;
+
+        speakAnnouncement(text);
+      }
+
       onSuccess(result);
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to call next patient");
