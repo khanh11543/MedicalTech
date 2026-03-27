@@ -4,7 +4,6 @@ import com.q2k.meditech.dto.DoctorDashboardDTO;
 import com.q2k.meditech.dto.DoctorDashboardDTO.*;
 import com.q2k.meditech.entity.Appointment;
 import com.q2k.meditech.entity.Doctor;
-import com.q2k.meditech.entity.Notification;
 import com.q2k.meditech.entity.enums.AppointmentStatus;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.AppointmentRepository;
@@ -54,7 +53,7 @@ public class DoctorDashboardService {
     public DoctorDashboardDTO getDashboard(Long doctorId, Long userId) {
         log.info("Building dashboard for doctor ID: {}", doctorId);
 
-        Doctor doctor = doctorRepository.findById(doctorId)
+        Doctor doctor = doctorRepository.findById(doctorId != null ? doctorId : -1L)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + doctorId));
 
         LocalDate today = LocalDate.now();
@@ -65,13 +64,28 @@ public class DoctorDashboardService {
                 .findByDoctorIdAndDateForDashboard(doctorId, today);
 
         // Use name from users table (updated by profile edit) instead of doctors table
-        String displayName = userRepository.findById(userId)
+        String displayName = userRepository.findById(userId != null ? userId : -1L)
                 .map(u -> u.getFullName())
                 .orElse(doctor.getFullName());
+
+        Long roomId = null;
+        String roomNumber = null;
+        String roomName = null;
+        if (doctor.getRoom() != null) {
+            roomId = doctor.getRoom().getId();
+            roomNumber = doctor.getRoom().getRoomNumber();
+            roomName = doctor.getRoom().getName();
+        } else if (doctor.getCurrentRoom() != null && !doctor.getCurrentRoom().isBlank()) {
+            // Backward compatibility: some flows still set currentRoom directly
+            roomNumber = doctor.getCurrentRoom();
+        }
 
         return DoctorDashboardDTO.builder()
                 .doctorId(doctorId)
                 .doctorName(displayName)
+                .roomId(roomId)
+                .roomNumber(roomNumber)
+                .roomName(roomName)
                 .todayAppointments(buildTodayAppointmentsCard(todayAppointments))
                 .patientsWaiting(buildPatientsWaitingCard(todayAppointments, now))
                 .inProgress(buildInProgressCard(todayAppointments, now))

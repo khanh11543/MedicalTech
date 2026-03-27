@@ -17,6 +17,9 @@ export interface DoctorDashboard {
   generatedAt: string;
   doctorId: number;
   doctorName: string;
+  roomId: number | null;
+  roomNumber: string | null;
+  roomName: string | null;
 }
 
 export interface TodayAppointmentsCard {

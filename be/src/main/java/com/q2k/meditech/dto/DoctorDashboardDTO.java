@@ -50,6 +50,11 @@ public class DoctorDashboardDTO {
     private Long doctorId;
     private String doctorName;
 
+    // Room (admin-managed assignment)
+    private Long roomId;
+    private String roomNumber;
+    private String roomName;
+
     // ==========================================
     // Inner DTOs for each card
     // ==========================================

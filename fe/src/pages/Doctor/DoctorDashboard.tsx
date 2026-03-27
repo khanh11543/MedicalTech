@@ -201,6 +201,17 @@ export default function DoctorDashboard() {
               <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
                 {welcomeStat}
               </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                <span className="font-medium text-gray-500 dark:text-gray-400">Room:</span>
+                <span className="inline-flex items-center rounded-full border border-gray-200 bg-white px-2 py-0.5 font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
+                  {data.roomNumber || "Not assigned"}
+                </span>
+                {data.roomName && (
+                  <span className="text-gray-500 dark:text-gray-400">
+                    ({data.roomName})
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-gray-500 dark:text-gray-400">
