@@ -39,6 +39,7 @@ interface CallNextModalProps {
   doctorId: number;
   doctorName: string;
   roomNumber?: string;
+  nextQueueNumber?: number;
   onClose: () => void;
   onSuccess: (result: QueueCallResultDTO) => void;
 }
@@ -48,12 +49,13 @@ export default function CallNextModal({
   doctorId,
   doctorName,
   roomNumber: roomNumberProp,
+  nextQueueNumber: nextQueueNumberProp,
   onClose,
   onSuccess,
 }: CallNextModalProps) {
   const [notifyMethod, setNotifyMethod] = useState("DISPLAY");
   const [roomNumber, setRoomNumber] = useState(roomNumberProp || "");
-  const [queueNumber, setQueueNumber] = useState("");
+  const [queueNumber, setQueueNumber] = useState(nextQueueNumberProp ? String(nextQueueNumberProp) : "");
   const [note, setNote] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -97,7 +99,7 @@ export default function CallNextModal({
   const handleClose = () => {
     setNotifyMethod("DISPLAY");
     setRoomNumber(roomNumberProp || "");
-    setQueueNumber("");
+    setQueueNumber(nextQueueNumberProp ? String(nextQueueNumberProp) : "");
     setNote("");
     setError("");
     onClose();
@@ -183,19 +185,24 @@ export default function CallNextModal({
             )}
           </div>
 
-          {/* Specific Queue Number (skip queue) */}
+          {/* Queue Number - auto-filled from next in queue */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Call Specific # <span className="text-gray-400">(optional, leave empty for next)</span>
+              Queue # <span className="text-gray-400">(auto-filled, can override)</span>
             </label>
             <input
               type="number"
               value={queueNumber}
               onChange={(e) => setQueueNumber(e.target.value)}
-              placeholder="Auto (next in queue)"
+              placeholder="No patient in queue"
               min="1"
               className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
             />
+            {nextQueueNumberProp && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Auto-filled with next patient in queue (#{nextQueueNumberProp}). You can override if needed.
+              </p>
+            )}
           </div>
 
           {/* Note */}

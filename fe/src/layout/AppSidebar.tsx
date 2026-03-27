@@ -143,7 +143,6 @@ const navItems: NavItem[] = [
     subItems: [
       { name: "Medication List", path: "/admin/medication-list", pro: false },
       { name: "Inventory Management", path: "/admin/medication-inventory", pro: false },
-      { name: "Inventory Audit Log", path: "/admin/inventory-audit-log", pro: false },
     ],
   },
   {

@@ -360,6 +360,7 @@ export default function App() {
                   path='/admin/inventory-audit-log'
                   element={<InventoryAuditLog />}
                 />
+                {/* Legacy route kept for bookmarks */}
 
                 {/* Prescription Management */}
                 <Route

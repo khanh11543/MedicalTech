@@ -14,6 +14,7 @@ import AuditTrail from "./components/AuditTrail";
 import ActivityLogs from "./components/ActivityLogs";
 import SessionManagement from "./components/SessionManagement";
 import InvestigationTools from "./components/InvestigationTools";
+import InventoryAuditLog from "../MedicationManagement/InventoryAuditLog";
 import {
   SecurityEventDTO,
   SecurityEventFilter,
@@ -270,6 +271,11 @@ export default function SecurityAudit() {
 
         {/* Investigation Tools Section */}
         <InvestigationTools />
+
+        {/* Inventory Audit Log Section */}
+        <ComponentCard title="Inventory Audit Log" desc="Track all medication inventory changes including imports, exports, adjustments, and prescription deductions">
+          <InventoryAuditLog embedded />
+        </ComponentCard>
       </div>
 
       {/* Event Detail Modal */}

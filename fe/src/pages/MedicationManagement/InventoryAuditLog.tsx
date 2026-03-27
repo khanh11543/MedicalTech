@@ -93,7 +93,7 @@ const REFERENCE_TYPE_LABELS: Record<string, string> = {
 };
 
 // ==================== COMPONENT ====================
-export default function InventoryAuditLog() {
+export default function InventoryAuditLog({ embedded = false }: { embedded?: boolean }) {
   // Filter state
   const [filters, setFilters] = useState<InventoryAuditFilterParams>({
     page: 0,
@@ -151,11 +151,8 @@ export default function InventoryAuditLog() {
   );
 
   // ─── Render ───
-  return (
+  const content = (
     <>
-      <PageMeta title="Inventory Audit Log | MediTech Admin" description="View inventory change audit trail" />
-      <PageBreadcrumb pageTitle="Inventory Audit Log" />
-
       <div className="space-y-6">
         {/* Stats Cards */}
         {stats && (
@@ -490,6 +487,16 @@ export default function InventoryAuditLog() {
       {selectedLog && (
         <LogDetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />
       )}
+    </>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <>
+      <PageMeta title="Inventory Audit Log | MediTech Admin" description="View inventory change audit trail" />
+      <PageBreadcrumb pageTitle="Inventory Audit Log" />
+      {content}
     </>
   );
 }

@@ -35,6 +35,7 @@ interface ModalCallNext {
   doctorId: number;
   doctorName: string;
   roomNumber?: string | null;
+  nextQueueNumber?: number | null;
 }
 interface ModalReorder {
   doctorId: number;
@@ -119,8 +120,8 @@ export default function ReceptionistQueue() {
   };
 
   // ─── Handlers ───────────────────────────────────────────
-  const handleCallNext = (doctorId: number, doctorName: string, roomNumber?: string | null) => {
-    setCallNextModal({ doctorId, doctorName, roomNumber });
+  const handleCallNext = (doctorId: number, doctorName: string, roomNumber?: string | null, nextQueueNumber?: number | null) => {
+    setCallNextModal({ doctorId, doctorName, roomNumber, nextQueueNumber });
   };
 
   const handleReorder = (doctorId: number, doctorName: string, patients: QueuePatientDTO[]) => {
@@ -290,6 +291,7 @@ export default function ReceptionistQueue() {
           doctorId={callNextModal.doctorId}
           doctorName={callNextModal.doctorName}
           roomNumber={callNextModal.roomNumber || undefined}
+          nextQueueNumber={callNextModal.nextQueueNumber ?? undefined}
           onClose={() => setCallNextModal(null)}
           onSuccess={() => onCallNextSuccess()}
         />
