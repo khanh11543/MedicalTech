@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -9,24 +9,159 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { authStorage } from '@/lib/authStorage';
+import { authApi } from '@/services/auth';
+import { ApiError } from '@/services/apiClient';
 
 const { width } = Dimensions.get('window');
 
+function parseLockUntil(message: string): Date | null {
+  const match = message.match(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})/);
+  if (match) {
+    const date = new Date(match[1]);
+    if (!isNaN(date.getTime())) return date;
+  }
+  return null;
+}
+
+function formatCountdown(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function validateEmail(value: string): string | null {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed) return 'Please enter your email.';
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmed)) return 'Please enter a valid email address.';
+  return null;
+}
+
 export default function SignInScreen() {
   const router = useRouter();
-  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [lockUntil, setLockUntil] = useState<Date | null>(null);
+  const [countdown, setCountdown] = useState(0);
 
-  const handleSignIn = () => {
-    // TODO: Implement sign in logic
-    router.replace('/(tabs)');
+  useEffect(() => {
+    (async () => {
+      const remembered = await authStorage.getRememberedEmail();
+      if (remembered) {
+        setEmail(remembered);
+        setRememberMe(true);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!lockUntil) {
+      setCountdown(0);
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((lockUntil.getTime() - Date.now()) / 1000));
+      setCountdown(remaining);
+      if (remaining <= 0) {
+        setLockUntil(null);
+        setError('');
+      }
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [lockUntil]);
+
+  const isLocked = countdown > 0;
+
+  const handleSignIn = async () => {
+    if (isLocked) return;
+    setError('');
+    const emailErr = validateEmail(email);
+    const missingPassword = !password?.trim();
+    if (emailErr || missingPassword) {
+      setError(emailErr || 'Please enter your password.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const deviceId = await authStorage.getOrCreateDeviceId();
+      const trusted = await authStorage.getTrustedDeviceToken();
+      const res = await authApi.login({
+        email: email.trim(),
+        password,
+        deviceId,
+        deviceName: `MedicalApp (${Platform.OS})`,
+        trustedDeviceToken: trusted || undefined,
+      });
+
+      if (res.mfaRequired && res.mfaToken) {
+        await authStorage.setPendingMfa({
+          email: email.trim(),
+          mfaToken: res.mfaToken,
+          rememberMe,
+        });
+        router.push('/verify-mfa');
+        return;
+      }
+
+      const tokenData = res.token;
+      if (!tokenData) {
+        setError('Unexpected response from server.');
+        return;
+      }
+
+      await authStorage.setTokens(tokenData.accessToken, tokenData.refreshToken);
+      await authStorage.setUser({
+        userId: tokenData.userId,
+        email: tokenData.email,
+        roles: tokenData.roles || [],
+      });
+      if (tokenData.trustedDeviceToken) {
+        await authStorage.setTrustedDeviceToken(tokenData.trustedDeviceToken);
+      }
+      if (rememberMe) {
+        await authStorage.setRememberedEmail(email.trim());
+      } else {
+        await authStorage.clearRememberedEmail();
+      }
+      router.replace('/(tabs)');
+    } catch (e) {
+      const msg = e instanceof ApiError || e instanceof Error ? e.message : '';
+      const status = e instanceof ApiError ? e.status : undefined;
+
+      if (status === 429) {
+        const until = parseLockUntil(msg);
+        if (until) setLockUntil(until);
+        setError(
+          msg.includes('IP')
+            ? 'Too many attempts. Please try again later.'
+            : 'Account temporarily locked due to too many failed attempts.'
+        );
+      } else if (msg) {
+        setError(msg);
+      } else if (status === 401) {
+        setError('Invalid email or password.');
+      } else if (status === 423) {
+        setError('Account is locked. Please try again later.');
+      } else {
+        setError('Sign in failed. Check your connection and API URL.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSignUp = () => {
@@ -49,7 +184,6 @@ export default function SignInScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header Illustration Area */}
           <View style={styles.headerContainer}>
             <LinearGradient
               colors={['#d4e6f6', '#c8ddf0', '#e8d8ee']}
@@ -58,18 +192,14 @@ export default function SignInScreen() {
               end={{ x: 1, y: 1 }}
             >
               <View style={styles.illustrationContainer}>
-                {/* Phone illustration */}
                 <View style={styles.phoneBody}>
                   <View style={styles.phoneScreen}>
-                    {/* Fingerprint icon */}
                     <Ionicons name="finger-print" size={60} color="#3a5a8c" />
                   </View>
                 </View>
-                {/* Magnifying glass */}
                 <View style={styles.magnifyingGlass}>
                   <Ionicons name="search" size={22} color="#4a6a9c" />
                 </View>
-                {/* Credit card */}
                 <View style={styles.creditCard}>
                   <View style={styles.cardChip} />
                   <View style={styles.cardLine} />
@@ -78,24 +208,34 @@ export default function SignInScreen() {
             </LinearGradient>
           </View>
 
-          {/* Form Area */}
           <View style={styles.formContainer}>
             <Text style={styles.title}>Sign in to Continue</Text>
 
-            {/* Full Name Input */}
+            {error ? (
+              <View style={[styles.banner, isLocked && styles.bannerLock]}>
+                <Text style={[styles.bannerText, isLocked && styles.bannerTextLock]}>{error}</Text>
+                {isLocked ? (
+                  <Text style={styles.countdownText}>Try again in {formatCountdown(countdown)}</Text>
+                ) : null}
+              </View>
+            ) : null}
+
             <View style={styles.inputContainer}>
-              <Ionicons name="person-outline" size={20} color="#a0b4c8" style={styles.inputIcon} />
+              <Ionicons name="mail-outline" size={20} color="#a0b4c8" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Type your full name"
+                placeholder="Enter your email"
                 placeholderTextColor="#a0b4c8"
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
+                value={email}
+                onChangeText={(t) => {
+                  setEmail(t);
+                  if (error) setError('');
+                }}
+                keyboardType="email-address"
+                autoCapitalize="none"
               />
             </View>
 
-            {/* Password Input */}
             <View style={styles.inputContainer}>
               <Ionicons name="lock-closed-outline" size={20} color="#a0b4c8" style={styles.inputIcon} />
               <TextInput
@@ -103,13 +243,13 @@ export default function SignInScreen() {
                 placeholder="Enter your password"
                 placeholderTextColor="#a0b4c8"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(t) => {
+                  setPassword(t);
+                  if (error) setError('');
+                }}
                 secureTextEntry={!showPassword}
               />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeIcon}
-              >
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
                 <Ionicons
                   name={showPassword ? 'eye-outline' : 'eye-off-outline'}
                   size={20}
@@ -118,7 +258,6 @@ export default function SignInScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Remember Me & Forgot Password */}
             <View style={styles.optionsRow}>
               <TouchableOpacity
                 style={styles.rememberRow}
@@ -126,7 +265,7 @@ export default function SignInScreen() {
                 activeOpacity={0.7}
               >
                 <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                  {rememberMe && <Ionicons name="checkmark" size={14} color="#fff" />}
+                  {rememberMe ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
                 </View>
                 <Text style={styles.rememberText}>Remember me</Text>
               </TouchableOpacity>
@@ -135,27 +274,34 @@ export default function SignInScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Sign In Button */}
-            <TouchableOpacity onPress={handleSignIn} activeOpacity={0.85}>
+            <TouchableOpacity
+              onPress={handleSignIn}
+              activeOpacity={0.85}
+              disabled={isSubmitting || isLocked}
+            >
               <LinearGradient
                 colors={['#5b9bd5', '#7ab8e0']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={styles.signInButton}
+                style={[styles.signInButton, (isSubmitting || isLocked) && styles.signInButtonDisabled]}
               >
-                <Text style={styles.signInButtonText}>Sign In</Text>
+                {isSubmitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.signInButtonText}>
+                    {isLocked ? `Locked (${formatCountdown(countdown)})` : 'Sign In'}
+                  </Text>
+                )}
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* Sign Up Link */}
             <View style={styles.signUpRow}>
-              <Text style={styles.signUpText}>Don't have an account ? </Text>
+              <Text style={styles.signUpText}>{"Don't have an account ? "}</Text>
               <TouchableOpacity onPress={handleSignUp}>
                 <Text style={styles.signUpLink}>Sign Up</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Social Login Buttons */}
             <View style={styles.socialRow}>
               <TouchableOpacity style={[styles.socialButton, styles.facebookButton]}>
                 <FontAwesome name="facebook" size={22} color="#3b5998" />
@@ -171,7 +317,6 @@ export default function SignInScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Bottom gradient decoration */}
       <LinearGradient
         colors={['transparent', '#f5dce8', '#ecc8d8']}
         style={styles.bottomGradient}
@@ -193,7 +338,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
 
-  /* ---- Header / Illustration ---- */
   headerContainer: {
     width: '100%',
     height: 260,
@@ -275,7 +419,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 
-  /* ---- Form ---- */
   formContainer: {
     paddingHorizontal: 28,
     paddingTop: 28,
@@ -286,7 +429,34 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a2e',
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
+  },
+  banner: {
+    backgroundColor: '#fdecea',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#f5c6cb',
+  },
+  bannerLock: {
+    backgroundColor: '#fff3e0',
+    borderColor: '#ffe0b2',
+  },
+  bannerText: {
+    color: '#c0392b',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  bannerTextLock: {
+    color: '#e65100',
+  },
+  countdownText: {
+    marginTop: 6,
+    textAlign: 'center',
+    fontWeight: '700',
+    color: '#e65100',
+    fontSize: 14,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -311,7 +481,6 @@ const styles = StyleSheet.create({
     padding: 4,
   },
 
-  /* ---- Options Row ---- */
   optionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -347,12 +516,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  /* ---- Sign In Button ---- */
   signInButton: {
     borderRadius: 14,
     paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  signInButtonDisabled: {
+    opacity: 0.75,
   },
   signInButtonText: {
     color: '#fff',
@@ -360,7 +531,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  /* ---- Sign Up ---- */
   signUpRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -376,7 +546,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  /* ---- Social Buttons ---- */
   socialRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -407,7 +576,6 @@ const styles = StyleSheet.create({
     color: '#ea4335',
   },
 
-  /* ---- Bottom Gradient ---- */
   bottomGradient: {
     position: 'absolute',
     bottom: 0,
