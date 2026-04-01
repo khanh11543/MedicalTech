@@ -27,7 +27,7 @@ export interface MedicationDTO {
 }
 
 export interface MedicationCreateDTO {
-  code: string;
+  code?: string;
   name: string;
   genericName?: string;
   brandName?: string;
@@ -151,12 +151,32 @@ export interface InventoryLogPage {
   size: number;
 }
 
+export interface MedicationImportErrorDTO {
+  rowNumber: number;
+  code?: string;
+  message: string;
+}
+
+export interface MedicationImportResultDTO {
+  totalRows: number;
+  successCount: number;
+  createdCount: number;
+  updatedCount: number;
+  skippedCount: number;
+  errors: MedicationImportErrorDTO[];
+}
+
 // ==================== SERVICE ====================
 
 const medicationService = {
   // Admin APIs
   async getAll(params: MedicationFilterParams = {}): Promise<MedicationPage> {
     const res = await api.get('/admin/medications', { params });
+    return res.data;
+  },
+
+  async getNextCode(): Promise<string> {
+    const res = await api.get('/admin/medications/next-code');
     return res.data;
   },
 
@@ -192,6 +212,15 @@ const medicationService = {
 
   async getInventorySummary(): Promise<InventorySummaryDTO> {
     const res = await api.get('/admin/medications/inventory/summary');
+    return res.data;
+  },
+
+  async importFile(file: File): Promise<MedicationImportResultDTO> {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await api.post('/admin/medications/import', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return res.data;
   },
 

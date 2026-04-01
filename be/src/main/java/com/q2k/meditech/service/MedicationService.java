@@ -2,6 +2,7 @@ package com.q2k.meditech.service;
 
 import com.q2k.meditech.dto.*;
 import org.springframework.data.domain.Page;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface MedicationService {
 
@@ -24,4 +25,8 @@ public interface MedicationService {
     Page<InventoryLogDTO> getInventoryLogs(Long medicationId, int page, int size);
 
     InventorySummaryDTO getInventorySummary();
+
+    MedicationImportResultDTO importMedications(MultipartFile file);
+
+    String getNextMedicationCode();
 }

@@ -172,6 +172,13 @@
             <version>5.2.5</version>
         </dependency>
 
+        <!-- CSV parsing -->
+        <dependency>
+            <groupId>com.opencsv</groupId>
+            <artifactId>opencsv</artifactId>
+            <version>5.10</version>
+        </dependency>
+
         <!-- MaxMind GeoIP2 (IP geolocation) -->
         <dependency>
             <groupId>com.maxmind.geoip2</groupId>
