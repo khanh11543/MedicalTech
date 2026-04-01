@@ -21,7 +21,7 @@ export default function ModalScreen() {
       try {
         if (!base) {
           throw new ApiError(
-            'Chưa có EXPO_PUBLIC_API_BASE_URL trên điện thoại thật. Xem hướng dẫn trong constants/api.ts.',
+            'EXPO_PUBLIC_API_BASE_URL is not set on this physical device. See constants/api.ts for setup.',
             0
           );
         }

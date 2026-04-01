@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,32 +6,106 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { resolveBackendAbsoluteUrl } from '@/constants/api';
+import { authStorage } from '@/lib/authStorage';
+import { ApiError } from '@/services/apiClient';
+import { authApi } from '@/services/auth';
+import {
+  fetchPatientDashboardStats,
+  fetchPatientProfile,
+  type PatientProfile,
+  type PatientDashboardStats,
+} from '@/services/dashboardApi';
+
+const PLACEHOLDER_AVATAR =
+  'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&h=200&fit=crop&crop=face';
 
 const menuItems = [
-  { label: 'Personal Info', icon: 'person-outline' as const, lib: 'ionicons' as const, route: '/edit-profile' },
-  { label: 'My Appointment', icon: 'calendar-outline' as const, lib: 'ionicons' as const, route: '/my-appointments' },
-  { label: 'My Doctors', icon: 'people-outline' as const, lib: 'ionicons' as const, route: '/my-doctors' },
-  { label: 'My tests & diagnostics', icon: 'flask-outline' as const, lib: 'ionicons' as const, route: null },
+  { label: 'Personal Info', icon: 'person-outline' as const, route: '/edit-profile' as const },
+  { label: 'My Appointment', icon: 'calendar-outline' as const, route: '/my-appointments' as const },
+  { label: 'My Doctors', icon: 'people-outline' as const, route: '/my-doctors' as const },
+  { label: 'My tests & diagnostics', icon: 'flask-outline' as const, route: '/my-tests' as const },
 ];
+
+function displayName(profile: PatientProfile | null, fallbackEmail: string | null): string {
+  const n = profile?.fullName?.trim();
+  if (n) return n;
+  if (fallbackEmail) {
+    const local = fallbackEmail.split('@')[0];
+    if (local) return local;
+  }
+  return 'Patient';
+}
 
 export default function SettingScreen() {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<PatientProfile | null>(null);
+  const [stats, setStats] = useState<PatientDashboardStats | null>(null);
+  const [storedEmail, setStoredEmail] = useState<string | null>(null);
+  const [avatarUri, setAvatarUri] = useState<string>(PLACEHOLDER_AVATAR);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  const handleLogOut = () => {
-    router.replace('/sign-in');
+  const load = useCallback(async (isRefresh: boolean) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setLoadError(null);
+    try {
+      const stored = await authStorage.getUser();
+      setStoredEmail(stored?.email ?? null);
+
+      const [prof, dash] = await Promise.all([fetchPatientProfile(), fetchPatientDashboardStats()]);
+      setProfile(prof);
+      setStats(dash);
+      const av = resolveBackendAbsoluteUrl(prof?.avatarUrl) ?? PLACEHOLDER_AVATAR;
+      setAvatarUri(av);
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : 'Could not load profile';
+      setLoadError(msg);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load(false);
+    }, [load])
+  );
+
+  const handleLogOut = async () => {
+    setLoggingOut(true);
+    try {
+      try {
+        await authApi.logout();
+      } catch {
+        /* still clear local session */
+      }
+      await authStorage.clearSession();
+      router.replace('/sign-in');
+    } finally {
+      setLoggingOut(false);
+    }
   };
+
+  const emailShown = profile?.email?.trim() || storedEmail || '—';
+  const nameShown = displayName(profile, storedEmail);
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* Top gradient */}
       <LinearGradient
         colors={['#d4e6f6', '#e0eaf4', '#f0f4f8']}
         style={styles.topGradient}
@@ -40,77 +114,108 @@ export default function SettingScreen() {
       />
 
       <SafeAreaView style={styles.flex}>
-        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={24} color="#1a1a2e" />
-          </TouchableOpacity>
+          <View style={styles.headerSide} />
           <Text style={styles.headerTitle}>My Profile</Text>
-          <View style={styles.backBtn} />
+          <View style={styles.headerSide} />
         </View>
 
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Avatar */}
-          <View style={styles.avatarSection}>
-            <View style={styles.avatarWrapper}>
-              <Image
-                source={{ uri: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&h=200&fit=crop&crop=face' }}
-                style={styles.avatar}
-              />
-            </View>
-            <Text style={styles.userName}>Rason Battler</Text>
-            <Text style={styles.userEmail}>Rasonbattler@gmail.com</Text>
-            <TouchableOpacity
-              style={styles.editBtn}
-              activeOpacity={0.8}
-              onPress={() => router.push('/edit-profile' as any)}
-            >
-              <LinearGradient
-                colors={['#5b9bd5', '#4a8ec4']}
-                style={styles.editBtnGradient}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-              >
-                <Ionicons name="create-outline" size={14} color="#fff" />
-                <Text style={styles.editBtnText}>Edit</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+        {loading && !refreshing ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color="#5b9bd5" />
+            <Text style={styles.hint}>Loading profile…</Text>
           </View>
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor="#5b9bd5" />
+            }
+          >
+            {loadError ? (
+              <Text style={styles.bannerError}>{loadError}</Text>
+            ) : null}
 
-          {/* Menu Items */}
-          <View style={styles.menuList}>
-            {menuItems.map((item, idx) => (
+            <View style={styles.avatarSection}>
+              <View style={styles.avatarWrapper}>
+                <Image source={{ uri: avatarUri }} style={styles.avatar} />
+              </View>
+              <Text style={styles.userName}>{nameShown}</Text>
+              <Text style={styles.userEmail}>{emailShown}</Text>
+              {profile?.patientId != null ? (
+                <Text style={styles.patientId}>Patient ID · {profile.patientId}</Text>
+              ) : null}
               <TouchableOpacity
-                key={idx}
+                style={styles.editBtn}
+                activeOpacity={0.8}
+                onPress={() => router.push('/edit-profile')}
+              >
+                <LinearGradient
+                  colors={['#5b9bd5', '#4a8ec4']}
+                  style={styles.editBtnGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Ionicons name="create-outline" size={14} color="#fff" />
+                  <Text style={styles.editBtnText}>Edit</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+
+            {stats ? (
+              <View style={styles.statsRow}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statValue}>{stats.upcomingAppointments ?? 0}</Text>
+                  <Text style={styles.statLabel}>Upcoming</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statValue}>{stats.completedAppointments ?? 0}</Text>
+                  <Text style={styles.statLabel}>Completed</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statValue}>{stats.pendingPayments ?? 0}</Text>
+                  <Text style={styles.statLabel}>Pending pay</Text>
+                </View>
+              </View>
+            ) : null}
+
+            <View style={styles.menuList}>
+              {menuItems.map((item, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={styles.menuItem}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    if (item.route) router.push(item.route);
+                  }}
+                >
+                  <View style={styles.menuIconBox}>
+                    <Ionicons name={item.icon} size={20} color="#5b9bd5" />
+                  </View>
+                  <Text style={styles.menuLabel}>{item.label}</Text>
+                  <Ionicons name="chevron-forward" size={18} color="#c0c8d4" />
+                </TouchableOpacity>
+              ))}
+
+              <TouchableOpacity
                 style={styles.menuItem}
                 activeOpacity={0.7}
-                onPress={() => {
-                  if (item.route) router.push(item.route as any);
-                }}
+                onPress={handleLogOut}
+                disabled={loggingOut}
               >
                 <View style={styles.menuIconBox}>
-                  <Ionicons name={item.icon} size={20} color="#5b9bd5" />
+                  <Ionicons name="log-out-outline" size={20} color="#c0392b" />
                 </View>
-                <Text style={styles.menuLabel}>{item.label}</Text>
-                <Ionicons name="chevron-forward" size={18} color="#c0c8d4" />
+                <Text style={[styles.menuLabel, styles.logoutLabel]}>
+                  {loggingOut ? 'Signing out…' : 'Log Out'}
+                </Text>
               </TouchableOpacity>
-            ))}
-
-            {/* Log Out */}
-            <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={handleLogOut}>
-              <View style={styles.menuIconBox}>
-                <Ionicons name="log-out-outline" size={20} color="#5b9bd5" />
-              </View>
-              <Text style={styles.menuLabel}>Log Out</Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
+            </View>
+          </ScrollView>
+        )}
       </SafeAreaView>
 
-      {/* Bottom gradient */}
       <LinearGradient
         colors={['transparent', '#f5dce8', '#ecc8d8']}
         style={styles.bottomGradient}
@@ -136,8 +241,27 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  hint: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#8a8a9e',
+  },
+  bannerError: {
+    marginHorizontal: 24,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#fdecea',
+    color: '#c0392b',
+    fontSize: 13,
+    textAlign: 'center',
+  },
 
-  /* Header */
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -146,11 +270,8 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 8,
   },
-  backBtn: {
+  headerSide: {
     width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 20,
@@ -158,11 +279,10 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
   },
 
-  /* Avatar */
   avatarSection: {
     alignItems: 'center',
     paddingTop: 10,
-    paddingBottom: 24,
+    paddingBottom: 20,
   },
   avatarWrapper: {
     width: 110,
@@ -171,6 +291,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: '#e8eef5',
     marginBottom: 14,
+    borderWidth: 2,
+    borderColor: '#e0e8f0',
   },
   avatar: {
     width: '100%',
@@ -181,10 +303,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a2e',
     marginBottom: 4,
+    textAlign: 'center',
+    paddingHorizontal: 24,
   },
   userEmail: {
     fontSize: 14,
     color: '#8a8a9e',
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+  patientId: {
+    marginTop: 6,
+    fontSize: 12,
+    color: '#a0b4c8',
+    fontWeight: '500',
   },
   editBtn: {
     marginTop: 12,
@@ -205,7 +337,35 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  /* Menu */
+  statsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    gap: 10,
+    marginBottom: 20,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#f7f9fc',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: '#e8eef5',
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#5b9bd5',
+  },
+  statLabel: {
+    marginTop: 4,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#8a8a9e',
+    textAlign: 'center',
+  },
+
   menuList: {
     paddingHorizontal: 24,
     gap: 12,
@@ -235,8 +395,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1a1a2e',
   },
+  logoutLabel: {
+    color: '#c0392b',
+  },
 
-  /* Bottom Gradient */
   bottomGradient: {
     position: 'absolute',
     bottom: 0,

@@ -50,13 +50,13 @@ function unreachableOnPhysicalDevice(url: string): boolean {
 /**
  * Base URL including `/api` (same as web `VITE_API_BASE_URL`).
  *
- * **Cùng LAN với PC** (cùng WiFi, không tunnel): thường tự suy ra IP từ URL Metro.
+ * **Same LAN as the dev PC** (same Wi‑Fi, no tunnel): the host is usually inferred from the Metro bundle URL.
  *
- * **Điện thoại mạng khác** (4G, WiFi khác, VLAN riêng): không có đường tới IP LAN của PC —
- * bắt buộc `EXPO_PUBLIC_API_BASE_URL` trỏ tới chỗ điện thoại **thật sự** truy cập được, ví dụ:
- * IP Tailscale/ZeroTier của PC, URL ngrok/cloudflared tới :8080, hoặc server staging/production.
+ * **Different network** (cellular, other Wi‑Fi, isolated VLAN): the phone cannot reach the PC’s LAN IP —
+ * you must set `EXPO_PUBLIC_API_BASE_URL` to something the device can actually open, e.g. the PC’s
+ * Tailscale/ZeroTier IP, an ngrok/cloudflared URL to :8080, or a staging/production server.
  *
- * Priority: env → infer from Metro (LAN only) → `extra.apiBaseUrl`. Tunnel Metro → thường cần env.
+ * Priority: env → infer from Metro (LAN only) → `extra.apiBaseUrl`. Tunnel mode usually needs env.
  */
 export function getApiBaseUrl(): string {
   const env = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
@@ -82,4 +82,15 @@ export function getApiBaseUrl(): string {
   return Platform.OS === 'android'
     ? `http://10.0.2.2:${BACKEND_PORT}/api`
     : `http://localhost:${BACKEND_PORT}/api`;
+}
+
+/** Turn `/avatars/...` or `/uploads/...` into full URL for `<Image source={{ uri }} />`. */
+export function resolveBackendAbsoluteUrl(path: string | null | undefined): string | undefined {
+  if (!path?.trim()) return undefined;
+  const p = path.trim();
+  if (/^https?:\/\//i.test(p)) return p;
+  const base = getApiBaseUrl();
+  if (!base) return undefined;
+  const root = base.replace(/\/api\/?$/, '');
+  return `${root}${p.startsWith('/') ? p : `/${p}`}`;
 }

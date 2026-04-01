@@ -21,13 +21,13 @@ function readMessage(data: unknown): string {
 }
 
 const DEVICE_API_HINT =
-  'Điện thoại không cùng mạng với PC (4G / WiFi khác): cần EXPO_PUBLIC_API_BASE_URL tới IP Tailscale/ngrok hoặc server staging. Cùng WiFi: thường không cần .env; Tunnel Metro vẫn cần URL API tới được từ điện thoại. Firewall mở 8080 nếu test LAN.';
+  'If the phone is not on the same network as your PC (e.g. cellular or different Wi‑Fi), set EXPO_PUBLIC_API_BASE_URL to a reachable host (Tailscale IP, ngrok, or staging). Same Wi‑Fi as the dev machine often works without .env; Expo tunnel still needs a URL the device can reach. Open port 8080 for LAN testing.';
 
 export async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
   const { skipAuth, ...init } = options;
   const base = getApiBaseUrl();
   if (!base) {
-    throw new ApiError(`Chưa cấu hình địa chỉ API. ${DEVICE_API_HINT}`, 0);
+    throw new ApiError(`API base URL is not configured. ${DEVICE_API_HINT}`, 0);
   }
   const url = `${base}${path.startsWith('/') ? path : `/${path}`}`;
 
@@ -51,7 +51,7 @@ export async function apiFetch<T>(path: string, options: FetchOptions = {}): Pro
   } catch (e) {
     const raw = e instanceof Error ? e.message : String(e);
     if (/network request failed|failed to fetch|aborted/i.test(raw)) {
-      throw new ApiError(`Không kết nối được máy chủ (${url}). ${DEVICE_API_HINT}`, 0);
+      throw new ApiError(`Could not reach the server (${url}). ${DEVICE_API_HINT}`, 0);
     }
     throw e;
   }

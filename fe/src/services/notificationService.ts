@@ -6,6 +6,7 @@ export type NotificationType = 'APPOINTMENT' | 'PAYMENT' | 'PATIENT' | 'SYSTEM';
 export type NotificationPriority = 'INFO' | 'IMPORTANT' | 'URGENT';
 export type NotificationCategory =
   | 'NEW_BOOKING'
+  | 'APPOINTMENT_CONFIRMED'
   | 'APPOINTMENT_CANCELLED'
   | 'APPOINTMENT_RESCHEDULED'
   | 'PATIENT_CHECKED_IN'

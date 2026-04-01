@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -108,22 +108,22 @@ public class PublicDoctorServiceImpl implements PublicDoctorService {
         doctorRepository.findByIdForPublic(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor", "id", doctorId));
 
-        // Default date range: today to 7 days from now
-        if (dateFrom == null) {
-            dateFrom = LocalDate.now();
+        // Never return slots for past calendar days; ignore client sending dateFrom in the past
+        LocalDate today = LocalDate.now();
+        if (dateFrom == null || dateFrom.isBefore(today)) {
+            dateFrom = today;
         }
-        if (dateTo == null) {
+        if (dateTo == null || dateTo.isBefore(dateFrom)) {
             dateTo = dateFrom.plusDays(7);
         }
 
-        // Get available slots
+        // Only AVAILABLE slots (not BOOKED / BLOCKED / etc.)
         List<TimeSlot> slots = timeSlotRepository.findAvailableSlots(doctorId, dateFrom, dateTo);
 
-        // Filter out past time slots for today
-        LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
+        // Hide any slot whose start is not strictly in the future (past dates + earlier times today)
+        LocalDateTime now = LocalDateTime.now();
         slots = slots.stream()
-                .filter(slot -> !slot.getSlotDate().equals(today) || slot.getStartTime().isAfter(now))
+                .filter(slot -> LocalDateTime.of(slot.getSlotDate(), slot.getStartTime()).isAfter(now))
                 .collect(Collectors.toList());
 
         return timeSlotMapper.toDTOList(slots);

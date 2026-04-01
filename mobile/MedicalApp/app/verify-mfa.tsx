@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { authStorage, type PendingMfa } from '@/lib/authStorage';
+import { isAllowedPatientAppUser, PATIENT_APP_ACCESS_DENIED_MESSAGE } from '@/lib/mobileAuthPolicy';
 import { authApi } from '@/services/auth';
 
 function isValidMfaCode(value: string): boolean {
@@ -68,6 +69,10 @@ export default function VerifyMfaScreen() {
         rememberDevice,
         deviceId,
       });
+      if (!isAllowedPatientAppUser(tokenData.roles)) {
+        setError(PATIENT_APP_ACCESS_DENIED_MESSAGE);
+        return;
+      }
       if (tokenData.trustedDeviceToken) {
         await authStorage.setTrustedDeviceToken(tokenData.trustedDeviceToken);
       }

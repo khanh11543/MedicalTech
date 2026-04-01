@@ -1,7 +1,9 @@
 package com.q2k.meditech.service;
 
 import com.q2k.meditech.dto.CreateNotificationDTO;
-import com.q2k.meditech.entity.*;
+import com.q2k.meditech.entity.Appointment;
+import com.q2k.meditech.entity.Payment;
+import com.q2k.meditech.entity.User;
 import com.q2k.meditech.entity.enums.NotificationCategory;
 import com.q2k.meditech.entity.enums.NotificationPriority;
 import com.q2k.meditech.entity.enums.NotificationType;
@@ -12,6 +14,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalTime;
 import java.util.List;
 
 /**
@@ -54,6 +57,22 @@ public class NotificationEventService {
                 "APPOINTMENT",
                 appointment.getId()
         );
+
+        Long patientUserId = patientUserId(appointment);
+        if (patientUserId != null) {
+            String dateStr = appointment.getAppointmentDate().toString();
+            String timeStr = formatAppointmentTime(appointment);
+            notifyPatient(
+                    patientUserId,
+                    "Appointment request received",
+                    String.format(
+                            "Your appointment with Dr. %s on %s at %s is pending confirmation.",
+                            doctorName, dateStr, timeStr),
+                    NotificationCategory.NEW_BOOKING,
+                    NotificationPriority.INFO,
+                    "APPOINTMENT",
+                    appointment.getId());
+        }
     }
 
     /**
@@ -76,6 +95,20 @@ public class NotificationEventService {
                 "APPOINTMENT",
                 appointment.getId()
         );
+
+        Long patientUserId = patientUserId(appointment);
+        if (patientUserId != null) {
+            notifyPatient(
+                    patientUserId,
+                    "Appointment cancelled",
+                    String.format(
+                            "Your appointment on %s has been cancelled.",
+                            appointment.getAppointmentDate()),
+                    NotificationCategory.APPOINTMENT_CANCELLED,
+                    NotificationPriority.IMPORTANT,
+                    "APPOINTMENT",
+                    appointment.getId());
+        }
     }
 
     /**
@@ -98,6 +131,46 @@ public class NotificationEventService {
                 "APPOINTMENT",
                 appointment.getId()
         );
+
+        Long patientUserId = patientUserId(appointment);
+        if (patientUserId != null) {
+            String timeStr = formatAppointmentTime(appointment);
+            notifyPatient(
+                    patientUserId,
+                    "Appointment rescheduled",
+                    String.format(
+                            "Your appointment was moved to %s at %s.",
+                            appointment.getAppointmentDate(), timeStr),
+                    NotificationCategory.APPOINTMENT_RESCHEDULED,
+                    NotificationPriority.INFO,
+                    "APPOINTMENT",
+                    appointment.getId());
+        }
+    }
+
+    /**
+     * Appointment confirmed by staff or doctor.
+     * Notifies: the patient (in-app).
+     */
+    @Async
+    public void onAppointmentConfirmed(Appointment appointment) {
+        Long patientUserId = patientUserId(appointment);
+        if (patientUserId == null) {
+            return;
+        }
+        String doctorName = doctorDisplayName(appointment);
+        String dateStr = appointment.getAppointmentDate().toString();
+        String timeStr = formatAppointmentTime(appointment);
+        notifyPatient(
+                patientUserId,
+                "Appointment confirmed",
+                String.format(
+                        "Your appointment with Dr. %s on %s at %s is confirmed.",
+                        doctorName, dateStr, timeStr),
+                NotificationCategory.APPOINTMENT_CONFIRMED,
+                NotificationPriority.INFO,
+                "APPOINTMENT",
+                appointment.getId());
     }
 
     /**
@@ -198,6 +271,20 @@ public class NotificationEventService {
                 "PAYMENT",
                 payment.getId()
         );
+
+        Long patientUserId = patientUserIdFromPayment(payment);
+        if (patientUserId != null) {
+            notifyPatient(
+                    patientUserId,
+                    "Payment received",
+                    String.format(
+                            "Your payment %s (%s) completed successfully.",
+                            payment.getPaymentCode(), formatAmount(payment.getTotalAmount())),
+                    NotificationCategory.MOMO_PAYMENT_RECEIVED,
+                    NotificationPriority.INFO,
+                    "PAYMENT",
+                    payment.getId());
+        }
     }
 
     /**
@@ -216,6 +303,20 @@ public class NotificationEventService {
                 "PAYMENT",
                 payment.getId()
         );
+
+        Long patientUserId = patientUserIdFromPayment(payment);
+        if (patientUserId != null) {
+            notifyPatient(
+                    patientUserId,
+                    "Payment failed",
+                    String.format(
+                            "Payment %s could not be completed. You can try again from the app.",
+                            payment.getPaymentCode()),
+                    NotificationCategory.PAYMENT_FAILED,
+                    NotificationPriority.IMPORTANT,
+                    "PAYMENT",
+                    payment.getId());
+        }
     }
 
     /**
@@ -237,6 +338,20 @@ public class NotificationEventService {
                 "PAYMENT",
                 payment.getId()
         );
+
+        Long patientUserId = patientUserIdFromPayment(payment);
+        if (patientUserId != null) {
+            notifyPatient(
+                    patientUserId,
+                    "Payment required",
+                    String.format(
+                            "You have a pending payment %s (%s). Complete it from the app when ready.",
+                            payment.getPaymentCode(), formatAmount(payment.getTotalAmount())),
+                    NotificationCategory.NEW_PENDING_PAYMENT,
+                    NotificationPriority.INFO,
+                    "PAYMENT",
+                    payment.getId());
+        }
     }
 
     /**
@@ -259,6 +374,20 @@ public class NotificationEventService {
                 "PAYMENT",
                 payment.getId()
         );
+
+        Long patientUserId = patientUserIdFromPayment(payment);
+        if (patientUserId != null) {
+            notifyPatient(
+                    patientUserId,
+                    "Payment overdue",
+                    String.format(
+                            "Payment %s (%s) is still unpaid. Please complete it to avoid cancellation.",
+                            payment.getPaymentCode(), formatAmount(payment.getTotalAmount())),
+                    NotificationCategory.OVERDUE_PAYMENT,
+                    NotificationPriority.URGENT,
+                    "PAYMENT",
+                    payment.getId());
+        }
     }
 
     // =====================================================================
@@ -424,7 +553,7 @@ public class NotificationEventService {
      */
     private NotificationType mapCategoryToType(NotificationCategory category) {
         return switch (category) {
-            case NEW_BOOKING, APPOINTMENT_CANCELLED, APPOINTMENT_RESCHEDULED,
+            case NEW_BOOKING, APPOINTMENT_CONFIRMED, APPOINTMENT_CANCELLED, APPOINTMENT_RESCHEDULED,
                  PATIENT_CHECKED_IN, NO_SHOW_MARKED, DOCTOR_NOTIFIED -> NotificationType.APPOINTMENT;
             case MOMO_PAYMENT_RECEIVED, PAYMENT_FAILED,
                  NEW_PENDING_PAYMENT, OVERDUE_PAYMENT -> NotificationType.PAYMENT;
@@ -436,5 +565,65 @@ public class NotificationEventService {
     private String formatAmount(BigDecimal amount) {
         if (amount == null) return "N/A";
         return String.format("%,.0f VND", amount);
+    }
+
+    private void notifyPatient(Long patientUserId, String title, String message,
+                               NotificationCategory category, NotificationPriority priority,
+                               String referenceType, Long referenceId) {
+        if (patientUserId == null) {
+            return;
+        }
+        try {
+            notificationService.createAndSend(CreateNotificationDTO.builder()
+                    .userId(patientUserId)
+                    .title(title)
+                    .message(message)
+                    .type(mapCategoryToType(category))
+                    .category(category)
+                    .priority(priority)
+                    .referenceType(referenceType)
+                    .referenceId(referenceId)
+                    .build());
+        } catch (Exception e) {
+            log.error("Failed to notify patient user {}: {}", patientUserId, e.getMessage());
+        }
+    }
+
+    private static Long patientUserId(Appointment appointment) {
+        if (appointment == null || appointment.getPatient() == null || appointment.getPatient().getUser() == null) {
+            return null;
+        }
+        return appointment.getPatient().getUser().getId();
+    }
+
+    private static Long patientUserIdFromPayment(Payment payment) {
+        if (payment == null || payment.getPatient() == null || payment.getPatient().getUser() == null) {
+            return null;
+        }
+        return payment.getPatient().getUser().getId();
+    }
+
+    private static String doctorDisplayName(Appointment appointment) {
+        if (appointment.getDoctor() == null) {
+            return "your doctor";
+        }
+        if (appointment.getDoctor().getUser() != null
+                && appointment.getDoctor().getUser().getFullName() != null
+                && !appointment.getDoctor().getUser().getFullName().isBlank()) {
+            return appointment.getDoctor().getUser().getFullName();
+        }
+        if (appointment.getDoctor().getFullName() != null && !appointment.getDoctor().getFullName().isBlank()) {
+            return appointment.getDoctor().getFullName();
+        }
+        return "your doctor";
+    }
+
+    private static String formatAppointmentTime(Appointment appointment) {
+        LocalTime start = appointment.getStartTime();
+        if (start == null) {
+            return "";
+        }
+        String s = start.toString();
+        return s.length() >= 5 ? s.substring(0, 5) : s;
     }
 }

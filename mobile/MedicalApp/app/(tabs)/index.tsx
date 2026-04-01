@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,197 +7,388 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
+import { useRouter, useFocusEffect } from 'expo-router';
 import SideDrawer from '@/components/side-drawer';
+import { resolveBackendAbsoluteUrl } from '@/constants/api';
+import { ApiError } from '@/services/apiClient';
+import {
+  fetchPatientDashboardStats,
+  fetchPatientProfile,
+  fetchPublicSpecialties,
+  fetchTopDoctors,
+  fetchGuideContents,
+  type AppointmentDto,
+  type DoctorCardDto,
+  type PublicContentDto,
+  type SpecialtyDto,
+} from '@/services/dashboardApi';
+import { formatConsultationFee, ratingNum, doctorHoursLabel } from '@/lib/doctorPresentation';
+import { pickSpecialtyIcon, pickContentTitleIcon } from '@/lib/medicalIcons';
 
 const { width } = Dimensions.get('window');
 
-// ── Mock Data ──────────────────────────────────────────────
-const appointment = {
-  doctor: 'Dr. Emily Johnson',
-  specialty: 'Neurologist',
-  date: '08 May 2025 at 4.30 pm',
-  rating: 5.0,
-  price: 29,
-  avatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&h=200&fit=crop&crop=face',
-};
+const PLACEHOLDER_USER =
+  'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&h=100&fit=crop&crop=face';
+const PLACEHOLDER_DOCTOR =
+  'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&h=200&fit=crop&crop=face';
 
-const categories = [
-  { name: 'Dentistry', icon: 'tooth-outline' as const },
-  { name: 'Gynecology', icon: 'human-female' as const },
-  { name: 'Cardiology', icon: 'heart-pulse' as const },
-  { name: 'Neurology', icon: 'brain' as const },
-  { name: 'Orthopedic', icon: 'bone' as const },
-];
+function stripHtml(raw: string): string {
+  return raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
-const diagnostics = [
-  { title: 'Genetic Testing', icon: 'dna' as const, desc: 'The team went above & beyond to ensure I felt safe, understood through' },
-  { title: 'Cellular and Chemical', icon: 'flask-outline' as const, desc: 'The team went above & beyond to ensure I felt safe, understood through' },
-  { title: 'Diagnostic Imaging', icon: 'stethoscope' as const, desc: 'The team went above & beyond to ensure I felt safe, understood through' },
-  { title: 'Mesurement', icon: 'tooth-outline' as const, desc: 'The team went above & beyond to ensure I felt safe, understood through' },
-];
+function formatAppointmentWhen(a: AppointmentDto): string {
+  try {
+    const t = a.startTime?.length === 5 ? `${a.startTime}:00` : a.startTime;
+    const d = new Date(`${a.appointmentDate}T${t}`);
+    if (Number.isNaN(d.getTime())) return `${a.appointmentDate}`;
+    return d.toLocaleString('en-US', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return a.appointmentDate;
+  }
+}
 
-const topDoctors = [
-  { name: 'Dr. William Harris', specialty: 'Psychiatrist', hours: '8.00 am-5.30 pm', rating: 5.0, avatar: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&h=200&fit=crop&crop=face' },
-  { name: 'Dr. Daniel Collins', specialty: 'Cardiologist', hours: '8.30 am-7.30 pm', rating: 5.0, avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&h=200&fit=crop&crop=face' },
-  { name: 'Dr. Olivia Smith', specialty: 'Urologist', hours: '9.00 am-6.00 pm', rating: 5.0, avatar: 'https://images.unsplash.com/photo-1594824476967-48c8b964ac31?w=200&h=200&fit=crop&crop=face' },
-];
-
-// ── Component ──────────────────────────────────────────────
 export default function DashboardScreen() {
+  const router = useRouter();
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [userAvatar, setUserAvatar] = useState<string>(PLACEHOLDER_USER);
+  const [nextAppointment, setNextAppointment] = useState<AppointmentDto | null>(null);
+  const [specialties, setSpecialties] = useState<SpecialtyDto[]>([]);
+  const [contents, setContents] = useState<PublicContentDto[]>([]);
+  const [topDoctors, setTopDoctors] = useState<DoctorCardDto[]>([]);
+  const [bannerDoctor, setBannerDoctor] = useState<DoctorCardDto | null>(null);
+
+  const load = useCallback(async (isRefresh: boolean) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setLoadError(null);
+    try {
+      const [profile, stats, specs, docs, guides] = await Promise.all([
+        fetchPatientProfile(),
+        fetchPatientDashboardStats(),
+        fetchPublicSpecialties(),
+        fetchTopDoctors(10),
+        fetchGuideContents(6),
+      ]);
+
+      const av = resolveBackendAbsoluteUrl(profile?.avatarUrl) ?? PLACEHOLDER_USER;
+      setUserAvatar(av);
+      setNextAppointment(stats?.nextAppointment ?? null);
+      setSpecialties(specs.slice(0, 12));
+      setTopDoctors(docs);
+      setContents(guides);
+
+      const neuro =
+        docs.find((d) =>
+          /thần kinh|neuro/i.test(d.primarySpecialty ?? '') ||
+          (d.specialties?.some((s) => /thần kinh|neuro/i.test(s)) ?? false)
+        ) ?? docs[0] ?? null;
+      setBannerDoctor(neuro);
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : 'Failed to load data';
+      setLoadError(msg);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load(false);
+    }, [load])
+  );
+
+  const onRefresh = useCallback(() => {
+    load(true);
+  }, [load]);
+
+  const openDoctor = (d: DoctorCardDto) => {
+    const img = resolveBackendAbsoluteUrl(d.avatarUrl) ?? PLACEHOLDER_DOCTOR;
+    router.push({
+      pathname: '/doctor-detail',
+      params: {
+        doctorId: String(d.id),
+        name: d.fullName,
+        specialty: d.primarySpecialty ?? d.specialties?.[0] ?? '',
+        hours: doctorHoursLabel(d),
+        price: formatConsultationFee(d.consultationFee),
+        rating: String(ratingNum(d.ratingAvg)),
+        image: img,
+      },
+    });
+  };
+
+  /** Banner “Book” goes straight to the booking flow, not doctor profile. */
+  const openBookAppointment = (d: DoctorCardDto) => {
+    const img = resolveBackendAbsoluteUrl(d.avatarUrl) ?? PLACEHOLDER_DOCTOR;
+    router.push({
+      pathname: '/make-appointment',
+      params: {
+        doctorId: String(d.id),
+        name: d.fullName,
+        specialty: d.primarySpecialty ?? d.specialties?.[0] ?? '',
+        image: img,
+      },
+    });
+  };
+
+  const appt = nextAppointment;
+  const apptImage =
+    appt?.doctorId != null
+      ? topDoctors.find((x) => x.id === appt.doctorId)?.avatarUrl
+      : undefined;
+  const apptAvatarUri =
+    resolveBackendAbsoluteUrl(apptImage) ?? PLACEHOLDER_DOCTOR;
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
       <SafeAreaView style={styles.flex} edges={['top']}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* ── Header ── */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => setDrawerVisible(true)}>
-              <View style={styles.avatarContainer}>
-                <Image
-                  source={{ uri: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&h=100&fit=crop&crop=face' }}
-                  style={styles.userAvatar}
-                />
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity>
-              <Ionicons name="menu" size={26} color="#1a1a2e" />
-            </TouchableOpacity>
+        {loading && !refreshing ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color="#5b9bd5" />
+            <Text style={styles.loadingHint}>Loading from server…</Text>
           </View>
-
-          {/* ── My Appointments ── */}
-          <Text style={styles.sectionTitle}>My Appointments</Text>
-          <View style={styles.appointmentCard}>
-            <View style={styles.appointmentRow}>
-              <View style={styles.doctorAvatarWrapper}>
-                <Image source={{ uri: appointment.avatar }} style={styles.doctorAvatar} />
-                <View style={styles.ratingBadge}>
-                  <FontAwesome name="star" size={10} color="#ff6b35" />
-                  <Text style={styles.ratingText}>{appointment.rating}</Text>
-                </View>
-              </View>
-              <View style={styles.appointmentInfo}>
-                <View style={styles.appointmentHeader}>
-                  <Text style={styles.doctorName}>{appointment.doctor}</Text>
-                  <TouchableOpacity>
-                    <Ionicons name="ellipsis-vertical" size={18} color="#8a8a9e" />
-                  </TouchableOpacity>
-                </View>
-                <Text style={styles.specialty}>{appointment.specialty}</Text>
-                <Text style={styles.appointmentDate}>{appointment.date}</Text>
-                <View style={styles.appointmentActions}>
-                  <TouchableOpacity style={styles.messageButton}>
-                    <Text style={styles.messageButtonText}>Send Message</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.priceText}>${appointment.price}</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {/* ── Categories ── */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Categories</Text>
-            <TouchableOpacity style={styles.viewAllRow}>
-              <Text style={styles.viewAllText}>View all</Text>
-              <Ionicons name="chevron-forward" size={16} color="#8a8a9e" />
-            </TouchableOpacity>
-          </View>
+        ) : (
           <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoriesRow}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#5b9bd5']} />
+            }
           >
-            {categories.map((cat, idx) => (
-              <TouchableOpacity key={idx} style={styles.categoryItem}>
-                <View style={styles.categoryIcon}>
-                  <MaterialCommunityIcons name={cat.icon} size={28} color="#5b9bd5" />
+            {loadError ? (
+              <Text style={styles.errorBanner}>{loadError}</Text>
+            ) : null}
+
+            {/* ── Header ── */}
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => setDrawerVisible(true)}>
+                <View style={styles.avatarContainer}>
+                  <Image source={{ uri: userAvatar }} style={styles.userAvatar} />
                 </View>
-                <Text style={styles.categoryName}>{cat.name}</Text>
               </TouchableOpacity>
-            ))}
-          </ScrollView>
+              <TouchableOpacity>
+                <Ionicons name="menu" size={26} color="#1a1a2e" />
+              </TouchableOpacity>
+            </View>
 
-          {/* ── Diagnostics & Tests ── */}
-          <Text style={styles.sectionTitle}>Diagnostics & Tests</Text>
-          {diagnostics.map((item, idx) => (
-            <TouchableOpacity key={idx} style={styles.diagnosticCard}>
-              <View style={styles.diagnosticIcon}>
-                <MaterialCommunityIcons name={item.icon} size={26} color="#5b9bd5" />
+            {/* ── My Appointments ── */}
+            <Text style={styles.sectionTitle}>My appointments</Text>
+            {appt ? (
+              <View style={styles.appointmentCard}>
+                <View style={styles.appointmentRow}>
+                  <View style={styles.doctorAvatarWrapper}>
+                    <Image source={{ uri: apptAvatarUri }} style={styles.doctorAvatar} />
+                    <View style={styles.ratingBadge}>
+                      <Ionicons name="calendar" size={10} color="#5b9bd5" />
+                      <Text style={styles.ratingText}>Upcoming</Text>
+                    </View>
+                  </View>
+                  <View style={styles.appointmentInfo}>
+                    <View style={styles.appointmentHeader}>
+                      <Text style={styles.doctorName}>{appt.doctorName ?? 'Doctor'}</Text>
+                      <TouchableOpacity>
+                        <Ionicons name="ellipsis-vertical" size={18} color="#8a8a9e" />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.specialty}>{appt.doctorSpecialization ?? ''}</Text>
+                    <Text style={styles.appointmentDate}>{formatAppointmentWhen(appt)}</Text>
+                    <View style={styles.appointmentActions}>
+                      <TouchableOpacity style={styles.messageButton}>
+                        <Text style={styles.messageButtonText}>Message</Text>
+                      </TouchableOpacity>
+                      <Text style={styles.priceText}>
+                        {formatConsultationFee(appt.consultationFee)}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
               </View>
-              <View style={styles.diagnosticInfo}>
-                <Text style={styles.diagnosticTitle}>{item.title}</Text>
-                <Text style={styles.diagnosticDesc} numberOfLines={2}>{item.desc}</Text>
+            ) : (
+              <View style={styles.emptyCard}>
+                <Text style={styles.emptyText}>No upcoming appointments.</Text>
+                <TouchableOpacity onPress={() => router.push('/(tabs)/search')}>
+                  <Text style={styles.emptyLink}>Find a doctor →</Text>
+                </TouchableOpacity>
               </View>
-              <Ionicons name="chevron-forward" size={20} color="#c0c8d4" />
-            </TouchableOpacity>
-          ))}
+            )}
 
-          {/* ── Consultation Banner ── */}
-          <View style={styles.bannerCard}>
-            <LinearGradient
-              colors={['#e8eef5', '#dce6f0']}
-              style={styles.bannerGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            {/* ── Categories (specialties) ── */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Specialties</Text>
+              <TouchableOpacity
+                style={styles.viewAllRow}
+                onPress={() => router.push('/(tabs)/search')}
+              >
+                <Text style={styles.viewAllText}>View all</Text>
+                <Ionicons name="chevron-forward" size={16} color="#8a8a9e" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoriesRow}
             >
-              <View style={styles.bannerContent}>
-                <View style={styles.bannerTextArea}>
-                  <Text style={styles.bannerTitle}>
-                    Book your free consultation with a Neurologist today!
-                  </Text>
-                  <TouchableOpacity style={styles.bannerButton}>
-                    <Text style={styles.bannerButtonText}>Appointment</Text>
+              {specialties.length === 0 ? (
+                <Text style={styles.mutedInline}>Specialty list is being updated…</Text>
+              ) : (
+                specialties.map((cat) => (
+                  <TouchableOpacity key={cat.id} style={styles.categoryItem}>
+                    <View style={styles.categoryIcon}>
+                      <MaterialCommunityIcons
+                        name={pickSpecialtyIcon(cat.name)}
+                        size={28}
+                        color="#5b9bd5"
+                      />
+                    </View>
+                    <Text style={styles.categoryName} numberOfLines={2}>
+                      {cat.name}
+                    </Text>
                   </TouchableOpacity>
-                </View>
-                <Image
-                  source={{ uri: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&h=250&fit=crop' }}
-                  style={styles.bannerImage}
-                />
-              </View>
-            </LinearGradient>
-          </View>
+                ))
+              )}
+            </ScrollView>
 
-          {/* ── Top Doctors ── */}
-          <Text style={styles.sectionTitle}>Top Doctors</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.topDoctorsRow}
-          >
-            {topDoctors.map((doc, idx) => (
-              <View key={idx} style={styles.topDoctorCard}>
-                <View style={styles.topDoctorImageWrapper}>
-                  <Image source={{ uri: doc.avatar }} style={styles.topDoctorImage} />
-                  <View style={styles.topDoctorRating}>
-                    <FontAwesome name="star" size={9} color="#ff6b35" />
-                    <Text style={styles.topDoctorRatingText}>{doc.rating}</Text>
-                  </View>
-                  <TouchableOpacity style={styles.favoriteIcon}>
-                    <Ionicons name="star-outline" size={16} color="#fff" />
+            {/* ── Diagnostics & Tests (guides / articles) ── */}
+            <Text style={styles.sectionTitle}>Guides & resources</Text>
+            {contents.length === 0 ? (
+              <Text style={styles.mutedPadded}>No guides or articles are available yet.</Text>
+            ) : (
+              contents.map((item) => {
+                const raw = item.summary?.trim() || item.body || '';
+                const desc = raw ? stripHtml(raw).slice(0, 120) + (raw.length > 120 ? '…' : '') : '';
+                return (
+                  <TouchableOpacity key={item.id} style={styles.diagnosticCard}>
+                    <View style={styles.diagnosticIcon}>
+                      <MaterialCommunityIcons
+                        name={pickContentTitleIcon(item.title)}
+                        size={26}
+                        color="#5b9bd5"
+                      />
+                    </View>
+                    <View style={styles.diagnosticInfo}>
+                      <Text style={styles.diagnosticTitle}>{item.title}</Text>
+                      {desc ? (
+                        <Text style={styles.diagnosticDesc} numberOfLines={2}>
+                          {desc}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Ionicons name="chevron-forward" size={20} color="#c0c8d4" />
                   </TouchableOpacity>
-                  <View style={styles.hoursChip}>
-                    <Ionicons name="time-outline" size={11} color="#5b9bd5" />
-                    <Text style={styles.hoursText}>{doc.hours}</Text>
+                );
+              })
+            )}
+
+            {/* ── Consultation Banner ── */}
+            <View style={styles.bannerCard}>
+              <LinearGradient
+                colors={['#e8eef5', '#dce6f0']}
+                style={styles.bannerGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.bannerContent}>
+                  <View style={styles.bannerTextArea}>
+                    <Text style={styles.bannerTitle}>
+                      {bannerDoctor
+                        ? bannerDoctor.primarySpecialty
+                          ? `See a ${bannerDoctor.primarySpecialty} specialist today!`
+                          : 'Book a consultation with a doctor today!'
+                        : 'Book an appointment on MediTech'}
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.bannerButton}
+                      onPress={() =>
+                        bannerDoctor ? openBookAppointment(bannerDoctor) : router.push('/(tabs)/search')
+                      }
+                    >
+                      <Text style={styles.bannerButtonText}>Book</Text>
+                    </TouchableOpacity>
                   </View>
+                  <Image
+                    source={{
+                      uri:
+                        resolveBackendAbsoluteUrl(bannerDoctor?.avatarUrl) ??
+                        'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&h=250&fit=crop',
+                    }}
+                    style={styles.bannerImage}
+                  />
                 </View>
-                <Text style={styles.topDoctorName}>{doc.name}</Text>
-                <Text style={styles.topDoctorSpecialty}>{doc.specialty}</Text>
-              </View>
-            ))}
+              </LinearGradient>
+            </View>
+
+            {/* ── Top Doctors ── */}
+            <Text style={styles.sectionTitle}>Top doctors</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.topDoctorsRow}
+            >
+              {topDoctors.length === 0 ? (
+                <Text style={styles.mutedInline}>No doctors available.</Text>
+              ) : (
+                topDoctors.map((doc) => {
+                  const img = resolveBackendAbsoluteUrl(doc.avatarUrl) ?? PLACEHOLDER_DOCTOR;
+                  const r = ratingNum(doc.ratingAvg);
+                  return (
+                    <TouchableOpacity
+                      key={doc.id}
+                      style={styles.topDoctorCard}
+                      onPress={() => openDoctor(doc)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.topDoctorImageWrapper}>
+                        <Image source={{ uri: img }} style={styles.topDoctorImage} />
+                        {r > 0 ? (
+                          <View style={styles.topDoctorRating}>
+                            <FontAwesome name="star" size={9} color="#ff6b35" />
+                            <Text style={styles.topDoctorRatingText}>{r}</Text>
+                          </View>
+                        ) : null}
+                        <TouchableOpacity style={styles.favoriteIcon}>
+                          <Ionicons name="star-outline" size={16} color="#fff" />
+                        </TouchableOpacity>
+                        <View style={styles.hoursChip}>
+                          <Ionicons name="time-outline" size={11} color="#5b9bd5" />
+                          <Text style={styles.hoursText} numberOfLines={1}>
+                            {doctorHoursLabel(doc)}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.topDoctorName} numberOfLines={1}>
+                        {doc.fullName}
+                      </Text>
+                      <Text style={styles.topDoctorSpecialty} numberOfLines={1}>
+                        {doc.primarySpecialty ?? doc.specialties?.[0] ?? ''}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </ScrollView>
+
+            <View style={{ height: 30 }} />
           </ScrollView>
-
-          <View style={{ height: 30 }} />
-        </ScrollView>
+        )}
       </SafeAreaView>
 
       <LinearGradient
@@ -222,6 +413,56 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 40,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  loadingHint: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#8a8a9e',
+  },
+  errorBanner: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+    padding: 12,
+    backgroundColor: '#ffe8e8',
+    borderRadius: 12,
+    color: '#a32020',
+    fontSize: 13,
+  },
+  mutedInline: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    color: '#8a8a9e',
+    fontSize: 13,
+  },
+  mutedPadded: {
+    paddingHorizontal: 20,
+    marginBottom: 8,
+    color: '#8a8a9e',
+    fontSize: 13,
+  },
+  emptyCard: {
+    marginHorizontal: 20,
+    backgroundColor: '#fff',
+    borderRadius: CARD_RADIUS,
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#8a8a9e',
+    textAlign: 'center',
+  },
+  emptyLink: {
+    marginTop: 10,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#5b9bd5',
   },
 
   /* ── Header ── */
@@ -358,9 +599,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   priceText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#1a1a2e',
+    flex: 1,
   },
 
   /* ── Categories ── */

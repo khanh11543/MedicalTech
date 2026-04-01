@@ -1,10 +1,34 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Tabs, useRouter } from 'expo-router';
+import React, { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 
 import { HapticTab } from '@/components/haptic-tab';
+import { authStorage } from '@/lib/authStorage';
+import { isAllowedPatientAppUser } from '@/lib/mobileAuthPolicy';
 
 export default function TabLayout() {
+  const router = useRouter();
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const token = await authStorage.getAccessToken();
+      const user = await authStorage.getUser();
+      if (!alive) return;
+      if (!token) {
+        router.replace('/sign-in');
+        return;
+      }
+      if (!user || !isAllowedPatientAppUser(user.roles)) {
+        await authStorage.clearSession();
+        if (alive) router.replace('/sign-in');
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [router]);
+
   return (
     <Tabs
       screenOptions={{

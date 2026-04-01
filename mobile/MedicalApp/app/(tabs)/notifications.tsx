@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,68 +6,145 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter, useFocusEffect } from 'expo-router';
+import { resolveBackendAbsoluteUrl } from '@/constants/api';
+import { ApiError } from '@/services/apiClient';
+import { fetchPatientProfile } from '@/services/dashboardApi';
+import {
+  fetchMyNotifications,
+  markMyNotificationRead,
+  type NotificationDTO,
+} from '@/services/notificationsApi';
 
-type NotificationType = 'bell' | 'confirmed' | 'rejected';
+const PLACEHOLDER_USER =
+  'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&h=100&fit=crop&crop=face';
 
-interface Notification {
-  id: string;
-  type: NotificationType;
-  title: string;
-  body: string;
-  date: string;
-  read: boolean;
+function stripHtml(raw: string): string {
+  return raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-const initialNotifications: Notification[] = [
-  {
-    id: '1',
-    type: 'bell',
-    title: 'Your blood test is ready',
-    body: 'I received of excellent services from the staff. They listened to my concerns..',
-    date: '08 May 2025 at 4.30 pm',
-    read: false,
-  },
-  {
-    id: '2',
-    type: 'confirmed',
-    title: 'Your appointment is confirmed',
-    body: 'I received of excellent services from the staff. They listened to my concerns..',
-    date: '08 May 2025 at 4.30 pm',
-    read: false,
-  },
-  {
-    id: '3',
-    type: 'rejected',
-    title: 'Your Appointment is rejected',
-    body: 'I received of excellent services from the staff. They listened to my concerns..',
-    date: '08 May 2025 at 4.30 pm',
-    read: false,
-  },
-];
-
-const iconForType = (type: NotificationType) => {
-  switch (type) {
-    case 'confirmed':
-      return 'checkbox-outline' as const;
-    case 'rejected':
-      return 'notifications-outline' as const;
-    default:
-      return 'notifications-outline' as const;
+function formatNotificationWhen(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return iso;
   }
-};
+}
+
+function iconForNotification(n: NotificationDTO): React.ComponentProps<typeof Ionicons>['name'] {
+  const cat = n.category ?? '';
+  if (
+    cat === 'APPOINTMENT_CANCELLED' ||
+    cat === 'PAYMENT_FAILED' ||
+    cat === 'NO_SHOW_MARKED' ||
+    cat === 'OVERDUE_PAYMENT'
+  ) {
+    return 'close-circle-outline';
+  }
+  if (
+    cat === 'NEW_BOOKING' ||
+    cat === 'APPOINTMENT_CONFIRMED' ||
+    cat === 'MOMO_PAYMENT_RECEIVED' ||
+    cat === 'PATIENT_CHECKED_IN'
+  ) {
+    return 'checkbox-outline';
+  }
+  switch (n.type) {
+    case 'PAYMENT':
+      return 'card-outline';
+    case 'PATIENT':
+      return 'person-outline';
+    case 'SYSTEM':
+      return 'notifications-outline';
+    default:
+      return 'calendar-outline';
+  }
+}
+
+function iconBgForNotification(n: NotificationDTO): string {
+  if (n.priority === 'URGENT') return '#e74c3c';
+  if (n.type === 'PAYMENT') return '#27ae60';
+  if (n.type === 'SYSTEM') return '#9b59b6';
+  return '#5b9bd5';
+}
 
 export default function NotificationsScreen() {
-  const [notifications, setNotifications] = useState(initialNotifications);
+  const router = useRouter();
+  const [notifications, setNotifications] = useState<NotificationDTO[]>([]);
+  const [userAvatar, setUserAvatar] = useState<string>(PLACEHOLDER_USER);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [needsSignIn, setNeedsSignIn] = useState(false);
+  const [markingId, setMarkingId] = useState<number | null>(null);
 
-  const markAsRead = (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+  const load = useCallback(async (isRefresh: boolean) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setLoadError(null);
+    setNeedsSignIn(false);
+    try {
+      const [listRes, profile] = await Promise.all([
+        fetchMyNotifications({ pageNumber: 0, pageSize: 40 }),
+        fetchPatientProfile(),
+      ]);
+      setNotifications(listRes.notifications ?? []);
+      const av = resolveBackendAbsoluteUrl(profile?.avatarUrl) ?? PLACEHOLDER_USER;
+      setUserAvatar(av);
+    } catch (e) {
+      const unauthorized = e instanceof ApiError && e.status === 401;
+      setNeedsSignIn(unauthorized);
+      const msg =
+        e instanceof ApiError
+          ? unauthorized
+            ? 'Your session has expired or you are not signed in.'
+            : e.message
+          : 'Could not load notifications';
+      setLoadError(msg);
+      if (unauthorized) {
+        setNotifications([]);
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load(false);
+    }, [load])
+  );
+
+  const markAsRead = async (id: number) => {
+    setMarkingId(id);
+    try {
+      await markMyNotificationRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true, readAt: new Date().toISOString() } : n))
+      );
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : 'Could not update';
+      Alert.alert('Error', msg);
+    } finally {
+      setMarkingId(null);
+    }
   };
 
   return (
@@ -77,58 +154,95 @@ export default function NotificationsScreen() {
         {/* ── Header ── */}
         <View style={styles.header}>
           <View style={styles.avatarContainer}>
-            <Image
-              source={{
-                uri: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&h=100&fit=crop&crop=face',
-              }}
-              style={styles.userAvatar}
-            />
+            <Image source={{ uri: userAvatar }} style={styles.userAvatar} />
           </View>
           <Text style={styles.headerTitle}>Notifications</Text>
-          <TouchableOpacity>
+          <TouchableOpacity accessibilityRole="button">
             <Ionicons name="options-outline" size={24} color="#1a1a2e" />
           </TouchableOpacity>
         </View>
 
         {/* ── List ── */}
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {notifications.map((item) => (
-            <View
-              key={item.id}
-              style={[styles.card, item.read && styles.cardRead]}
-            >
-              {/* Icon + Title */}
-              <View style={styles.cardHeader}>
-                <View style={styles.iconBox}>
-                  <Ionicons name={iconForType(item.type)} size={20} color="#fff" />
-                </View>
-                <Text style={styles.cardTitle}>{item.title}</Text>
+        {loading && !refreshing ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color="#5b9bd5" />
+            <Text style={styles.hint}>Loading notifications…</Text>
+          </View>
+        ) : loadError ? (
+          <View style={styles.centered}>
+            <Text style={styles.errorText}>{loadError}</Text>
+            {needsSignIn ? (
+              <TouchableOpacity style={styles.retryBtn} onPress={() => router.push('/sign-in')}>
+                <Text style={styles.retryBtnText}>Sign in</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.retryBtn} onPress={() => load(false)}>
+                <Text style={styles.retryBtnText}>Try again</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor="#5b9bd5" />
+            }
+          >
+            {notifications.length === 0 ? (
+              <View style={styles.emptyWrap}>
+                <Ionicons name="notifications-off-outline" size={48} color="#b0b8c4" />
+                <Text style={styles.emptyTitle}>No notifications yet</Text>
+                <Text style={styles.emptySub}>
+                  Updates about appointments and payments will appear here.
+                </Text>
               </View>
-
-              {/* Body */}
-              <Text style={styles.cardBody}>{item.body}</Text>
-
-              {/* Footer */}
-              <View style={styles.cardFooter}>
-                <Text style={styles.cardDate}>{item.date}</Text>
-                {!item.read && (
-                  <TouchableOpacity
-                    style={styles.markReadBtn}
-                    onPress={() => markAsRead(item.id)}
+            ) : (
+              notifications.map((item) => {
+                const iconName = iconForNotification(item);
+                const iconBg = iconBgForNotification(item);
+                const body = stripHtml(item.message || '');
+                return (
+                  <View
+                    key={String(item.id)}
+                    style={[styles.card, item.isRead && styles.cardRead]}
                   >
-                    <Text style={styles.markReadText}>Mark as read</Text>
-                    <Ionicons name="mail-outline" size={16} color="#1a1a2e" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          ))}
+                    <View style={styles.cardHeader}>
+                      <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
+                        <Ionicons name={iconName} size={20} color="#fff" />
+                      </View>
+                      <Text style={styles.cardTitle}>{item.title}</Text>
+                    </View>
 
-          <View style={{ height: 30 }} />
-        </ScrollView>
+                    <Text style={styles.cardBody}>{body || '—'}</Text>
+
+                    <View style={styles.cardFooter}>
+                      <Text style={styles.cardDate}>{formatNotificationWhen(item.createdAt)}</Text>
+                      {!item.isRead && (
+                        <TouchableOpacity
+                          style={[styles.markReadBtn, markingId === item.id && styles.markReadBtnDisabled]}
+                          onPress={() => markAsRead(item.id)}
+                          disabled={markingId === item.id}
+                        >
+                          {markingId === item.id ? (
+                            <ActivityIndicator size="small" color="#1a1a2e" />
+                          ) : (
+                            <>
+                              <Text style={styles.markReadText}>Mark as read</Text>
+                              <Ionicons name="mail-outline" size={16} color="#1a1a2e" />
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </View>
+                );
+              })
+            )}
+
+            <View style={{ height: 30 }} />
+          </ScrollView>
+        )}
       </SafeAreaView>
 
       {/* Bottom gradient */}
@@ -150,6 +264,52 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  hint: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#8a8a9e',
+  },
+  errorText: {
+    fontSize: 15,
+    color: '#c0392b',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  retryBtn: {
+    backgroundColor: '#5b9bd5',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 10,
+  },
+  retryBtnText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  emptyWrap: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+  },
+  emptyTitle: {
+    marginTop: 16,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  emptySub: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#8a8a9e',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 
   /* ── Header ── */
@@ -205,7 +365,6 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#5b9bd5',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -231,6 +390,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#5b9bd5',
     fontWeight: '500',
+    flex: 1,
+    marginRight: 8,
   },
   markReadBtn: {
     flexDirection: 'row',
@@ -241,6 +402,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     gap: 6,
+    minWidth: 120,
+    justifyContent: 'center',
+  },
+  markReadBtnDisabled: {
+    opacity: 0.7,
   },
   markReadText: {
     fontSize: 13,

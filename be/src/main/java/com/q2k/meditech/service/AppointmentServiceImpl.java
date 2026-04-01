@@ -340,7 +340,13 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
         createHistory(appointment, "CONFIRMED", oldStatus, AppointmentStatus.CONFIRMED,
                 userId, callerRole.toUpperCase(), reason);
-        
+
+        try {
+            notificationEventService.onAppointmentConfirmed(appointment);
+        } catch (Exception e) {
+            log.warn("Failed to send patient confirmation notification: {}", e.getMessage());
+        }
+
         return appointmentMapper.toDTO(appointment);
     }
     
@@ -502,6 +508,12 @@ public class AppointmentServiceImpl implements AppointmentService {
                 }
                 createHistory(appointment, "CONFIRMED", oldStatus, AppointmentStatus.CONFIRMED,
                         receptionistUserId, "RECEPTIONIST", reason);
+
+                try {
+                    notificationEventService.onAppointmentConfirmed(appointment);
+                } catch (Exception e) {
+                    log.warn("Failed to send patient confirmation notification for {}: {}", appointmentId, e.getMessage());
+                }
 
                 results.add(BulkActionResultDTO.successItem(
                         appointmentId, appointment.getAppointmentCode(), "Confirmed successfully"));

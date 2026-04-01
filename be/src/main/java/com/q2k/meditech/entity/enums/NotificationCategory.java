@@ -12,6 +12,8 @@ public enum NotificationCategory {
 
     // --- Appointment ---
     NEW_BOOKING,
+    /** In-app notice to patient: staff confirmed their appointment */
+    APPOINTMENT_CONFIRMED,
     APPOINTMENT_CANCELLED,
     APPOINTMENT_RESCHEDULED,
     PATIENT_CHECKED_IN,

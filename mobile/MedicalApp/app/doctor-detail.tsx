@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,34 +7,79 @@ import {
   ScrollView,
   Image,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { resolveBackendAbsoluteUrl } from '@/constants/api';
+import { ApiError } from '@/services/apiClient';
+import {
+  fetchDoctorDetailPublic,
+  fetchDoctorReviewsPublic,
+  type DoctorDetailPublic,
+  type PublicReviewDto,
+} from '@/services/appointmentApi';
+import { formatConsultationFee, ratingNum } from '@/lib/doctorPresentation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const reviews = [
-  {
-    name: 'Richard Morgan',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
-    rating: 5.0,
-    text: 'The team went above & beyond to ensure I felt safe, understood through out the entire',
-    date: '08 May 2025 at 4:30 pm',
-  },
-  {
-    name: 'Isabella Wilson',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face',
-    rating: 5.0,
-    text: 'The team went above & beyond to ensure I felt safe, understood through out the entire',
-    date: '08 May 2025 at 4:30 pm',
-  },
-];
+const PLACEHOLDER_DOCTOR =
+  'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face';
+
+const REVIEW_PAGE_SIZE = 15;
+
+function stripHtml(raw: string): string {
+  return raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function buildOverviewText(d: DoctorDetailPublic | null): string {
+  if (!d) return '';
+  const parts: string[] = [];
+  if (d.bio?.trim()) parts.push(stripHtml(d.bio.trim()));
+  if (d.education?.trim()) {
+    parts.push(`Education: ${stripHtml(d.education.trim())}`);
+  }
+  if (d.experienceYears != null && d.experienceYears >= 0) {
+    parts.push(`${d.experienceYears} years of clinical experience.`);
+  }
+  if (d.hospitalAffiliation?.trim()) {
+    parts.push(`Hospital / affiliation: ${stripHtml(d.hospitalAffiliation.trim())}`);
+  }
+  if (d.officeAddress?.trim()) {
+    parts.push(`Office: ${stripHtml(d.officeAddress.trim())}`);
+  }
+  if (d.licenseNumber?.trim()) {
+    parts.push(`License: ${d.licenseNumber.trim()}`);
+  }
+  return parts.join('\n\n');
+}
+
+function formatReviewDate(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function locationSubtitle(d: DoctorDetailPublic | null): string {
+  if (!d) return '';
+  const bits = [d.hospitalAffiliation, d.officeAddress].filter((x) => x?.trim());
+  return bits.map((x) => stripHtml(x!.trim())).join(' · ');
+}
 
 export default function DoctorDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
+    doctorId?: string;
+    specialtyId?: string;
     name: string;
     specialty: string;
     hours: string;
@@ -43,145 +88,290 @@ export default function DoctorDetailScreen() {
     image: string;
   }>();
 
-  const name = params.name || 'Dr. Emily Johnson';
-  const specialty = params.specialty || 'Neurologist';
-  const hours = params.hours || '9.00 am-7.30 pm';
-  const price = params.price || '$29';
-  const rating = parseFloat(params.rating || '5.0');
-  const image = params.image || 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face';
+  const doctorIdNum = params.doctorId ? parseInt(params.doctorId, 10) : NaN;
+
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<DoctorDetailPublic | null>(null);
+  const [reviews, setReviews] = useState<PublicReviewDto[]>([]);
+  const [reviewTotal, setReviewTotal] = useState(0);
+  const [reviewPage, setReviewPage] = useState(0);
+  const [loadingMoreReviews, setLoadingMoreReviews] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!Number.isFinite(doctorIdNum) || doctorIdNum <= 0) {
+      setLoadError('Invalid doctor.');
+      setLoading(false);
+      setDetail(null);
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [doc, revPage] = await Promise.all([
+        fetchDoctorDetailPublic(doctorIdNum),
+        fetchDoctorReviewsPublic(doctorIdNum, 0, REVIEW_PAGE_SIZE),
+      ]);
+      setDetail(doc);
+      setReviews(revPage.content ?? []);
+      setReviewTotal(revPage.totalElements ?? (revPage.content?.length ?? 0));
+      setReviewPage(0);
+    } catch (e) {
+      setDetail(null);
+      setReviews([]);
+      setReviewTotal(0);
+      setLoadError(e instanceof ApiError ? e.message : 'Could not load doctor profile.');
+    } finally {
+      setLoading(false);
+    }
+  }, [doctorIdNum]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const loadMoreReviews = async () => {
+    if (!Number.isFinite(doctorIdNum) || doctorIdNum <= 0) return;
+    if (reviews.length >= reviewTotal) return;
+    setLoadingMoreReviews(true);
+    try {
+      const next = reviewPage + 1;
+      const res = await fetchDoctorReviewsPublic(doctorIdNum, next, REVIEW_PAGE_SIZE);
+      const chunk = res.content ?? [];
+      setReviews((prev) => [...prev, ...chunk]);
+      setReviewPage(next);
+    } catch {
+      /* ignore */
+    } finally {
+      setLoadingMoreReviews(false);
+    }
+  };
+
+  const name = detail?.fullName?.trim() || params.name || 'Doctor';
+  const specialty =
+    detail?.primarySpecialty?.trim() ||
+    params.specialty ||
+    detail?.specialties?.[0]?.name ||
+    '';
+  const hours =
+    locationSubtitle(detail)?.trim() ||
+    params.hours ||
+    'Schedule available when booking';
+  const price = detail
+    ? formatConsultationFee(detail.consultationFee)
+    : params.price || '—';
+  const rating = detail ? ratingNum(detail.ratingAvg) : parseFloat(params.rating || '0');
+  const ratingCount = detail?.ratingCount ?? 0;
+  const image =
+    resolveBackendAbsoluteUrl(detail?.avatarUrl) ??
+    (params.image?.startsWith('http') ? params.image : undefined) ??
+    PLACEHOLDER_DOCTOR;
+
+  const overviewBody = buildOverviewText(detail);
+  const overviewDisplay =
+    overviewBody.trim() ||
+    'No detailed overview has been added for this doctor yet. You can still book a consultation and see ratings from other patients below.';
+
+  const canLoadMoreReviews = reviews.length < reviewTotal;
+
+  if (!Number.isFinite(doctorIdNum) || doctorIdNum <= 0) {
+    return (
+      <View style={styles.container}>
+        <SafeAreaView style={styles.safeArea}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtnInline}>
+            <Ionicons name="chevron-back" size={24} color="#1a1a2e" />
+          </TouchableOpacity>
+          <View style={styles.centered}>
+            <Text style={styles.errorBanner}>Missing doctor information.</Text>
+          </View>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      {/* Bottom gradient */}
       <LinearGradient
         colors={['#f5dce8', '#ecc8d8']}
         style={styles.bottomGradient}
       />
 
       <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-        >
-          {/* Hero Section */}
-          <View style={styles.heroSection}>
-            <LinearGradient
-              colors={['#d6e4f0', '#e0ecf5']}
-              style={styles.heroBg}
-            />
-
-            {/* Back button */}
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        {loading ? (
+          <View style={styles.loadingWrap}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtnInline}>
               <Ionicons name="chevron-back" size={24} color="#1a1a2e" />
             </TouchableOpacity>
-
-            {/* Doctor image with teal circle */}
-            <View style={styles.imageContainer}>
-              <View style={styles.tealCircle} />
-              <Image source={{ uri: image }} style={styles.doctorImage} />
-            </View>
-
-            {/* Favorite icon */}
-            <TouchableOpacity style={styles.favoriteBtn}>
-              <Ionicons name="star-outline" size={22} color="#c0c8d4" />
+            <ActivityIndicator size="large" color="#5b9bd5" style={{ marginTop: 40 }} />
+            <Text style={styles.loadingHint}>Loading profile…</Text>
+          </View>
+        ) : loadError ? (
+          <View style={styles.loadingWrap}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtnInline}>
+              <Ionicons name="chevron-back" size={24} color="#1a1a2e" />
+            </TouchableOpacity>
+            <Text style={styles.errorBanner}>{loadError}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={() => void load()}>
+              <Text style={styles.retryBtnText}>Retry</Text>
             </TouchableOpacity>
           </View>
+        ) : (
+          <>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+            >
+              <View style={styles.heroSection}>
+                <LinearGradient
+                  colors={['#d6e4f0', '#e0ecf5']}
+                  style={styles.heroBg}
+                />
 
-          {/* Doctor Info */}
-          <View style={styles.infoSection}>
-            <View style={styles.nameRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.doctorName}>{name}</Text>
-                <Text style={styles.specialty}>{specialty}</Text>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+                  <Ionicons name="chevron-back" size={24} color="#1a1a2e" />
+                </TouchableOpacity>
+
+                <View style={styles.imageContainer}>
+                  <View style={styles.tealCircle} />
+                  <Image source={{ uri: image }} style={styles.doctorImage} />
+                </View>
+
+                <TouchableOpacity style={styles.favoriteBtn}>
+                  <Ionicons name="star-outline" size={22} color="#c0c8d4" />
+                </TouchableOpacity>
               </View>
-              <Text style={styles.price}>{price}</Text>
-            </View>
 
-            <View style={styles.scheduleRatingRow}>
-              <View style={styles.scheduleRow}>
-                <Ionicons name="time-outline" size={15} color="#5b9bd5" />
-                <Text style={styles.scheduleText}>{hours}</Text>
-              </View>
-              <View style={styles.starsRow}>
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <Ionicons
-                    key={i}
-                    name="star"
-                    size={14}
-                    color={i <= Math.floor(rating) ? '#f97316' : '#d1d5db'}
-                  />
-                ))}
-                <Text style={styles.ratingNum}>{rating.toFixed(1)}</Text>
-              </View>
-            </View>
-          </View>
+              <View style={styles.infoSection}>
+                <View style={styles.nameRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.doctorName}>{name}</Text>
+                    <Text style={styles.specialty}>{specialty}</Text>
+                  </View>
+                  <Text style={styles.price}>{price}</Text>
+                </View>
 
-          {/* Divider */}
-          <View style={styles.divider} />
-
-          {/* Career Overview */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Career Overview</Text>
-            <Text style={styles.overviewText}>
-              I received excellent care from start to finish. The doctor was attentive, answered all my
-              questions, and the follow-up process was smooth and reassuring. From diagnosis to
-              recovery, everything was handled with compassion
-            </Text>
-          </View>
-
-          {/* Reviews */}
-          <View style={styles.section}>
-            <View style={styles.reviewsHeader}>
-              <Text style={styles.sectionTitle}>Reviews ({reviews.length * 5 + 1})</Text>
-              <TouchableOpacity style={styles.viewAllBtn}>
-                <Text style={styles.viewAllText}>View all</Text>
-                <Ionicons name="chevron-forward" size={14} color="#5b9bd5" />
-              </TouchableOpacity>
-            </View>
-
-            {reviews.map((review, index) => (
-              <View key={index} style={styles.reviewCard}>
-                <View style={styles.reviewHeader}>
-                  <Image source={{ uri: review.avatar }} style={styles.reviewAvatar} />
-                  <Text style={styles.reviewerName}>{review.name}</Text>
-                  <View style={styles.reviewRatingBadge}>
-                    <Ionicons name="star" size={10} color="#fff" />
-                    <Text style={styles.reviewRatingText}>{review.rating}</Text>
+                <View style={styles.scheduleRatingRow}>
+                  <View style={styles.scheduleRow}>
+                    <Ionicons name="location-outline" size={15} color="#5b9bd5" />
+                    <Text style={styles.scheduleText} numberOfLines={2}>
+                      {hours}
+                    </Text>
+                  </View>
+                  <View style={styles.starsRow}>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Ionicons
+                        key={i}
+                        name="star"
+                        size={14}
+                        color={i <= Math.round(rating) ? '#f97316' : '#d1d5db'}
+                      />
+                    ))}
+                    <Text style={styles.ratingNum}>
+                      {rating > 0 ? rating.toFixed(1) : '—'}
+                      {ratingCount > 0 ? ` (${ratingCount})` : ''}
+                    </Text>
                   </View>
                 </View>
-                <Text style={styles.reviewText}>{review.text}</Text>
-                <View style={styles.reviewFooter}>
-                  <Text style={styles.reviewDate}>{review.date}</Text>
-                  <TouchableOpacity style={styles.replyBtn}>
-                    <Text style={styles.replyText}>Reply</Text>
-                    <Ionicons name="chevron-forward" size={12} color="#5b9bd5" />
-                  </TouchableOpacity>
-                </View>
               </View>
-            ))}
-          </View>
-        </ScrollView>
 
-        {/* Bottom button */}
-        <View style={styles.bottomBar}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            style={styles.appointmentBtnWrapper}
-            onPress={() => router.push({
-              pathname: '/make-appointment',
-              params: { name, specialty, image },
-            })}
-          >
-            <LinearGradient
-              colors={['#5b9bd5', '#4a8ec4']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.appointmentBtn}
-            >
-              <Text style={styles.appointmentBtnText}>Make an Appointment</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
+              <View style={styles.divider} />
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Overview</Text>
+                <Text style={styles.overviewText}>{overviewDisplay}</Text>
+              </View>
+
+              <View style={styles.section}>
+                <View style={styles.reviewsHeader}>
+                  <Text style={styles.sectionTitle}>
+                    Reviews{reviewTotal > 0 ? ` (${reviewTotal})` : ''}
+                  </Text>
+                  {canLoadMoreReviews ? (
+                    <TouchableOpacity
+                      style={styles.viewAllBtn}
+                      onPress={() => void loadMoreReviews()}
+                      disabled={loadingMoreReviews}
+                    >
+                      <Text style={styles.viewAllText}>
+                        {loadingMoreReviews ? 'Loading…' : 'Load more'}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={14} color="#5b9bd5" />
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                {reviews.length === 0 ? (
+                  <Text style={styles.emptyReviews}>No published reviews yet.</Text>
+                ) : (
+                  reviews.map((review) => (
+                    <View key={review.id} style={styles.reviewCard}>
+                      <View style={styles.reviewHeader}>
+                        <View style={styles.reviewAvatarFallback}>
+                          <Text style={styles.reviewAvatarLetter}>
+                            {(review.patientName || 'A').charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <Text style={styles.reviewerName} numberOfLines={1}>
+                          {review.patientName || 'Anonymous'}
+                        </Text>
+                        <View style={styles.reviewRatingBadge}>
+                          <Ionicons name="star" size={10} color="#fff" />
+                          <Text style={styles.reviewRatingText}>{review.rating}</Text>
+                        </View>
+                      </View>
+                      {review.comment?.trim() ? (
+                        <Text style={styles.reviewText}>{stripHtml(review.comment)}</Text>
+                      ) : null}
+                      {review.imageUrls && review.imageUrls.length > 0 ? (
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                          {review.imageUrls.map((u, idx) => {
+                            const uri = resolveBackendAbsoluteUrl(u) ?? u;
+                            return (
+                              <Image
+                                key={`${review.id}-${idx}`}
+                                source={{ uri }}
+                                style={styles.reviewThumb}
+                              />
+                            );
+                          })}
+                        </ScrollView>
+                      ) : null}
+                      <Text style={styles.reviewDate}>{formatReviewDate(review.createdAt)}</Text>
+                    </View>
+                  ))
+                )}
+              </View>
+            </ScrollView>
+
+            <View style={styles.bottomBar}>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                style={styles.appointmentBtnWrapper}
+                onPress={() =>
+                  router.push({
+                    pathname: '/make-appointment',
+                    params: {
+                      doctorId: String(doctorIdNum),
+                      ...(params.specialtyId ? { specialtyId: params.specialtyId } : {}),
+                      name,
+                      specialty,
+                      image: params.image || image,
+                    },
+                  })
+                }
+              >
+                <LinearGradient
+                  colors={['#5b9bd5', '#4a8ec4']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.appointmentBtn}
+                >
+                  <Text style={styles.appointmentBtnText}>Make an Appointment</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </SafeAreaView>
     </View>
   );
@@ -205,8 +395,21 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 20,
   },
+  loadingWrap: { flex: 1, paddingHorizontal: 24 },
+  loadingHint: { marginTop: 12, textAlign: 'center', color: '#8a8a9e', fontSize: 14 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  errorBanner: { color: '#c0392b', fontSize: 14, textAlign: 'center', marginTop: 16 },
+  retryBtn: {
+    marginTop: 16,
+    alignSelf: 'center',
+    backgroundColor: '#5b9bd5',
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  retryBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
+  backBtnInline: { marginTop: 8, width: 40, height: 40, justifyContent: 'center' },
 
-  /* Hero */
   heroSection: {
     alignItems: 'center',
     paddingBottom: 10,
@@ -263,7 +466,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  /* Info */
   infoSection: {
     paddingHorizontal: 24,
     paddingTop: 8,
@@ -285,29 +487,36 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   price: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: '700',
     color: '#1a1a2e',
+    maxWidth: '42%',
+    textAlign: 'right',
   },
   scheduleRatingRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginTop: 8,
+    gap: 8,
   },
   scheduleRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 5,
+    flex: 1,
+    maxWidth: '58%',
   },
   scheduleText: {
     fontSize: 13,
     color: '#6b7280',
+    flex: 1,
   },
   starsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
+    flexShrink: 0,
   },
   ratingNum: {
     fontSize: 13,
@@ -316,7 +525,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
 
-  /* Divider */
   divider: {
     height: 1,
     backgroundColor: '#e8eef5',
@@ -324,7 +532,6 @@ const styles = StyleSheet.create({
     marginVertical: 18,
   },
 
-  /* Section */
   section: {
     paddingHorizontal: 24,
     marginBottom: 20,
@@ -342,7 +549,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
 
-  /* Reviews */
   reviewsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -358,6 +564,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#5b9bd5',
     fontWeight: '500',
+  },
+  emptyReviews: {
+    fontSize: 14,
+    color: '#8a8a9e',
   },
   reviewCard: {
     backgroundColor: '#fff',
@@ -375,11 +585,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  reviewAvatar: {
+  reviewAvatarFallback: {
     width: 38,
     height: 38,
     borderRadius: 19,
     marginRight: 10,
+    backgroundColor: '#e8eef5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewAvatarLetter: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#5b9bd5',
   },
   reviewerName: {
     flex: 1,
@@ -407,27 +625,19 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 8,
   },
-  reviewFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  reviewThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 8,
+    marginRight: 8,
+    marginBottom: 8,
+    backgroundColor: '#f0f4f8',
   },
   reviewDate: {
     fontSize: 12,
     color: '#5b9bd5',
   },
-  replyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  replyText: {
-    fontSize: 13,
-    color: '#5b9bd5',
-    fontWeight: '500',
-  },
 
-  /* Bottom */
   bottomBar: {
     paddingHorizontal: 24,
     paddingVertical: 12,

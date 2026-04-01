@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { authStorage } from '@/lib/authStorage';
+import { isAllowedPatientAppUser, PATIENT_APP_ACCESS_DENIED_MESSAGE } from '@/lib/mobileAuthPolicy';
 import { authApi } from '@/services/auth';
 import { ApiError } from '@/services/apiClient';
 
@@ -120,6 +121,11 @@ export default function SignInScreen() {
       const tokenData = res.token;
       if (!tokenData) {
         setError('Unexpected response from server.');
+        return;
+      }
+
+      if (!isAllowedPatientAppUser(tokenData.roles)) {
+        setError(PATIENT_APP_ACCESS_DENIED_MESSAGE);
         return;
       }
 
