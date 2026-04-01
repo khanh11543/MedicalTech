@@ -7,26 +7,52 @@ import {
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { authApi } from '@/services/auth';
+
+function validateEmail(value: string): string | null {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed) return 'Please enter your email.';
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmed)) return 'Please enter a valid email address.';
+  return null;
+}
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const [email, setEmail] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSend = () => {
-    // TODO: Implement forgot password logic (send reset email)
+  const handleSend = async () => {
+    setError('');
+    const err = validateEmail(email);
+    if (err) {
+      setError(err);
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await authApi.forgotPassword(email.trim());
+      setSuccess(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Request failed.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* Top gradient background */}
       <LinearGradient
         colors={['#d4e6f6', '#e0eaf4', '#f0f4f8']}
         style={styles.topGradient}
@@ -39,7 +65,6 @@ export default function ForgotPasswordScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.flex}
         >
-          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <Ionicons name="chevron-back" size={24} color="#1a1a2e" />
@@ -48,42 +73,69 @@ export default function ForgotPasswordScreen() {
             <View style={styles.backButton} />
           </View>
 
-          {/* Content */}
           <View style={styles.content}>
-          <Text style={styles.subtitle}>
-            Please enters your email address to{'\n'}request a password reset
-          </Text>
+            {success ? (
+              <>
+                <Text style={styles.successTitle}>Check your email</Text>
+                <Text style={styles.subtitle}>
+                  If an account exists for this address, we sent instructions. The temporary password is valid for 15
+                  minutes — sign in and change it in your profile.
+                </Text>
+                <TouchableOpacity onPress={() => router.replace('/sign-in')} activeOpacity={0.85}>
+                  <LinearGradient
+                    colors={['#5b9bd5', '#7ab8e0']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.sendButton}
+                  >
+                    <Text style={styles.sendButtonText}>Back to sign in</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <Text style={styles.subtitle}>
+                  Enter your email address to request a password reset.
+                </Text>
 
-          {/* Email Input */}
-          <View style={styles.inputContainer}>
-            <Ionicons name="mail-outline" size={20} color="#a0b4c8" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your email"
-              placeholderTextColor="#a0b4c8"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
+                {error ? <Text style={styles.error}>{error}</Text> : null}
 
-            {/* Send Button */}
-            <TouchableOpacity onPress={handleSend} activeOpacity={0.85}>
-              <LinearGradient
-                colors={['#5b9bd5', '#7ab8e0']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.sendButton}
-              >
-                <Text style={styles.sendButtonText}>Send</Text>
-              </LinearGradient>
-            </TouchableOpacity>
+                <View style={styles.inputContainer}>
+                  <Ionicons name="mail-outline" size={20} color="#a0b4c8" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Enter your email"
+                    placeholderTextColor="#a0b4c8"
+                    value={email}
+                    onChangeText={(t) => {
+                      setEmail(t);
+                      if (error) setError('');
+                    }}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                  />
+                </View>
+
+                <TouchableOpacity onPress={handleSend} activeOpacity={0.85} disabled={isSubmitting}>
+                  <LinearGradient
+                    colors={['#5b9bd5', '#7ab8e0']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={[styles.sendButton, isSubmitting && styles.sendButtonDisabled]}
+                  >
+                    {isSubmitting ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <Text style={styles.sendButtonText}>Send</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      {/* Bottom gradient decoration */}
       <LinearGradient
         colors={['transparent', '#f5dce8', '#ecc8d8']}
         style={styles.bottomGradient}
@@ -109,7 +161,6 @@ const styles = StyleSheet.create({
     height: 150,
   },
 
-  /* ---- Header ---- */
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -130,7 +181,6 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
   },
 
-  /* ---- Content ---- */
   content: {
     paddingHorizontal: 28,
     paddingTop: 12,
@@ -141,6 +191,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 28,
+  },
+  successTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1a1a2e',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  error: {
+    color: '#c0392b',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 12,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -162,12 +225,14 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
   },
 
-  /* ---- Send Button ---- */
   sendButton: {
     borderRadius: 14,
     paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sendButtonDisabled: {
+    opacity: 0.75,
   },
   sendButtonText: {
     color: '#fff',
@@ -175,7 +240,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  /* ---- Bottom Gradient ---- */
   bottomGradient: {
     position: 'absolute',
     bottom: 0,

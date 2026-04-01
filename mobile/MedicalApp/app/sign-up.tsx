@@ -9,27 +9,93 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { authApi } from '@/services/auth';
+import { ApiError } from '@/services/apiClient';
 
 const { width } = Dimensions.get('window');
 
+function validateEmail(value: string): string | null {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed) return 'Please enter your email.';
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(trimmed)) return 'Please enter a valid email address.';
+  return null;
+}
+
+function validatePassword(pwd: string): string | null {
+  const pattern = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
+  if (!pattern.test(pwd)) {
+    return 'Password must be at least 8 characters with uppercase, lowercase, number and special character (@$!%*?&#).';
+  }
+  return null;
+}
+
 export default function SignUpScreen() {
   const router = useRouter();
-  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSignUp = () => {
-    // TODO: Implement sign up logic
-    router.replace('/(tabs)');
+  const handleSignUp = async () => {
+    setError('');
+    const emailErr = validateEmail(email);
+    if (emailErr) {
+      setError(emailErr);
+      return;
+    }
+    if (!password || !confirmPassword) {
+      setError('Please enter and confirm your password.');
+      return;
+    }
+    if (!agreeTerms) {
+      setError('Please agree to the Terms and Conditions.');
+      return;
+    }
+    const pwdErr = validatePassword(password);
+    if (pwdErr) {
+      setError(pwdErr);
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await authApi.register({
+        email: email.trim(),
+        password,
+        confirmPassword,
+      });
+      router.push({ pathname: '/verify-otp', params: { email: email.trim() } });
+    } catch (e) {
+      const msg = e instanceof ApiError || e instanceof Error ? e.message : '';
+      const status = e instanceof ApiError ? e.status : undefined;
+      const isDuplicate =
+        status === 409 || msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('exists');
+      if (isDuplicate) {
+        setError('Email or phone is already registered.');
+      } else if (msg) {
+        setError(msg);
+      } else {
+        setError('Registration failed. Please try again.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleSignIn = () => {
@@ -40,7 +106,6 @@ export default function SignUpScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      {/* Top gradient background */}
       <LinearGradient
         colors={['#d4e6f6', '#e0eaf4', '#f0f4f8']}
         style={styles.topGradient}
@@ -58,7 +123,6 @@ export default function SignUpScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Header */}
             <View style={styles.header}>
               <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                 <Ionicons name="chevron-back" size={24} color="#1a1a2e" />
@@ -67,98 +131,108 @@ export default function SignUpScreen() {
               <View style={styles.backButton} />
             </View>
 
-            {/* Form */}
             <View style={styles.formContainer}>
-            {/* Full Name Input */}
-            <View style={styles.inputContainer}>
-              <Ionicons name="person-outline" size={20} color="#a0b4c8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Type your full name"
-                placeholderTextColor="#a0b4c8"
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
-              />
-            </View>
+              {error ? <Text style={styles.errorBanner}>{error}</Text> : null}
 
-            {/* Email Input */}
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color="#a0b4c8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your email"
-                placeholderTextColor="#a0b4c8"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-
-            {/* Password Input */}
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#a0b4c8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your password"
-                placeholderTextColor="#a0b4c8"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeIcon}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-outline' : 'eye-off-outline'}
-                  size={20}
-                  color="#a0b4c8"
+              <View style={styles.inputContainer}>
+                <Ionicons name="mail-outline" size={20} color="#a0b4c8" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your email"
+                  placeholderTextColor="#a0b4c8"
+                  value={email}
+                  onChangeText={(t) => {
+                    setEmail(t);
+                    if (error) setError('');
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                 />
-              </TouchableOpacity>
-            </View>
+              </View>
 
-            {/* Confirm Password Input */}
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color="#a0b4c8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Confirm your password"
-                placeholderTextColor="#a0b4c8"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirmPassword}
-              />
-              <TouchableOpacity
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                style={styles.eyeIcon}
-              >
-                <Ionicons
-                  name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
-                  size={20}
-                  color="#a0b4c8"
+              <View style={styles.inputContainer}>
+                <Ionicons name="lock-closed-outline" size={20} color="#a0b4c8" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your password"
+                  placeholderTextColor="#a0b4c8"
+                  value={password}
+                  onChangeText={(t) => {
+                    setPassword(t);
+                    if (error) setError('');
+                  }}
+                  secureTextEntry={!showPassword}
                 />
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                  <Ionicons
+                    name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                    size={20}
+                    color="#a0b4c8"
+                  />
+                </TouchableOpacity>
+              </View>
 
-              {/* Sign Up Button */}
-              <TouchableOpacity onPress={handleSignUp} activeOpacity={0.85}>
+              <Text style={styles.hint}>Min 8 characters: upper, lower, number & special (@$!%*?&#).</Text>
+
+              <View style={styles.inputContainer}>
+                <Ionicons name="lock-closed-outline" size={20} color="#a0b4c8" style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Confirm your password"
+                  placeholderTextColor="#a0b4c8"
+                  value={confirmPassword}
+                  onChangeText={(t) => {
+                    setConfirmPassword(t);
+                    if (error) setError('');
+                  }}
+                  secureTextEntry={!showConfirmPassword}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={styles.eyeIcon}
+                >
+                  <Ionicons
+                    name={showConfirmPassword ? 'eye-outline' : 'eye-off-outline'}
+                    size={20}
+                    color="#a0b4c8"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                style={styles.termsRow}
+                onPress={() => {
+                  setAgreeTerms(!agreeTerms);
+                  if (error) setError('');
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.checkbox, agreeTerms && styles.checkboxChecked]}>
+                  {agreeTerms ? <Ionicons name="checkmark" size={14} color="#fff" /> : null}
+                </View>
+                <Text style={styles.termsText}>
+                  I agree to the Terms and Conditions and Privacy Policy.
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={handleSignUp} activeOpacity={0.85} disabled={isSubmitting}>
                 <LinearGradient
                   colors={['#5b9bd5', '#7ab8e0']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={styles.signUpButton}
+                  style={[styles.signUpButton, isSubmitting && styles.signUpButtonDisabled]}
                 >
-                  <Text style={styles.signUpButtonText}>Sign Up</Text>
+                  {isSubmitting ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.signUpButtonText}>Sign Up</Text>
+                  )}
                 </LinearGradient>
               </TouchableOpacity>
             </View>
 
-            {/* Spacer to push bottom content down */}
             <View style={styles.spacer} />
 
-            {/* Sign In Link */}
             <View style={styles.signInRow}>
               <Text style={styles.signInText}>Already have an account ? </Text>
               <TouchableOpacity onPress={handleSignIn}>
@@ -166,7 +240,6 @@ export default function SignUpScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Social Login Buttons */}
             <View style={styles.socialRow}>
               <TouchableOpacity style={styles.socialButton}>
                 <FontAwesome name="facebook" size={22} color="#3b5998" />
@@ -182,7 +255,6 @@ export default function SignUpScreen() {
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      {/* Bottom gradient decoration */}
       <LinearGradient
         colors={['transparent', '#f5dce8', '#ecc8d8']}
         style={styles.bottomGradient}
@@ -212,7 +284,6 @@ const styles = StyleSheet.create({
     height: 150,
   },
 
-  /* ---- Header ---- */
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -233,10 +304,16 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
   },
 
-  /* ---- Form ---- */
   formContainer: {
     paddingHorizontal: 28,
     paddingTop: 20,
+  },
+  errorBanner: {
+    color: '#c0392b',
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 14,
+    lineHeight: 20,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -260,8 +337,42 @@ const styles = StyleSheet.create({
   eyeIcon: {
     padding: 4,
   },
+  hint: {
+    fontSize: 12,
+    color: '#a0b4c8',
+    marginTop: -8,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
 
-  /* ---- Sign Up Button ---- */
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+    marginTop: 4,
+    gap: 10,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#c0c8d4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  checkboxChecked: {
+    backgroundColor: '#5b9bd5',
+    borderColor: '#5b9bd5',
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#8a8a9e',
+    lineHeight: 20,
+  },
+
   signUpButton: {
     borderRadius: 14,
     paddingVertical: 15,
@@ -269,18 +380,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 8,
   },
+  signUpButtonDisabled: {
+    opacity: 0.75,
+  },
   signUpButtonText: {
     color: '#fff',
     fontSize: 17,
     fontWeight: '700',
   },
 
-  /* ---- Spacer ---- */
   spacer: {
     flex: 1,
   },
 
-  /* ---- Sign In Link ---- */
   signInRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -296,7 +408,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  /* ---- Social Buttons ---- */
   socialRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -325,7 +436,6 @@ const styles = StyleSheet.create({
     color: '#ea4335',
   },
 
-  /* ---- Bottom Gradient ---- */
   bottomGradient: {
     position: 'absolute',
     bottom: 0,
