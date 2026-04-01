@@ -10,14 +10,22 @@ import {
   Platform,
   Dimensions,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, FontAwesome } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { authStorage } from '@/lib/authStorage';
+import { isAllowedPatientAppUser, PATIENT_APP_ACCESS_DENIED_MESSAGE } from '@/lib/mobileAuthPolicy';
 import { authApi } from '@/services/auth';
 import { ApiError } from '@/services/apiClient';
+import {
+  signInWithGoogleMobile,
+  signInWithFacebookMobile,
+  type OAuthTokenPayload,
+} from '@/services/socialAuth';
 
 const { width } = Dimensions.get('window');
 
@@ -47,6 +55,63 @@ export default function SignUpScreen() {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [oauthBusy, setOauthBusy] = useState<'google' | 'facebook' | null>(null);
+
+  const finalizeOAuthSignUp = async (tokens: OAuthTokenPayload) => {
+    if (!isAllowedPatientAppUser(tokens.roles)) {
+      Alert.alert('Account', PATIENT_APP_ACCESS_DENIED_MESSAGE);
+      return;
+    }
+    await authStorage.setTokens(tokens.accessToken, tokens.refreshToken);
+    await authStorage.setUser({
+      userId: tokens.userId,
+      email: tokens.email,
+      roles: tokens.roles,
+    });
+    await authStorage.setRememberedEmail(tokens.email);
+    router.replace('/(tabs)');
+  };
+
+  const handleGoogleOAuth = async () => {
+    if (oauthBusy || isSubmitting) return;
+    setError('');
+    setOauthBusy('google');
+    try {
+      const tokens = await signInWithGoogleMobile();
+      if (!tokens) {
+        Alert.alert('Sign up', 'Google sign-up was cancelled or could not complete.');
+        return;
+      }
+      await finalizeOAuthSignUp(tokens);
+    } catch (e) {
+      Alert.alert('Sign up', e instanceof Error ? e.message : 'Google sign-up failed.');
+    } finally {
+      setOauthBusy(null);
+    }
+  };
+
+  const handleFacebookOAuth = async () => {
+    if (oauthBusy || isSubmitting) return;
+    setError('');
+    setOauthBusy('facebook');
+    try {
+      const tokens = await signInWithFacebookMobile();
+      if (!tokens) {
+        Alert.alert(
+          'Sign up',
+          'Facebook sign-up was cancelled or could not complete. Ensure the server has facebook.oauth2.redirect-uri-mobile and Facebook app redirect URIs are configured.',
+        );
+        return;
+      }
+      await finalizeOAuthSignUp(tokens);
+    } catch (e) {
+      Alert.alert('Sign up', e instanceof Error ? e.message : 'Facebook sign-up failed.');
+    } finally {
+      setOauthBusy(null);
+    }
+  };
+
+  const socialDisabled = isSubmitting || oauthBusy !== null;
 
   const handleSignUp = async () => {
     setError('');
@@ -241,14 +306,34 @@ export default function SignUpScreen() {
             </View>
 
             <View style={styles.socialRow}>
-              <TouchableOpacity style={styles.socialButton}>
-                <FontAwesome name="facebook" size={22} color="#3b5998" />
+              <TouchableOpacity
+                style={[styles.socialButton, socialDisabled && styles.socialButtonDisabled]}
+                onPress={handleFacebookOAuth}
+                disabled={socialDisabled}
+                accessibilityRole="button"
+                accessibilityLabel="Continue with Facebook"
+              >
+                {oauthBusy === 'facebook' ? (
+                  <ActivityIndicator color="#3b5998" />
+                ) : (
+                  <FontAwesome name="facebook" size={22} color="#3b5998" />
+                )}
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton}>
+              <TouchableOpacity style={styles.socialButton} accessibilityRole="button">
                 <FontAwesome name="apple" size={22} color="#000" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.socialButton}>
-                <Text style={styles.googleText}>G</Text>
+              <TouchableOpacity
+                style={[styles.socialButton, socialDisabled && styles.socialButtonDisabled]}
+                onPress={handleGoogleOAuth}
+                disabled={socialDisabled}
+                accessibilityRole="button"
+                accessibilityLabel="Continue with Google"
+              >
+                {oauthBusy === 'google' ? (
+                  <ActivityIndicator color="#ea4335" />
+                ) : (
+                  <Text style={styles.googleText}>G</Text>
+                )}
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -430,6 +515,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 2,
   },
+  socialButtonDisabled: { opacity: 0.55 },
   googleText: {
     fontSize: 20,
     fontWeight: '700',

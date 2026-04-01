@@ -30,6 +30,7 @@ const PLACEHOLDER_AVATAR =
 
 const menuItems = [
   { label: 'Personal Info', icon: 'person-outline' as const, route: '/edit-profile' as const },
+  { label: 'Change password', icon: 'key-outline' as const, route: '/change-password' as const },
   { label: 'My Appointment', icon: 'calendar-outline' as const, route: '/my-appointments' as const },
   { label: 'My Doctors', icon: 'people-outline' as const, route: '/my-doctors' as const },
   { label: 'My tests & diagnostics', icon: 'flask-outline' as const, route: '/my-tests' as const },

@@ -53,6 +53,12 @@ export interface MessageResponse {
   timestamp: string;
 }
 
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
 export interface UserResponse {
   id: number;
   email: string;
@@ -108,5 +114,11 @@ export const authApi = {
     apiFetch<MessageResponse>('/auth/logout', {
       method: 'POST',
       body: JSON.stringify({}),
+    }),
+
+  changePassword: (data: ChangePasswordRequest) =>
+    apiFetch<MessageResponse>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
 };

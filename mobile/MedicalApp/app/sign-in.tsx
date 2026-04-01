@@ -10,6 +10,7 @@ import {
   Platform,
   Dimensions,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +20,11 @@ import { authStorage } from '@/lib/authStorage';
 import { isAllowedPatientAppUser, PATIENT_APP_ACCESS_DENIED_MESSAGE } from '@/lib/mobileAuthPolicy';
 import { authApi } from '@/services/auth';
 import { ApiError } from '@/services/apiClient';
+import {
+  signInWithGoogleMobile,
+  signInWithFacebookMobile,
+  type OAuthTokenPayload,
+} from '@/services/socialAuth';
 
 const { width } = Dimensions.get('window');
 
@@ -55,6 +61,7 @@ export default function SignInScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lockUntil, setLockUntil] = useState<Date | null>(null);
   const [countdown, setCountdown] = useState(0);
+  const [oauthBusy, setOauthBusy] = useState<'google' | 'facebook' | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -177,6 +184,62 @@ export default function SignInScreen() {
   const handleForgotPassword = () => {
     router.push('/forgot-password');
   };
+
+  const finalizeOAuthSignIn = async (tokens: OAuthTokenPayload) => {
+    if (!isAllowedPatientAppUser(tokens.roles)) {
+      Alert.alert('Sign in', PATIENT_APP_ACCESS_DENIED_MESSAGE);
+      return;
+    }
+    await authStorage.setTokens(tokens.accessToken, tokens.refreshToken);
+    await authStorage.setUser({
+      userId: tokens.userId,
+      email: tokens.email,
+      roles: tokens.roles,
+    });
+    await authStorage.setRememberedEmail(tokens.email);
+    router.replace('/(tabs)');
+  };
+
+  const handleGoogleOAuth = async () => {
+    if (oauthBusy || isSubmitting || isLocked) return;
+    setError('');
+    setOauthBusy('google');
+    try {
+      const tokens = await signInWithGoogleMobile();
+      if (!tokens) {
+        Alert.alert('Sign in', 'Google sign-in was cancelled or could not complete.');
+        return;
+      }
+      await finalizeOAuthSignIn(tokens);
+    } catch (e) {
+      Alert.alert('Sign in', e instanceof Error ? e.message : 'Google sign-in failed.');
+    } finally {
+      setOauthBusy(null);
+    }
+  };
+
+  const handleFacebookOAuth = async () => {
+    if (oauthBusy || isSubmitting || isLocked) return;
+    setError('');
+    setOauthBusy('facebook');
+    try {
+      const tokens = await signInWithFacebookMobile();
+      if (!tokens) {
+        Alert.alert(
+          'Sign in',
+          'Facebook sign-in was cancelled or could not complete. If this keeps happening, ask your admin to set facebook.oauth2.redirect-uri-mobile on the server and add that URL in the Facebook app settings.',
+        );
+        return;
+      }
+      await finalizeOAuthSignIn(tokens);
+    } catch (e) {
+      Alert.alert('Sign in', e instanceof Error ? e.message : 'Facebook sign-in failed.');
+    } finally {
+      setOauthBusy(null);
+    }
+  };
+
+  const socialDisabled = isSubmitting || isLocked || oauthBusy !== null;
 
   return (
     <View style={styles.container}>
@@ -309,14 +372,34 @@ export default function SignInScreen() {
             </View>
 
             <View style={styles.socialRow}>
-              <TouchableOpacity style={[styles.socialButton, styles.facebookButton]}>
-                <FontAwesome name="facebook" size={22} color="#3b5998" />
+              <TouchableOpacity
+                style={[styles.socialButton, styles.facebookButton, socialDisabled && styles.socialButtonDisabled]}
+                onPress={handleFacebookOAuth}
+                disabled={socialDisabled}
+                accessibilityRole="button"
+                accessibilityLabel="Sign in with Facebook"
+              >
+                {oauthBusy === 'facebook' ? (
+                  <ActivityIndicator color="#3b5998" />
+                ) : (
+                  <FontAwesome name="facebook" size={22} color="#3b5998" />
+                )}
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.socialButton, styles.appleButton]}>
+              <TouchableOpacity style={[styles.socialButton, styles.appleButton]} accessibilityRole="button">
                 <FontAwesome name="apple" size={22} color="#000" />
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.socialButton, styles.googleButton]}>
-                <Text style={styles.googleText}>G</Text>
+              <TouchableOpacity
+                style={[styles.socialButton, styles.googleButton, socialDisabled && styles.socialButtonDisabled]}
+                onPress={handleGoogleOAuth}
+                disabled={socialDisabled}
+                accessibilityRole="button"
+                accessibilityLabel="Sign in with Google"
+              >
+                {oauthBusy === 'google' ? (
+                  <ActivityIndicator color="#ea4335" />
+                ) : (
+                  <Text style={styles.googleText}>G</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -576,6 +659,7 @@ const styles = StyleSheet.create({
   facebookButton: {},
   appleButton: {},
   googleButton: {},
+  socialButtonDisabled: { opacity: 0.55 },
   googleText: {
     fontSize: 20,
     fontWeight: '700',

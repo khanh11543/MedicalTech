@@ -95,6 +95,10 @@ public class AuthService {
     @Value("${facebook.oauth2.redirect-uri}")
     private String facebookRedirectUri;
 
+    /** Optional: backend URL for Facebook to call on mobile OAuth (add this exact URL in Facebook app settings). */
+    @Value("${facebook.oauth2.redirect-uri-mobile:}")
+    private String facebookRedirectUriMobile;
+
     @Value("${facebook.oauth2.auth-url}")
     private String facebookAuthUrl;
 
@@ -1027,18 +1031,48 @@ public class AuthService {
     // ==================== Google OAuth2 Methods ====================
 
     /**
-     * Build Google OAuth2 authorization URL for redirect
+     * Build Google OAuth2 authorization URL for redirect.
+     *
+     * @param state optional; when set (e.g. base64 app redirect URI), returned on callback for mobile deep link
      */
-    public String buildGoogleAuthorizationUrl() {
-        return UriComponentsBuilder.fromUriString(googleAuthUrl)
+    public String buildGoogleAuthorizationUrl(String state) {
+        UriComponentsBuilder b = UriComponentsBuilder.fromUriString(googleAuthUrl)
                 .queryParam("client_id", googleClientId)
                 .queryParam("redirect_uri", googleRedirectUri)
                 .queryParam("response_type", "code")
                 .queryParam("scope", googleScope)
                 .queryParam("access_type", "offline")
-                .queryParam("prompt", "consent")
-                .build()
-                .toUriString();
+                .queryParam("prompt", "consent");
+        if (state != null && !state.isBlank()) {
+            b.queryParam("state", state);
+        }
+        return b.build().toUriString();
+    }
+
+    /** Allowed custom-scheme targets for returning JWTs to the mobile app (expo / dev client). */
+    public boolean isAllowedAppOAuthRedirect(String uri) {
+        if (uri == null || uri.isBlank()) {
+            return false;
+        }
+        try {
+            java.net.URI u = java.net.URI.create(uri.trim());
+            String scheme = u.getScheme();
+            if (scheme == null) {
+                return false;
+            }
+            String s = scheme.toLowerCase(java.util.Locale.ROOT);
+            return "medicalapp".equals(s) || "exp".equals(s);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public boolean isFacebookMobileOAuthConfigured() {
+        return facebookRedirectUriMobile != null && !facebookRedirectUriMobile.isBlank();
+    }
+
+    public String getFacebookRedirectUriMobile() {
+        return facebookRedirectUriMobile;
     }
 
     /**
@@ -1159,27 +1193,47 @@ public class AuthService {
     // ==================== Facebook OAuth2 Methods ====================
 
     /**
-     * Build Facebook OAuth2 authorization URL for redirect
+     * Build Facebook OAuth2 authorization URL (web flow).
      */
     public String buildFacebookAuthorizationUrl() {
-        return UriComponentsBuilder.fromUriString(facebookAuthUrl)
-                .queryParam("client_id", facebookAppId)
-                .queryParam("redirect_uri", facebookRedirectUri)
-                .queryParam("scope", facebookScope)
-                .queryParam("response_type", "code")
-                .build()
-                .toUriString();
+        return buildFacebookAuthorizationUrl(null, null);
     }
 
     /**
-     * Exchange Facebook authorization code for access token
+     * @param redirectUriOverride if non-blank, used as Facebook redirect_uri (must match token exchange)
+     * @param state               optional state returned on callback (e.g. base64 app deep link)
+     */
+    public String buildFacebookAuthorizationUrl(String redirectUriOverride, String state) {
+        String redirect = (redirectUriOverride != null && !redirectUriOverride.isBlank())
+                ? redirectUriOverride
+                : facebookRedirectUri;
+        UriComponentsBuilder b = UriComponentsBuilder.fromUriString(facebookAuthUrl)
+                .queryParam("client_id", facebookAppId)
+                .queryParam("redirect_uri", redirect)
+                .queryParam("scope", facebookScope)
+                .queryParam("response_type", "code");
+        if (state != null && !state.isBlank()) {
+            b.queryParam("state", state);
+        }
+        return b.build().toUriString();
+    }
+
+    /**
+     * Exchange Facebook authorization code for access token (web redirect_uri).
      */
     public JsonNode exchangeFacebookCode(String code) {
+        return exchangeFacebookCode(code, facebookRedirectUri);
+    }
+
+    /**
+     * Exchange Facebook code; {@code redirectUriForTokenExchange} must match the redirect_uri used in the auth step.
+     */
+    public JsonNode exchangeFacebookCode(String code, String redirectUriForTokenExchange) {
         String url = UriComponentsBuilder.fromUriString(facebookTokenUrl)
                 .queryParam("client_id", facebookAppId)
                 .queryParam("client_secret", facebookAppSecret)
                 .queryParam("code", code)
-                .queryParam("redirect_uri", facebookRedirectUri)
+                .queryParam("redirect_uri", redirectUriForTokenExchange)
                 .build()
                 .toUriString();
 

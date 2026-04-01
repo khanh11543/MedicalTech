@@ -22,6 +22,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 /**
  * Authentication Controller
@@ -207,9 +208,16 @@ public class AuthController {
      */
     @GetMapping("/google/login")
     @Operation(summary = "Initiate Google OAuth2 login",
-               description = "Redirects user to Google consent screen")
-    public void redirectToGoogle(HttpServletResponse response) throws IOException {
-        String authorizationUrl = authService.buildGoogleAuthorizationUrl();
+               description = "Redirects user to Google consent screen. Optional redirect_uri=medicalapp://... (allowed schemes) encodes app return target.")
+    public void redirectToGoogle(
+            @RequestParam(value = "redirect_uri", required = false) String redirectUri,
+            HttpServletResponse response) throws IOException {
+        String state = null;
+        if (redirectUri != null && authService.isAllowedAppOAuthRedirect(redirectUri)) {
+            state = Base64.getUrlEncoder().withoutPadding()
+                    .encodeToString(redirectUri.getBytes(StandardCharsets.UTF_8));
+        }
+        String authorizationUrl = authService.buildGoogleAuthorizationUrl(state);
         log.info("Redirecting to Google OAuth2");
         response.sendRedirect(authorizationUrl);
     }
@@ -224,6 +232,7 @@ public class AuthController {
     public void googleCallback(
             @RequestParam(value = "code", required = false) String code,
             @RequestParam(value = "error", required = false) String error,
+            @RequestParam(value = "state", required = false) String state,
             HttpServletRequest request,
             HttpServletResponse response) throws IOException {
 
@@ -246,16 +255,8 @@ public class AuthController {
             // Login or register user, generate JWT
             TokenDTO tokenDTO = authService.processGoogleUser(googleUser, request);
 
-            // Redirect back to React with token data
-            String redirectUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/oauth-success")
-                    .queryParam("accessToken", tokenDTO.getAccessToken())
-                    .queryParam("refreshToken", tokenDTO.getRefreshToken())
-                    .queryParam("userId", tokenDTO.getUserId())
-                    .queryParam("email", tokenDTO.getEmail())
-                    .queryParam("roles", String.join(",", tokenDTO.getRoles()))
-                    .build()
-                    .toUriString();
-
+            String successBase = resolveOAuthSuccessBase(state);
+            String redirectUrl = buildOAuthTokenRedirect(successBase, tokenDTO);
             response.sendRedirect(redirectUrl);
 
         } catch (Exception e) {
@@ -263,6 +264,56 @@ public class AuthController {
             response.sendRedirect(frontendUrl + "/signin?error=" +
                     URLEncoder.encode("Google login failed. Please try again.", StandardCharsets.UTF_8));
         }
+    }
+
+    private String resolveOAuthSuccessBase(String googleStateParam) {
+        if (googleStateParam == null || googleStateParam.isBlank()) {
+            return frontendUrl + "/oauth-success";
+        }
+        try {
+            byte[] decoded = Base64.getUrlDecoder().decode(googleStateParam);
+            String uri = new String(decoded, StandardCharsets.UTF_8).trim();
+            if (authService.isAllowedAppOAuthRedirect(uri)) {
+                int hash = uri.indexOf('#');
+                return hash >= 0 ? uri.substring(0, hash) : uri;
+            }
+        } catch (Exception e) {
+            log.debug("Invalid Google OAuth state ignored: {}", e.getMessage());
+        }
+        return frontendUrl + "/oauth-success";
+    }
+
+    private String decodeAppRedirectFromState(String stateParam) {
+        if (stateParam == null || stateParam.isBlank()) {
+            return null;
+        }
+        try {
+            byte[] decoded = Base64.getUrlDecoder().decode(stateParam);
+            String uri = new String(decoded, StandardCharsets.UTF_8).trim();
+            if (authService.isAllowedAppOAuthRedirect(uri)) {
+                int hash = uri.indexOf('#');
+                return hash >= 0 ? uri.substring(0, hash) : uri;
+            }
+        } catch (Exception e) {
+            log.debug("Invalid OAuth state: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    private String buildOAuthTokenRedirect(String successBase, TokenDTO tokenDTO) {
+        String rolesParam = "";
+        if (tokenDTO.getRoles() != null && !tokenDTO.getRoles().isEmpty()) {
+            rolesParam = String.join(",", tokenDTO.getRoles());
+        }
+        return UriComponentsBuilder.fromUriString(successBase)
+                .queryParam("accessToken", tokenDTO.getAccessToken())
+                .queryParam("refreshToken", tokenDTO.getRefreshToken())
+                .queryParam("userId", tokenDTO.getUserId())
+                .queryParam("email", tokenDTO.getEmail())
+                .queryParam("roles", rolesParam)
+                .encode(StandardCharsets.UTF_8)
+                .build()
+                .toUriString();
     }
 
     // ==================== Facebook OAuth2 Endpoints ====================
@@ -273,11 +324,71 @@ public class AuthController {
      */
     @GetMapping("/facebook/login")
     @Operation(summary = "Initiate Facebook OAuth2 login",
-               description = "Redirects user to Facebook consent screen")
-    public void redirectToFacebook(HttpServletResponse response) throws IOException {
+               description = "Redirects user to Facebook. Optional redirect_uri for mobile (requires facebook.oauth2.redirect-uri-mobile).")
+    public void redirectToFacebook(
+            @RequestParam(value = "redirect_uri", required = false) String redirectUri,
+            HttpServletResponse response) throws IOException {
+        if (redirectUri != null && authService.isAllowedAppOAuthRedirect(redirectUri)
+                && authService.isFacebookMobileOAuthConfigured()) {
+            String state = Base64.getUrlEncoder().withoutPadding()
+                    .encodeToString(redirectUri.getBytes(StandardCharsets.UTF_8));
+            String authorizationUrl = authService.buildFacebookAuthorizationUrl(
+                    authService.getFacebookRedirectUriMobile(), state);
+            log.info("Redirecting to Facebook OAuth2 (mobile)");
+            response.sendRedirect(authorizationUrl);
+            return;
+        }
         String authorizationUrl = authService.buildFacebookAuthorizationUrl();
         log.info("Redirecting to Facebook OAuth2");
         response.sendRedirect(authorizationUrl);
+    }
+
+    /**
+     * Facebook mobile redirect target — must be listed in Facebook app "Valid OAuth Redirect URIs".
+     * GET /api/auth/facebook/callback/mobile?code=...
+     */
+    @GetMapping("/facebook/callback/mobile")
+    @Operation(summary = "Facebook OAuth2 callback for mobile app")
+    public void facebookCallbackMobile(
+            @RequestParam(value = "code", required = false) String code,
+            @RequestParam(value = "error", required = false) String error,
+            @RequestParam(value = "state", required = false) String state,
+            HttpServletRequest request,
+            HttpServletResponse response) throws IOException {
+
+        if (!authService.isFacebookMobileOAuthConfigured()) {
+            response.sendRedirect(frontendUrl + "/signin?error="
+                    + URLEncoder.encode("Facebook mobile login is not configured on the server.", StandardCharsets.UTF_8));
+            return;
+        }
+
+        if (error != null || code == null) {
+            log.warn("Facebook mobile OAuth error or denied: {}", error);
+            response.sendRedirect(frontendUrl + "/signin?error="
+                    + URLEncoder.encode("Facebook login was cancelled or failed.", StandardCharsets.UTF_8));
+            return;
+        }
+
+        try {
+            JsonNode fbTokens = authService.exchangeFacebookCode(code, authService.getFacebookRedirectUriMobile());
+            String fbAccessToken = fbTokens.get("access_token").asText();
+            JsonNode fbUser = authService.fetchFacebookUserInfo(fbAccessToken);
+            log.info("Facebook user info received for: {}",
+                    fbUser.has("email") ? fbUser.get("email").asText() : fbUser.get("id").asText());
+            TokenDTO tokenDTO = authService.processFacebookUser(fbUser, request);
+
+            String appBase = decodeAppRedirectFromState(state);
+            if (appBase == null) {
+                response.sendRedirect(frontendUrl + "/signin?error="
+                        + URLEncoder.encode("Invalid Facebook login state.", StandardCharsets.UTF_8));
+                return;
+            }
+            response.sendRedirect(buildOAuthTokenRedirect(appBase, tokenDTO));
+        } catch (Exception e) {
+            log.error("Facebook mobile OAuth error: {}", e.getMessage(), e);
+            response.sendRedirect(frontendUrl + "/signin?error="
+                    + URLEncoder.encode("Facebook login failed. Please try again.", StandardCharsets.UTF_8));
+        }
     }
 
     /**
