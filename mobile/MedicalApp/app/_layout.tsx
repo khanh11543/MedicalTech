@@ -22,6 +22,9 @@ export default function RootLayout() {
         <Stack.Screen name="faq" options={{ headerShown: false }} />
         <Stack.Screen name="privacy-policy" options={{ headerShown: false }} />
         <Stack.Screen name="help-support" options={{ headerShown: false }} />
+        <Stack.Screen name="my-doctors" options={{ headerShown: false }} />
+        <Stack.Screen name="doctor-detail" options={{ headerShown: false }} />
+        <Stack.Screen name="make-appointment" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>

@@ -14,10 +14,10 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 const menuItems = [
-  { label: 'Personal Info', icon: 'person-outline' as const, lib: 'ionicons' as const },
-  { label: 'My Appointment', icon: 'calendar-outline' as const, lib: 'ionicons' as const },
-  { label: 'My Doctors', icon: 'people-outline' as const, lib: 'ionicons' as const },
-  { label: 'My tests & diagnostics', icon: 'flask-outline' as const, lib: 'ionicons' as const },
+  { label: 'Personal Info', icon: 'person-outline' as const, lib: 'ionicons' as const, route: null },
+  { label: 'My Appointment', icon: 'calendar-outline' as const, lib: 'ionicons' as const, route: null },
+  { label: 'My Doctors', icon: 'people-outline' as const, lib: 'ionicons' as const, route: '/my-doctors' },
+  { label: 'My tests & diagnostics', icon: 'flask-outline' as const, lib: 'ionicons' as const, route: null },
 ];
 
 export default function SettingScreen() {
@@ -68,7 +68,14 @@ export default function SettingScreen() {
           {/* Menu Items */}
           <View style={styles.menuList}>
             {menuItems.map((item, idx) => (
-              <TouchableOpacity key={idx} style={styles.menuItem} activeOpacity={0.7}>
+              <TouchableOpacity
+                key={idx}
+                style={styles.menuItem}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (item.route) router.push(item.route as any);
+                }}
+              >
                 <View style={styles.menuIconBox}>
                   <Ionicons name={item.icon} size={20} color="#5b9bd5" />
                 </View>
