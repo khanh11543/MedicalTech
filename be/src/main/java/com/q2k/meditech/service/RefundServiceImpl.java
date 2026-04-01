@@ -9,6 +9,7 @@ import com.q2k.meditech.entity.enums.RefundType;
 import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.*;
+import com.q2k.meditech.util.ExportUtil;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -187,6 +189,79 @@ public class RefundServiceImpl implements RefundService {
                 .fromDate(from)
                 .toDate(to)
                 .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] exportRefunds(
+            String status,
+            Long doctorId,
+            Long patientId,
+            String from,
+            String to,
+            String refundMethodStr,
+            String refundReasonTypeStr,
+            String searchTerm,
+            Double minAmount,
+            Double maxAmount,
+            String sortBy,
+            String sortDir,
+            String format) {
+
+        log.info("Exporting refunds — format: {}", format);
+
+        String effectiveSortBy = (sortBy != null && !sortBy.isBlank()) ? sortBy : "requestedDate";
+        String effectiveSortDir = (sortDir != null && !sortDir.isBlank()) ? sortDir : "DESC";
+
+        Page<RefundResponseDTO> page = getAllRefunds(
+                status, doctorId, patientId, from, to,
+                refundMethodStr, refundReasonTypeStr, searchTerm,
+                minAmount, maxAmount,
+                0, 10_000,
+                effectiveSortBy, effectiveSortDir);
+
+        List<RefundResponseDTO> rows = page.getContent();
+
+        if ("CSV".equalsIgnoreCase(format)) {
+            return ExportUtil.toCsv(refundExportColumns(), rows);
+        }
+        if ("PDF".equalsIgnoreCase(format)) {
+            try {
+                return ExportUtil.toPdf(refundExportColumns(), rows, "Refund Export Report");
+            } catch (IOException e) {
+                log.error("Error generating refund PDF export", e);
+                throw new RuntimeException("Failed to generate PDF export", e);
+            }
+        }
+        try {
+            return ExportUtil.toExcel(refundExportColumns(), rows, "Refunds");
+        } catch (IOException e) {
+            log.error("Error generating refund Excel export", e);
+            throw new RuntimeException("Failed to generate Excel export", e);
+        }
+    }
+
+    private List<ExportUtil.ExportColumn<RefundResponseDTO>> refundExportColumns() {
+        return List.of(
+                ExportUtil.ExportColumn.of("Refund Code", r -> nz(r.getRefundCode())),
+                ExportUtil.ExportColumn.of("Status", r -> r.getStatus() != null ? r.getStatus().name() : ""),
+                ExportUtil.ExportColumn.of("Payment Code", r -> nz(r.getPaymentCode())),
+                ExportUtil.ExportColumn.of("Patient", r -> nz(r.getPatientName())),
+                ExportUtil.ExportColumn.of("Doctor", r -> nz(r.getDoctorName())),
+                ExportUtil.ExportColumn.of("Refund Amount",
+                        r -> r.getRefundAmount() != null ? r.getRefundAmount().toPlainString() : ""),
+                ExportUtil.ExportColumn.of("Original Amount",
+                        r -> r.getOriginalAmount() != null ? r.getOriginalAmount().toPlainString() : ""),
+                ExportUtil.ExportColumn.of("Currency", r -> nz(r.getCurrency())),
+                ExportUtil.ExportColumn.of("Refund Method", r -> nz(r.getRefundMethod())),
+                ExportUtil.ExportColumn.of("Reason Type", r -> nz(r.getRefundReasonType())),
+                ExportUtil.ExportColumn.of("Requested", r -> ExportUtil.formatDateTime(r.getRequestedDate())),
+                ExportUtil.ExportColumn.of("Appointment", r -> nz(r.getAppointmentCode()))
+        );
+    }
+
+    private static String nz(String s) {
+        return s != null ? s : "";
     }
 
     // ========== DETAIL ==========

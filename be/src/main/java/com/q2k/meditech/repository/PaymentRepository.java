@@ -239,6 +239,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             "LEFT JOIN FETCH p.patient pat " +
             "LEFT JOIN FETCH pat.user pu " +
             "LEFT JOIN FETCH p.processedBy pb " +
+            "LEFT JOIN FETCH p.prescription " +
             "WHERE (:search IS NULL OR :search = '' OR " +
             "       LOWER(p.paymentCode) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "       LOWER(pu.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +

@@ -74,14 +74,20 @@ export default function RoomManagement() {
     }
   };
 
-  const handleDelete = async (roomId: number) => {
-    if (!confirm("Delete this room?")) return;
+  const handleToggleVisibility = async (r: Room) => {
+    const next = !r.isActive;
+    if (!confirm(`${next ? "Show" : "Hide"} this room?`)) return;
     try {
       setError("");
-      await adminService.deleteRoom(roomId);
+      await adminService.updateRoom(r.id, {
+        roomNumber: r.roomNumber,
+        name: r.name ?? undefined,
+        floor: r.floor ?? undefined,
+        isActive: next,
+      });
       await refresh();
     } catch (e: any) {
-      setError(e?.response?.data?.message || "Failed to delete room");
+      setError(e?.response?.data?.message || (next ? "Failed to show room" : "Failed to hide room"));
     }
   };
 
@@ -152,10 +158,15 @@ export default function RoomManagement() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <button
-                      onClick={() => handleDelete(r.id)}
-                      className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400"
+                      type="button"
+                      onClick={() => handleToggleVisibility(r)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
+                        r.isActive
+                          ? "bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300"
+                          : "bg-green-50 text-green-700 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400"
+                      }`}
                     >
-                      Delete
+                      {r.isActive ? "Hide" : "Show"}
                     </button>
                   </td>
                 </tr>

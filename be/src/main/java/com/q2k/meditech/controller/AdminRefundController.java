@@ -10,6 +10,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -101,6 +103,73 @@ public class AdminRefundController {
         RefundStatsDTO stats = refundService.getRefundStatistics(from, to);
 
         return ResponseEntity.ok(stats);
+    }
+
+    /**
+     * GET /api/admin/refunds/export
+     * Export filtered refunds (must be registered before /{id} so "export" is not parsed as an ID)
+     */
+    @GetMapping("/export")
+    @Operation(
+        summary = "Export refunds",
+        description = "Export filtered refunds to CSV, Excel (XLSX), or PDF using the same filters as the list API"
+    )
+    public ResponseEntity<byte[]> exportRefunds(
+            @Parameter(description = "Filter by status")
+            @RequestParam(required = false) String status,
+            @Parameter(description = "Filter by doctor ID")
+            @RequestParam(required = false) Long doctorId,
+            @Parameter(description = "Filter by patient ID")
+            @RequestParam(required = false) Long patientId,
+            @Parameter(description = "From date (yyyy-MM-dd)")
+            @RequestParam(required = false) String from,
+            @Parameter(description = "To date (yyyy-MM-dd)")
+            @RequestParam(required = false) String to,
+            @Parameter(description = "Filter by refund method")
+            @RequestParam(required = false) String refundMethod,
+            @Parameter(description = "Filter by refund reason type")
+            @RequestParam(required = false) String refundReasonType,
+            @Parameter(description = "Search term")
+            @RequestParam(required = false) String searchTerm,
+            @Parameter(description = "Minimum refund amount")
+            @RequestParam(required = false) Double minAmount,
+            @Parameter(description = "Maximum refund amount")
+            @RequestParam(required = false) Double maxAmount,
+            @Parameter(description = "Sort field")
+            @RequestParam(defaultValue = "requestedDate") String sortBy,
+            @Parameter(description = "Sort direction")
+            @RequestParam(defaultValue = "DESC") String sortDir,
+            @Parameter(description = "EXCEL, CSV, or PDF")
+            @RequestParam(defaultValue = "EXCEL") String format) {
+
+        log.info("GET /admin/refunds/export — format: {}", format);
+
+        byte[] body = refundService.exportRefunds(
+                status, doctorId, patientId, from, to,
+                refundMethod, refundReasonType, searchTerm,
+                minAmount, maxAmount, sortBy, sortDir, format);
+
+        String contentType;
+        String filename;
+        switch (format.toUpperCase()) {
+            case "CSV":
+                contentType = "text/csv; charset=UTF-8";
+                filename = "refunds_export.csv";
+                break;
+            case "PDF":
+                contentType = "application/pdf";
+                filename = "refunds_export.pdf";
+                break;
+            default:
+                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                filename = "refunds_export.xlsx";
+                break;
+        }
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(body);
     }
 
     /**

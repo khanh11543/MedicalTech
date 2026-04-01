@@ -123,11 +123,17 @@ const RefundList: React.FC = () => {
       return { blob, format };
     },
     onSuccess: ({ blob, format }) => {
-      const filename = `refunds_export_${dayjs().format('YYYY-MM-DD')}.${format.toLowerCase()}`;
+      const ext = refundService.refundExportFileExtension(format);
+      const filename = `refunds_export_${dayjs().format('YYYY-MM-DD')}.${ext}`;
       refundService.downloadFile(blob, filename);
+      alert('Export completed successfully');
     },
-    onError: (error: any) => {
-      alert(error?.response?.data?.message || 'Export failed');
+    onError: (error: unknown) => {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      alert(msg || 'Export failed');
     },
   });
 

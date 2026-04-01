@@ -33,6 +33,24 @@ public interface RefundService {
     RefundStatsDTO getRefundStatistics(String from, String to);
 
     /**
+     * Export refunds matching list filters (CSV, EXCEL/XLSX, PDF).
+     */
+    byte[] exportRefunds(
+            String status,
+            Long doctorId,
+            Long patientId,
+            String from,
+            String to,
+            String refundMethod,
+            String refundReasonType,
+            String searchTerm,
+            Double minAmount,
+            Double maxAmount,
+            String sortBy,
+            String sortDir,
+            String format);
+
+    /**
      * Get refund detail by ID
      */
     RefundDetailDTO getRefundDetail(Long refundId);

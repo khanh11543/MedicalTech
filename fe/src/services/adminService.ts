@@ -343,10 +343,6 @@ const adminService = {
     return response.data;
   },
 
-  deleteRoom: async (roomId: number): Promise<void> => {
-    await api.delete(`/admin/rooms/${roomId}`);
-  },
-
   assignDoctorToRoom: async (roomId: number, doctorId?: number | null): Promise<Room> => {
     const response = await api.put(`/admin/rooms/${roomId}/assign`, null, {
       params: { doctorId: doctorId ?? undefined },
