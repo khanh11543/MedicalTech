@@ -14,8 +14,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 const menuItems = [
-  { label: 'Personal Info', icon: 'person-outline' as const, lib: 'ionicons' as const, route: null },
-  { label: 'My Appointment', icon: 'calendar-outline' as const, lib: 'ionicons' as const, route: null },
+  { label: 'Personal Info', icon: 'person-outline' as const, lib: 'ionicons' as const, route: '/edit-profile' },
+  { label: 'My Appointment', icon: 'calendar-outline' as const, lib: 'ionicons' as const, route: '/my-appointments' },
   { label: 'My Doctors', icon: 'people-outline' as const, lib: 'ionicons' as const, route: '/my-doctors' },
   { label: 'My tests & diagnostics', icon: 'flask-outline' as const, lib: 'ionicons' as const, route: null },
 ];
@@ -63,6 +63,21 @@ export default function SettingScreen() {
             </View>
             <Text style={styles.userName}>Rason Battler</Text>
             <Text style={styles.userEmail}>Rasonbattler@gmail.com</Text>
+            <TouchableOpacity
+              style={styles.editBtn}
+              activeOpacity={0.8}
+              onPress={() => router.push('/edit-profile' as any)}
+            >
+              <LinearGradient
+                colors={['#5b9bd5', '#4a8ec4']}
+                style={styles.editBtnGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                <Ionicons name="create-outline" size={14} color="#fff" />
+                <Text style={styles.editBtnText}>Edit</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
 
           {/* Menu Items */}
@@ -170,6 +185,24 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 14,
     color: '#8a8a9e',
+  },
+  editBtn: {
+    marginTop: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  editBtnGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  editBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
 
   /* Menu */
