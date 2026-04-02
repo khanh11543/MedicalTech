@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
@@ -64,6 +64,8 @@ export default function UserList() {
   const [editSpecialtyIds, setEditSpecialtyIds] = useState<number[]>([]);
   const [editPrimaryId, setEditPrimaryId] = useState<number | null>(null);
   const [savingSpecialties, setSavingSpecialties] = useState(false);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   // Fetch available roles and specialties from backend on mount
   useEffect(() => {
@@ -596,18 +598,57 @@ export default function UserList() {
               <div className="px-6 py-5 space-y-6">
                 {/* User Avatar & Basic Info */}
                 <div className="flex items-center gap-5">
-                  <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center shadow-lg flex-shrink-0">
-                    {selectedUser.avatarUrl ? (
-                      <img
-                        src={resolveAvatarUrl(selectedUser.avatarUrl) || ""}
-                        alt={selectedUser.email}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <span className="text-white text-2xl font-bold">
-                        {selectedUser.email.charAt(0).toUpperCase()}
-                      </span>
-                    )}
+                  <div className="flex flex-col items-center gap-2 flex-shrink-0">
+                    <div className="w-20 h-20 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center shadow-lg">
+                      {selectedUser.avatarUrl ? (
+                        <img
+                          src={resolveAvatarUrl(selectedUser.avatarUrl) || ""}
+                          alt={selectedUser.email}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-white text-2xl font-bold">
+                          {selectedUser.email.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      ref={avatarFileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      className="hidden"
+                      aria-label="Upload user avatar"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file || !selectedUser) return;
+                        setAvatarUploading(true);
+                        try {
+                          await adminService.uploadUserAvatar(selectedUser.id, file);
+                          const refreshed = await adminService.getUserDetail(selectedUser.id);
+                          setSelectedUser(refreshed);
+                          setUsers((prev) =>
+                            prev.map((x) =>
+                              x.id === selectedUser.id ? { ...x, avatarUrl: refreshed.avatarUrl } : x
+                            )
+                          );
+                          showToast("Profile photo updated", "success");
+                        } catch (err) {
+                          console.error("Avatar upload failed:", err);
+                          showToast("Failed to upload photo", "error");
+                        } finally {
+                          setAvatarUploading(false);
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      disabled={avatarUploading}
+                      onClick={() => avatarFileInputRef.current?.click()}
+                      className="text-xs font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {avatarUploading ? "Uploading…" : "Change photo"}
+                    </button>
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-gray-800 dark:text-white truncate">
