@@ -185,7 +185,7 @@ function RecordDetailModal({ record, onClose }: { record: MedicalRecord; onClose
           <Section title="Visit Information">
             <Grid>
               <Field label="Doctor" value={`Dr. ${record.doctorName}`} />
-              <Field label="Specialty" value={record.doctorSpecialization} />
+              <Field label="Specialty" value={record.doctorSpecialization ?? "—"} />
               <Field label="Visit Date" value={new Date(record.visitDate).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} />
               {record.followUpDate && (
                 <Field label="Follow-up" value={new Date(record.followUpDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })} />
@@ -209,7 +209,7 @@ function RecordDetailModal({ record, onClose }: { record: MedicalRecord; onClose
           </Section>
 
           {/* Vitals */}
-          {record.vitalSigns && (
+          {!!record.vitalSigns && (
             <Section title="Vital Signs">
               <VitalSignsDisplay data={record.vitalSigns} />
             </Section>
@@ -223,7 +223,7 @@ function RecordDetailModal({ record, onClose }: { record: MedicalRecord; onClose
           )}
 
           {/* Lab Results */}
-          {record.labResults && (
+          {!!record.labResults && (
             <Section title="Lab Results">
               <LabResultsDisplay data={record.labResults} />
             </Section>

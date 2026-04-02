@@ -12,6 +12,8 @@ import SecurityBulkActions from "./components/SecurityBulkActions";
 import IpManagement from "./components/IpManagement";
 import AuditTrail from "./components/AuditTrail";
 import ActivityLogs from "./components/ActivityLogs";
+import AppointmentActivityLogs from "./components/AppointmentActivityLogs";
+import ScheduleActivityLogs from "./components/ScheduleActivityLogs";
 import SessionManagement from "./components/SessionManagement";
 import InvestigationTools from "./components/InvestigationTools";
 import InventoryAuditLog from "../MedicationManagement/InventoryAuditLog";
@@ -265,6 +267,12 @@ export default function SecurityAudit() {
 
         {/* Activity Logs Section */}
         <ActivityLogs />
+
+        {/* Appointment Activity Logs (dedicated table) */}
+        <AppointmentActivityLogs />
+
+        {/* Schedule Logs (by role) */}
+        <ScheduleActivityLogs />
 
         {/* Session Management Section */}
         <SessionManagement />

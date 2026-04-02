@@ -44,7 +44,6 @@ export default function MyAppointments() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [totalElements, setTotalElements] = useState(0);
   const [tabCounts, setTabCounts] = useState<Record<TabKey, number>>({ UPCOMING: 0, COMPLETED: 0, CANCELLED: 0 });
   const [activeTab, setActiveTab] = useState<TabKey>("UPCOMING");
   const [reviewModal, setReviewModal] = useState<Appointment | null>(null);
@@ -58,7 +57,6 @@ export default function MyAppointments() {
       const result = await patientService.getMyAppointments(params);
       setAppointments(result.content);
       setTotalPages(result.totalPages);
-      setTotalElements(result.totalElements);
       setTabCounts((prev) => ({ ...prev, [activeTab]: result.totalElements }));
     } catch (err) {
       console.error("Failed to load appointments:", err);
@@ -411,7 +409,7 @@ function AppointmentCard({
               <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
-              Rate
+              Review Doctor
             </button>
           )}
         </div>
@@ -628,20 +626,7 @@ function AppointmentCard({
             </div>
           )}
 
-          {canReview && (
-            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50">
-              <button
-                type="button"
-                onClick={() => onReview(a)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-amber-500 rounded-xl hover:bg-amber-600 border-none cursor-pointer"
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                </svg>
-                Rate Doctor
-              </button>
-            </div>
-          )}
+          {/* After reviewed, patient cannot review again; show badge only */}
         </div>
       )}
     </div>
@@ -762,7 +747,7 @@ function ReviewModal({ appointment, onClose, onSubmitted }: {
         {/* Header */}
         <div className="bg-gradient-to-r from-[#049ebb] to-[#037a94] p-6 text-white">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold">Rate Your Visit</h3>
+            <h3 className="text-lg font-bold">Review Doctor</h3>
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors border-none cursor-pointer text-white"

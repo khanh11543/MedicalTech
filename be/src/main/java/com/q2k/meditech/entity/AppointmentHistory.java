@@ -3,6 +3,8 @@ package com.q2k.meditech.entity;
 import com.q2k.meditech.entity.enums.AppointmentStatus;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -32,11 +34,13 @@ public class AppointmentHistory {
     private String action; // CREATED, CONFIRMED, RESCHEDULED, CANCELLED, CHECKED_IN, etc.
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "old_status", length = 20)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "old_status", length = 50)
     private AppointmentStatus oldStatus;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "new_status", length = 20)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "new_status", length = 50)
     private AppointmentStatus newStatus;
 
     @Column(name = "old_date")

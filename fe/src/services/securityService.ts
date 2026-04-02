@@ -39,6 +39,21 @@ export type ActivityType =
   | "CHECKED_IN_PATIENT"
   | "CANCELLED_APPOINTMENT"
   | "RESCHEDULED_APPOINTMENT"
+  | "CREATED_SCHEDULE"
+  | "UPDATED_SCHEDULE"
+  | "DELETED_SCHEDULE"
+  | "ADDED_SCHEDULE_EXCEPTION"
+  | "DELETED_SCHEDULE_EXCEPTION"
+  | "GENERATED_TIME_SLOTS"
+  | "CREATED_TIME_SLOT"
+  | "UPDATED_TIME_SLOT"
+  | "DELETED_TIME_SLOT"
+  | "BLOCKED_TIME_SLOT"
+  | "UNBLOCKED_TIME_SLOT"
+  | "BULK_CREATED_TIME_SLOTS"
+  | "BULK_BLOCKED_TIME_SLOTS"
+  | "BULK_UNBLOCKED_TIME_SLOTS"
+  | "ROLLED_BACK_TIME_SLOTS"
   | "CREATED_PRESCRIPTION"
   | "APPLIED_TEMPLATE"
   | "PROCESSED_PAYMENT"
@@ -1269,6 +1284,21 @@ export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
   CHECKED_IN_PATIENT: "Checked-in Patient",
   CANCELLED_APPOINTMENT: "Cancelled Appointment",
   RESCHEDULED_APPOINTMENT: "Rescheduled Appointment",
+  CREATED_SCHEDULE: "Created Schedule",
+  UPDATED_SCHEDULE: "Updated Schedule",
+  DELETED_SCHEDULE: "Deleted Schedule",
+  ADDED_SCHEDULE_EXCEPTION: "Added Schedule Exception",
+  DELETED_SCHEDULE_EXCEPTION: "Deleted Schedule Exception",
+  GENERATED_TIME_SLOTS: "Generated Time Slots",
+  CREATED_TIME_SLOT: "Created Time Slot",
+  UPDATED_TIME_SLOT: "Updated Time Slot",
+  DELETED_TIME_SLOT: "Deleted Time Slot",
+  BLOCKED_TIME_SLOT: "Blocked Time Slot",
+  UNBLOCKED_TIME_SLOT: "Unblocked Time Slot",
+  BULK_CREATED_TIME_SLOTS: "Bulk Created Time Slots",
+  BULK_BLOCKED_TIME_SLOTS: "Bulk Blocked Time Slots",
+  BULK_UNBLOCKED_TIME_SLOTS: "Bulk Unblocked Time Slots",
+  ROLLED_BACK_TIME_SLOTS: "Rolled Back Time Slots",
   CREATED_PRESCRIPTION: "Created Prescription",
   APPLIED_TEMPLATE: "Applied Template",
   PROCESSED_PAYMENT: "Processed Payment",
@@ -1296,6 +1326,21 @@ export const ACTIVITY_TYPE_ICONS: Record<ActivityType, string> = {
   CHECKED_IN_PATIENT: "In",
   CANCELLED_APPOINTMENT: "Cancel",
   RESCHEDULED_APPOINTMENT: "Move",
+  CREATED_SCHEDULE: "Sch+",
+  UPDATED_SCHEDULE: "Sch",
+  DELETED_SCHEDULE: "Sch-",
+  ADDED_SCHEDULE_EXCEPTION: "Ex+",
+  DELETED_SCHEDULE_EXCEPTION: "Ex-",
+  GENERATED_TIME_SLOTS: "Gen",
+  CREATED_TIME_SLOT: "Slot+",
+  UPDATED_TIME_SLOT: "Slot",
+  DELETED_TIME_SLOT: "Slot-",
+  BLOCKED_TIME_SLOT: "Block",
+  UNBLOCKED_TIME_SLOT: "Unblk",
+  BULK_CREATED_TIME_SLOTS: "Bulk+",
+  BULK_BLOCKED_TIME_SLOTS: "BBlk",
+  BULK_UNBLOCKED_TIME_SLOTS: "BUn",
+  ROLLED_BACK_TIME_SLOTS: "Rb",
   CREATED_PRESCRIPTION: "Rx",
   APPLIED_TEMPLATE: "Tpl",
   PROCESSED_PAYMENT: "Pay",
@@ -1323,6 +1368,21 @@ export const ACTIVITY_TYPE_COLORS: Record<ActivityType, { bg: string; text: stri
   CHECKED_IN_PATIENT: { bg: "bg-teal-100 dark:bg-teal-900/30", text: "text-teal-700 dark:text-teal-400", dot: "bg-teal-500" },
   CANCELLED_APPOINTMENT: { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-400", dot: "bg-red-500" },
   RESCHEDULED_APPOINTMENT: { bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500" },
+  CREATED_SCHEDULE: { bg: "bg-indigo-100 dark:bg-indigo-900/30", text: "text-indigo-700 dark:text-indigo-400", dot: "bg-indigo-500" },
+  UPDATED_SCHEDULE: { bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-400", dot: "bg-blue-500" },
+  DELETED_SCHEDULE: { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-400", dot: "bg-red-500" },
+  ADDED_SCHEDULE_EXCEPTION: { bg: "bg-fuchsia-100 dark:bg-fuchsia-900/30", text: "text-fuchsia-700 dark:text-fuchsia-400", dot: "bg-fuchsia-500" },
+  DELETED_SCHEDULE_EXCEPTION: { bg: "bg-rose-100 dark:bg-rose-900/30", text: "text-rose-700 dark:text-rose-400", dot: "bg-rose-500" },
+  GENERATED_TIME_SLOTS: { bg: "bg-sky-100 dark:bg-sky-900/30", text: "text-sky-700 dark:text-sky-400", dot: "bg-sky-500" },
+  CREATED_TIME_SLOT: { bg: "bg-cyan-100 dark:bg-cyan-900/30", text: "text-cyan-700 dark:text-cyan-400", dot: "bg-cyan-500" },
+  UPDATED_TIME_SLOT: { bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-700 dark:text-blue-400", dot: "bg-blue-500" },
+  DELETED_TIME_SLOT: { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-700 dark:text-red-400", dot: "bg-red-500" },
+  BLOCKED_TIME_SLOT: { bg: "bg-orange-100 dark:bg-orange-900/30", text: "text-orange-700 dark:text-orange-400", dot: "bg-orange-500" },
+  UNBLOCKED_TIME_SLOT: { bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500" },
+  BULK_CREATED_TIME_SLOTS: { bg: "bg-sky-100 dark:bg-sky-900/30", text: "text-sky-700 dark:text-sky-400", dot: "bg-sky-500" },
+  BULK_BLOCKED_TIME_SLOTS: { bg: "bg-orange-100 dark:bg-orange-900/30", text: "text-orange-700 dark:text-orange-400", dot: "bg-orange-500" },
+  BULK_UNBLOCKED_TIME_SLOTS: { bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500" },
+  ROLLED_BACK_TIME_SLOTS: { bg: "bg-slate-100 dark:bg-slate-900/30", text: "text-slate-700 dark:text-slate-400", dot: "bg-slate-500" },
   CREATED_PRESCRIPTION: { bg: "bg-indigo-100 dark:bg-indigo-900/30", text: "text-indigo-700 dark:text-indigo-400", dot: "bg-indigo-500" },
   APPLIED_TEMPLATE: { bg: "bg-violet-100 dark:bg-violet-900/30", text: "text-violet-700 dark:text-violet-400", dot: "bg-violet-500" },
   PROCESSED_PAYMENT: { bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-700 dark:text-green-400", dot: "bg-green-500" },
@@ -1349,6 +1409,26 @@ export const ACTIVITY_CATEGORIES: { label: string; types: ActivityType[] }[] = [
     types: ["CREATED_APPOINTMENT", "CONFIRMED_APPOINTMENT", "CHECKED_IN_PATIENT", "CANCELLED_APPOINTMENT", "RESCHEDULED_APPOINTMENT"],
   },
   {
+    label: "Schedule",
+    types: [
+      "CREATED_SCHEDULE",
+      "UPDATED_SCHEDULE",
+      "DELETED_SCHEDULE",
+      "ADDED_SCHEDULE_EXCEPTION",
+      "DELETED_SCHEDULE_EXCEPTION",
+      "GENERATED_TIME_SLOTS",
+      "CREATED_TIME_SLOT",
+      "UPDATED_TIME_SLOT",
+      "DELETED_TIME_SLOT",
+      "BLOCKED_TIME_SLOT",
+      "UNBLOCKED_TIME_SLOT",
+      "BULK_CREATED_TIME_SLOTS",
+      "BULK_BLOCKED_TIME_SLOTS",
+      "BULK_UNBLOCKED_TIME_SLOTS",
+      "ROLLED_BACK_TIME_SLOTS",
+    ],
+  },
+  {
     label: "Prescriptions",
     types: ["CREATED_PRESCRIPTION", "APPLIED_TEMPLATE"],
   },
@@ -1370,6 +1450,13 @@ export const ALL_ACTIVITY_TYPES: ActivityType[] = [
   "LOGIN", "LOGOUT", "PASSWORD_CHANGE", "PROFILE_UPDATE",
   "CREATED_USER", "UPDATED_USER", "DISABLED_USER", "ASSIGNED_ROLE", "RESET_PASSWORD",
   "CREATED_APPOINTMENT", "CONFIRMED_APPOINTMENT", "CHECKED_IN_PATIENT", "CANCELLED_APPOINTMENT", "RESCHEDULED_APPOINTMENT",
+  "CREATED_SCHEDULE", "UPDATED_SCHEDULE", "DELETED_SCHEDULE",
+  "ADDED_SCHEDULE_EXCEPTION", "DELETED_SCHEDULE_EXCEPTION",
+  "GENERATED_TIME_SLOTS",
+  "CREATED_TIME_SLOT", "UPDATED_TIME_SLOT", "DELETED_TIME_SLOT",
+  "BLOCKED_TIME_SLOT", "UNBLOCKED_TIME_SLOT",
+  "BULK_CREATED_TIME_SLOTS", "BULK_BLOCKED_TIME_SLOTS", "BULK_UNBLOCKED_TIME_SLOTS",
+  "ROLLED_BACK_TIME_SLOTS",
   "CREATED_PRESCRIPTION", "APPLIED_TEMPLATE",
   "PROCESSED_PAYMENT", "ISSUED_REFUND",
   "CHANGED_SETTINGS", "CREATED_BACKUP", "ENABLED_MAINTENANCE",

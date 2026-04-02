@@ -20,6 +20,32 @@ export default function ActivityLogFilters({ filter, onFilterChange }: Props) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [quickRange, setQuickRange] = useState<QuickRange>("custom");
 
+  const APPOINTMENT_ACTIVITY_TYPES: ActivityType[] = [
+    "CREATED_APPOINTMENT",
+    "CONFIRMED_APPOINTMENT",
+    "CHECKED_IN_PATIENT",
+    "CANCELLED_APPOINTMENT",
+    "RESCHEDULED_APPOINTMENT",
+  ];
+
+  const isAppointmentsPresetActive =
+    filter.resourceType === "APPOINTMENT" &&
+    (filter.activityTypes?.length || 0) === APPOINTMENT_ACTIVITY_TYPES.length &&
+    APPOINTMENT_ACTIVITY_TYPES.every((t) => filter.activityTypes?.includes(t));
+
+  const toggleAppointmentsPreset = () => {
+    if (isAppointmentsPresetActive) {
+      onFilterChange({ ...filter, resourceType: undefined, activityTypes: undefined, pageNumber: 0 });
+      return;
+    }
+    onFilterChange({
+      ...filter,
+      resourceType: "APPOINTMENT",
+      activityTypes: APPOINTMENT_ACTIVITY_TYPES,
+      pageNumber: 0,
+    });
+  };
+
   const handleQuickRange = (range: QuickRange) => {
     setQuickRange(range);
     const now = dayjs();
@@ -149,6 +175,20 @@ export default function ActivityLogFilters({ filter, onFilterChange }: Props) {
             Reset
           </button>
         )}
+      </div>
+
+      {/* Quick chips */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={toggleAppointmentsPreset}
+          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+            isAppointmentsPresetActive
+              ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+              : "border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+          }`}
+        >
+          Appointments
+        </button>
       </div>
 
       {/* Advanced Filters */}
