@@ -153,12 +153,7 @@ export default function FiltersScreen() {
         </View>
       </SafeAreaView>
 
-      {/* Bottom gradient */}
-      <LinearGradient
-        colors={['transparent', '#f5dce8', '#ecc8d8']}
-        style={styles.bottomGradient}
-        pointerEvents="none"
-      />
+      {/* Removed bottom tint overlay (was causing pink haze). */}
     </View>
   );
 }
@@ -352,6 +347,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 60,
+    height: 0,
   },
 });

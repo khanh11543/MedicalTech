@@ -177,11 +177,7 @@ export default function VerifyMfaScreen() {
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
-      <LinearGradient
-        colors={['transparent', '#f5dce8', '#ecc8d8']}
-        style={styles.bottomGradient}
-        pointerEvents="none"
-      />
+      {/* Removed bottom tint overlay (was causing pink haze). */}
     </View>
   );
 }
@@ -190,7 +186,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, backgroundColor: '#fff' },
   topGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 150 },
-  bottomGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 80 },
+  bottomGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 0 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -6,16 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Dimensions,
   TextInput,
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import SideDrawer from '@/components/side-drawer';
 import { resolveBackendAbsoluteUrl } from '@/constants/api';
 import { ApiError } from '@/services/apiClient';
@@ -31,10 +29,7 @@ import {
 import { formatConsultationFee, ratingNum, doctorHoursLabel } from '@/lib/doctorPresentation';
 import { pickSpecialtyIcon, pickContentTitleIcon } from '@/lib/medicalIcons';
 
-const { width } = Dimensions.get('window');
-const GRID_GAP = 14;
 const GRID_PADDING = 20;
-const CARD_WIDTH = (width - GRID_PADDING * 2 - GRID_GAP * 2) / 3;
 
 const PLACEHOLDER_USER =
   'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=100&h=100&fit=crop&crop=face';
@@ -45,6 +40,9 @@ const SEARCH_DEBOUNCE_MS = 400;
 
 export default function SearchScreen() {
   const router = useRouter();
+  const navParams = useLocalSearchParams<{ specialtyId?: string; showDoctors?: string }>();
+  const scrollRef = useRef<ScrollView | null>(null);
+  const doctorsSectionY = useRef<number | null>(null);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [userAvatar, setUserAvatar] = useState(PLACEHOLDER_USER);
 
@@ -127,6 +125,20 @@ export default function SearchScreen() {
     loadDoctors(debouncedQuery, specialtyFilterId);
   }, [debouncedQuery, specialtyFilterId, loadDoctors]);
 
+  useEffect(() => {
+    const raw = navParams.specialtyId;
+    if (!raw) return;
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) setSpecialtyFilterId(n);
+  }, [navParams.specialtyId]);
+
+  useEffect(() => {
+    if (navParams.showDoctors !== '1') return;
+    const y = doctorsSectionY.current;
+    if (y == null) return;
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+  }, [navParams.showDoctors, doctors.length, doctorsLoading]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     setLoadError(null);
@@ -140,9 +152,7 @@ export default function SearchScreen() {
     }
   }, [fetchStatic, loadDoctors, debouncedQuery, specialtyFilterId]);
 
-  const toggleSpecialtyFilter = (id: number) => {
-    setSpecialtyFilterId((prev) => (prev === id ? null : id));
-  };
+  const clearSpecialtyFilter = () => setSpecialtyFilterId(null);
 
   const openDoctor = (d: DoctorCardDto) => {
     const img = resolveBackendAbsoluteUrl(d.avatarUrl) ?? PLACEHOLDER_DOCTOR;
@@ -175,6 +185,9 @@ export default function SearchScreen() {
           </View>
         ) : (
           <ScrollView
+            ref={(r) => {
+              scrollRef.current = r;
+            }}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
             refreshControl={
@@ -185,14 +198,12 @@ export default function SearchScreen() {
 
             {/* Header */}
             <View style={styles.header}>
+              <View style={{ width: 40, height: 40 }} />
+              <Text style={styles.headerTitle}>Search</Text>
               <TouchableOpacity onPress={() => setDrawerVisible(true)}>
                 <View style={styles.avatarContainer}>
                   <Image source={{ uri: userAvatar }} style={styles.userAvatar} />
                 </View>
-              </TouchableOpacity>
-              <Text style={styles.headerTitle}>Search</Text>
-              <TouchableOpacity onPress={() => router.push('/filters')}>
-                <Ionicons name="options-outline" size={26} color="#1a1a2e" />
               </TouchableOpacity>
             </View>
 
@@ -223,8 +234,55 @@ export default function SearchScreen() {
               </Text>
             ) : null}
 
+            {/* Specialties list */}
+            <Text style={styles.sectionTitle}>Browse by specialty</Text>
+            {specialties.length === 0 ? (
+              <Text style={styles.mutedPadded}>No specialties are available.</Text>
+            ) : (
+              <View style={styles.specList}>
+                {specialties.map((cat) => {
+                  const selected = specialtyFilterId === cat.id;
+                  return (
+                    <TouchableOpacity
+                      key={cat.id}
+                      style={[styles.specRow, selected && styles.specRowSelected]}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        setSpecialtyFilterId(cat.id);
+                        const y = doctorsSectionY.current;
+                        if (y != null) scrollRef.current?.scrollTo({ y: Math.max(0, y - 12), animated: true });
+                      }}
+                    >
+                      <View style={[styles.specIconBox, selected && styles.specIconBoxSelected]}>
+                        <MaterialCommunityIcons
+                          name={pickSpecialtyIcon(cat.name)}
+                          size={22}
+                          color={selected ? '#fff' : '#5b9bd5'}
+                        />
+                      </View>
+                      <Text style={styles.specName} numberOfLines={1}>
+                        {cat.name}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={18} color="#c0c8d4" />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            {specialtyFilterId != null ? (
+              <TouchableOpacity style={styles.clearFilterBtn} onPress={clearSpecialtyFilter}>
+                <Text style={styles.clearFilterText}>Clear specialty filter</Text>
+              </TouchableOpacity>
+            ) : null}
+
             {/* Doctors (API) */}
-            <View style={styles.doctorsSectionHead}>
+            <View
+              style={styles.doctorsSectionHead}
+              onLayout={(e) => {
+                doctorsSectionY.current = e.nativeEvent.layout.y;
+              }}
+            >
               <Text style={styles.sectionTitleNoPad}>Doctors</Text>
               {doctorsLoading ? <ActivityIndicator size="small" color="#5b9bd5" /> : null}
             </View>
@@ -267,43 +325,6 @@ export default function SearchScreen() {
               </View>
             )}
 
-            {/* Specialties grid */}
-            <Text style={styles.sectionTitle}>Browse by specialty</Text>
-            {specialties.length === 0 ? (
-              <Text style={styles.mutedPadded}>No specialties are available.</Text>
-            ) : (
-              <View style={styles.grid}>
-                {specialties.map((cat) => {
-                  const selected = specialtyFilterId === cat.id;
-                  return (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={[styles.gridCard, selected && styles.gridCardSelected]}
-                      onPress={() => toggleSpecialtyFilter(cat.id)}
-                      activeOpacity={0.85}
-                    >
-                      <View style={[styles.gridIconWrapper, selected && styles.gridIconWrapperSelected]}>
-                        <MaterialCommunityIcons
-                          name={pickSpecialtyIcon(cat.name)}
-                          size={32}
-                          color={selected ? '#fff' : '#5b9bd5'}
-                        />
-                      </View>
-                      <Text style={styles.gridLabel} numberOfLines={2}>
-                        {cat.name}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            )}
-
-            {specialtyFilterId != null ? (
-              <TouchableOpacity style={styles.clearFilterBtn} onPress={() => setSpecialtyFilterId(null)}>
-                <Text style={styles.clearFilterText}>Clear specialty filter</Text>
-              </TouchableOpacity>
-            ) : null}
-
             {/* Guides / resources */}
             <Text style={styles.sectionTitle}>Diagnostics & tests</Text>
             {contents.length === 0 ? (
@@ -338,11 +359,7 @@ export default function SearchScreen() {
         )}
       </SafeAreaView>
 
-      <LinearGradient
-        colors={['transparent', '#f5dce8', '#ecc8d8']}
-        style={styles.bottomGradient}
-        pointerEvents="none"
-      />
+      {/* Removed bottom tint overlay (was causing pink haze above tab bar). */}
 
       <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
     </View>
@@ -516,48 +533,45 @@ const styles = StyleSheet.create({
     color: '#1a1a2e',
   },
 
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  specList: {
     paddingHorizontal: GRID_PADDING,
-    gap: GRID_GAP,
+    gap: 10,
   },
-  gridCard: {
-    width: CARD_WIDTH,
-    backgroundColor: '#fff',
-    borderRadius: 16,
+  specRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 6,
-    elevation: 2,
+    gap: 12,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e8eef5',
+    elevation: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
-  gridCardSelected: {
+  specRowSelected: {
     borderColor: '#5b9bd5',
     backgroundColor: '#f0f7fc',
   },
-  gridIconWrapper: {
-    width: 54,
-    height: 54,
-    borderRadius: 14,
+  specIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     backgroundColor: '#edf3fa',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
   },
-  gridIconWrapperSelected: {
+  specIconBoxSelected: {
     backgroundColor: '#5b9bd5',
   },
-  gridLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+  specName: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
     color: '#1a1a2e',
-    textAlign: 'center',
   },
   clearFilterBtn: {
     alignSelf: 'center',
@@ -605,6 +619,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 60,
+    height: 0,
   },
 });

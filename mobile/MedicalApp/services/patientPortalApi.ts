@@ -47,6 +47,20 @@ export async function fetchPatientProfileFull(): Promise<PatientProfileFull> {
   return apiFetch<PatientProfileFull>('/patient/profile');
 }
 
+export async function uploadMyAvatar(file: { uri: string; name?: string; type?: string }): Promise<{ avatarUrl: string }> {
+  const form = new FormData();
+  form.append('file', {
+    uri: file.uri,
+    name: file.name ?? 'avatar.jpg',
+    type: file.type ?? 'image/jpeg',
+  } as unknown as Blob);
+
+  return apiFetch<{ avatarUrl: string }>('/users/me/avatar', {
+    method: 'POST',
+    body: form as unknown as BodyInit,
+  });
+}
+
 export async function putPatientProfile(body: UpdatePatientProfilePayload): Promise<PatientProfileFull> {
   return apiFetch<PatientProfileFull>('/patient/profile', {
     method: 'PUT',
@@ -82,9 +96,17 @@ export type MedicalRecordDto = {
   appointmentId?: number;
   visitDate: string;
   chiefComplaint?: string;
+  presentIllness?: string;
+  vitalSigns?: unknown;
+  physicalExam?: string;
   diagnosis?: string;
+  diagnosisCode?: string;
   labResults?: unknown;
   treatmentPlan?: string;
+  prescription?: unknown;
+  followUpDate?: string | null;
+  followUpNotes?: string | null;
+  attachments?: unknown;
   isConfidential?: boolean;
 };
 
@@ -112,6 +134,20 @@ export type PrescriptionDto = {
   prescriptionPaymentStatus?: string | null;
   items?: unknown[];
 };
+
+export async function fetchPatientPrescriptions(params?: {
+  from?: string;
+  to?: string;
+  pageNumber?: number;
+  pageSize?: number;
+}): Promise<SpringPage<PrescriptionDto>> {
+  const q = new URLSearchParams();
+  q.set('pageNumber', String(params?.pageNumber ?? 0));
+  q.set('pageSize', String(params?.pageSize ?? 30));
+  if (params?.from) q.set('from', params.from);
+  if (params?.to) q.set('to', params.to);
+  return apiFetch<SpringPage<PrescriptionDto>>(`/patient/prescriptions?${q.toString()}`);
+}
 
 export async function fetchPatientPrescription(id: number): Promise<PrescriptionDto> {
   return apiFetch<PrescriptionDto>(`/patient/prescriptions/${id}`);

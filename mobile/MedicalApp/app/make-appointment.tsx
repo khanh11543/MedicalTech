@@ -458,7 +458,7 @@ export default function MakeAppointmentScreen() {
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#d6e4f0', '#e8eef5']} style={styles.topGradient} />
-      <LinearGradient colors={['#f5dce8', '#ecc8d8']} style={styles.bottomGradient} />
+      {/* Removed bottom tint overlay (was causing pink haze). */}
 
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
@@ -726,7 +726,7 @@ export default function MakeAppointmentScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f0f4f8' },
   topGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 150 },
-  bottomGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 180 },
+  bottomGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 0 },
   safeArea: { flex: 1 },
   header: {
     flexDirection: 'row',

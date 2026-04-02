@@ -2,10 +2,14 @@ package com.q2k.meditech.service;
 
 import com.q2k.meditech.dto.FavoriteDoctorDTO;
 import com.q2k.meditech.dto.FavoriteListResponse;
+import com.q2k.meditech.entity.Doctor;
 import com.q2k.meditech.entity.FavoriteDoctor;
+import com.q2k.meditech.entity.Patient;
 import com.q2k.meditech.entity.Specialty;
 import com.q2k.meditech.exception.ResourceNotFoundException;
+import com.q2k.meditech.repository.DoctorRepository;
 import com.q2k.meditech.repository.FavoriteDoctorRepository;
+import com.q2k.meditech.repository.PatientRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -22,6 +26,13 @@ public class FavoriteDoctorService {
     @Autowired
     private FavoriteDoctorRepository favoriteDoctorRepository;
 
+    @Autowired
+    private PatientRepository patientRepository;
+
+    @Autowired
+    private DoctorRepository doctorRepository;
+
+    @Transactional(readOnly = true)
     public FavoriteListResponse getFavorites(Long patientId, Integer pageNumber, Integer pageSize) {
         if (patientId == null) {
             throw new IllegalArgumentException("patientId is required");
@@ -46,6 +57,30 @@ public class FavoriteDoctorService {
         response.setPageSize(page.getSize());
 
         return response;
+    }
+
+    @Transactional
+    @SuppressWarnings("null")
+    public FavoriteDoctorDTO addFavorite(Long patientId, Long doctorId) {
+        if (patientId == null) throw new IllegalArgumentException("patientId is required");
+        if (doctorId == null) throw new IllegalArgumentException("doctorId is required");
+
+        FavoriteDoctor existing = favoriteDoctorRepository.findByPatientIdAndDoctorId(patientId, doctorId).orElse(null);
+        if (existing != null) {
+            return convertToDTO(existing);
+        }
+
+        Patient patient = patientRepository.findById(patientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient", "id", patientId));
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Doctor", "id", doctorId));
+
+        FavoriteDoctor favorite = FavoriteDoctor.builder()
+                .patient(patient)
+                .doctor(doctor)
+                .build();
+        FavoriteDoctor saved = java.util.Objects.requireNonNull(favoriteDoctorRepository.save(favorite));
+        return convertToDTO(saved);
     }
 
     @Transactional

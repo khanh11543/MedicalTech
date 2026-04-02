@@ -9,13 +9,17 @@ import {
   Dimensions,
   ActivityIndicator,
   RefreshControl,
+  Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons, FontAwesome } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import SideDrawer from '@/components/side-drawer';
+import MediTechLogo from '@/components/meditech-logo';
 import { resolveBackendAbsoluteUrl } from '@/constants/api';
 import { ApiError } from '@/services/apiClient';
 import {
@@ -29,6 +33,7 @@ import {
   type PublicContentDto,
   type SpecialtyDto,
 } from '@/services/dashboardApi';
+import { addPatientFavorite, fetchPatientFavorites, removePatientFavorite } from '@/services/favoritesApi';
 import { formatConsultationFee, ratingNum, doctorHoursLabel } from '@/lib/doctorPresentation';
 import { pickSpecialtyIcon, pickContentTitleIcon } from '@/lib/medicalIcons';
 
@@ -39,8 +44,113 @@ const PLACEHOLDER_USER =
 const PLACEHOLDER_DOCTOR =
   'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&h=200&fit=crop&crop=face';
 
+const INTERNATIONAL_NEWS: Array<{
+  id: string;
+  source: string;
+  title: string;
+  url: string;
+  imageUrl: string;
+}> = [
+  {
+    id: 'who',
+    source: 'World Health Organization',
+    title: 'Global health updates and guidance',
+    url: 'https://www.who.int/news-room',
+    imageUrl:
+      'https://images.unsplash.com/photo-1584036561584-b03c19da874c?w=1200&auto=format&fit=crop&q=60',
+  },
+  {
+    id: 'cdc',
+    source: 'CDC',
+    title: 'Public health news and recommendations',
+    url: 'https://www.cdc.gov/media/index.html',
+    imageUrl:
+      'https://images.unsplash.com/photo-1582719508461-905c673771fd?w=1200&auto=format&fit=crop&q=60',
+  },
+  {
+    id: 'nejm',
+    source: 'NEJM',
+    title: 'Latest research and clinical perspectives',
+    url: 'https://www.nejm.org/',
+    imageUrl:
+      'https://images.unsplash.com/photo-1580281657527-47f249e3f6a9?w=1200&auto=format&fit=crop&q=60',
+  },
+  {
+    id: 'nature-medicine',
+    source: 'Nature Medicine',
+    title: 'Breakthroughs in translational medicine',
+    url: 'https://www.nature.com/nm/',
+    imageUrl:
+      'https://images.unsplash.com/photo-1585435557343-3b092031a831?w=1200&auto=format&fit=crop&q=60',
+  },
+];
+
+const PAST_APPT_STATUSES = new Set(['COMPLETED', 'CANCELLED', 'NO_SHOW']);
+const HOUR_MS = 60 * 60 * 1000;
+
 function stripHtml(raw: string): string {
   return raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+async function openExternal(url: string) {
+  try {
+    const can = await Linking.canOpenURL(url);
+    if (can) {
+      try {
+        await Linking.openURL(url);
+        return;
+      } catch {
+        // fall through to WebBrowser
+      }
+    }
+    await WebBrowser.openBrowserAsync(url, {
+      presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+      showTitle: true,
+      enableBarCollapsing: true,
+    });
+  } catch {
+    Alert.alert('Could not open link', 'Please try again.');
+  }
+}
+
+function timeToMsOnDate(y: number, mo: number, d: number, raw: string | undefined | null): number | null {
+  if (!raw?.trim()) return null;
+  const parts = raw.trim().split(':');
+  const h = parseInt(parts[0] ?? '0', 10);
+  const m = parseInt(parts[1] ?? '0', 10);
+  const sec = parseInt(parts[2] ?? '0', 10);
+  if (!Number.isFinite(h)) return null;
+  const local = new Date(
+    y,
+    mo - 1,
+    d,
+    h,
+    Number.isFinite(m) ? m : 0,
+    Number.isFinite(sec) ? sec : 0,
+    0
+  );
+  const ms = local.getTime();
+  return Number.isFinite(ms) ? ms : null;
+}
+
+/** End of visit window: endTime if present, else start + 1h, else end of that calendar day. */
+function appointmentEndMs(apt: AppointmentDto): number {
+  const dateStr = apt.appointmentDate?.split('T')[0] ?? '';
+  if (!dateStr) return 0;
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  if (!y || !mo || !d) return 0;
+  const endDirect = timeToMsOnDate(y, mo, d, apt.endTime);
+  if (endDirect != null) return endDirect;
+  const startMs = timeToMsOnDate(y, mo, d, apt.startTime);
+  if (startMs != null) return startMs + HOUR_MS;
+  return new Date(y, mo - 1, d, 23, 59, 59, 999).getTime();
+}
+
+function isAppointmentExpiredOrPast(apt: AppointmentDto): boolean {
+  const status = (apt.status ?? '').toUpperCase();
+  if (PAST_APPT_STATUSES.has(status)) return true;
+  const end = appointmentEndMs(apt);
+  return end > 0 && end < Date.now();
 }
 
 function formatAppointmentWhen(a: AppointmentDto): string {
@@ -68,6 +178,8 @@ export default function DashboardScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [userAvatar, setUserAvatar] = useState<string>(PLACEHOLDER_USER);
+  const [patientId, setPatientId] = useState<number | null>(null);
+  const [favoriteByDoctorId, setFavoriteByDoctorId] = useState<Map<number, number>>(new Map());
   const [nextAppointment, setNextAppointment] = useState<AppointmentDto | null>(null);
   const [specialties, setSpecialties] = useState<SpecialtyDto[]>([]);
   const [contents, setContents] = useState<PublicContentDto[]>([]);
@@ -89,10 +201,31 @@ export default function DashboardScreen() {
 
       const av = resolveBackendAbsoluteUrl(profile?.avatarUrl) ?? PLACEHOLDER_USER;
       setUserAvatar(av);
-      setNextAppointment(stats?.nextAppointment ?? null);
-      setSpecialties(specs.slice(0, 12));
+      setPatientId(profile?.patientId ?? null);
+      const next = stats?.nextAppointment ?? null;
+      setNextAppointment(next && !isAppointmentExpiredOrPast(next) ? next : null);
+      setSpecialties(specs.slice(0, 4));
       setTopDoctors(docs);
       setContents(guides);
+
+      // Favorites (for top doctors star toggle)
+      if (profile?.patientId) {
+        try {
+          const favRes = await fetchPatientFavorites(profile.patientId, 0, 500);
+          const map = new Map<number, number>();
+          for (const f of favRes.favorites ?? []) {
+            if (typeof f.doctorId === 'number' && typeof f.id === 'number') {
+              map.set(f.doctorId, f.id);
+            }
+          }
+          setFavoriteByDoctorId(map);
+        } catch {
+          // ignore favorites load failure (UI still works on toggle attempt)
+          setFavoriteByDoctorId(new Map());
+        }
+      } else {
+        setFavoriteByDoctorId(new Map());
+      }
 
       const neuro =
         docs.find((d) =>
@@ -133,6 +266,55 @@ export default function DashboardScreen() {
         image: img,
       },
     });
+  };
+
+  const toggleFavorite = async (doctorId: number) => {
+    if (!patientId) return;
+    const existingFavoriteId = favoriteByDoctorId.get(doctorId) ?? null;
+
+    // optimistic
+    setFavoriteByDoctorId((prev) => {
+      const next = new Map(prev);
+      if (existingFavoriteId) next.delete(doctorId);
+      else next.set(doctorId, -1);
+      return next;
+    });
+
+    try {
+      if (existingFavoriteId) {
+        await removePatientFavorite(patientId, existingFavoriteId);
+        setFavoriteByDoctorId((prev) => {
+          const next = new Map(prev);
+          next.delete(doctorId);
+          return next;
+        });
+      } else {
+        const created = await addPatientFavorite(patientId, doctorId);
+        setFavoriteByDoctorId((prev) => {
+          const next = new Map(prev);
+          next.set(doctorId, created.id);
+          return next;
+        });
+      }
+    } catch {
+      // revert by reloading favorites best-effort
+      try {
+        const favRes = await fetchPatientFavorites(patientId, 0, 500);
+        const map = new Map<number, number>();
+        for (const f of favRes.favorites ?? []) {
+          if (typeof f.doctorId === 'number' && typeof f.id === 'number') map.set(f.doctorId, f.id);
+        }
+        setFavoriteByDoctorId(map);
+      } catch {
+        // last resort: undo optimistic for this item
+        setFavoriteByDoctorId((prev) => {
+          const next = new Map(prev);
+          if (existingFavoriteId) next.set(doctorId, existingFavoriteId);
+          else next.delete(doctorId);
+          return next;
+        });
+      }
+    }
   };
 
   /** Banner “Book” goes straight to the booking flow, not doctor profile. */
@@ -180,15 +362,58 @@ export default function DashboardScreen() {
 
             {/* ── Header ── */}
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => setDrawerVisible(true)}>
-                <View style={styles.avatarContainer}>
-                  <Image source={{ uri: userAvatar }} style={styles.userAvatar} />
+              <View style={styles.headerTopRow}>
+                <View style={styles.brandWrap}>
+                  <MediTechLogo size="md" />
+                  <Text style={styles.brandTagline} numberOfLines={1}>
+                    Smart Healthcare, Trusted by You
+                  </Text>
                 </View>
-              </TouchableOpacity>
-              <TouchableOpacity>
-                <Ionicons name="menu" size={26} color="#1a1a2e" />
+                <TouchableOpacity onPress={() => setDrawerVisible(true)}>
+                  <View style={styles.avatarContainer}>
+                    <Image source={{ uri: userAvatar }} style={styles.userAvatar} />
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* ── Categories (specialties) ── */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Specialties</Text>
+              <TouchableOpacity
+                style={styles.viewAllRow}
+                onPress={() => router.push('/specialties')}
+              >
+                <Text style={styles.viewAllText}>View all</Text>
+                <Ionicons name="chevron-forward" size={16} color="#8a8a9e" />
               </TouchableOpacity>
             </View>
+            {specialties.length === 0 ? (
+              <Text style={styles.mutedPadded}>Specialty list is being updated…</Text>
+            ) : (
+              <View style={styles.categoriesGrid}>
+                {specialties.map((cat) => (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={styles.categoryItemBig}
+                    activeOpacity={0.85}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/specialty-detail',
+                        params: { specialtyId: String(cat.id), name: cat.name },
+                      })
+                    }
+                  >
+                    <View style={styles.categoryIconBig}>
+                      <MaterialCommunityIcons name={pickSpecialtyIcon(cat.name)} size={34} color="#5b9bd5" />
+                    </View>
+                    <Text style={styles.categoryNameBig} numberOfLines={2}>
+                      {cat.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
 
             {/* ── My Appointments ── */}
             <Text style={styles.sectionTitle}>My appointments</Text>
@@ -215,9 +440,7 @@ export default function DashboardScreen() {
                       <TouchableOpacity style={styles.messageButton}>
                         <Text style={styles.messageButtonText}>Message</Text>
                       </TouchableOpacity>
-                      <Text style={styles.priceText}>
-                        {formatConsultationFee(appt.consultationFee)}
-                      </Text>
+                      <Text style={styles.priceText}>{formatConsultationFee(appt.consultationFee)}</Text>
                     </View>
                   </View>
                 </View>
@@ -230,42 +453,6 @@ export default function DashboardScreen() {
                 </TouchableOpacity>
               </View>
             )}
-
-            {/* ── Categories (specialties) ── */}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Specialties</Text>
-              <TouchableOpacity
-                style={styles.viewAllRow}
-                onPress={() => router.push('/(tabs)/search')}
-              >
-                <Text style={styles.viewAllText}>View all</Text>
-                <Ionicons name="chevron-forward" size={16} color="#8a8a9e" />
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.categoriesRow}
-            >
-              {specialties.length === 0 ? (
-                <Text style={styles.mutedInline}>Specialty list is being updated…</Text>
-              ) : (
-                specialties.map((cat) => (
-                  <TouchableOpacity key={cat.id} style={styles.categoryItem}>
-                    <View style={styles.categoryIcon}>
-                      <MaterialCommunityIcons
-                        name={pickSpecialtyIcon(cat.name)}
-                        size={28}
-                        color="#5b9bd5"
-                      />
-                    </View>
-                    <Text style={styles.categoryName} numberOfLines={2}>
-                      {cat.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))
-              )}
-            </ScrollView>
 
             {/* ── Diagnostics & Tests (guides / articles) ── */}
             <Text style={styles.sectionTitle}>Guides & resources</Text>
@@ -301,19 +488,17 @@ export default function DashboardScreen() {
             {/* ── Consultation Banner ── */}
             <View style={styles.bannerCard}>
               <LinearGradient
-                colors={['#e8eef5', '#dce6f0']}
+                colors={['#eef6ff', '#e7f0fb', '#ddeaf7']}
                 style={styles.bannerGradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
                 <View style={styles.bannerContent}>
                   <View style={styles.bannerTextArea}>
-                    <Text style={styles.bannerTitle}>
-                      {bannerDoctor
-                        ? bannerDoctor.primarySpecialty
-                          ? `See a ${bannerDoctor.primarySpecialty} specialist today!`
-                          : 'Book a consultation with a doctor today!'
-                        : 'Book an appointment on MediTech'}
+                    <Text style={styles.bannerEyebrow}>MediTech</Text>
+                    <Text style={styles.bannerTitle}>Book appointment</Text>
+                    <Text style={styles.bannerSubtitle}>
+                      Smart Healthcare, Trusted by You. Book in minutes and get care you can rely on.
                     </Text>
                     <TouchableOpacity
                       style={styles.bannerButton}
@@ -321,17 +506,9 @@ export default function DashboardScreen() {
                         bannerDoctor ? openBookAppointment(bannerDoctor) : router.push('/(tabs)/search')
                       }
                     >
-                      <Text style={styles.bannerButtonText}>Book</Text>
+                      <Text style={styles.bannerButtonText}>Book appointment</Text>
                     </TouchableOpacity>
                   </View>
-                  <Image
-                    source={{
-                      uri:
-                        resolveBackendAbsoluteUrl(bannerDoctor?.avatarUrl) ??
-                        'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&h=250&fit=crop',
-                    }}
-                    style={styles.bannerImage}
-                  />
                 </View>
               </LinearGradient>
             </View>
@@ -349,6 +526,8 @@ export default function DashboardScreen() {
                 topDoctors.map((doc) => {
                   const img = resolveBackendAbsoluteUrl(doc.avatarUrl) ?? PLACEHOLDER_DOCTOR;
                   const r = ratingNum(doc.ratingAvg);
+                  const favId = favoriteByDoctorId.get(doc.id);
+                  const isFav = favId != null;
                   return (
                     <TouchableOpacity
                       key={doc.id}
@@ -364,8 +543,12 @@ export default function DashboardScreen() {
                             <Text style={styles.topDoctorRatingText}>{r}</Text>
                           </View>
                         ) : null}
-                        <TouchableOpacity style={styles.favoriteIcon}>
-                          <Ionicons name="star-outline" size={16} color="#fff" />
+                        <TouchableOpacity
+                          style={styles.favoriteIcon}
+                          onPress={() => toggleFavorite(doc.id)}
+                          activeOpacity={0.85}
+                        >
+                          <Ionicons name={isFav ? 'star' : 'star-outline'} size={16} color={isFav ? '#ffcc00' : '#fff'} />
                         </TouchableOpacity>
                         <View style={styles.hoursChip}>
                           <Ionicons name="time-outline" size={11} color="#5b9bd5" />
@@ -386,16 +569,126 @@ export default function DashboardScreen() {
               )}
             </ScrollView>
 
+            {/* ── International News ── */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>International health news</Text>
+              <TouchableOpacity
+                style={styles.viewAllRow}
+                onPress={() => void openExternal('https://news.google.com/search?q=health')}
+              >
+                <Text style={styles.viewAllText}>View all</Text>
+                <Ionicons name="chevron-forward" size={16} color="#8a8a9e" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.newsRow}>
+              {INTERNATIONAL_NEWS.map((n) => (
+                <TouchableOpacity
+                  key={n.id}
+                  style={styles.newsCard}
+                  activeOpacity={0.85}
+                  onPress={() => void openExternal(n.url)}
+                >
+                  <Image source={{ uri: n.imageUrl }} style={styles.newsImage} />
+                  <View style={styles.newsBody}>
+                    <Text style={styles.newsSource} numberOfLines={1}>
+                      {n.source}
+                    </Text>
+                    <Text style={styles.newsTitle} numberOfLines={3}>
+                      {n.title}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* ── Other features ── */}
+            <Text style={styles.sectionTitle}>Other features</Text>
+            <View style={styles.quickGrid}>
+              <TouchableOpacity
+                style={styles.quickItem}
+                activeOpacity={0.85}
+                onPress={() => router.push('/help-support')}
+              >
+                <View style={styles.quickIconBox}>
+                  <Ionicons name="help-buoy-outline" size={22} color="#1d4ed8" />
+                </View>
+                <Text style={styles.quickLabel} numberOfLines={2}>
+                  Help & Support
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickItem}
+                activeOpacity={0.85}
+                onPress={() => router.push('/specialties')}
+              >
+                <View style={styles.quickIconBox}>
+                  <Ionicons name="grid-outline" size={22} color="#1d4ed8" />
+                </View>
+                <Text style={styles.quickLabel} numberOfLines={2}>
+                  Specialties
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickItem}
+                activeOpacity={0.85}
+                onPress={() => router.push('/my-tests')}
+              >
+                <View style={styles.quickIconBox}>
+                  <Ionicons name="flask-outline" size={22} color="#1d4ed8" />
+                </View>
+                <Text style={styles.quickLabel} numberOfLines={2}>
+                  Tests & diagnostics
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickItem}
+                activeOpacity={0.85}
+                onPress={() => router.push('/(tabs)/notifications')}
+              >
+                <View style={styles.quickIconBox}>
+                  <Ionicons name="notifications-outline" size={22} color="#1d4ed8" />
+                </View>
+                <Text style={styles.quickLabel} numberOfLines={2}>
+                  Notifications
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickItem}
+                activeOpacity={0.85}
+                onPress={() => void openExternal('https://news.google.com/search?q=health')}
+              >
+                <View style={styles.quickIconBox}>
+                  <Ionicons name="newspaper-outline" size={22} color="#1d4ed8" />
+                </View>
+                <Text style={styles.quickLabel} numberOfLines={2}>
+                  News & events
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickItem}
+                activeOpacity={0.85}
+                onPress={() => router.push('/faq')}
+              >
+                <View style={styles.quickIconBox}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={22} color="#1d4ed8" />
+                </View>
+                <Text style={styles.quickLabel} numberOfLines={2}>
+                  FAQ
+                </Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={{ height: 30 }} />
           </ScrollView>
         )}
       </SafeAreaView>
 
-      <LinearGradient
-        colors={['transparent', '#f5dce8', '#ecc8d8']}
-        style={styles.bottomGradient}
-        pointerEvents="none"
-      />
+      {/* Removed bottom tint overlay (was causing pink haze above tab bar). */}
 
       <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
     </View>
@@ -467,12 +760,25 @@ const styles = StyleSheet.create({
 
   /* ── Header ── */
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
     paddingHorizontal: 20,
     paddingTop: 8,
     paddingBottom: 12,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  brandWrap: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  brandTagline: {
+    marginTop: 3,
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#8a8a9e',
   },
   avatarContainer: {
     width: 46,
@@ -629,6 +935,43 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center',
   },
+  categoriesGrid: {
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+  },
+  categoryItemBig: {
+    width: (width - 20 * 2 - 14) / 2,
+    backgroundColor: '#fff',
+    borderRadius: CARD_RADIUS,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#e8eef5',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  categoryIconBig: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: '#edf3fa',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryNameBig: {
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
 
   /* ── Diagnostics ── */
   diagnosticCard: {
@@ -687,14 +1030,29 @@ const styles = StyleSheet.create({
   },
   bannerTextArea: {
     flex: 1,
-    paddingRight: 10,
+    paddingRight: 0,
   },
   bannerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#1a1a2e',
     lineHeight: 24,
-    marginBottom: 16,
+    marginBottom: 6,
+  },
+  bannerEyebrow: {
+    fontSize: 12,
+    fontWeight: '900',
+    color: '#1d4ed8',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  bannerSubtitle: {
+    fontSize: 13,
+    color: '#64748b',
+    lineHeight: 18,
+    marginBottom: 14,
+    maxWidth: 320,
   },
   bannerButton: {
     backgroundColor: '#5b9bd5',
@@ -709,9 +1067,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bannerImage: {
-    width: 110,
-    height: 130,
-    borderRadius: 12,
+    width: 0,
+    height: 0,
+    borderRadius: 0,
   },
 
   /* ── Top Doctors ── */
@@ -785,12 +1143,77 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
+  /* ── News ── */
+  newsRow: {
+    paddingHorizontal: 16,
+    gap: 14,
+  },
+  newsCard: {
+    width: width * 0.72,
+    backgroundColor: '#fff',
+    borderRadius: CARD_RADIUS,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e8eef5',
+  },
+  newsImage: {
+    width: '100%',
+    height: 130,
+    backgroundColor: '#e8eef5',
+    resizeMode: 'cover',
+  },
+  newsBody: {
+    padding: 14,
+  },
+  newsSource: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1d4ed8',
+    marginBottom: 6,
+  },
+  newsTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0f172a',
+    lineHeight: 19,
+  },
+
+  /* ── Quick actions ── */
+  quickGrid: {
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+  },
+  quickItem: {
+    width: (width - 20 * 2 - 14 * 2) / 3,
+    alignItems: 'center',
+    gap: 8,
+  },
+  quickIconBox: {
+    width: 62,
+    height: 62,
+    borderRadius: 18,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e8eef5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1d4ed8',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+
   /* ── Bottom Gradient ── */
   bottomGradient: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 60,
+    height: 0,
   },
 });

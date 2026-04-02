@@ -1,6 +1,7 @@
 import { Tabs, useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { authStorage } from '@/lib/authStorage';
@@ -8,6 +9,7 @@ import { isAllowedPatientAppUser } from '@/lib/mobileAuthPolicy';
 
 export default function TabLayout() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     let alive = true;
@@ -44,8 +46,8 @@ export default function TabLayout() {
           shadowOffset: { width: 0, height: -2 },
           shadowOpacity: 0.06,
           shadowRadius: 8,
-          height: 60,
-          paddingBottom: 8,
+          height: 56 + Math.max(insets.bottom, 10),
+          paddingBottom: Math.max(insets.bottom, 10),
           paddingTop: 6,
         },
         tabBarLabelStyle: {

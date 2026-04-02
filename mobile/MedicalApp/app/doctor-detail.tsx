@@ -28,7 +28,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const PLACEHOLDER_DOCTOR =
   'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face';
 
-const REVIEW_PAGE_SIZE = 15;
+const REVIEW_PREVIEW_SIZE = 5;
 
 function stripHtml(raw: string): string {
   return raw.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -95,8 +95,6 @@ export default function DoctorDetailScreen() {
   const [detail, setDetail] = useState<DoctorDetailPublic | null>(null);
   const [reviews, setReviews] = useState<PublicReviewDto[]>([]);
   const [reviewTotal, setReviewTotal] = useState(0);
-  const [reviewPage, setReviewPage] = useState(0);
-  const [loadingMoreReviews, setLoadingMoreReviews] = useState(false);
 
   const load = useCallback(async () => {
     if (!Number.isFinite(doctorIdNum) || doctorIdNum <= 0) {
@@ -110,12 +108,11 @@ export default function DoctorDetailScreen() {
     try {
       const [doc, revPage] = await Promise.all([
         fetchDoctorDetailPublic(doctorIdNum),
-        fetchDoctorReviewsPublic(doctorIdNum, 0, REVIEW_PAGE_SIZE),
+        fetchDoctorReviewsPublic(doctorIdNum, 0, REVIEW_PREVIEW_SIZE),
       ]);
       setDetail(doc);
       setReviews(revPage.content ?? []);
       setReviewTotal(revPage.totalElements ?? (revPage.content?.length ?? 0));
-      setReviewPage(0);
     } catch (e) {
       setDetail(null);
       setReviews([]);
@@ -130,21 +127,11 @@ export default function DoctorDetailScreen() {
     void load();
   }, [load]);
 
-  const loadMoreReviews = async () => {
-    if (!Number.isFinite(doctorIdNum) || doctorIdNum <= 0) return;
-    if (reviews.length >= reviewTotal) return;
-    setLoadingMoreReviews(true);
-    try {
-      const next = reviewPage + 1;
-      const res = await fetchDoctorReviewsPublic(doctorIdNum, next, REVIEW_PAGE_SIZE);
-      const chunk = res.content ?? [];
-      setReviews((prev) => [...prev, ...chunk]);
-      setReviewPage(next);
-    } catch {
-      /* ignore */
-    } finally {
-      setLoadingMoreReviews(false);
-    }
+  const openAllReviews = () => {
+    router.push({
+      pathname: '/doctor-reviews',
+      params: { doctorId: String(doctorIdNum), name },
+    });
   };
 
   const name = detail?.fullName?.trim() || params.name || 'Doctor';
@@ -172,7 +159,7 @@ export default function DoctorDetailScreen() {
     overviewBody.trim() ||
     'No detailed overview has been added for this doctor yet. You can still book a consultation and see ratings from other patients below.';
 
-  const canLoadMoreReviews = reviews.length < reviewTotal;
+  const canOpenAllReviews = reviewTotal > REVIEW_PREVIEW_SIZE;
 
   if (!Number.isFinite(doctorIdNum) || doctorIdNum <= 0) {
     return (
@@ -191,10 +178,7 @@ export default function DoctorDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#f5dce8', '#ecc8d8']}
-        style={styles.bottomGradient}
-      />
+      {/* Removed bottom tint overlay (was causing pink haze). */}
 
       <SafeAreaView style={styles.safeArea}>
         {loading ? (
@@ -286,15 +270,12 @@ export default function DoctorDetailScreen() {
                   <Text style={styles.sectionTitle}>
                     Reviews{reviewTotal > 0 ? ` (${reviewTotal})` : ''}
                   </Text>
-                  {canLoadMoreReviews ? (
+                  {canOpenAllReviews ? (
                     <TouchableOpacity
                       style={styles.viewAllBtn}
-                      onPress={() => void loadMoreReviews()}
-                      disabled={loadingMoreReviews}
+                      onPress={openAllReviews}
                     >
-                      <Text style={styles.viewAllText}>
-                        {loadingMoreReviews ? 'Loading…' : 'Load more'}
-                      </Text>
+                      <Text style={styles.viewAllText}>All reviews</Text>
                       <Ionicons name="chevron-forward" size={14} color="#5b9bd5" />
                     </TouchableOpacity>
                   ) : null}
@@ -387,7 +368,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 150,
+    height: 0,
   },
   safeArea: {
     flex: 1,

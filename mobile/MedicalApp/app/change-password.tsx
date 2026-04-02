@@ -85,13 +85,6 @@ export default function ChangePasswordScreen() {
     <View style={styles.container}>
       <StatusBar style="dark" />
 
-      <LinearGradient
-        colors={['#d4e6f6', '#e0eaf4', '#f0f4f8']}
-        style={styles.topGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
-
       <SafeAreaView style={styles.flex}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -198,11 +191,7 @@ export default function ChangePasswordScreen() {
         </KeyboardAvoidingView>
       </SafeAreaView>
 
-      <LinearGradient
-        colors={['transparent', '#f5dce8', '#ecc8d8']}
-        style={styles.bottomGradient}
-        pointerEvents="none"
-      />
+      {/* Removed bottom tint overlay (was causing pink haze). */}
     </View>
   );
 }
@@ -212,13 +201,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-  },
-  topGradient: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 150,
   },
   header: {
     flexDirection: 'row',
@@ -302,6 +284,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 80,
+    height: 0,
   },
 });

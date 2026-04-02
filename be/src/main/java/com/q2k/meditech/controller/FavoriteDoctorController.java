@@ -1,6 +1,8 @@
 package com.q2k.meditech.controller;
 
+import com.q2k.meditech.dto.FavoriteCreateDTO;
 import com.q2k.meditech.dto.FavoriteListResponse;
+import com.q2k.meditech.dto.FavoriteDoctorDTO;
 import com.q2k.meditech.dto.MessageDTO;
 import com.q2k.meditech.service.FavoriteDoctorService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +25,15 @@ public class FavoriteDoctorController {
 
         FavoriteListResponse response = favoriteDoctorService.getFavorites(patientId, pageNumber, pageSize);
         return ResponseEntity.ok(response);
+    }
+
+    // TODO: Replace patientId parameter with SecurityContext when authentication is implemented
+    @PostMapping
+    public ResponseEntity<FavoriteDoctorDTO> addFavorite(
+            @RequestParam Long patientId,
+            @RequestBody FavoriteCreateDTO dto) {
+        FavoriteDoctorDTO created = favoriteDoctorService.addFavorite(patientId, dto.getDoctorId());
+        return ResponseEntity.ok(created);
     }
 
     // TODO: Replace patientId parameter with SecurityContext when authentication is implemented

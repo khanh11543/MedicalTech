@@ -11,18 +11,22 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { resolveBackendAbsoluteUrl } from '@/constants/api';
 import { authStorage } from '@/lib/authStorage';
 import { ApiError } from '@/services/apiClient';
 import {
   fetchPatientProfileFull,
   putPatientProfile,
+  uploadMyAvatar,
   type PatientProfileFull,
   type UpdatePatientProfilePayload,
 } from '@/services/patientPortalApi';
@@ -64,6 +68,7 @@ export default function EditProfileScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [avatarUri, setAvatarUri] = useState(PLACEHOLDER_AVATAR);
   const [initialMaskedId, setInitialMaskedId] = useState<string | null>(null);
 
@@ -72,6 +77,7 @@ export default function EditProfileScreen() {
   const [phone, setPhone] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [gender, setGender] = useState('');
+  const [genderModalVisible, setGenderModalVisible] = useState(false);
   const [address, setAddress] = useState('');
   const [idNumber, setIdNumber] = useState('');
   const [insuranceNumber, setInsuranceNumber] = useState('');
@@ -115,6 +121,51 @@ export default function EditProfileScreen() {
       load();
     }, [load])
   );
+
+  const handleChangeAvatar = useCallback(async () => {
+    if (uploadingAvatar) return;
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission required', 'Please allow photo library access to choose an avatar.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+    });
+
+    if (result.canceled) return;
+    const asset = result.assets?.[0];
+    if (!asset?.uri) return;
+
+    setUploadingAvatar(true);
+    try {
+      const uri = asset.uri;
+      const ext = uri.split('.').pop()?.toLowerCase();
+      const type =
+        ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : ext === 'heic' ? 'image/heic' : 'image/jpeg';
+      const name = `avatar.${ext && ext.length <= 5 ? ext : 'jpg'}`;
+      const res = await uploadMyAvatar({ uri, name, type });
+      setAvatarUri(resolveBackendAbsoluteUrl(res.avatarUrl) ?? res.avatarUrl);
+    } catch (e) {
+      Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not upload avatar');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }, [uploadingAvatar]);
+
+  const normalizedGender = (gender || '').trim().toUpperCase();
+  const genderLabel =
+    normalizedGender === 'MALE'
+      ? 'Male'
+      : normalizedGender === 'FEMALE'
+        ? 'Female'
+        : normalizedGender === 'OTHER'
+          ? 'Other'
+          : '';
 
   const handleSave = async () => {
     if (!fullName.trim()) {
@@ -164,17 +215,7 @@ export default function EditProfileScreen() {
       <StatusBar style="dark" />
       <View style={styles.leftBorder} />
       <View style={styles.rightBorder} />
-      <LinearGradient
-        colors={['#d4e6f6', '#e0eaf4', '#f0f4f8']}
-        style={styles.topGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-      />
-      <LinearGradient
-        colors={['transparent', '#f5dce8', '#ecc8d8']}
-        style={styles.bottomGradient}
-        pointerEvents="none"
-      />
+      {/* Removed bottom tint overlay (was causing pink haze). */}
 
       <SafeAreaView style={styles.flex}>
         <KeyboardAvoidingView
@@ -203,12 +244,21 @@ export default function EditProfileScreen() {
                 <View style={styles.avatarOuterRing}>
                   <Image source={{ uri: avatarUri }} style={styles.avatar} />
                 </View>
-                <TouchableOpacity style={styles.cameraBtn} activeOpacity={0.8} disabled>
+                <TouchableOpacity
+                  style={styles.cameraBtn}
+                  activeOpacity={0.8}
+                  onPress={handleChangeAvatar}
+                  disabled={uploadingAvatar}
+                >
                   <LinearGradient colors={['#5b9bd5', '#4a8ec4']} style={styles.cameraGradient}>
-                    <Ionicons name="camera" size={14} color="#fff" />
+                    {uploadingAvatar ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Ionicons name="camera" size={14} color="#fff" />
+                    )}
                   </LinearGradient>
                 </TouchableOpacity>
-                <Text style={styles.avatarHint}>Avatar changes use the web portal</Text>
+                <Text style={styles.avatarHint}>Tap the camera to change your avatar</Text>
               </View>
 
               <View style={styles.form}>
@@ -257,15 +307,16 @@ export default function EditProfileScreen() {
                 </View>
 
                 <Text style={styles.fieldLabel}>Gender</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    value={gender}
-                    onChangeText={setGender}
-                    placeholder="MALE / FEMALE / OTHER"
-                    placeholderTextColor="#9ca3af"
-                  />
-                </View>
+                <TouchableOpacity
+                  style={[styles.inputWrapper, styles.selectWrapper]}
+                  activeOpacity={0.85}
+                  onPress={() => setGenderModalVisible(true)}
+                >
+                  <Text style={[styles.selectText, !genderLabel && styles.selectPlaceholder]}>
+                    {genderLabel || 'Select gender'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={18} color="#9ca3af" />
+                </TouchableOpacity>
 
                 <Text style={styles.fieldLabel}>Address</Text>
                 <View style={styles.inputWrapper}>
@@ -374,6 +425,48 @@ export default function EditProfileScreen() {
           )}
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      <Modal
+        visible={genderModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setGenderModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setGenderModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalCard}>
+                <Text style={styles.modalTitle}>Gender</Text>
+                {(['MALE', 'FEMALE', 'OTHER'] as const).map((g) => {
+                  const active = normalizedGender === g;
+                  const label = g === 'MALE' ? 'Male' : g === 'FEMALE' ? 'Female' : 'Other';
+                  return (
+                    <TouchableOpacity
+                      key={g}
+                      style={[styles.modalOption, active && styles.modalOptionActive]}
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        setGender(g);
+                        setGenderModalVisible(false);
+                      }}
+                    >
+                      <Text style={[styles.modalOptionText, active && styles.modalOptionTextActive]}>{label}</Text>
+                      {active ? <Ionicons name="checkmark" size={18} color="#5b9bd5" /> : null}
+                    </TouchableOpacity>
+                  );
+                })}
+                <TouchableOpacity
+                  style={styles.modalCancel}
+                  onPress={() => setGenderModalVisible(false)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
@@ -399,8 +492,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#5b9bd5',
     opacity: 0.15,
   },
-  topGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 200 },
-  bottomGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 100 },
+  bottomGradient: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 0 },
   loadingBox: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: {
     flexDirection: 'row',
@@ -454,9 +546,80 @@ const styles = StyleSheet.create({
   inputDisabled: { backgroundColor: '#f3f4f6' },
   input: { fontSize: 15, color: '#1a1a2e', paddingVertical: 14, fontWeight: '500' },
   inputReadonly: { color: '#6b7280' },
+  selectWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+  },
+  selectText: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1a1a2e',
+    fontWeight: '600',
+  },
+  selectPlaceholder: {
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
   multilineWrap: { paddingVertical: 8 },
   multiline: { minHeight: 80, textAlignVertical: 'top' },
   saveBtn: { borderRadius: 28, paddingVertical: 17, alignItems: 'center', marginTop: 20 },
   saveBtnDisabled: { opacity: 0.7 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(26, 26, 46, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 22,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 520,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 18,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#1a1a2e',
+    marginBottom: 12,
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e8eef5',
+    marginBottom: 10,
+    backgroundColor: '#fff',
+  },
+  modalOptionActive: {
+    borderColor: '#5b9bd5',
+    backgroundColor: '#f0f7fc',
+  },
+  modalOptionText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1a1a2e',
+  },
+  modalOptionTextActive: {
+    color: '#1a1a2e',
+  },
+  modalCancel: {
+    marginTop: 4,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#5b9bd5',
+  },
 });

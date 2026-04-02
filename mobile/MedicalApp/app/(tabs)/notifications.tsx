@@ -9,18 +9,22 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Modal,
+  TouchableWithoutFeedback,
+  Share,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
+import SideDrawer from '@/components/side-drawer';
 import { resolveBackendAbsoluteUrl } from '@/constants/api';
 import { ApiError } from '@/services/apiClient';
 import { fetchPatientProfile } from '@/services/dashboardApi';
 import {
   fetchMyNotifications,
   markMyNotificationRead,
+  markAllMyNotificationsRead,
   type NotificationDTO,
 } from '@/services/notificationsApi';
 
@@ -88,11 +92,15 @@ export default function NotificationsScreen() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationDTO[]>([]);
   const [userAvatar, setUserAvatar] = useState<string>(PLACEHOLDER_USER);
+  const [drawerVisible, setDrawerVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const [markingId, setMarkingId] = useState<number | null>(null);
+  const [tab, setTab] = useState<'all' | 'unread'>('all');
+  const [markingAll, setMarkingAll] = useState(false);
+  const [selected, setSelected] = useState<NotificationDTO | null>(null);
 
   const load = useCallback(async (isRefresh: boolean) => {
     if (isRefresh) setRefreshing(true);
@@ -126,6 +134,9 @@ export default function NotificationsScreen() {
     }
   }, []);
 
+  const unread = notifications.filter((n) => !n.isRead);
+  const visible = tab === 'unread' ? unread : notifications;
+
   useFocusEffect(
     useCallback(() => {
       load(false);
@@ -136,14 +147,44 @@ export default function NotificationsScreen() {
     setMarkingId(id);
     try {
       await markMyNotificationRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, isRead: true, readAt: new Date().toISOString() } : n))
-      );
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true, readAt: new Date().toISOString() } : n)));
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : 'Could not update';
       Alert.alert('Error', msg);
     } finally {
       setMarkingId(null);
+    }
+  };
+
+  const onPressNotification = async (item: NotificationDTO) => {
+    setSelected(item);
+    if (!item.isRead) {
+      await markAsRead(item.id);
+    }
+  };
+
+  const onShareSelected = async () => {
+    if (!selected) return;
+    try {
+      await Share.share({
+        message: `${selected.title}\n\n${stripHtml(selected.message || '')}`.trim(),
+      });
+    } catch {
+      // user cancelled / platform error
+    }
+  };
+
+  const markAllAsRead = async () => {
+    if (markingAll || unread.length === 0) return;
+    setMarkingAll(true);
+    try {
+      await markAllMyNotificationsRead();
+      const nowIso = new Date().toISOString();
+      setNotifications((prev) => prev.map((n) => (n.isRead ? n : { ...n, isRead: true, readAt: nowIso })));
+    } catch (e) {
+      Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not mark all as read');
+    } finally {
+      setMarkingAll(false);
     }
   };
 
@@ -153,14 +194,50 @@ export default function NotificationsScreen() {
       <SafeAreaView style={styles.flex} edges={['top']}>
         {/* ── Header ── */}
         <View style={styles.header}>
-          <View style={styles.avatarContainer}>
-            <Image source={{ uri: userAvatar }} style={styles.userAvatar} />
-          </View>
+          <View style={{ width: 40, height: 40 }} />
           <Text style={styles.headerTitle}>Notifications</Text>
-          <TouchableOpacity accessibilityRole="button">
-            <Ionicons name="options-outline" size={24} color="#1a1a2e" />
+          <TouchableOpacity onPress={() => setDrawerVisible(true)} accessibilityRole="button">
+            <View style={styles.avatarContainer}>
+              <Image source={{ uri: userAvatar }} style={styles.userAvatar} />
+            </View>
           </TouchableOpacity>
         </View>
+
+        <View style={styles.tabs}>
+          <TouchableOpacity
+            style={[styles.tabBtn, tab === 'all' && styles.tabBtnActive]}
+            onPress={() => setTab('all')}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.tabText, tab === 'all' && styles.tabTextActive]}>All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabBtn, tab === 'unread' && styles.tabBtnActive]}
+            onPress={() => setTab('unread')}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.tabText, tab === 'unread' && styles.tabTextActive]}>Unread</Text>
+            {unread.length > 0 ? (
+              <View style={styles.unreadPill}>
+                <Text style={styles.unreadPillText}>{unread.length}</Text>
+              </View>
+            ) : null}
+          </TouchableOpacity>
+        </View>
+
+        {tab === 'unread' ? (
+          <View style={styles.unreadActions}>
+            <TouchableOpacity
+              style={[styles.markAllBtn, (unread.length === 0 || markingAll) && styles.markAllBtnDisabled]}
+              onPress={markAllAsRead}
+              disabled={unread.length === 0 || markingAll}
+              activeOpacity={0.85}
+            >
+              {markingAll ? <ActivityIndicator size="small" color="#fff" /> : null}
+              <Text style={styles.markAllText}>{markingAll ? 'Marking…' : 'Mark all as read'}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
 
         {/* ── List ── */}
         {loading && !refreshing ? (
@@ -189,23 +266,30 @@ export default function NotificationsScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor="#5b9bd5" />
             }
           >
-            {notifications.length === 0 ? (
+            {visible.length === 0 ? (
               <View style={styles.emptyWrap}>
                 <Ionicons name="notifications-off-outline" size={48} color="#b0b8c4" />
-                <Text style={styles.emptyTitle}>No notifications yet</Text>
+                <Text style={styles.emptyTitle}>
+                  {tab === 'unread' ? 'No unread notifications' : 'No notifications yet'}
+                </Text>
                 <Text style={styles.emptySub}>
                   Updates about appointments and payments will appear here.
                 </Text>
               </View>
             ) : (
-              notifications.map((item) => {
+              visible.map((item) => {
                 const iconName = iconForNotification(item);
                 const iconBg = iconBgForNotification(item);
                 const body = stripHtml(item.message || '');
                 return (
-                  <View
+                  <TouchableOpacity
                     key={String(item.id)}
-                    style={[styles.card, item.isRead && styles.cardRead]}
+                    style={[
+                      styles.card,
+                      item.isRead ? styles.cardRead : styles.cardUnread,
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() => onPressNotification(item)}
                   >
                     <View style={styles.cardHeader}>
                       <View style={[styles.iconBox, { backgroundColor: iconBg }]}>
@@ -235,7 +319,7 @@ export default function NotificationsScreen() {
                         </TouchableOpacity>
                       )}
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })
             )}
@@ -245,12 +329,51 @@ export default function NotificationsScreen() {
         )}
       </SafeAreaView>
 
-      {/* Bottom gradient */}
-      <LinearGradient
-        colors={['transparent', '#f5dce8', '#ecc8d8']}
-        style={styles.bottomGradient}
-        pointerEvents="none"
-      />
+      <Modal
+        visible={selected !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelected(null)}
+      >
+        <TouchableWithoutFeedback onPress={() => setSelected(null)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalCard}>
+                <View style={styles.modalTopRow}>
+                  <View style={styles.modalIconBubble}>
+                    <Ionicons name="notifications-outline" size={18} color="#ef4444" />
+                  </View>
+                  <TouchableOpacity onPress={() => setSelected(null)} hitSlop={10}>
+                    <Ionicons name="close" size={22} color="#6b7280" />
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.modalTitle} numberOfLines={3}>
+                  {(selected?.title || 'Notification').toUpperCase()}
+                </Text>
+
+                <Text style={styles.modalBody}>
+                  {selected ? stripHtml(selected.message || '') : ''}
+                </Text>
+
+                <View style={styles.modalBtns}>
+                  <TouchableOpacity style={styles.modalBtnGhost} onPress={() => setSelected(null)} activeOpacity={0.85}>
+                    <Text style={styles.modalBtnGhostText}>Close</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.modalBtnPrimary} onPress={onShareSelected} activeOpacity={0.85}>
+                    <Text style={styles.modalBtnPrimaryText}>Share</Text>
+                    <Ionicons name="chevron-forward" size={18} color="#fff" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Removed bottom tint overlay (was causing pink haze above tab bar). */}
+
+      <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
     </View>
   );
 }
@@ -335,9 +458,67 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+
+  tabs: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+  tabBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#d0d8e0',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    paddingVertical: 10,
+  },
+  tabBtnActive: {
+    backgroundColor: '#5b9bd5',
+    borderColor: '#5b9bd5',
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '800',
     color: '#1a1a2e',
   },
+  tabTextActive: {
+    color: '#fff',
+  },
+  unreadPill: {
+    backgroundColor: '#ef4444',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  unreadPillText: { color: '#fff', fontWeight: '900', fontSize: 12 },
+  unreadActions: {
+    paddingHorizontal: 20,
+    paddingBottom: 8,
+  },
+  markAllBtn: {
+    backgroundColor: '#1a1a2e',
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+  },
+  markAllBtnDisabled: {
+    opacity: 0.5,
+  },
+  markAllText: { color: '#fff', fontWeight: '800', fontSize: 13 },
 
   /* ── Card ── */
   card: {
@@ -353,8 +534,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
   },
+  cardUnread: {
+    borderColor: '#bcd3ee',
+  },
   cardRead: {
-    opacity: 0.6,
+    opacity: 0.9,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -371,13 +555,13 @@ const styles = StyleSheet.create({
   },
   cardTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#1a1a2e',
+    fontWeight: '900',
+    color: '#0f172a',
     flex: 1,
   },
   cardBody: {
     fontSize: 13,
-    color: '#8a8a9e',
+    color: '#334155',
     lineHeight: 20,
     marginBottom: 12,
   },
@@ -388,8 +572,8 @@ const styles = StyleSheet.create({
   },
   cardDate: {
     fontSize: 12,
-    color: '#5b9bd5',
-    fontWeight: '500',
+    color: '#1d4ed8',
+    fontWeight: '700',
     flex: 1,
     marginRight: 8,
   },
@@ -420,6 +604,81 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 60,
+    height: 0,
+  },
+
+  /* ── Modal detail ── */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(26, 26, 46, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 520,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 18,
+  },
+  modalTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  modalIconBubble: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#ffe7e7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#1a1a2e',
+    letterSpacing: 0.3,
+    marginBottom: 10,
+  },
+  modalBody: {
+    fontSize: 13,
+    color: '#374151',
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  modalBtns: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalBtnGhost: {
+    flex: 1,
+    backgroundColor: '#edf3fa',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  modalBtnGhostText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1a1a2e',
+  },
+  modalBtnPrimary: {
+    flex: 1,
+    backgroundColor: '#2563eb',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalBtnPrimaryText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#fff',
   },
 });

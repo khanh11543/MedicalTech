@@ -62,3 +62,7 @@ export async function fetchMyNotifications(
 export async function markMyNotificationRead(notificationId: number): Promise<void> {
   await apiFetch(`/me/notifications/${notificationId}/read`, { method: 'PATCH' });
 }
+
+export async function markAllMyNotificationsRead(): Promise<void> {
+  await apiFetch('/me/notifications/read-all', { method: 'PATCH' });
+}

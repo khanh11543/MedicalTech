@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -6,30 +6,73 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ApiError } from '@/services/apiClient';
+import { createPatientReview } from '@/services/reviewApi';
 
 export default function WriteReviewScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
     doctor: string;
     specialty: string;
+    appointmentId?: string;
+    doctorId?: string;
   }>();
 
   const doctor = params.doctor || 'Doctor';
+  const appointmentId = useMemo(() => {
+    const raw = params.appointmentId;
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [params.appointmentId]);
+  const doctorId = useMemo(() => {
+    const raw = params.doctorId;
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }, [params.doctorId]);
 
   const [rating, setRating] = useState(0);
   const [review, setReview] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = () => {
-    Alert.alert(
-      'Thank you!',
-      `Your ${rating}-star review has been submitted.`,
-      [{ text: 'OK', onPress: () => router.back() }],
-    );
+  const handleSubmit = async () => {
+    if (submitting) return;
+    if (!appointmentId) {
+      Alert.alert('Error', 'Missing appointment information. Please go back and try again.');
+      return;
+    }
+    if (rating < 1 || rating > 5) {
+      Alert.alert('Required', 'Please select a rating (1-5 stars).');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await createPatientReview({
+        appointmentId,
+        doctorId,
+        rating,
+        comment: review.trim() ? review.trim() : null,
+      });
+      Alert.alert('Thank you!', 'Your review has been submitted.', [
+        {
+          text: 'OK',
+          onPress: () => {
+            router.back();
+          },
+        },
+      ]);
+    } catch (e) {
+      Alert.alert('Error', e instanceof ApiError ? e.message : 'Could not submit review. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -67,7 +110,7 @@ export default function WriteReviewScreen() {
             What do you <Text style={styles.titleHighlight}>think!</Text>
           </Text>
           <Text style={styles.subtitle}>
-            Please give your rating by clicking on{'\n'}the stars below.
+            Rate your visit with {doctor}.{'\n'}Please give your rating by clicking on the stars below.
           </Text>
 
           {/* Stars */}
@@ -110,14 +153,22 @@ export default function WriteReviewScreen() {
             activeOpacity={0.85}
             onPress={handleSubmit}
             style={styles.submitBtnWrapper}
+            disabled={submitting}
           >
             <LinearGradient
-              colors={['#3b82f6', '#2563eb']}
-              style={styles.submitBtn}
+              colors={submitting ? ['#93c5fd', '#93c5fd'] : ['#3b82f6', '#2563eb']}
+              style={[styles.submitBtn, submitting ? styles.submitBtnDisabled : null]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              <Text style={styles.submitBtnText}>Submit</Text>
+              {submitting ? (
+                <View style={styles.submitRow}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={styles.submitBtnText}>Submitting…</Text>
+                </View>
+              ) : (
+                <Text style={styles.submitBtnText}>Submit</Text>
+              )}
             </LinearGradient>
           </TouchableOpacity>
         </View>
@@ -279,6 +330,14 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
     borderRadius: 26,
+  },
+  submitBtnDisabled: {
+    opacity: 0.9,
+  },
+  submitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   submitBtnText: {
     fontSize: 16,
