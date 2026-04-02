@@ -69,6 +69,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final PaymentService paymentService;
     private final SystemSettingService systemSettingService;
     private final ActivityLoggingService activityLoggingService;
+    private final UserRoleRepository userRoleRepository;
 
     private static final String RESOURCE_TYPE_APPOINTMENT = "APPOINTMENT";
 
@@ -126,9 +127,6 @@ public class AppointmentServiceImpl implements AppointmentService {
             }
             dto.setStartTime(bookedSlot.getStartTime());
             dto.setEndTime(bookedSlot.getEndTime());
-            // Mark slot as booked
-            bookedSlot.setStatus(TimeSlotStatus.BOOKED);
-            timeSlotRepository.save(bookedSlot);
         }
         
         // Validate startTime and endTime are present
@@ -144,6 +142,15 @@ public class AppointmentServiceImpl implements AppointmentService {
         Doctor doctor = doctorRepository.findByIdWithUser(dto.getDoctorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + dto.getDoctorId()));
         
+        // If admin changed role DOCTOR -> PATIENT, doctor must not be bookable/showable
+        if (doctor.getUser() == null || !Boolean.TRUE.equals(doctor.getUser().getIsActive())) {
+            throw new AppointmentException("Doctor is not available for appointments");
+        }
+        boolean stillDoctorRole = userRoleRepository.existsByUserIdAndRoleName(doctor.getUser().getId(), "DOCTOR");
+        if (!stillDoctorRole) {
+            throw new AppointmentException("Doctor is not available for appointments");
+        }
+
         // Check doctor availability (null is treated as available=true by default)
         if (Boolean.FALSE.equals(doctor.getIsAvailable())) {
             throw new AppointmentException("Doctor is not available for appointments");
@@ -159,6 +166,12 @@ public class AppointmentServiceImpl implements AppointmentService {
         
         if (!conflicts.isEmpty()) {
             throw new AppointmentException.TimeSlotConflictException();
+        }
+
+        // Mark slot as booked AFTER all validations passed
+        if (bookedSlot != null) {
+            bookedSlot.setStatus(TimeSlotStatus.BOOKED);
+            timeSlotRepository.save(bookedSlot);
         }
         
         // Get the user who booked the appointment

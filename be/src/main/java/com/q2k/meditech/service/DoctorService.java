@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +45,7 @@ public class DoctorService {
 
         // Build specification
         Specification<Doctor> spec = Specification.where(DoctorSpecification.isApproved())
+                .and(DoctorSpecification.isPublicVisible())
                 .and(DoctorSpecification.hasQuery(query))
                 .and(DoctorSpecification.hasSpecialty(specialtyId))
                 .and(DoctorSpecification.hasCity(city))
@@ -85,7 +85,7 @@ public class DoctorService {
     }
 
     public DoctorDetailDTO getDoctorDetail(Long doctorId) {
-        Doctor doctor = doctorRepository.findById(doctorId)
+        Doctor doctor = doctorRepository.findByIdForPublic(doctorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor", "id", doctorId));
 
         return convertToDoctorDetailDTO(doctor);

@@ -27,6 +27,8 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long>, JpaSpecif
             "LEFT JOIN FETCH d.user u " +
             "WHERE d.verificationStatus IN ('VERIFIED', 'APPROVED') " +
             "AND d.isAvailable = true " +
+            "AND u.isActive = true " +
+            "AND EXISTS (SELECT 1 FROM UserRole ur JOIN ur.role r WHERE ur.user = u AND r.name = 'DOCTOR') " +
             "AND (:query IS NULL OR " +
             "     LOWER(d.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
             "     LOWER(d.hospitalAffiliation) LIKE LOWER(CONCAT('%', :query, '%'))) " +
@@ -48,7 +50,10 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long>, JpaSpecif
     @Query("SELECT d FROM Doctor d JOIN FETCH d.user WHERE d.id = :id")
     Optional<Doctor> findByIdWithUser(@Param("id") Long id);
 
-    @Query("SELECT d FROM Doctor d JOIN FETCH d.user u WHERE u.isActive = true ORDER BY d.fullName ASC")
+    @Query("SELECT d FROM Doctor d JOIN FETCH d.user u " +
+            "WHERE u.isActive = true " +
+            "AND EXISTS (SELECT 1 FROM UserRole ur JOIN ur.role r WHERE ur.user = u AND r.name = 'DOCTOR') " +
+            "ORDER BY d.fullName ASC")
     List<Doctor> findActiveWithUser();
 
     List<Doctor> findBySpecialization(String specialization);
@@ -62,7 +67,9 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long>, JpaSpecif
             "LEFT JOIN FETCH d.user u " +
             "WHERE d.id = :doctorId " +
             "AND d.verificationStatus IN ('VERIFIED', 'APPROVED') " +
-            "AND d.isAvailable = true")
+            "AND d.isAvailable = true " +
+            "AND u.isActive = true " +
+            "AND EXISTS (SELECT 1 FROM UserRole ur JOIN ur.role r WHERE ur.user = u AND r.name = 'DOCTOR')")
     Optional<Doctor> findByIdForPublic(@Param("doctorId") Long doctorId);
 
     /**
@@ -94,6 +101,8 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long>, JpaSpecif
            "JOIN FETCH d.user u " +
            "JOIN Appointment a ON a.doctor = d " +
            "WHERE a.appointmentDate = :date " +
+           "AND u.isActive = true " +
+           "AND EXISTS (SELECT 1 FROM UserRole ur JOIN ur.role r WHERE ur.user = u AND r.name = 'DOCTOR') " +
            "ORDER BY d.fullName")
     List<Doctor> findDoctorsWithAppointmentsOnDate(@Param("date") java.time.LocalDate date);
 

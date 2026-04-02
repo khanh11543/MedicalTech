@@ -436,6 +436,10 @@ public class UserServiceImpl implements UserService {
             throw new ResourceNotFoundException("User not found with id: " + userId);
         }
 
+        // Snapshot current roles BEFORE deleting (for side-effects like deactivating Doctor profile)
+        boolean hadDoctorRole = userRoleRepository.findByUserId(userId).stream()
+                .anyMatch(ur -> ur.getRole() != null && "DOCTOR".equalsIgnoreCase(ur.getRole().getName()));
+
         // Delete all existing roles (clearAutomatically will clear persistence context)
         userRoleRepository.deleteByUserId(userId);
 
@@ -449,6 +453,20 @@ public class UserServiceImpl implements UserService {
         // Reload user with new roles
         user = userRepository.findByIdWithRoles(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        boolean hasDoctorRoleNow = user.getUserRoles().stream()
+                .anyMatch(ur -> ur.getRole() != null && "DOCTOR".equalsIgnoreCase(ur.getRole().getName()));
+
+        // If admin removed DOCTOR role, deactivate Doctor profile so it won't show or be bookable
+        if (hadDoctorRole && !hasDoctorRoleNow) {
+            doctorRepository.findByUserId(userId).ifPresent(doctor -> {
+                doctor.setIsAvailable(false);
+                doctor.setQueueStatus(com.q2k.meditech.entity.enums.DoctorQueueStatus.OFFLINE);
+                doctor.setCurrentRoom(null);
+                doctor.setRoom(null);
+                doctorRepository.save(doctor);
+            });
+        }
 
         log.info("Roles assigned successfully to user: {}", userId);
         UserDTO result = userMapper.toDTO(user);

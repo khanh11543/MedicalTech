@@ -67,4 +67,28 @@ public class DoctorSpecification {
         return (root, criteriaQuery, criteriaBuilder) ->
             root.get("verificationStatus").in("VERIFIED", "APPROVED");
     }
+
+    /**
+     * Doctor is visible for public discovery (must still be a DOCTOR account).
+     */
+    public static Specification<Doctor> isPublicVisible() {
+        return (root, criteriaQuery, cb) -> {
+            if (criteriaQuery != null) {
+                criteriaQuery.distinct(true);
+            }
+
+            // Doctor must be available
+            Predicate isAvailable = cb.isTrue(root.get("isAvailable"));
+
+            // User must be active and still have DOCTOR role
+            Join<Object, Object> userJoin = root.join("user", JoinType.INNER);
+            Predicate userActive = cb.isTrue(userJoin.get("isActive"));
+
+            Join<Object, Object> userRolesJoin = userJoin.join("userRoles", JoinType.INNER);
+            Join<Object, Object> roleJoin = userRolesJoin.join("role", JoinType.INNER);
+            Predicate hasDoctorRole = cb.equal(cb.lower(roleJoin.get("name")), "doctor");
+
+            return cb.and(isAvailable, userActive, hasDoctorRole);
+        };
+    }
 }
