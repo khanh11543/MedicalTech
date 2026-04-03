@@ -972,6 +972,99 @@ const patientService = {
     );
     return response.data;
   },
+
+  // Get service orders with results for an appointment (patient view)
+  getServiceOrdersWithResults: async (appointmentId: number): Promise<PatientServiceOrdersResponse> => {
+    const response = await api.get(`/patient/service-orders/appointment/${appointmentId}`);
+    return response.data;
+  },
+
+  // Get comprehensive final invoice for a completed appointment
+  getFinalInvoice: async (appointmentId: number): Promise<FinalInvoiceDTO> => {
+    const response = await api.get(`/patient/appointments/${appointmentId}/final-invoice`);
+    return response.data;
+  },
+
+  // Download final invoice PDF
+  downloadFinalInvoicePdf: async (appointmentId: number): Promise<Blob> => {
+    const response = await api.get(`/patient/appointments/${appointmentId}/final-invoice/pdf`, {
+      responseType: 'blob',
+    });
+    return response.data;
+  },
 };
 
 export default patientService;
+
+// --- Types for patient service orders ---
+export interface PatientServiceOrderItem {
+  serviceOrder: {
+    id: number;
+    serviceName: string;
+    category: string;
+    status: string;
+    price: number | null;
+    orderedAt: string;
+    completedAt: string | null;
+    orderedByDoctorName: string;
+    assignedDoctorName: string | null;
+  };
+  result: {
+    id: number;
+    findings: string | null;
+    conclusion: string | null;
+    notes: string | null;
+    completedByDoctorName: string | null;
+    completedAt: string | null;
+    attachments: {
+      id: number;
+      fileName: string;
+      fileUrl: string;
+      fileType: string;
+      fileSize: number;
+    }[];
+  } | null;
+}
+
+export interface PatientServiceOrdersResponse {
+  appointmentId: number;
+  items: PatientServiceOrderItem[];
+  completedCount: number;
+  totalCount: number;
+}
+
+// --- Types for Final Invoice ---
+export interface FinalInvoiceItemDTO {
+  category: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  detail: string | null;
+}
+
+export interface FinalInvoiceDTO {
+  appointmentId: number;
+  appointmentCode: string;
+  patientId: number;
+  patientName: string;
+  patientEmail: string | null;
+  patientPhone: string | null;
+  doctorName: string;
+  doctorSpecialty: string | null;
+  invoiceDate: string;
+  invoiceNumber: string;
+  consultationItems: FinalInvoiceItemDTO[];
+  serviceItems: FinalInvoiceItemDTO[];
+  medicationItems: FinalInvoiceItemDTO[];
+  consultationTotal: number;
+  servicesTotal: number;
+  medicationsTotal: number;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  grandTotal: number;
+  paymentStatus: string;
+  invoiceReady: boolean;
+  createdAt: string;
+}

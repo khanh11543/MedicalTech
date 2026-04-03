@@ -25,6 +25,7 @@ import {
   ReceiptActionsModal,
   CreateFollowUpModal,
 } from './CompletedActionModals';
+import { CollectServiceOrderPaymentModal } from './ServiceOrderPaymentModal';
 import { ViewReasonModal, RebookModal } from './CancelledNoShowActionModals';
 import type { RebookData } from './CreateAppointment';
 import {
@@ -126,6 +127,12 @@ export default function TodayAppointments({
   // Rx Payment modal states
   const [rxPaymentModalOpen, setRxPaymentModalOpen] = useState(false);
   const [rxPaymentAppointment, setRxPaymentAppointment] = useState<ReceptionistAppointmentListDTO | null>(null);
+
+  // Service Order Payment modal states
+  const [soPaymentModal, setSoPaymentModal] = useState<{
+    open: boolean;
+    appointment: ReceptionistAppointmentListDTO | null;
+  }>({ open: false, appointment: null });
   const [rxPaymentStep, setRxPaymentStep] = useState<'select-method' | 'cash-form' | 'momo-qr' | 'success'>('select-method');
   const [rxPaymentLoading, setRxPaymentLoading] = useState(false);
   const [rxInitLoading, setRxInitLoading] = useState(false);
@@ -299,6 +306,9 @@ export default function TodayAppointments({
       case 'COLLECT_RX_PAYMENT':
         setRxPaymentAppointment(apt);
         setRxPaymentModalOpen(true);
+        break;
+      case 'COLLECT_SO_PAYMENT':
+        setSoPaymentModal({ open: true, appointment: apt });
         break;
       default:
         onViewDetail(apt.id);
@@ -553,6 +563,9 @@ export default function TodayAppointments({
                       Rx Payment
                     </th>
                     <th className='px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase'>
+                      SO Payment
+                    </th>
+                    <th className='px-4 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase'>
                       Queue
                     </th>
                     <th className='px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase min-w-[220px]'>
@@ -636,6 +649,13 @@ export default function TodayAppointments({
                           )}
                         </td>
                         <td className='px-4 py-3 text-center'>
+                          {apt.serviceOrderPaymentStatus ? (
+                            <PaymentBadge status={apt.serviceOrderPaymentStatus} />
+                          ) : (
+                            <span className='text-xs text-gray-400'>—</span>
+                          )}
+                        </td>
+                        <td className='px-4 py-3 text-center'>
                           <QueueBadge number={apt.queueNumber} />
                         </td>
                         <td className='px-4 py-3'>
@@ -704,6 +724,18 @@ export default function TodayAppointments({
           setToast({ message: msg, type: 'success' });
         }}
         onError={(msg) => setToast({ message: msg, type: 'error' })}
+      />
+
+      {/* Service Order Payment modal */}
+      <CollectServiceOrderPaymentModal
+        isOpen={soPaymentModal.open}
+        appointment={soPaymentModal.appointment}
+        onClose={() => setSoPaymentModal({ open: false, appointment: null })}
+        onSuccess={(msg) => {
+          setToast({ message: msg, type: 'success' });
+        }}
+        onError={(msg) => setToast({ message: msg, type: 'error' })}
+        onRefresh={fetchData}
       />
 
       {/* IN_PROGRESS modals */}

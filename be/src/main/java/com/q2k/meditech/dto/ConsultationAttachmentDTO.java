@@ -19,6 +19,7 @@ public class ConsultationAttachmentDTO {
     private Long id;
     private Long consultationId;
     private String filename;
+    private String filePath;
     private String fileType;
     private Long fileSize;
     private String mimeType;

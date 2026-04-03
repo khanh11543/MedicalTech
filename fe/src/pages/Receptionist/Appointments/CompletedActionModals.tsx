@@ -553,8 +553,10 @@ export function CollectPaymentModal({
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-//  2) ReceiptActionsModal — Download PDF / Email receipt
+//  2) ReceiptActionsModal — Receipt type selector + Download PDF / Email
 // ═══════════════════════════════════════════════════════════════════════
+type ReceiptType = "appointment" | "services" | "prescription";
+
 export function ReceiptActionsModal({
   isOpen,
   appointment,
@@ -562,6 +564,7 @@ export function ReceiptActionsModal({
   onError,
 }: ReceiptActionsModalProps) {
 
+  const [selectedType, setSelectedType] = useState<ReceiptType | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [emailing, setEmailing] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -569,23 +572,27 @@ export function ReceiptActionsModal({
   const [loadingInvoice, setLoadingInvoice] = useState(false);
   const [paymentInfo, setPaymentInfo] = useState<{ paymentId: number; paymentCode: string; paidAt: string; amount: number; method: string } | null>(null);
 
-  // Find invoice from appointment's payment
+  // Reset when modal opens/closes
   useEffect(() => {
     if (!isOpen || !appointment) {
+      setSelectedType(null);
       setInvoiceId(null);
       setPaymentInfo(null);
       setEmailSent(false);
-      return;
     }
+  }, [isOpen, appointment]);
+
+  // Load appointment payment details when "appointment" type is selected
+  useEffect(() => {
+    if (!isOpen || !appointment || selectedType !== "appointment") return;
 
     const findInvoice = async () => {
       try {
         setLoadingInvoice(true);
-        // Get appointment detail to get paymentId
         const detail = await receptionistService.getAppointmentDetail(appointment.id);
         if (!detail.payment) {
           onError("No payment found for this appointment");
-          onClose();
+          setSelectedType(null);
           return;
         }
         const pid = detail.payment.paymentId;
@@ -596,35 +603,46 @@ export function ReceiptActionsModal({
           amount: detail.payment.fee,
           method: detail.payment.paymentMethod || "CASH",
         });
-
-        // Get invoice
         try {
           const invoice = await receptionistService.getInvoiceByPayment(pid);
           setInvoiceId(invoice?.id || null);
         } catch {
-          // Invoice may not exist yet - that's OK, will try to download directly
           setInvoiceId(null);
         }
       } catch {
         onError("Failed to load payment details");
-        onClose();
+        setSelectedType(null);
       } finally {
         setLoadingInvoice(false);
       }
     };
     findInvoice();
-  }, [isOpen, appointment, onClose, onError]);
+  }, [isOpen, appointment, selectedType, onError]);
 
+  // ─── Handlers ─────────────────────────────────────────────────────
   const handleDownloadPDF = async () => {
-    if (!invoiceId && !paymentInfo) return;
+    if (!appointment) return;
     try {
       setDownloading(true);
-      if (invoiceId) {
-        const blob = await receptionistService.downloadInvoicePDF(invoiceId);
+      let blob: Blob | null = null;
+      let filename = "receipt.pdf";
+
+      if (selectedType === "appointment" && invoiceId) {
+        blob = await receptionistService.downloadInvoicePDF(invoiceId);
+        filename = `receipt-appointment-${appointment.appointmentCode}.pdf`;
+      } else if (selectedType === "services") {
+        blob = await receptionistService.downloadServiceOrderReceiptPDF(appointment.id);
+        filename = `receipt-services-${appointment.appointmentCode}.pdf`;
+      } else if (selectedType === "prescription") {
+        blob = await receptionistService.downloadPrescriptionReceiptPDF(appointment.id);
+        filename = `receipt-prescription-${appointment.appointmentCode}.pdf`;
+      }
+
+      if (blob) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `receipt-${appointment?.appointmentCode || "unknown"}.pdf`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -638,12 +656,16 @@ export function ReceiptActionsModal({
   };
 
   const handleEmailReceipt = async () => {
-    if (!paymentInfo) return;
+    if (!appointment) return;
     try {
       setEmailing(true);
-      await receptionistService.sendInvoice(paymentInfo.paymentId, {
-        sendEmail: true,
-      });
+      if (selectedType === "appointment" && paymentInfo) {
+        await receptionistService.sendInvoice(paymentInfo.paymentId, { sendEmail: true });
+      } else if (selectedType === "services") {
+        await receptionistService.sendServiceOrderReceipt(appointment.id, { sendEmail: true });
+      } else if (selectedType === "prescription") {
+        await receptionistService.sendPrescriptionReceipt(appointment.id, { sendEmail: true });
+      }
       setEmailSent(true);
     } catch {
       onError("Failed to email receipt");
@@ -652,8 +674,72 @@ export function ReceiptActionsModal({
     }
   };
 
+  const handleBack = () => {
+    setSelectedType(null);
+    setInvoiceId(null);
+    setPaymentInfo(null);
+    setEmailSent(false);
+  };
+
   if (!isOpen || !appointment) return null;
 
+  // ─── Determine which receipt types are available ──────────────────
+  const hasAppointmentReceipt = appointment.paymentStatus === "PAID";
+  const hasServiceReceipt = appointment.serviceOrderPaymentStatus === "PAID";
+  const hasPrescriptionReceipt = appointment.prescriptionPaymentStatus === "PAID";
+
+  // ─── Receipt type config ──────────────────────────────────────────
+  const receiptTypes: { type: ReceiptType; label: string; desc: string; available: boolean; icon: React.ReactNode; bgClass: string }[] = [
+    {
+      type: "appointment",
+      label: "Appointment Payment",
+      desc: hasAppointmentReceipt ? `${formatCurrency(appointment.fee || 0)}` : "Not paid",
+      available: hasAppointmentReceipt,
+      bgClass: "bg-emerald-100 dark:bg-emerald-900/30",
+      icon: (
+        <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+      ),
+    },
+    {
+      type: "services",
+      label: "Service Orders",
+      desc: hasServiceReceipt ? "Paid" : "Not paid",
+      available: hasServiceReceipt,
+      bgClass: "bg-violet-100 dark:bg-violet-900/30",
+      icon: (
+        <svg className="w-5 h-5 text-violet-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+        </svg>
+      ),
+    },
+    {
+      type: "prescription",
+      label: "Prescription",
+      desc: hasPrescriptionReceipt ? `${formatCurrency(appointment.prescriptionTotalCost || 0)}` : "Not paid",
+      available: hasPrescriptionReceipt,
+      bgClass: "bg-amber-100 dark:bg-amber-900/30",
+      icon: (
+        <svg className="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+        </svg>
+      ),
+    },
+  ];
+
+  // ─── Helpers for detail view labels ───────────────────────────────
+  const selectedConfig = receiptTypes.find((r) => r.type === selectedType);
+
+  const canDownload =
+    selectedType === "appointment" ? !!invoiceId :
+    selectedType === "services" || selectedType === "prescription";
+
+  const canEmail =
+    selectedType === "appointment" ? !!paymentInfo :
+    selectedType === "services" || selectedType === "prescription";
+
+  // ─── Render ───────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -663,13 +749,22 @@ export function ReceiptActionsModal({
         <div className="bg-gradient-to-r from-sky-500 to-sky-600 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              {selectedType && (
+                <button onClick={handleBack} className="text-white/80 hover:text-white transition-colors mr-1">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+              )}
               <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
               <div>
-                <h3 className="text-lg font-bold text-white">Receipt</h3>
+                <h3 className="text-lg font-bold text-white">
+                  {selectedType ? (selectedConfig?.label || "Receipt") : "Receipt"}
+                </h3>
                 <p className="text-sky-100 text-xs">{appointment.appointmentCode}</p>
               </div>
             </div>
@@ -681,95 +776,172 @@ export function ReceiptActionsModal({
           </div>
         </div>
 
-        {loadingInvoice ? (
-          <div className="px-6 py-10 text-center">
-            <div className="w-8 h-8 border-3 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">Loading receipt info...</p>
-          </div>
-        ) : (
-          <div className="px-6 py-5 space-y-4">
-            {/* Payment summary */}
-            {paymentInfo && (
-              <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3 space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">Patient</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{appointment.patientName}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">Amount</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(paymentInfo.amount)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500 dark:text-gray-400">Method</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{paymentInfo.method}</span>
-                </div>
-                {paymentInfo.paidAt && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 dark:text-gray-400">Paid at</span>
-                    <span className="text-gray-700 dark:text-gray-300">{new Date(paymentInfo.paidAt).toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Action buttons */}
-            <div className="space-y-2">
+        {/* ──── STEP 1: Type Selector ──── */}
+        {!selectedType && (
+          <div className="px-6 py-5 space-y-3">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Select receipt type:</p>
+            {receiptTypes.map((rt) => (
               <button
-                onClick={handleDownloadPDF}
-                disabled={downloading || !invoiceId}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                key={rt.type}
+                disabled={!rt.available}
+                onClick={() => { setEmailSent(false); setSelectedType(rt.type); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors text-left
+                  ${rt.available
+                    ? "border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                    : "border-gray-100 dark:border-gray-700 opacity-40 cursor-not-allowed"}`}
               >
-                <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${rt.bgClass}`}>
+                  {rt.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{rt.label}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{rt.desc}</p>
+                </div>
+                {rt.available && (
+                  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
-                </div>
-                <div className="text-left flex-1">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {downloading ? "Downloading..." : "Download PDF"}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Save receipt to your device</p>
-                </div>
-                {downloading && <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />}
+                )}
               </button>
+            ))}
 
-              <button
-                onClick={handleEmailReceipt}
-                disabled={emailing || emailSent || !paymentInfo}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
-              >
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${emailSent ? "bg-green-100 dark:bg-green-900/30" : "bg-blue-100 dark:bg-blue-900/30"}`}>
-                  {emailSent ? (
-                    <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  )}
-                </div>
-                <div className="text-left flex-1">
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {emailSent ? "Email Sent ✓" : emailing ? "Sending..." : "Email to Patient"}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    {emailSent ? "Receipt has been sent" : "Send receipt via email"}
-                  </p>
-                </div>
-                {emailing && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
-              </button>
-            </div>
-
-            {!invoiceId && !loadingInvoice && (
+            {!hasAppointmentReceipt && !hasServiceReceipt && !hasPrescriptionReceipt && (
               <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/10 rounded-lg p-3 border border-amber-100 dark:border-amber-800/30">
                 <svg className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
-                <p className="text-xs text-amber-600 dark:text-amber-400">Invoice PDF is not yet available. The system will generate it shortly.</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400">No paid receipts available for this appointment.</p>
               </div>
             )}
           </div>
+        )}
+
+        {/* ──── STEP 2: Receipt Detail + Actions ──── */}
+        {selectedType && (
+          <>
+            {loadingInvoice ? (
+              <div className="px-6 py-10 text-center">
+                <div className="w-8 h-8 border-3 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">Loading receipt info...</p>
+              </div>
+            ) : (
+              <div className="px-6 py-5 space-y-4">
+                {/* Payment summary for appointment type */}
+                {selectedType === "appointment" && paymentInfo && (
+                  <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Patient</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{appointment.patientName}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Amount</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(paymentInfo.amount)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Method</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{paymentInfo.method}</span>
+                    </div>
+                    {paymentInfo.paidAt && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500 dark:text-gray-400">Paid at</span>
+                        <span className="text-gray-700 dark:text-gray-300">{new Date(paymentInfo.paidAt).toLocaleString()}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Summary for services type */}
+                {selectedType === "services" && (
+                  <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Patient</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{appointment.patientName}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Status</span>
+                      <span className="font-bold text-violet-600 dark:text-violet-400">PAID</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Summary for prescription type */}
+                {selectedType === "prescription" && (
+                  <div className="bg-gray-50 dark:bg-gray-700/30 rounded-lg p-3 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Patient</span>
+                      <span className="font-medium text-gray-900 dark:text-white">{appointment.patientName}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Amount</span>
+                      <span className="font-bold text-amber-600 dark:text-amber-400">{formatCurrency(appointment.prescriptionTotalCost || 0)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500 dark:text-gray-400">Status</span>
+                      <span className="font-bold text-amber-600 dark:text-amber-400">PAID</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Action buttons */}
+                <div className="space-y-2">
+                  <button
+                    onClick={handleDownloadPDF}
+                    disabled={downloading || !canDownload}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                  >
+                    <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <div className="text-left flex-1">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {downloading ? "Downloading..." : "Download PDF"}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Save receipt to your device</p>
+                    </div>
+                    {downloading && <div className="w-4 h-4 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />}
+                  </button>
+
+                  <button
+                    onClick={handleEmailReceipt}
+                    disabled={emailing || emailSent || !canEmail}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                  >
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${emailSent ? "bg-green-100 dark:bg-green-900/30" : "bg-blue-100 dark:bg-blue-900/30"}`}>
+                      {emailSent ? (
+                        <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="text-left flex-1">
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {emailSent ? "Email Sent ✓" : emailing ? "Sending..." : "Email to Patient"}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {emailSent ? "Receipt has been sent" : "Send receipt via email"}
+                      </p>
+                    </div>
+                    {emailing && <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />}
+                  </button>
+                </div>
+
+                {selectedType === "appointment" && !invoiceId && !loadingInvoice && (
+                  <div className="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/10 rounded-lg p-3 border border-amber-100 dark:border-amber-800/30">
+                    <svg className="w-4 h-4 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <p className="text-xs text-amber-600 dark:text-amber-400">Invoice PDF is not yet available. The system will generate it shortly.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
         )}
 
         {/* Footer */}

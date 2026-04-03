@@ -117,6 +117,12 @@ const ACTION_BUTTON_CONFIG: Record<
     hover: "hover:bg-teal-700",
     text: "text-white",
   },
+  COLLECT_SO_PAYMENT: {
+    label: "Pay Services",
+    bg: "bg-orange-500",
+    hover: "hover:bg-orange-600",
+    text: "text-white",
+  },
 };
 
 export default function ActionMenu({ appointment, onAction }: ActionMenuProps) {

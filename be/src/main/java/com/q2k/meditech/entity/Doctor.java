@@ -69,6 +69,10 @@ public class Doctor {
     @Column(name="specialization", length = 255)
     private String specialization;
 
+    /** Department for service worklist routing (e.g. DIAGNOSTIC_IMAGING, LABORATORY, ULTRASOUND) */
+    @Column(name = "department", length = 50)
+    private String department;
+
     @Builder.Default
     @Column(name="experience_years")
     private Integer experienceYears = 0;

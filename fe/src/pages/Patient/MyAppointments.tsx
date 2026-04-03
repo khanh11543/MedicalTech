@@ -5,6 +5,9 @@ import patientService, {
   type Appointment,
   type Payment,
   type Prescription,
+  type PatientServiceOrderItem,
+  type FinalInvoiceDTO,
+  type FinalInvoiceItemDTO,
 } from "../../services/patientService";
 import medicalRecordService, {
   type MedicalRecordDTO,
@@ -259,6 +262,18 @@ function AppointmentCard({
   const [prescriptionsError, setPrescriptionsError] = useState<string | null>(null);
   const [prescriptionsFetched, setPrescriptionsFetched] = useState(false);
 
+  // Service orders / diagnostic results
+  const [serviceItems, setServiceItems] = useState<PatientServiceOrderItem[]>([]);
+  const [serviceLoading, setServiceLoading] = useState(false);
+  const [serviceFetched, setServiceFetched] = useState(false);
+
+  // Final Invoice
+  const [showFinalInvoice, setShowFinalInvoice] = useState(false);
+  const [finalInvoice, setFinalInvoice] = useState<FinalInvoiceDTO | null>(null);
+  const [finalInvoiceLoading, setFinalInvoiceLoading] = useState(false);
+  const [finalInvoiceError, setFinalInvoiceError] = useState<string | null>(null);
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+
   useEffect(() => {
     if (!expanded) return;
     if (a.status !== "COMPLETED") return;
@@ -312,6 +327,15 @@ function AppointmentCard({
 
     void fetchMedicalRecord();
 
+    // Fetch service orders / diagnostic results
+    if (!serviceFetched) {
+      setServiceLoading(true);
+      patientService.getServiceOrdersWithResults(a.id)
+        .then((res) => { if (!cancelled) setServiceItems(res.items ?? []); })
+        .catch(() => {})
+        .finally(() => { if (!cancelled) { setServiceLoading(false); setServiceFetched(true); } });
+    }
+
     return () => {
       cancelled = true;
     };
@@ -345,6 +369,45 @@ function AppointmentCard({
       setPrescriptionsError(msg);
     } finally {
       setPrescriptionsLoading(false);
+    }
+  };
+
+  const handleToggleFinalInvoice = async () => {
+    if (showFinalInvoice) {
+      setShowFinalInvoice(false);
+      return;
+    }
+    setShowFinalInvoice(true);
+
+    if (finalInvoice) return; // already loaded
+
+    setFinalInvoiceLoading(true);
+    setFinalInvoiceError(null);
+    try {
+      const inv = await patientService.getFinalInvoice(a.id);
+      setFinalInvoice(inv);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to load final invoice";
+      setFinalInvoiceError(msg);
+    } finally {
+      setFinalInvoiceLoading(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setPdfDownloading(true);
+    try {
+      const blob = await patientService.downloadFinalInvoicePdf(a.id);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `final-invoice-${a.appointmentCode || a.id}.pdf`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      // silently fail for now
+    } finally {
+      setPdfDownloading(false);
     }
   };
 
@@ -628,6 +691,280 @@ function AppointmentCard({
             </div>
           )}
 
+          {/* Services / Diagnostic Results */}
+          {a.status === "COMPLETED" && (
+            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50 space-y-3">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                Services / Diagnostic Results
+              </p>
+              {serviceLoading ? (
+                <p className="text-sm text-gray-500">Loading services...</p>
+              ) : serviceItems.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4">
+                  No diagnostic services were ordered for this visit.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {serviceItems.map((item) => {
+                    const so = item.serviceOrder;
+                    const res = item.result;
+                    const isDone = so.status === "COMPLETED";
+                    const statusStyle: Record<string, string> = {
+                      ORDERED: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+                      PENDING_PAYMENT: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300",
+                      PAID: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+                      IN_PROGRESS: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+                      COMPLETED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+                    };
+                    const statusLabel: Record<string, string> = {
+                      ORDERED: "Ordered",
+                      PENDING_PAYMENT: "Pending Payment",
+                      PAID: "Paid",
+                      IN_PROGRESS: "In Progress",
+                      COMPLETED: "Completed",
+                    };
+
+                    return (
+                      <div
+                        key={so.id}
+                        className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/20 overflow-hidden"
+                      >
+                        {/* Header */}
+                        <div className="flex items-center justify-between gap-3 px-4 py-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                              {so.serviceName}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                              {so.category?.replace(/_/g, " ")}
+                              {so.orderedByDoctorName && ` · BS. ${so.orderedByDoctorName}`}
+                            </p>
+                          </div>
+                          <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${statusStyle[so.status] || "bg-gray-100 text-gray-600"}`}>
+                            {statusLabel[so.status] || so.status}
+                          </span>
+                        </div>
+
+                        {/* Result body (only if completed and has result) */}
+                        {isDone && res && (
+                          <div className="border-t border-gray-100 dark:border-gray-700/50 px-4 py-3 space-y-2">
+                            {res.conclusion && (
+                              <div>
+                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Conclusion</p>
+                                <p className="text-sm text-gray-800 dark:text-gray-200 mt-0.5">{res.conclusion}</p>
+                              </div>
+                            )}
+                            {res.findings && (
+                              <div>
+                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Findings</p>
+                                <p className="text-sm text-gray-700 dark:text-gray-300 mt-0.5 whitespace-pre-wrap">{res.findings}</p>
+                              </div>
+                            )}
+                            {res.notes && (
+                              <div>
+                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Notes</p>
+                                <p className="text-sm text-gray-700 dark:text-gray-300 mt-0.5">{res.notes}</p>
+                              </div>
+                            )}
+
+                            {/* Attachments */}
+                            {res.attachments && res.attachments.length > 0 && (
+                              <div>
+                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
+                                  Attachments ({res.attachments.length})
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {res.attachments.map((att) => {
+                                    const isImage = att.fileType?.startsWith("image/");
+                                    return (
+                                      <a
+                                        key={att.id}
+                                        href={att.fileUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="group block rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow"
+                                      >
+                                        {isImage ? (
+                                          <img
+                                            src={att.fileUrl}
+                                            alt={att.fileName}
+                                            className="h-20 w-20 object-cover"
+                                          />
+                                        ) : (
+                                          <div className="h-20 w-20 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-800 gap-1">
+                                            <svg className="h-6 w-6 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+                                              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM6 20V4h5v7h7v9H6z" />
+                                            </svg>
+                                            <span className="text-[9px] text-gray-500 font-medium">PDF</span>
+                                          </div>
+                                        )}
+                                        <div className="px-1 py-0.5 bg-white dark:bg-gray-800">
+                                          <p className="text-[9px] text-gray-500 truncate w-20" title={att.fileName}>
+                                            {att.fileName}
+                                          </p>
+                                        </div>
+                                      </a>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {res.completedByDoctorName && (
+                              <p className="text-xs text-gray-400 dark:text-gray-500 pt-1">
+                                Performed by BS. {res.completedByDoctorName}
+                                {res.completedAt && ` · ${new Date(res.completedAt).toLocaleString()}`}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Final Invoice */}
+          {a.status === "COMPLETED" && (
+            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Final Invoice
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Comprehensive breakdown of all costs for this visit
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleToggleFinalInvoice}
+                    disabled={finalInvoiceLoading}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed border-none cursor-pointer"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    {finalInvoiceLoading ? "Loading..." : showFinalInvoice ? "Hide Invoice" : "View Invoice"}
+                  </button>
+                  {showFinalInvoice && finalInvoice && (
+                    <button
+                      type="button"
+                      onClick={handleDownloadPdf}
+                      disabled={pdfDownloading}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:text-emerald-300 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 disabled:opacity-60 disabled:cursor-not-allowed border border-emerald-200 dark:border-emerald-800 cursor-pointer"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      {pdfDownloading ? "Downloading..." : "Download PDF"}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {showFinalInvoice && (
+                <>
+                  {finalInvoiceLoading ? (
+                    <div className="text-sm text-gray-500">Loading invoice...</div>
+                  ) : finalInvoiceError ? (
+                    <div className="text-sm text-red-500">{finalInvoiceError}</div>
+                  ) : finalInvoice ? (
+                    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/20 overflow-hidden">
+                      {/* Invoice header */}
+                      <div className="bg-emerald-50 dark:bg-emerald-900/20 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                              {finalInvoice.invoiceNumber}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                              {finalInvoice.invoiceDate} &middot; {finalInvoice.doctorName}
+                              {finalInvoice.doctorSpecialty && ` (${finalInvoice.doctorSpecialty})`}
+                            </p>
+                          </div>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                            finalInvoice.paymentStatus === "ALL_PAID"
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                              : finalInvoice.paymentStatus === "PARTIALLY_PAID"
+                              ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300"
+                              : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                          }`}>
+                            {finalInvoice.paymentStatus === "ALL_PAID" ? "Fully Paid" : finalInvoice.paymentStatus === "PARTIALLY_PAID" ? "Partially Paid" : "Unpaid"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="p-4 space-y-4">
+                        {/* Consultation */}
+                        {finalInvoice.consultationItems.length > 0 && (
+                          <InvoiceSection
+                            title="Consultation"
+                            icon={<svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
+                            items={finalInvoice.consultationItems}
+                            sectionTotal={finalInvoice.consultationTotal}
+                          />
+                        )}
+
+                        {/* Services */}
+                        {finalInvoice.serviceItems.length > 0 && (
+                          <InvoiceSection
+                            title="Services / Lab / Imaging"
+                            icon={<svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>}
+                            items={finalInvoice.serviceItems}
+                            sectionTotal={finalInvoice.servicesTotal}
+                          />
+                        )}
+
+                        {/* Medications */}
+                        {finalInvoice.medicationItems.length > 0 && (
+                          <InvoiceSection
+                            title="Medications / Prescription"
+                            icon={<svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>}
+                            items={finalInvoice.medicationItems}
+                            sectionTotal={finalInvoice.medicationsTotal}
+                          />
+                        )}
+
+                        {/* No items at all */}
+                        {finalInvoice.consultationItems.length === 0 && finalInvoice.serviceItems.length === 0 && finalInvoice.medicationItems.length === 0 && (
+                          <p className="text-sm text-gray-500 text-center py-4">No cost information available.</p>
+                        )}
+
+                        {/* Grand total */}
+                        <div className="border-t border-gray-200 dark:border-gray-700 pt-3 space-y-1 text-sm">
+                          <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                            <span>Subtotal</span>
+                            <span>{fmt(finalInvoice.subtotal)}</span>
+                          </div>
+                          {finalInvoice.discount > 0 && (
+                            <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                              <span>Discount</span>
+                              <span>-{fmt(finalInvoice.discount)}</span>
+                            </div>
+                          )}
+                          {finalInvoice.tax > 0 && (
+                            <div className="flex justify-between text-gray-600 dark:text-gray-400">
+                              <span>Tax</span>
+                              <span>{fmt(finalInvoice.tax)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-base font-bold text-gray-900 dark:text-white pt-1">
+                            <span>Grand Total</span>
+                            <span>{fmt(finalInvoice.grandTotal)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </div>
+          )}
+
           {canReview && (
             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700/50">
               <button
@@ -644,6 +981,67 @@ function AppointmentCard({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** Format VND currency */
+function fmt(amount: number | null | undefined): string {
+  if (amount == null) return "0 VND";
+  return amount.toLocaleString("en-US") + " VND";
+}
+
+/** One section (Consultation / Services / Medications) in the final invoice */
+function InvoiceSection({
+  title,
+  icon,
+  items,
+  sectionTotal,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  items: FinalInvoiceItemDTO[];
+  sectionTotal: number;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        {icon}
+        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{title}</p>
+      </div>
+      <div className="rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-gray-50 dark:bg-gray-800/50 text-left">
+              <th className="px-3 py-2 font-semibold text-gray-500 dark:text-gray-400">Description</th>
+              <th className="px-3 py-2 font-semibold text-gray-500 dark:text-gray-400 text-center w-14">Qty</th>
+              <th className="px-3 py-2 font-semibold text-gray-500 dark:text-gray-400 text-right w-28">Unit Price</th>
+              <th className="px-3 py-2 font-semibold text-gray-500 dark:text-gray-400 text-right w-28">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item, idx) => (
+              <tr key={idx} className="border-t border-gray-100 dark:border-gray-700/50">
+                <td className="px-3 py-2 text-gray-800 dark:text-gray-200">
+                  {item.description}
+                  {item.detail && (
+                    <span className="block text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">{item.detail}</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-center text-gray-600 dark:text-gray-400">{item.quantity}</td>
+                <td className="px-3 py-2 text-right text-gray-600 dark:text-gray-400">{fmt(item.unitPrice)}</td>
+                <td className="px-3 py-2 text-right font-medium text-gray-800 dark:text-gray-200">{fmt(item.totalPrice)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/30">
+              <td colSpan={3} className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-400">Section Total</td>
+              <td className="px-3 py-2 text-right font-bold text-gray-900 dark:text-white">{fmt(sectionTotal)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
     </div>
   );
 }

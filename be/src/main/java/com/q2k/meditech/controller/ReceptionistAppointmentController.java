@@ -3,9 +3,12 @@ package com.q2k.meditech.controller;
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.dto.receptionist.*;
 import com.q2k.meditech.entity.Payment;
+import com.q2k.meditech.entity.ServiceOrder;
 import com.q2k.meditech.entity.enums.AppointmentStatus;
 import com.q2k.meditech.entity.enums.BookedBy;
+import com.q2k.meditech.entity.enums.ServiceOrderStatus;
 import com.q2k.meditech.repository.PaymentRepository;
+import com.q2k.meditech.repository.ServiceOrderRepository;
 import com.q2k.meditech.service.AppointmentService;
 import com.q2k.meditech.service.PrivacyMaskingService;
 import com.q2k.meditech.service.ReceptionistDashboardService;
@@ -49,6 +52,7 @@ public class ReceptionistAppointmentController {
     private final AppointmentService appointmentService;
     private final ReceptionistDashboardService dashboardService;
     private final PaymentRepository paymentRepository;
+    private final ServiceOrderRepository serviceOrderRepository;
     private final PrivacyMaskingService privacyMaskingService;
     
     // ==================== EXISTING ENDPOINTS ====================
@@ -162,6 +166,9 @@ public class ReceptionistAppointmentController {
             }
         }
 
+        // Service order payment status map
+        Map<Long, String> soPaymentStatusMap = computeServiceOrderPaymentStatuses(appointmentIds);
+
         List<ReceptionistAppointmentListDTO> enriched = fullPage.getContent().stream()
                 .map(dto -> {
                     Payment payment = paymentMap.get(dto.getId());
@@ -169,7 +176,9 @@ public class ReceptionistAppointmentController {
                     BigDecimal fee = payment != null ? payment.getTotalAmount() : null;
                     Long paymentId = payment != null ? payment.getId() : null;
                     String phone = privacyMaskingService.maskPhone(dto.getPatientPhone());
-                    return ReceptionistAppointmentListDTO.fromAppointmentDTO(dto, payStatus, fee, paymentId, phone);
+                    ReceptionistAppointmentListDTO result = ReceptionistAppointmentListDTO.fromAppointmentDTO(dto, payStatus, fee, paymentId, phone);
+                    result.setServiceOrderPaymentStatus(soPaymentStatusMap.get(dto.getId()));
+                    return result;
                 })
                 .collect(Collectors.toList());
 
@@ -296,8 +305,15 @@ public class ReceptionistAppointmentController {
                 .build();
         
         Page<AppointmentDTO> fullPage = appointmentService.getAllAppointments(filter);
-        Page<ReceptionistAppointmentListDTO> maskedPage = fullPage.map(dto ->
-                ReceptionistAppointmentListDTO.fromAppointmentDTO(dto, privacyMaskingService.maskPhone(dto.getPatientPhone())));
+
+        List<Long> histAppIds = fullPage.getContent().stream().map(AppointmentDTO::getId).collect(Collectors.toList());
+        Map<Long, String> histSoStatuses = computeServiceOrderPaymentStatuses(histAppIds);
+
+        Page<ReceptionistAppointmentListDTO> maskedPage = fullPage.map(dto -> {
+                ReceptionistAppointmentListDTO r = ReceptionistAppointmentListDTO.fromAppointmentDTO(dto, privacyMaskingService.maskPhone(dto.getPatientPhone()));
+                r.setServiceOrderPaymentStatus(histSoStatuses.get(dto.getId()));
+                return r;
+        });
         return ResponseEntity.ok(maskedPage);
     }
 
@@ -599,6 +615,13 @@ public class ReceptionistAppointmentController {
         log.info("GET /receptionist/appointments/today - status: {}", status);
         Page<ReceptionistAppointmentListDTO> result = dashboardService.getTodayAppointments(
                 status, pageNumber, pageSize, sortBy, sortOrder);
+
+        // Enrich with service order payment status
+        List<Long> todayAppIds = result.getContent().stream()
+                .map(ReceptionistAppointmentListDTO::getId).collect(Collectors.toList());
+        Map<Long, String> todaySoStatuses = computeServiceOrderPaymentStatuses(todayAppIds);
+        result.getContent().forEach(dto -> dto.setServiceOrderPaymentStatus(todaySoStatuses.get(dto.getId())));
+
         return ResponseEntity.ok(result);
     }
 
@@ -657,6 +680,36 @@ public class ReceptionistAppointmentController {
     
     private Long getCurrentUserId(UserDetails userDetails) {
         return SecurityUtil.getCurrentUserId();
+    }
+
+    /**
+     * Compute aggregated service order payment status per appointment.
+     * Returns: null (no orders), "UNPAID" (all unpaid), "PARTIAL" (some paid), "PAID" (all paid)
+     */
+    private Map<Long, String> computeServiceOrderPaymentStatuses(List<Long> appointmentIds) {
+        Map<Long, String> result = new HashMap<>();
+        if (appointmentIds == null || appointmentIds.isEmpty()) return result;
+
+        List<ServiceOrder> allOrders = serviceOrderRepository.findByAppointmentIdIn(appointmentIds);
+        // Group by appointmentId
+        Map<Long, List<ServiceOrder>> grouped = allOrders.stream()
+                .filter(o -> o.getStatus() != ServiceOrderStatus.CANCELLED)
+                .collect(Collectors.groupingBy(o -> o.getAppointment().getId()));
+
+        for (Map.Entry<Long, List<ServiceOrder>> entry : grouped.entrySet()) {
+            List<ServiceOrder> orders = entry.getValue();
+            if (orders.isEmpty()) continue;
+
+            long paidCount = orders.stream().filter(o -> "PAID".equals(o.getPaymentStatus())).count();
+            if (paidCount == 0) {
+                result.put(entry.getKey(), "UNPAID");
+            } else if (paidCount == orders.size()) {
+                result.put(entry.getKey(), "PAID");
+            } else {
+                result.put(entry.getKey(), "PARTIAL");
+            }
+        }
+        return result;
     }
 
     // ==================== DTO MAPPING — Admin → Receptionist (PHI-safe) ====================
@@ -747,6 +800,7 @@ public class ReceptionistAppointmentController {
             case CONFIRMED -> List.of("CHECK_IN", "RESCHEDULE", "CANCEL", "SEND_REMINDER", "PRINT_SLIP");
             case CHECKED_IN -> List.of("VIEW_QUEUE", "MARK_NO_SHOW", "NOTIFY_DOCTOR");
             case IN_PROGRESS -> List.of("VIEW");
+            case AWAITING_SERVICE_RESULTS -> List.of("VIEW");
             case COMPLETED -> List.of("COLLECT_PAYMENT", "RECEIPT", "CREATE_FOLLOW_UP");
             case CANCELLED, NO_SHOW -> List.of("VIEW_REASON", "REBOOK");
             case RESCHEDULED -> List.of("VIEW");

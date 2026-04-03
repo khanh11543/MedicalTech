@@ -21,6 +21,7 @@ export interface ConsultationAttachmentDTO {
   id: number;
   consultationId: number;
   filename: string;
+  filePath: string;
   fileType: string;
   fileSize: number;
   mimeType: string;
@@ -60,7 +61,7 @@ export interface ConsultationDTO {
   doctorId: number;
   doctorName: string;
 
-  status: 'DRAFT' | 'FINALIZED' | 'AMENDED';
+  status: 'DRAFT' | 'AWAITING_RESULTS' | 'FINALIZED' | 'AMENDED';
 
   // Chief medical information
   chiefComplaint: string;

@@ -2,10 +2,12 @@ package com.q2k.meditech.config;
 
 import com.q2k.meditech.entity.*;
 import com.q2k.meditech.entity.enums.AppointmentStatus;
+import com.q2k.meditech.entity.enums.ServiceCategory;
 import com.q2k.meditech.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +31,8 @@ public class DataSeeder implements CommandLineRunner {
     private final AppointmentRepository appointmentRepository;
     private final ReviewRepository reviewRepository;
     private final RoomRepository roomRepository;
+    private final MedicalServiceRepository medicalServiceRepository;
+    private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -43,6 +47,16 @@ public class DataSeeder implements CommandLineRunner {
     @Transactional
     public void seedData() {
         log.info("Starting data seeding...");
+
+        // Fix: widen status columns so longer enum values fit (e.g. AWAITING_SERVICE_RESULTS, READY_TO_FINALIZE)
+        for (String table : List.of("appointments", "consultations")) {
+            try {
+                jdbcTemplate.execute("ALTER TABLE " + table + " MODIFY COLUMN status VARCHAR(50) NOT NULL");
+                log.info("Widened {}.status column to VARCHAR(50)", table);
+            } catch (Exception e) {
+                log.debug("{}.status column already correct or alter skipped: {}", table, e.getMessage());
+            }
+        }
         
         // Create roles if not exist
         Role rolePatient = getOrCreateRole("PATIENT");
@@ -59,6 +73,15 @@ public class DataSeeder implements CommandLineRunner {
         // Ensure all doctors are available for appointments
         updateDoctorsAvailability();
 
+        // Seed specialties/departments first (required for services and doctors)
+        seedSpecialties();
+
+        // Seed medical services catalog (linked to speciesalties)
+        seedMedicalServices();
+
+        // Seed specialist doctors for service departments
+        seedSpecialistDoctors();
+
         // Seed rooms and assign doctors
         seedRoomsAndAssignments();
 
@@ -69,6 +92,125 @@ public class DataSeeder implements CommandLineRunner {
         seedSampleReviews();
         
         log.info("Data seeding completed!");
+    }
+
+    /**
+     * Seed the medical_services catalog so "Order Service" modal has data.
+     * Each service maps to a ServiceCategory which routes to a department.
+     */
+    private void seedMedicalServices() {
+        if (medicalServiceRepository.count() > 0) {
+            log.info("Medical services already exist, skipping seed.");
+            return;
+        }
+        log.info("Seeding medical services catalog...");
+
+        // category, serviceName, price, description
+        Object[][] services = {
+            // DIAGNOSTIC_IMAGING → Radiology department
+            {ServiceCategory.DIAGNOSTIC_IMAGING, "Chest X-ray", 200000, "Standard posteroanterior chest radiograph"},
+            {ServiceCategory.DIAGNOSTIC_IMAGING, "Abdominal X-ray", 200000, "Plain abdominal radiograph"},
+            {ServiceCategory.DIAGNOSTIC_IMAGING, "CT Scan - Head", 1500000, "Computed tomography of the head without contrast"},
+            {ServiceCategory.DIAGNOSTIC_IMAGING, "CT Scan - Chest", 1500000, "Computed tomography of chest"},
+            {ServiceCategory.DIAGNOSTIC_IMAGING, "CT Scan - Abdomen", 1800000, "Computed tomography of abdomen and pelvis"},
+            {ServiceCategory.DIAGNOSTIC_IMAGING, "MRI - Brain", 3000000, "Magnetic resonance imaging of the brain"},
+            {ServiceCategory.DIAGNOSTIC_IMAGING, "MRI - Spine", 3000000, "Magnetic resonance imaging of spine"},
+            {ServiceCategory.DIAGNOSTIC_IMAGING, "MRI - Knee", 2500000, "MRI of knee joint"},
+            {ServiceCategory.DIAGNOSTIC_IMAGING, "Bone Density Scan (DEXA)", 500000, "Dual-energy X-ray absorptiometry"},
+            {ServiceCategory.DIAGNOSTIC_IMAGING, "Mammography", 400000, "Bilateral mammography screening"},
+
+            // LABORATORY → Lab department
+            {ServiceCategory.LABORATORY, "CBC (Complete Blood Count)", 150000, "Full blood count with differential"},
+            {ServiceCategory.LABORATORY, "Blood Glucose (Fasting)", 80000, "Fasting blood glucose level"},
+            {ServiceCategory.LABORATORY, "Blood Glucose (Random)", 80000, "Random blood glucose level"},
+            {ServiceCategory.LABORATORY, "HbA1c", 180000, "Glycated hemoglobin test"},
+            {ServiceCategory.LABORATORY, "Liver Function Test (LFT)", 250000, "AST, ALT, ALP, bilirubin, albumin"},
+            {ServiceCategory.LABORATORY, "Kidney Function Test (RFT)", 250000, "BUN, creatinine, eGFR, electrolytes"},
+            {ServiceCategory.LABORATORY, "Lipid Panel", 200000, "Total cholesterol, HDL, LDL, triglycerides"},
+            {ServiceCategory.LABORATORY, "Urinalysis", 100000, "Complete urinalysis with microscopy"},
+            {ServiceCategory.LABORATORY, "Thyroid Function (TSH)", 200000, "Thyroid-stimulating hormone"},
+            {ServiceCategory.LABORATORY, "Thyroid Panel (TSH, T3, T4)", 350000, "Full thyroid panel"},
+            {ServiceCategory.LABORATORY, "CRP (C-Reactive Protein)", 120000, "Inflammatory marker"},
+            {ServiceCategory.LABORATORY, "ESR", 80000, "Erythrocyte sedimentation rate"},
+            {ServiceCategory.LABORATORY, "Blood Culture", 300000, "Aerobic and anaerobic blood culture"},
+            {ServiceCategory.LABORATORY, "Urine Culture", 200000, "Urine culture and sensitivity"},
+            {ServiceCategory.LABORATORY, "Coagulation Panel (PT/INR, aPTT)", 200000, "Prothrombin time and partial thromboplastin time"},
+            {ServiceCategory.LABORATORY, "HIV Screening", 150000, "HIV 1/2 antibody and p24 antigen"},
+            {ServiceCategory.LABORATORY, "Hepatitis B Panel", 250000, "HBsAg, anti-HBs, anti-HBc"},
+            {ServiceCategory.LABORATORY, "Hepatitis C Antibody", 200000, "Anti-HCV screening"},
+            {ServiceCategory.LABORATORY, "PSA", 200000, "Prostate-specific antigen screening"},
+            {ServiceCategory.LABORATORY, "Vitamin D Level", 250000, "25-hydroxyvitamin D"},
+            {ServiceCategory.LABORATORY, "Iron Studies", 200000, "Serum iron, ferritin, TIBC"},
+            {ServiceCategory.LABORATORY, "Electrolyte Panel", 150000, "Na, K, Cl, CO2"},
+
+            // ULTRASOUND → Ultrasound department
+            {ServiceCategory.ULTRASOUND, "Abdominal Ultrasound", 350000, "Complete abdominal ultrasound"},
+            {ServiceCategory.ULTRASOUND, "Pelvic Ultrasound", 350000, "Transabdominal pelvic ultrasound"},
+            {ServiceCategory.ULTRASOUND, "Thyroid Ultrasound", 300000, "Thyroid gland ultrasound"},
+            {ServiceCategory.ULTRASOUND, "Breast Ultrasound", 300000, "Bilateral breast ultrasound"},
+            {ServiceCategory.ULTRASOUND, "Renal Ultrasound", 300000, "Kidney and urinary tract ultrasound"},
+            {ServiceCategory.ULTRASOUND, "Obstetric Ultrasound", 400000, "Obstetric ultrasound with fetal assessment"},
+            {ServiceCategory.ULTRASOUND, "Doppler - Carotid", 500000, "Carotid artery duplex scan"},
+            {ServiceCategory.ULTRASOUND, "Doppler - Lower Extremity", 500000, "Venous/arterial duplex of legs"},
+
+            // CARDIOLOGY_TEST → Cardiology department
+            {ServiceCategory.CARDIOLOGY_TEST, "ECG (Electrocardiogram)", 150000, "12-lead resting ECG"},
+            {ServiceCategory.CARDIOLOGY_TEST, "Echocardiogram", 500000, "Transthoracic echocardiography"},
+            {ServiceCategory.CARDIOLOGY_TEST, "Stress Test (Treadmill)", 800000, "Exercise stress test with ECG monitoring"},
+            {ServiceCategory.CARDIOLOGY_TEST, "Holter Monitor (24h)", 600000, "24-hour ambulatory ECG monitoring"},
+            {ServiceCategory.CARDIOLOGY_TEST, "Holter Monitor (48h)", 900000, "48-hour ambulatory ECG monitoring"},
+
+            // PATHOLOGY → Pathology department
+            {ServiceCategory.PATHOLOGY, "Biopsy - Skin", 500000, "Skin biopsy with histopathology"},
+            {ServiceCategory.PATHOLOGY, "Biopsy - Tissue", 800000, "Tissue biopsy with histopathology"},
+            {ServiceCategory.PATHOLOGY, "Pap Smear", 200000, "Cervical cytology screening"},
+            {ServiceCategory.PATHOLOGY, "Fine Needle Aspiration (FNA)", 600000, "Fine needle aspiration biopsy"},
+
+            // ENDOSCOPY → Endoscopy department
+            {ServiceCategory.ENDOSCOPY, "Upper GI Endoscopy", 1500000, "Esophagogastroduodenoscopy (EGD)"},
+            {ServiceCategory.ENDOSCOPY, "Colonoscopy", 2000000, "Complete colonoscopy"},
+            {ServiceCategory.ENDOSCOPY, "Bronchoscopy", 2500000, "Flexible bronchoscopy"},
+
+            // OTHER
+            {ServiceCategory.OTHER, "Pulmonary Function Test", 300000, "Spirometry and lung function assessment"},
+            {ServiceCategory.OTHER, "Audiometry", 200000, "Pure tone audiometry hearing test"},
+            {ServiceCategory.OTHER, "Visual Acuity Test", 100000, "Standard visual acuity assessment"},
+            {ServiceCategory.OTHER, "Allergy Skin Prick Test", 400000, "Skin prick test for common allergens"},
+        };
+
+        // Map ServiceCategory to Specialty name
+        Map<ServiceCategory, String> categoryToSpecialty = new HashMap<>();
+        categoryToSpecialty.put(ServiceCategory.DIAGNOSTIC_IMAGING, "Radiology");
+        categoryToSpecialty.put(ServiceCategory.LABORATORY, "Laboratory");
+        categoryToSpecialty.put(ServiceCategory.ULTRASOUND, "Ultrasound");
+        categoryToSpecialty.put(ServiceCategory.CARDIOLOGY_TEST, "Cardiology");
+        categoryToSpecialty.put(ServiceCategory.PATHOLOGY, "Pathology");
+        categoryToSpecialty.put(ServiceCategory.ENDOSCOPY, "Endoscopy");
+        categoryToSpecialty.put(ServiceCategory.OTHER, "Radiology"); // Default OTHER to Radiology
+
+        int count = 0;
+        for (Object[] row : services) {
+            ServiceCategory category = (ServiceCategory) row[0];
+            String specialtyName = categoryToSpecialty.get(category);
+            Specialty specialty = specialtyRepository.findByName(specialtyName).orElse(null);
+            
+            if (specialty == null) {
+                log.warn("Specialty not found for category {}, skipping service {}", category, row[1]);
+                continue;
+            }
+
+            MedicalService ms = MedicalService.builder()
+                    .serviceName((String) row[1])
+                    .category(category)
+                    .specialty(specialty)  // Link to specialty
+                    .defaultPrice(BigDecimal.valueOf((Integer) row[2]))
+                    .description((String) row[3])
+                    .active(true)
+                    .build();
+            medicalServiceRepository.save(ms);
+            count++;
+        }
+        log.info("Seeded {} medical services across {} specialties.", count, categoryToSpecialty.size());
     }
 
     private void seedRoomsAndAssignments() {
@@ -160,6 +302,134 @@ public class DataSeeder implements CommandLineRunner {
         
         if (updatedCount > 0) {
             log.info("Updated {} doctors to be available for appointments", updatedCount);
+        }
+    }
+
+    /**
+     * Seed the main specialties/departments for the service ordering workflow.
+     * These represent different clinical departments that can perform services.
+     */
+    private void seedSpecialties() {
+        log.info("Seeding specialties (departments)...");
+
+        // Specialty names for service departments
+        String[] specialtyNames = {
+            "Radiology",           // X-ray, CT, MRI
+            "Laboratory",          // Blood tests, urinalysis
+            "Ultrasound",          // Ultrasound scans
+            "Cardiology",          // ECG, echocardiogram
+            "Pathology",           // Tissue biopsies
+            "Endoscopy",           // Gastro-intestinal procedures
+        };
+
+        int created = 0;
+        for (String name : specialtyNames) {
+            if (specialtyRepository.findByName(name).isPresent()) {
+                continue;
+            }
+            Specialty specialty = Specialty.builder()
+                    .name(name)
+                    .slug(name.toLowerCase().replace(" ", "-"))
+                    .description(name + " Department - Provides " + name.toLowerCase() + " services")
+                    .isActive(true)
+                    .build();
+            specialtyRepository.save(specialty);
+            created++;
+            log.info("Created specialty: {}", name);
+        }
+        if (created == 0) {
+            log.info("All department specialties already exist, skipping seed.");
+        }
+    }
+
+    /**
+     * Seed specialist doctors for each service department.
+     * These are doctors assigned to perform services in their respective departments.
+     */
+    private void seedSpecialistDoctors() {
+        // Map of Specialty Name → Doctor Name + Specialization
+        String[][] specialists = {
+            {"Radiology",       "Dr. Nguyễn Radiology", "Chẩn đoán hình ảnh - Radiology"},
+            {"Laboratory",      "Dr. Trần Laboratory",  "Xét nghiệm - Laboratory Science"},
+            {"Ultrasound",      "Dr. Hoàng Ultrasound", "Siêu âm - Ultrasound"},
+            {"Cardiology",      "Dr. Võ Cardiology",    "Tim mạch - Cardiology"},
+            {"Pathology",       "Dr. Lê Pathology",     "Giải phẫu bệnh - Pathology"},
+            {"Endoscopy",       "Dr. Phạm Endoscopy",   "Nội soi - Endoscopy"},
+        };
+
+        for (String[] spec : specialists) {
+            String specialtyName = spec[0];
+            String doctorName = spec[1];
+            String specialization = spec[2];
+
+            // Find the specialty
+            Specialty specialty = specialtyRepository.findByName(specialtyName)
+                    .orElse(null);
+            if (specialty == null) {
+                log.warn("Specialty not found: {}", specialtyName);
+                continue;
+            }
+
+            // Check if specialist doctor already exists for this specialty
+            String lowerSpecialty = specialtyName.toLowerCase();
+            boolean doctorExists = doctorRepository.findAll().stream()
+                    .anyMatch(d -> {
+                        String[] parts = d.getFullName().toLowerCase().split(" ");
+                        // Check if any part of the name matches the specialty name
+                        for (String part : parts) {
+                            if (lowerSpecialty.contains(part) && part.length() > 2) return true;
+                        }
+                        return false;
+                    });
+            if (doctorExists) {
+                log.info("Specialist for {} already exists, skipping.", specialtyName);
+                continue;
+            }
+
+            // Create user account for the specialist
+            String email = specialtyName.toLowerCase() + "@meditech.local";
+            Optional<User> existingUser = userRepository.findByEmail(email);
+            User user;
+            if (existingUser.isPresent()) {
+                user = existingUser.get();
+            } else {
+                Role doctorRole = getOrCreateRole("DOCTOR");
+                user = User.builder()
+                        .email(email)
+                        .phone("09" + String.format("%08d", email.hashCode() & 0x7FFFFFF).substring(0, 8))
+                        .passwordHash(passwordEncoder.encode("123456"))
+                        .fullName(doctorName)
+                        .isActive(true)
+                        .isVerified(true)
+                        .twoFactorEnabled(false)
+                        .failedLoginCount(0)
+                        .userRoles(new HashSet<>())
+                        .build();
+                user = userRepository.save(user);
+
+                UserRole userRole = UserRole.builder().user(user).role(doctorRole).build();
+                user.getUserRoles().add(userRole);
+                user = userRepository.save(user);
+                log.info("Created specialist doctor user: {}", email);
+            }
+
+            // Create or update Doctor entity
+            Optional<Doctor> existingDoctor = doctorRepository.findByUserId(user.getId());
+            Doctor doctor;
+            if (existingDoctor.isPresent()) {
+                doctor = existingDoctor.get();
+            } else {
+                doctor = Doctor.builder()
+                        .user(user)
+                        .fullName(doctorName)
+                        .specialization(specialization)
+                        .isAvailable(true)
+                        .experienceYears(8)
+                        .build();
+            }
+            doctor.setDepartment(specialtyName);  // Set department string for backward compatibility
+            doctorRepository.save(doctor);
+            log.info("Created/assigned specialist doctor '{}' to department '{}'", doctorName, specialtyName);
         }
     }
 

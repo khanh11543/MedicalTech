@@ -51,7 +51,7 @@ public class Appointment extends BaseEntity {
     private LocalTime endTime;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50)
     @Builder.Default
     private AppointmentStatus status = AppointmentStatus.PENDING;
 

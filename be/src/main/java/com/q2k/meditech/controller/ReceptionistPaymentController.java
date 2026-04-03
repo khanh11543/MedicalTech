@@ -485,4 +485,100 @@ public class ReceptionistPaymentController {
         SendInvoiceResultDTO result = invoiceDeliveryService.sendInvoice(id, dto, currentUserId);
         return ResponseEntity.ok(result);
     }
+
+    // ==================== SERVICE ORDER & PRESCRIPTION RECEIPTS ====================
+
+    /**
+     * GET /api/receptionist/payments/appointments/{appointmentId}/service-orders/receipt/pdf
+     * Download service orders receipt as PDF
+     */
+    @GetMapping("/appointments/{appointmentId}/service-orders/receipt/pdf")
+    @Operation(
+        summary = "Download service orders receipt PDF",
+        description = "Download a receipt PDF for all paid service orders of an appointment"
+    )
+    public ResponseEntity<byte[]> downloadServiceOrderReceiptPdf(
+            @Parameter(description = "Appointment ID") @PathVariable Long appointmentId) {
+
+        log.info("GET /receptionist/payments/appointments/{}/service-orders/receipt/pdf", appointmentId);
+
+        byte[] pdfBytes = invoiceDeliveryService.generateServiceOrderReceiptPdf(appointmentId);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=service-orders-receipt-" + appointmentId + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdfBytes);
+    }
+
+    /**
+     * POST /api/receptionist/payments/appointments/{appointmentId}/service-orders/send-receipt
+     * Send service orders receipt to patient via email
+     */
+    @PostMapping("/appointments/{appointmentId}/service-orders/send-receipt")
+    @Operation(
+        summary = "Send service orders receipt to patient",
+        description = "Send service orders receipt to patient via email"
+    )
+    public ResponseEntity<SendInvoiceResultDTO> sendServiceOrderReceipt(
+            @Parameter(description = "Appointment ID") @PathVariable Long appointmentId,
+            @Valid @RequestBody(required = false) SendInvoiceDTO dto) {
+
+        log.info("POST /receptionist/payments/appointments/{}/service-orders/send-receipt", appointmentId);
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+
+        if (dto == null) {
+            dto = SendInvoiceDTO.builder().sendEmail(true).sendSms(false).build();
+        }
+
+        SendInvoiceResultDTO result = invoiceDeliveryService.sendServiceOrderReceipt(appointmentId, dto, currentUserId);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * GET /api/receptionist/payments/appointments/{appointmentId}/prescription/receipt/pdf
+     * Download prescription receipt as PDF
+     */
+    @GetMapping("/appointments/{appointmentId}/prescription/receipt/pdf")
+    @Operation(
+        summary = "Download prescription receipt PDF",
+        description = "Download a receipt PDF for the paid prescription of an appointment"
+    )
+    public ResponseEntity<byte[]> downloadPrescriptionReceiptPdf(
+            @Parameter(description = "Appointment ID") @PathVariable Long appointmentId) {
+
+        log.info("GET /receptionist/payments/appointments/{}/prescription/receipt/pdf", appointmentId);
+
+        byte[] pdfBytes = invoiceDeliveryService.generatePrescriptionReceiptPdf(appointmentId);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=prescription-receipt-" + appointmentId + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdfBytes);
+    }
+
+    /**
+     * POST /api/receptionist/payments/appointments/{appointmentId}/prescription/send-receipt
+     * Send prescription receipt to patient via email
+     */
+    @PostMapping("/appointments/{appointmentId}/prescription/send-receipt")
+    @Operation(
+        summary = "Send prescription receipt to patient",
+        description = "Send prescription receipt to patient via email"
+    )
+    public ResponseEntity<SendInvoiceResultDTO> sendPrescriptionReceipt(
+            @Parameter(description = "Appointment ID") @PathVariable Long appointmentId,
+            @Valid @RequestBody(required = false) SendInvoiceDTO dto) {
+
+        log.info("POST /receptionist/payments/appointments/{}/prescription/send-receipt", appointmentId);
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+
+        if (dto == null) {
+            dto = SendInvoiceDTO.builder().sendEmail(true).sendSms(false).build();
+        }
+
+        SendInvoiceResultDTO result = invoiceDeliveryService.sendPrescriptionReceipt(appointmentId, dto, currentUserId);
+        return ResponseEntity.ok(result);
+    }
 }

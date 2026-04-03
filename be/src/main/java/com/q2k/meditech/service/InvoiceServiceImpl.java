@@ -1,23 +1,27 @@
 package com.q2k.meditech.service;
 
+import com.q2k.meditech.dto.FinalInvoiceDTO;
+import com.q2k.meditech.dto.FinalInvoiceItemDTO;
 import com.q2k.meditech.dto.InvoiceDTO;
 import com.q2k.meditech.dto.InvoiceItemDTO;
 import com.q2k.meditech.dto.InvoiceUpdateDTO;
 import com.q2k.meditech.entity.*;
+import com.q2k.meditech.entity.enums.AppointmentStatus;
 import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.exception.DuplicateResourceException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
-import com.q2k.meditech.repository.InvoiceRepository;
-import com.q2k.meditech.repository.PaymentRepository;
+import com.q2k.meditech.repository.*;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -30,6 +34,9 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
+    private final AppointmentRepository appointmentRepository;
+    private final ServiceOrderRepository serviceOrderRepository;
+    private final PrescriptionRepository prescriptionRepository;
 
     @Override
     @Transactional
@@ -144,7 +151,9 @@ public class InvoiceServiceImpl implements InvoiceService {
                 .status(invoice.getStatus())
                 .notes(invoice.getNotes())
                 .createdAt(invoice.getCreatedAt())
-                .items(new ArrayList<>()) // Will add items if needed
+                .items(invoice.getItems() != null
+                        ? invoice.getItems().stream().map(this::mapItemToDTO).collect(Collectors.toList())
+                        : new ArrayList<>())
                 .build();
 
         return dto;
@@ -245,5 +254,191 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         log.info("Invoice updated successfully: {}", invoiceId);
         return mapToDTO(saved);
+    }
+
+    // ========== FINAL INVOICE ==========
+
+    @Override
+    @Transactional(readOnly = true)
+    public FinalInvoiceDTO getFinalInvoice(Long appointmentId, Long patientId) {
+        log.info("Generating final invoice for appointment ID: {} patient ID: {}", appointmentId, patientId);
+
+        if (appointmentId == null) {
+            throw new BadRequestException("Appointment ID is required");
+        }
+
+        // 1. Fetch appointment with details
+        Appointment appointment = appointmentRepository.findByIdWithDetails(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", appointmentId));
+
+        // 2. Ownership check
+        if (patientId != null && !appointment.getPatient().getId().equals(patientId)) {
+            throw new BadRequestException("You can only view invoices for your own appointments");
+        }
+
+        // 3. Must be COMPLETED
+        if (appointment.getStatus() != AppointmentStatus.COMPLETED) {
+            throw new BadRequestException("Final invoice is only available for completed appointments");
+        }
+
+        Patient patient = appointment.getPatient();
+        User patientUser = patient.getUser();
+        Doctor doctor = appointment.getDoctor();
+        User doctorUser = doctor.getUser();
+
+        // 4. Consultation fee — from appointment payment
+        List<FinalInvoiceItemDTO> consultationItems = new ArrayList<>();
+        BigDecimal consultationTotal = BigDecimal.ZERO;
+        boolean consultationPaid = false;
+
+        Optional<Payment> appointmentPayment = paymentRepository.findByAppointmentIdWithDetails(appointmentId);
+        if (appointmentPayment.isPresent()) {
+            Payment pay = appointmentPayment.get();
+            BigDecimal fee = pay.getAmount() != null ? pay.getAmount() : BigDecimal.ZERO;
+            consultationItems.add(FinalInvoiceItemDTO.builder()
+                    .category("CONSULTATION")
+                    .description("Medical Consultation - " + (doctor.getUser().getFullName() != null ? doctor.getUser().getFullName() : "Doctor"))
+                    .quantity(1)
+                    .unitPrice(fee)
+                    .totalPrice(fee)
+                    .detail(getSpecialtyName(doctor))
+                    .build());
+            consultationTotal = fee;
+            consultationPaid = "PAID".equalsIgnoreCase(pay.getPaymentStatus());
+        }
+
+        // 5. Service orders
+        List<FinalInvoiceItemDTO> serviceItems = new ArrayList<>();
+        BigDecimal servicesTotal = BigDecimal.ZERO;
+        boolean allServicesPaid = true;
+        boolean hasServices = false;
+
+        List<ServiceOrder> serviceOrders = serviceOrderRepository.findByAppointmentIdOrderByOrderedAtDesc(appointmentId);
+        for (ServiceOrder so : serviceOrders) {
+            hasServices = true;
+            BigDecimal price = so.getPrice() != null ? so.getPrice() : BigDecimal.ZERO;
+            serviceItems.add(FinalInvoiceItemDTO.builder()
+                    .category("SERVICE")
+                    .description(so.getServiceName())
+                    .quantity(1)
+                    .unitPrice(price)
+                    .totalPrice(price)
+                    .detail(so.getCategory() != null ? so.getCategory().name() : null)
+                    .build());
+            servicesTotal = servicesTotal.add(price);
+            if (!"PAID".equalsIgnoreCase(so.getPaymentStatus())) {
+                allServicesPaid = false;
+            }
+        }
+
+        // 6. Prescription medications
+        List<FinalInvoiceItemDTO> medicationItems = new ArrayList<>();
+        BigDecimal medicationsTotal = BigDecimal.ZERO;
+        boolean prescriptionPaid = false;
+        boolean hasPrescription = false;
+
+        Optional<Prescription> prescriptionOpt = prescriptionRepository.findByAppointmentId(appointmentId);
+        if (prescriptionOpt.isPresent()) {
+            Prescription prescription = prescriptionOpt.get();
+            // Need to fetch with items
+            Prescription fullPrescription = prescriptionRepository.findByIdWithDetails(prescription.getId())
+                    .orElse(prescription);
+
+            hasPrescription = true;
+            prescriptionPaid = "PAID".equalsIgnoreCase(fullPrescription.getPrescriptionPaymentStatus());
+
+            if (fullPrescription.getItems() != null) {
+                for (PrescriptionItem item : fullPrescription.getItems()) {
+                    BigDecimal unitPrice = item.getPrice() != null ? item.getPrice() : BigDecimal.ZERO;
+                    int qty = item.getQuantity() != null ? item.getQuantity() : 1;
+                    BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(qty));
+
+                    String detail = "";
+                    if (item.getDosage() != null) detail += item.getDosage();
+                    if (item.getFrequency() != null) detail += (detail.isEmpty() ? "" : " - ") + item.getFrequency();
+                    if (item.getDuration() != null) detail += (detail.isEmpty() ? "" : " - ") + item.getDuration();
+
+                    medicationItems.add(FinalInvoiceItemDTO.builder()
+                            .category("MEDICATION")
+                            .description(item.getMedicineName())
+                            .quantity(qty)
+                            .unitPrice(unitPrice)
+                            .totalPrice(lineTotal)
+                            .detail(detail.isEmpty() ? null : detail)
+                            .build());
+                    medicationsTotal = medicationsTotal.add(lineTotal);
+                }
+            }
+        }
+
+        // 7. Compute totals
+        BigDecimal subtotal = consultationTotal.add(servicesTotal).add(medicationsTotal);
+        BigDecimal discount = BigDecimal.ZERO;
+        BigDecimal tax = BigDecimal.ZERO;
+        // Accumulate discount/tax from payment if present
+        if (appointmentPayment.isPresent()) {
+            Payment pay = appointmentPayment.get();
+            if (pay.getDiscountAmount() != null) discount = discount.add(pay.getDiscountAmount());
+            if (pay.getTaxAmount() != null) tax = tax.add(pay.getTaxAmount());
+        }
+        BigDecimal grandTotal = subtotal.subtract(discount).add(tax);
+
+        // 8. Determine payment status
+        boolean allPaid = consultationPaid
+                && (!hasServices || allServicesPaid)
+                && (!hasPrescription || prescriptionPaid);
+        boolean anyPaid = consultationPaid || (hasServices && serviceOrders.stream()
+                .anyMatch(so -> "PAID".equalsIgnoreCase(so.getPaymentStatus())))
+                || (hasPrescription && prescriptionPaid);
+
+        String paymentStatus;
+        if (allPaid) {
+            paymentStatus = "ALL_PAID";
+        } else if (anyPaid) {
+            paymentStatus = "PARTIALLY_PAID";
+        } else {
+            paymentStatus = "UNPAID";
+        }
+
+        // 9. Generate a virtual invoice number
+        String invoiceNumber = "FI-" + appointment.getAppointmentCode();
+
+        return FinalInvoiceDTO.builder()
+                .appointmentId(appointmentId)
+                .appointmentCode(appointment.getAppointmentCode())
+                .patientId(patient.getId())
+                .patientName(patientUser != null ? patientUser.getFullName() : "Unknown")
+                .patientEmail(patientUser != null ? patientUser.getEmail() : null)
+                .patientPhone(patientUser != null ? patientUser.getPhone() : null)
+                .doctorName(doctorUser != null ? doctorUser.getFullName() : "Unknown")
+                .doctorSpecialty(getSpecialtyName(doctor))
+                .invoiceDate(LocalDate.now())
+                .invoiceNumber(invoiceNumber)
+                .consultationItems(consultationItems)
+                .serviceItems(serviceItems)
+                .medicationItems(medicationItems)
+                .consultationTotal(consultationTotal)
+                .servicesTotal(servicesTotal)
+                .medicationsTotal(medicationsTotal)
+                .subtotal(subtotal)
+                .discount(discount)
+                .tax(tax)
+                .grandTotal(grandTotal)
+                .paymentStatus(paymentStatus)
+                .invoiceReady(allPaid)
+                .createdAt(LocalDateTime.now())
+                .build();
+    }
+
+    private String getSpecialtyName(Doctor doctor) {
+        try {
+            List<Specialty> specialties = doctor.getSpecialties();
+            if (specialties != null && !specialties.isEmpty()) {
+                return specialties.get(0).getName();
+            }
+        } catch (Exception e) {
+            // lazy loading may fail in some contexts
+        }
+        return null;
     }
 }

@@ -1,5 +1,6 @@
 package com.q2k.meditech.service;
 
+import com.q2k.meditech.dto.FinalInvoiceDTO;
 import com.q2k.meditech.dto.InvoiceDTO;
 import com.q2k.meditech.dto.InvoiceUpdateDTO;
 
@@ -54,4 +55,13 @@ public interface InvoiceService {
      * @return Updated invoice
      */
     InvoiceDTO updateInvoice(Long invoiceId, InvoiceUpdateDTO dto, Long currentUserId);
+
+    /**
+     * Get the comprehensive Final Invoice for an appointment.
+     * Aggregates consultation fee, service orders, and prescription medications.
+     * @param appointmentId Appointment ID
+     * @param patientId Patient ID (for ownership check)
+     * @return Final Invoice DTO
+     */
+    FinalInvoiceDTO getFinalInvoice(Long appointmentId, Long patientId);
 }

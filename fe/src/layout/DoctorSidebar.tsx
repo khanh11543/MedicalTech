@@ -65,6 +65,11 @@ const clinicalNavItems: NavItem[] = [
     path: '/doctor/consultation',
   },
   {
+    icon: <TaskIcon />,
+    name: 'Service Worklist',
+    path: '/doctor/service-worklist',
+  },
+  {
     icon: <DocsIcon />,
     name: 'Prescriptions',
     path: '/doctor/prescriptions',

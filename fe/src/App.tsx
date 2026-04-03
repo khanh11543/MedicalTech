@@ -206,6 +206,12 @@ const DoctorVerificationCenter = lazy(
   () => import('./pages/Doctor/DoctorVerificationCenter')
 );
 const DoctorSettings = lazy(() => import('./pages/Doctor/DoctorSettings'));
+const DoctorServiceWorklist = lazy(
+  () => import('./pages/Doctor/DoctorServiceWorklist')
+);
+const ServiceResultForm = lazy(
+  () => import('./pages/Doctor/ServiceResultForm')
+);
 import DoctorProtectedRoute from './components/auth/DoctorProtectedRoute';
 import DoctorAppointmentsUpcoming from './pages/Doctor/DoctorAppointmentsUpcoming';
 
@@ -538,6 +544,16 @@ export default function App() {
                   element={<DoctorScheduleTemplates />}
                 />
                 <Route path='consultation' element={<DoctorConsultation />} />
+
+                {/* Service Worklist Routes */}
+                <Route
+                  path='service-worklist'
+                  element={<DoctorServiceWorklist />}
+                />
+                <Route
+                  path='service-worklist/:serviceOrderId/result'
+                  element={<ServiceResultForm />}
+                />
 
                 {/* Prescriptions Routes */}
                 <Route path='prescriptions' element={<DoctorPrescriptions />} />

@@ -6,6 +6,7 @@ public enum AppointmentStatus {
     CONFIRMED,    // Confirmed  - The patient has confirmed the appointment
     CHECKED_IN,   // Checked in - The patient has checked in at the clinic
     IN_PROGRESS,  // In progress - The appointment is currently in progress
+    AWAITING_SERVICE_RESULTS, // Waiting for ordered service results (lab, imaging, etc.)
     COMPLETED,    // Completed - The appointment has been completed successfully
     CANCELLED,    // Cancelled - The appointment has been cancelled by either the patient or the clinic
     NO_SHOW,      // No show - The patient did not show up for the appointment without prior notice

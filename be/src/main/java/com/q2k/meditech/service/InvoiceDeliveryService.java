@@ -49,4 +49,44 @@ public interface InvoiceDeliveryService {
      * @return PDF as byte array
      */
     byte[] generateInvoicePdf(Long invoiceId);
+
+    /**
+     * Generate comprehensive Final Invoice PDF for an appointment
+     * @param appointmentId Appointment ID
+     * @param patientId Patient ID (ownership check)
+     * @return PDF as byte array
+     */
+    byte[] generateFinalInvoicePdf(Long appointmentId, Long patientId);
+
+    /**
+     * Generate receipt PDF for paid service orders of an appointment
+     * @param appointmentId Appointment ID
+     * @return PDF as byte array
+     */
+    byte[] generateServiceOrderReceiptPdf(Long appointmentId);
+
+    /**
+     * Generate receipt PDF for a paid prescription of an appointment
+     * @param appointmentId Appointment ID
+     * @return PDF as byte array
+     */
+    byte[] generatePrescriptionReceiptPdf(Long appointmentId);
+
+    /**
+     * Send service order receipt to patient via email
+     * @param appointmentId Appointment ID
+     * @param dto Send parameters
+     * @param currentUserId User initiating the send
+     * @return Send result
+     */
+    SendInvoiceResultDTO sendServiceOrderReceipt(Long appointmentId, SendInvoiceDTO dto, Long currentUserId);
+
+    /**
+     * Send prescription receipt to patient via email
+     * @param appointmentId Appointment ID
+     * @param dto Send parameters
+     * @param currentUserId User initiating the send
+     * @return Send result
+     */
+    SendInvoiceResultDTO sendPrescriptionReceipt(Long appointmentId, SendInvoiceDTO dto, Long currentUserId);
 }

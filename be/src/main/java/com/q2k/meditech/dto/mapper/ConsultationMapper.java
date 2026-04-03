@@ -87,6 +87,7 @@ public class ConsultationMapper {
                 .id(attachment.getId())
                 .consultationId(attachment.getConsultation().getId())
                 .filename(attachment.getFilename())
+                .filePath(attachment.getFilePath())
                 .fileType(attachment.getFileType())
                 .fileSize(attachment.getFileSize())
                 .mimeType(attachment.getMimeType())

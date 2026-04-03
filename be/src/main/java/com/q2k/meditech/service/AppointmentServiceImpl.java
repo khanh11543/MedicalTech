@@ -879,6 +879,7 @@ public class AppointmentServiceImpl implements AppointmentService {
             case CONFIRMED -> List.of("CHECK_IN", "RESCHEDULE", "CANCEL", "SEND_REMINDER", "PRINT_SLIP");
             case CHECKED_IN -> List.of("VIEW_QUEUE", "MARK_NO_SHOW", "NOTIFY_DOCTOR");
             case IN_PROGRESS -> List.of("VIEW");
+            case AWAITING_SERVICE_RESULTS -> List.of("VIEW");
             case COMPLETED -> List.of("COLLECT_PAYMENT", "RECEIPT", "CREATE_FOLLOW_UP");
             case CANCELLED, NO_SHOW -> List.of("VIEW_REASON", "REBOOK");
             case RESCHEDULED -> List.of("VIEW");

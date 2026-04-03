@@ -1117,6 +1117,113 @@ export const exportAuditLogs = async (
   return response.data;
 };
 
+// ==================== 11. Service Order Audit Logs ====================
+
+export interface ServiceOrderAuditLogDTO {
+  id: number;
+  eventType: string;
+  actorName: string;
+  actorRole: string;
+  patientName: string;
+  appointmentId: number | null;
+  serviceOrderId: number | null;
+  summary: string;
+  createdAt: string;
+}
+
+export interface ServiceOrderAuditLogDetailDTO {
+  id: number;
+  eventType: string;
+  actorName: string;
+  actorRole: string;
+  createdAt: string;
+  appointmentId: number | null;
+  consultationId: number | null;
+  patientId: number | null;
+  patientName: string;
+  serviceOrderId: number | null;
+  serviceResultId: number | null;
+  summary: string;
+  beforeData: unknown;
+  afterData: unknown;
+  ipAddress: string;
+  userAgent: string;
+}
+
+export interface ServiceOrderAuditFilter {
+  eventTypes?: string[];
+  roles?: string[];
+  search?: string;
+  from?: string;
+  to?: string;
+  appointmentId?: number;
+  serviceOrderId?: number;
+  pageNumber?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortDir?: string;
+}
+
+export const getServiceOrderAuditLogs = async (
+  filter: ServiceOrderAuditFilter
+): Promise<PageResponse<ServiceOrderAuditLogDTO>> => {
+  const params: Record<string, unknown> = {};
+  if (filter.eventTypes?.length) params.eventTypes = filter.eventTypes;
+  if (filter.roles?.length) params.roles = filter.roles;
+  if (filter.search) params.search = filter.search;
+  if (filter.from) params.from = filter.from;
+  if (filter.to) params.to = filter.to;
+  if (filter.appointmentId) params.appointmentId = filter.appointmentId;
+  if (filter.serviceOrderId) params.serviceOrderId = filter.serviceOrderId;
+  params.pageNumber = filter.pageNumber ?? 0;
+  params.pageSize = filter.pageSize ?? 20;
+  params.sortBy = filter.sortBy || "createdAt";
+  params.sortDir = filter.sortDir || "DESC";
+  const response = await api.get("/admin/service-order-audit", { params });
+  return response.data;
+};
+
+export const getServiceOrderAuditDetail = async (
+  id: number
+): Promise<ServiceOrderAuditLogDetailDTO> => {
+  const response = await api.get(`/admin/service-order-audit/${id}`);
+  return response.data;
+};
+
+export const getServiceOrderAuditTimeline = async (
+  appointmentId: number
+): Promise<ServiceOrderAuditLogDTO[]> => {
+  const response = await api.get(
+    `/admin/service-order-audit/timeline/${appointmentId}`
+  );
+  return response.data;
+};
+
+export const getServiceOrderAuditEventTypes = async (): Promise<string[]> => {
+  const response = await api.get("/admin/service-order-audit/event-types");
+  return response.data;
+};
+
+export const SO_AUDIT_EVENT_LABELS: Record<string, string> = {
+  SERVICE_ORDER_CREATED: "Order Created",
+  SERVICE_PAYMENT_COLLECTED: "Payment Collected",
+  SERVICE_STARTED: "Service Started",
+  SERVICE_RESULT_COMPLETED: "Result Completed",
+  SERVICE_RESULT_VIEWED: "Result Viewed",
+  CONSULTATION_FINALIZED: "Consultation Finalized",
+  SERVICE_ORDER_CANCELLED: "Order Cancelled",
+};
+
+export const SO_AUDIT_EVENT_COLORS: Record<string, string> = {
+  SERVICE_ORDER_CREATED: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  SERVICE_PAYMENT_COLLECTED: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  SERVICE_STARTED: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+  SERVICE_RESULT_COMPLETED: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  SERVICE_RESULT_VIEWED: "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400",
+  CONSULTATION_FINALIZED: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+  SERVICE_ORDER_CANCELLED: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+};
+
 // ==================== Helpers ====================
 
 export const EVENT_TYPE_LABELS: Record<SecurityEventType, string> = {

@@ -58,6 +58,9 @@ public class ReceptionistAppointmentListDTO {
     private String prescriptionPaymentStatus;
     private BigDecimal prescriptionTotalCost;
 
+    // Service order payment info
+    private String serviceOrderPaymentStatus; // UNPAID, PARTIAL, PAID, or null (no orders)
+
     /**
      * Convert from full AppointmentDTO to privacy-respecting receptionist DTO.
      */

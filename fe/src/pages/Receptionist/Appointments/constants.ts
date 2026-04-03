@@ -21,6 +21,11 @@ export const STATUS_CONFIG: Record<string, { label: string; color: string; bg: s
     color: "text-indigo-800 dark:text-indigo-400",
     bg: "bg-indigo-100 dark:bg-indigo-900/30",
   },
+  AWAITING_SERVICE_RESULTS: {
+    label: "Awaiting Services",
+    color: "text-orange-800 dark:text-orange-400",
+    bg: "bg-orange-100 dark:bg-orange-900/30",
+  },
   COMPLETED: {
     label: "Completed",
     color: "text-emerald-800 dark:text-emerald-400",
@@ -49,6 +54,16 @@ export const PAYMENT_STATUS_CONFIG: Record<string, { label: string; color: strin
     color: "text-orange-800 dark:text-orange-400",
     bg: "bg-orange-100 dark:bg-orange-900/30",
   },
+  UNPAID: {
+    label: "Unpaid",
+    color: "text-orange-800 dark:text-orange-400",
+    bg: "bg-orange-100 dark:bg-orange-900/30",
+  },
+  PARTIAL: {
+    label: "Partial",
+    color: "text-amber-800 dark:text-amber-400",
+    bg: "bg-amber-100 dark:bg-amber-900/30",
+  },
   PAID: {
     label: "Paid",
     color: "text-green-800 dark:text-green-400",
@@ -72,8 +87,9 @@ export const ACTIONS_PER_STATUS: Record<string, string[]> = {
   PENDING: ["VIEW", "CONFIRM", "RESCHEDULE", "CANCEL", "COLLECT_PAYMENT", "RECEIPT"],
   CONFIRMED: ["CHECK_IN", "RESCHEDULE", "CANCEL", "SEND_REMINDER", "PRINT_SLIP", "COLLECT_PAYMENT", "RECEIPT"],
   CHECKED_IN: ["VIEW_QUEUE", "MARK_NO_SHOW", "NOTIFY_DOCTOR", "COLLECT_PAYMENT", "RECEIPT", "COLLECT_RX_PAYMENT"],
-  IN_PROGRESS: ["VIEW", "COLLECT_PAYMENT", "RECEIPT", "COLLECT_RX_PAYMENT"],
-  COMPLETED: ["COLLECT_PAYMENT", "RECEIPT", "CREATE_FOLLOW_UP", "COLLECT_RX_PAYMENT"],
+  IN_PROGRESS: ["VIEW", "COLLECT_PAYMENT", "RECEIPT", "COLLECT_RX_PAYMENT", "COLLECT_SO_PAYMENT"],
+  AWAITING_SERVICE_RESULTS: ["VIEW", "COLLECT_PAYMENT", "RECEIPT", "COLLECT_SO_PAYMENT"],
+  COMPLETED: ["COLLECT_PAYMENT", "RECEIPT", "CREATE_FOLLOW_UP", "COLLECT_RX_PAYMENT", "COLLECT_SO_PAYMENT"],
   CANCELLED: ["VIEW_REASON", "REBOOK"],
   NO_SHOW: ["VIEW_REASON", "REBOOK"],
 };

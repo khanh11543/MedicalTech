@@ -11,6 +11,8 @@ import com.q2k.meditech.entity.enums.ConsultationStatus;
 import com.q2k.meditech.repository.*;
 import com.q2k.meditech.service.ConsultationService;
 import com.q2k.meditech.service.FileStorageService;
+import com.q2k.meditech.service.ServiceOrderAuditLogService;
+import com.q2k.meditech.service.ServiceOrderService;
 import com.q2k.meditech.util.SecurityUtil;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -42,6 +44,8 @@ public class ConsultationServiceImpl implements ConsultationService {
     private final UserRepository userRepository;
     private final ConsultationMapper consultationMapper;
     private final FileStorageService fileStorageService;
+    private final ServiceOrderService serviceOrderService;
+    private final ServiceOrderAuditLogService soAuditLogService;
 
     // File upload configuration
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -213,7 +217,24 @@ public class ConsultationServiceImpl implements ConsultationService {
         
         Consultation finalizedConsultation = consultationRepository.save(consultation);
         log.info("Finalized consultation ID: {} and updated appointment status to COMPLETED", consultationId);
-        
+
+        // Audit log
+        String patientName = null; Long patientId = null;
+        try {
+            if (consultation.getPatient() != null && consultation.getPatient().getUser() != null) {
+                patientName = consultation.getPatient().getUser().getFullName();
+                patientId = consultation.getPatient().getId();
+            }
+        } catch (Exception ignored) {}
+        soAuditLogService.logEvent(
+                ServiceOrderAuditLogService.event("CONSULTATION_FINALIZED")
+                        .appointment(appointment.getId())
+                        .consultation(consultationId)
+                        .patient(patientId, patientName)
+                        .summary("Doctor finalized consultation, appointment marked COMPLETED")
+                        .after(java.util.Map.of("consultationStatus", "FINALIZED", "appointmentStatus", "COMPLETED"))
+        );
+
         return consultationMapper.toDTO(finalizedConsultation);
     }
 
@@ -245,8 +266,15 @@ public class ConsultationServiceImpl implements ConsultationService {
                     return consultationRepository.save(newConsultation);
                 });
         
-        if (!ConsultationStatus.DRAFT.equals(consultation.getStatus())) {
-            throw new IllegalStateException("Only DRAFT consultations can be finalized. Current status: " + consultation.getStatus());
+        if (!ConsultationStatus.DRAFT.equals(consultation.getStatus())
+            && !ConsultationStatus.AWAITING_RESULTS.equals(consultation.getStatus())
+            && !ConsultationStatus.READY_TO_FINALIZE.equals(consultation.getStatus())) {
+            throw new IllegalStateException("Only DRAFT, AWAITING_RESULTS, or READY_TO_FINALIZE consultations can be finalized. Current status: " + consultation.getStatus());
+        }
+        
+        // Block finalization if there are pending service orders
+        if (serviceOrderService.hasPendingServiceOrders(appointmentId)) {
+            throw new IllegalStateException("Cannot finalize consultation while ordered services are pending.");
         }
         
         // Update consultation fields with provided data (in case it was an existing draft)
@@ -270,7 +298,25 @@ public class ConsultationServiceImpl implements ConsultationService {
         
         Consultation finalizedConsultation = consultationRepository.save(consultation);
         log.info("Finalized consultation with data for appointment ID: {} and updated appointment status to COMPLETED", appointmentId);
-        
+
+        // Audit log
+        String patientName2 = null; Long patientId2 = null;
+        try {
+            if (consultation.getPatient() != null && consultation.getPatient().getUser() != null) {
+                patientName2 = consultation.getPatient().getUser().getFullName();
+                patientId2 = consultation.getPatient().getId();
+            }
+        } catch (Exception ignored) {}
+        soAuditLogService.logEvent(
+                ServiceOrderAuditLogService.event("CONSULTATION_FINALIZED")
+                        .appointment(appointmentId)
+                        .consultation(consultation.getId())
+                        .patient(patientId2, patientName2)
+                        .summary("Doctor finalized consultation with data, appointment marked COMPLETED")
+                        .after(java.util.Map.of("consultationStatus", "FINALIZED", "appointmentStatus", "COMPLETED",
+                                "diagnosis", consultation.getDiagnosis() != null ? consultation.getDiagnosis() : ""))
+        );
+
         return consultationMapper.toDTO(finalizedConsultation);
     }
 

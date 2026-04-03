@@ -7,6 +7,7 @@ export type AppointmentStatus =
   | "CONFIRMED"
   | "CHECKED_IN"
   | "IN_PROGRESS"
+  | "AWAITING_SERVICE_RESULTS"
   | "COMPLETED"
   | "CANCELLED"
   | "NO_SHOW"
@@ -234,6 +235,7 @@ export interface ReceptionistAppointmentListDTO {
   prescriptionId?: number | null;
   prescriptionPaymentStatus?: string;
   prescriptionTotalCost?: number;
+  serviceOrderPaymentStatus?: string;
 }
 
 // ==================== APPOINTMENT DETAIL TYPES ====================
@@ -1064,6 +1066,34 @@ const receptionistService = {
   // Send invoice/receipt to patient via email/SMS
   sendInvoice: async (paymentId: number, dto: { sendEmail?: boolean; sendSms?: boolean; email?: string; phone?: string; message?: string }) => {
     const response = await api.post(`/receptionist/payments/${paymentId}/send-invoice`, dto);
+    return response.data;
+  },
+
+  // Download service orders receipt PDF
+  downloadServiceOrderReceiptPDF: async (appointmentId: number): Promise<Blob> => {
+    const response = await api.get(`/receptionist/payments/appointments/${appointmentId}/service-orders/receipt/pdf`, {
+      responseType: "blob",
+    });
+    return response.data;
+  },
+
+  // Send service orders receipt to patient via email
+  sendServiceOrderReceipt: async (appointmentId: number, dto: { sendEmail?: boolean; email?: string }) => {
+    const response = await api.post(`/receptionist/payments/appointments/${appointmentId}/service-orders/send-receipt`, dto);
+    return response.data;
+  },
+
+  // Download prescription receipt PDF
+  downloadPrescriptionReceiptPDF: async (appointmentId: number): Promise<Blob> => {
+    const response = await api.get(`/receptionist/payments/appointments/${appointmentId}/prescription/receipt/pdf`, {
+      responseType: "blob",
+    });
+    return response.data;
+  },
+
+  // Send prescription receipt to patient via email
+  sendPrescriptionReceipt: async (appointmentId: number, dto: { sendEmail?: boolean; email?: string }) => {
+    const response = await api.post(`/receptionist/payments/appointments/${appointmentId}/prescription/send-receipt`, dto);
     return response.data;
   },
 

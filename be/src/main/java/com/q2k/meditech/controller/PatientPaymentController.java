@@ -1,5 +1,6 @@
 package com.q2k.meditech.controller;
 
+import com.q2k.meditech.dto.FinalInvoiceDTO;
 import com.q2k.meditech.dto.InvoiceDTO;
 import com.q2k.meditech.dto.PaymentDTO;
 import com.q2k.meditech.dto.PaymentInitDTO;
@@ -196,6 +197,51 @@ public class PatientPaymentController {
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=invoice-" + invoiceId + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdfBytes);
+    }
+
+    // ==================== FINAL INVOICE ====================
+
+    /**
+     * GET /api/patient/appointments/{appointmentId}/final-invoice
+     * Get comprehensive final invoice for a completed appointment
+     */
+    @GetMapping("/appointments/{appointmentId}/final-invoice")
+    @Operation(
+        summary = "Get final invoice",
+        description = "Get comprehensive final invoice aggregating consultation, services, and medications (ownership verified)"
+    )
+    public ResponseEntity<FinalInvoiceDTO> getFinalInvoice(
+            @Parameter(description = "Appointment ID") @PathVariable Long appointmentId) {
+
+        log.info("GET /patient/appointments/{}/final-invoice", appointmentId);
+
+        Long patientId = getCurrentPatientId();
+        FinalInvoiceDTO finalInvoice = invoiceService.getFinalInvoice(appointmentId, patientId);
+
+        return ResponseEntity.ok(finalInvoice);
+    }
+
+    /**
+     * GET /api/patient/appointments/{appointmentId}/final-invoice/pdf
+     * Download final invoice as PDF
+     */
+    @GetMapping("/appointments/{appointmentId}/final-invoice/pdf")
+    @Operation(
+        summary = "Download final invoice PDF",
+        description = "Download comprehensive final invoice as PDF (ownership verified)"
+    )
+    public ResponseEntity<byte[]> downloadFinalInvoicePdf(
+            @Parameter(description = "Appointment ID") @PathVariable Long appointmentId) {
+
+        log.info("GET /patient/appointments/{}/final-invoice/pdf", appointmentId);
+
+        Long patientId = getCurrentPatientId();
+        byte[] pdfBytes = invoiceDeliveryService.generateFinalInvoicePdf(appointmentId, patientId);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=final-invoice-" + appointmentId + ".pdf")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdfBytes);
     }

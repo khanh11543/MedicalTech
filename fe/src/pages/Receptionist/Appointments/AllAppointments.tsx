@@ -30,6 +30,7 @@ import {
   CreateFollowUpModal,
 } from './CompletedActionModals';
 import { ViewReasonModal, RebookModal } from './CancelledNoShowActionModals';
+import { CollectServiceOrderPaymentModal } from './ServiceOrderPaymentModal';
 import {
   createPrescriptionPayment,
   initMomoPayment,
@@ -154,6 +155,12 @@ export default function AllAppointments({
   // Rx Payment modal states
   const [rxPaymentModalOpen, setRxPaymentModalOpen] = useState(false);
   const [rxPaymentAppointment, setRxPaymentAppointment] = useState<ReceptionistAppointmentListDTO | null>(null);
+
+  // Service Order Payment modal states
+  const [soPaymentModal, setSoPaymentModal] = useState<{
+    open: boolean;
+    appointment: ReceptionistAppointmentListDTO | null;
+  }>({ open: false, appointment: null });
   const [rxPaymentStep, setRxPaymentStep] = useState<'select-method' | 'cash-form' | 'momo-qr' | 'success'>('select-method');
   const [rxPaymentLoading, setRxPaymentLoading] = useState(false);
   const [rxInitLoading, setRxInitLoading] = useState(false);
@@ -330,6 +337,9 @@ export default function AllAppointments({
       case 'COLLECT_RX_PAYMENT':
         setRxPaymentAppointment(apt);
         setRxPaymentModalOpen(true);
+        break;
+      case 'COLLECT_SO_PAYMENT':
+        setSoPaymentModal({ open: true, appointment: apt });
         break;
       default:
         onViewDetail(apt.id);
@@ -792,6 +802,9 @@ export default function AllAppointments({
                     <th className='px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase'>
                       Rx Payment
                     </th>
+                    <th className='px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase'>
+                      SO Payment
+                    </th>
                     <th className='px-3 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase min-w-[220px]'>
                       Actions
                     </th>
@@ -861,6 +874,13 @@ export default function AllAppointments({
                       <td className='px-3 py-3 text-center'>
                         {apt.prescriptionId ? (
                           <PaymentBadge status={apt.prescriptionPaymentStatus} />
+                        ) : (
+                          <span className='text-xs text-gray-400'>—</span>
+                        )}
+                      </td>
+                      <td className='px-3 py-3 text-center'>
+                        {apt.serviceOrderPaymentStatus ? (
+                          <PaymentBadge status={apt.serviceOrderPaymentStatus} />
                         ) : (
                           <span className='text-xs text-gray-400'>—</span>
                         )}
@@ -980,6 +1000,18 @@ export default function AllAppointments({
           setToast({ message: msg, type: 'success' });
         }}
         onError={(msg) => setToast({ message: msg, type: 'error' })}
+      />
+
+      {/* ── Service Order Payment Modal ── */}
+      <CollectServiceOrderPaymentModal
+        isOpen={soPaymentModal.open}
+        appointment={soPaymentModal.appointment}
+        onClose={() => setSoPaymentModal({ open: false, appointment: null })}
+        onSuccess={(msg) => {
+          setToast({ message: msg, type: 'success' });
+        }}
+        onError={(msg) => setToast({ message: msg, type: 'error' })}
+        onRefresh={fetchAppointments}
       />
 
       {/* ── IN_PROGRESS Action Modals ── */}

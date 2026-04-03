@@ -48,9 +48,9 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     @Override
     public String uploadFile(String folder, MultipartFile file) {
-        Set<String> allowed = folder.contains("document") || folder.contains("consultation")
+        Set<String> allowed = folder.contains("document") || folder.contains("consultation") || folder.contains("service-result")
                 ? ALLOWED_DOC_EXTENSIONS : ALLOWED_IMAGE_EXTENSIONS;
-        long maxSize = folder.contains("document") || folder.contains("consultation")
+        long maxSize = folder.contains("document") || folder.contains("consultation") || folder.contains("service-result")
                 ? MAX_DOC_SIZE : MAX_IMAGE_SIZE;
 
         validateFile(file, maxSize, allowed);

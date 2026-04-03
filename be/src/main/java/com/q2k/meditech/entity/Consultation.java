@@ -44,7 +44,7 @@ public class Consultation extends BaseEntity {
     private Doctor doctor;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 50)
     @Builder.Default
     private ConsultationStatus status = ConsultationStatus.DRAFT;
 

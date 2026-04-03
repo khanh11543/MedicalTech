@@ -1,6 +1,8 @@
 package com.q2k.meditech.service;
 
 import com.q2k.meditech.dto.DeliveryLogDTO;
+import com.q2k.meditech.dto.FinalInvoiceDTO;
+import com.q2k.meditech.dto.FinalInvoiceItemDTO;
 import com.q2k.meditech.dto.SendInvoiceDTO;
 import com.q2k.meditech.dto.SendInvoiceResultDTO;
 import com.q2k.meditech.entity.*;
@@ -28,10 +30,14 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
 
     private final PaymentRepository paymentRepository;
     private final InvoiceRepository invoiceRepository;
+    private final InvoiceService invoiceService;
     private final DeliveryLogRepository deliveryLogRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final SmsService smsService;
+    private final AppointmentRepository appointmentRepository;
+    private final ServiceOrderRepository serviceOrderRepository;
+    private final PrescriptionRepository prescriptionRepository;
 
     @Override
     @Transactional
@@ -557,5 +563,391 @@ public class InvoiceDeliveryServiceImpl implements InvoiceDeliveryService {
 
         smsService.sendSms(phone, message);
         log.info("Refund SMS sent to: {}", phone);
+    }
+
+    // ========== FINAL INVOICE PDF ==========
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] generateFinalInvoicePdf(Long appointmentId, Long patientId) {
+        log.info("Generating Final Invoice PDF for appointment: {}", appointmentId);
+
+        FinalInvoiceDTO fi = invoiceService.getFinalInvoice(appointmentId, patientId);
+
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            com.itextpdf.kernel.pdf.PdfWriter writer = new com.itextpdf.kernel.pdf.PdfWriter(outputStream);
+            com.itextpdf.kernel.pdf.PdfDocument pdfDoc = new com.itextpdf.kernel.pdf.PdfDocument(writer);
+            com.itextpdf.layout.Document document = new com.itextpdf.layout.Document(pdfDoc);
+
+            // ── Title ──
+            document.add(new com.itextpdf.layout.element.Paragraph("FINAL INVOICE")
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                    .setFontSize(18)
+                    .setBold()
+                    .setMarginBottom(5));
+
+            document.add(new com.itextpdf.layout.element.Paragraph("Medical Tech Clinic")
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                    .setFontSize(10)
+                    .setMarginBottom(15));
+
+            // ── Invoice info ──
+            com.itextpdf.layout.element.Paragraph info = new com.itextpdf.layout.element.Paragraph()
+                    .setFontSize(10)
+                    .add("Invoice #: " + fi.getInvoiceNumber() + "\n")
+                    .add("Date: " + fi.getInvoiceDate() + "\n")
+                    .add("Appointment: " + (fi.getAppointmentCode() != null ? fi.getAppointmentCode() : "N/A") + "\n")
+                    .add("Patient: " + fi.getPatientName() + "\n")
+                    .add("Doctor: " + (fi.getDoctorName() != null ? fi.getDoctorName() : "N/A") + "\n")
+                    .add("Specialty: " + (fi.getDoctorSpecialty() != null ? fi.getDoctorSpecialty() : "N/A"));
+            document.add(info);
+
+            // ── Consultation Section ──
+            if (fi.getConsultationItems() != null && !fi.getConsultationItems().isEmpty()) {
+                document.add(new com.itextpdf.layout.element.Paragraph("Consultation")
+                        .setBold().setFontSize(12).setMarginTop(15).setMarginBottom(5));
+                document.add(buildItemTable(fi.getConsultationItems()));
+                document.add(new com.itextpdf.layout.element.Paragraph("Section Total: " + formatCurrency(fi.getConsultationTotal()) + " VND")
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT).setFontSize(10).setBold());
+            }
+
+            // ── Services Section ──
+            if (fi.getServiceItems() != null && !fi.getServiceItems().isEmpty()) {
+                document.add(new com.itextpdf.layout.element.Paragraph("Services / Lab / Imaging")
+                        .setBold().setFontSize(12).setMarginTop(15).setMarginBottom(5));
+                document.add(buildItemTable(fi.getServiceItems()));
+                document.add(new com.itextpdf.layout.element.Paragraph("Section Total: " + formatCurrency(fi.getServicesTotal()) + " VND")
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT).setFontSize(10).setBold());
+            }
+
+            // ── Medications Section ──
+            if (fi.getMedicationItems() != null && !fi.getMedicationItems().isEmpty()) {
+                document.add(new com.itextpdf.layout.element.Paragraph("Medications / Prescription")
+                        .setBold().setFontSize(12).setMarginTop(15).setMarginBottom(5));
+                document.add(buildItemTable(fi.getMedicationItems()));
+                document.add(new com.itextpdf.layout.element.Paragraph("Section Total: " + formatCurrency(fi.getMedicationsTotal()) + " VND")
+                        .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT).setFontSize(10).setBold());
+            }
+
+            // ── Grand Totals ──
+            com.itextpdf.layout.element.Paragraph totals = new com.itextpdf.layout.element.Paragraph()
+                    .setMarginTop(20)
+                    .setFontSize(10)
+                    .add("Subtotal: " + formatCurrency(fi.getSubtotal()) + " VND\n")
+                    .add("Discount: " + formatCurrency(fi.getDiscount()) + " VND\n")
+                    .add("Tax: " + formatCurrency(fi.getTax()) + " VND\n")
+                    .add(new com.itextpdf.layout.element.Text("GRAND TOTAL: " + formatCurrency(fi.getGrandTotal()) + " VND")
+                            .setBold().setFontSize(13));
+            document.add(totals);
+
+            // ── Payment status ──
+            String statusText = "ALL_PAID".equals(fi.getPaymentStatus()) ? "FULLY PAID"
+                    : "PARTIALLY_PAID".equals(fi.getPaymentStatus()) ? "PARTIALLY PAID" : "UNPAID";
+            document.add(new com.itextpdf.layout.element.Paragraph("Payment Status: " + statusText)
+                    .setFontSize(10).setMarginTop(5).setBold());
+
+            // ── Footer ──
+            document.add(new com.itextpdf.layout.element.Paragraph()
+                    .setMarginTop(30)
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                    .setFontSize(9)
+                    .add("Generated: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                    .add("\nThank you for choosing Medical Tech Clinic!"));
+
+            document.close();
+
+            log.info("Final Invoice PDF generated, size: {} bytes", outputStream.size());
+            return outputStream.toByteArray();
+
+        } catch (Exception e) {
+            log.error("Error generating Final Invoice PDF for appointment: {}", appointmentId, e);
+            throw new RuntimeException("Failed to generate Final Invoice PDF: " + e.getMessage(), e);
+        }
+    }
+
+    private com.itextpdf.layout.element.Table buildItemTable(java.util.List<FinalInvoiceItemDTO> items) {
+        float[] columnWidths = {4, 1, 2, 2};
+        com.itextpdf.layout.element.Table table = new com.itextpdf.layout.element.Table(columnWidths)
+                .useAllAvailableWidth()
+                .setFontSize(9);
+
+        // Header
+        table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(
+                new com.itextpdf.layout.element.Paragraph("Description").setBold()));
+        table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(
+                new com.itextpdf.layout.element.Paragraph("Qty").setBold()));
+        table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(
+                new com.itextpdf.layout.element.Paragraph("Unit Price").setBold()));
+        table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(
+                new com.itextpdf.layout.element.Paragraph("Amount").setBold()));
+
+        for (FinalInvoiceItemDTO item : items) {
+            String desc = item.getDescription();
+            if (item.getDetail() != null && !item.getDetail().isEmpty()) {
+                desc += "\n" + item.getDetail();
+            }
+            table.addCell(new com.itextpdf.layout.element.Cell().add(
+                    new com.itextpdf.layout.element.Paragraph(desc)));
+            table.addCell(new com.itextpdf.layout.element.Cell().add(
+                    new com.itextpdf.layout.element.Paragraph(String.valueOf(item.getQuantity()))));
+            table.addCell(new com.itextpdf.layout.element.Cell().add(
+                    new com.itextpdf.layout.element.Paragraph(formatCurrency(item.getUnitPrice()))));
+            table.addCell(new com.itextpdf.layout.element.Cell().add(
+                    new com.itextpdf.layout.element.Paragraph(formatCurrency(item.getTotalPrice()))));
+        }
+
+        return table;
+    }
+
+    // ========== SERVICE ORDER RECEIPT PDF ==========
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] generateServiceOrderReceiptPdf(Long appointmentId) {
+        log.info("Generating Service Order Receipt PDF for appointment: {}", appointmentId);
+
+        Appointment appointment = appointmentRepository.findByIdWithDetails(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", appointmentId));
+
+        java.util.List<ServiceOrder> orders = serviceOrderRepository.findByAppointmentIdOrderByOrderedAtDesc(appointmentId);
+        java.util.List<ServiceOrder> paidOrders = orders.stream()
+                .filter(o -> "PAID".equals(o.getPaymentStatus()))
+                .collect(Collectors.toList());
+
+        if (paidOrders.isEmpty()) {
+            throw new ResourceNotFoundException("No paid service orders found for appointment: " + appointmentId);
+        }
+
+        String patientName = appointment.getPatient().getUser().getFullName();
+        String appointmentCode = appointment.getAppointmentCode();
+
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            com.itextpdf.kernel.pdf.PdfWriter writer = new com.itextpdf.kernel.pdf.PdfWriter(out);
+            com.itextpdf.kernel.pdf.PdfDocument pdfDoc = new com.itextpdf.kernel.pdf.PdfDocument(writer);
+            com.itextpdf.layout.Document document = new com.itextpdf.layout.Document(pdfDoc);
+
+            document.add(new com.itextpdf.layout.element.Paragraph("SERVICE ORDERS RECEIPT")
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                    .setFontSize(18).setBold().setMarginBottom(5));
+            document.add(new com.itextpdf.layout.element.Paragraph("Medical Tech Clinic")
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                    .setFontSize(10).setMarginBottom(15));
+
+            document.add(new com.itextpdf.layout.element.Paragraph()
+                    .setFontSize(10)
+                    .add("Appointment: " + appointmentCode + "\n")
+                    .add("Patient: " + patientName + "\n")
+                    .add("Date: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
+
+            // Table
+            float[] cols = {4, 2, 2, 2, 2};
+            com.itextpdf.layout.element.Table table = new com.itextpdf.layout.element.Table(cols)
+                    .useAllAvailableWidth().setFontSize(9).setMarginTop(15);
+            table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph("Service").setBold()));
+            table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph("Category").setBold()));
+            table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph("Price").setBold()));
+            table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph("Method").setBold()));
+            table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph("Paid At").setBold()));
+
+            java.math.BigDecimal total = java.math.BigDecimal.ZERO;
+            DateTimeFormatter dtf = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+            for (ServiceOrder so : paidOrders) {
+                table.addCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph(so.getServiceName())));
+                table.addCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph(so.getCategory() != null ? so.getCategory().name() : "")));
+                table.addCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph(formatCurrency(so.getPrice()))));
+                table.addCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph(so.getPaymentMethod() != null ? so.getPaymentMethod() : "")));
+                table.addCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph(so.getPaidAt() != null ? so.getPaidAt().format(dtf) : "")));
+                if (so.getPrice() != null) total = total.add(so.getPrice());
+            }
+            document.add(table);
+
+            document.add(new com.itextpdf.layout.element.Paragraph("Total: " + formatCurrency(total) + " VND")
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                    .setFontSize(12).setBold().setMarginTop(10));
+
+            document.add(new com.itextpdf.layout.element.Paragraph()
+                    .setMarginTop(30).setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER).setFontSize(9)
+                    .add("Generated: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                    .add("\nThank you for choosing Medical Tech Clinic!"));
+
+            document.close();
+            log.info("Service Order Receipt PDF generated, size: {} bytes", out.size());
+            return out.toByteArray();
+        } catch (Exception e) {
+            log.error("Error generating Service Order Receipt PDF for appointment: {}", appointmentId, e);
+            throw new RuntimeException("Failed to generate Service Order Receipt PDF: " + e.getMessage(), e);
+        }
+    }
+
+    // ========== PRESCRIPTION RECEIPT PDF ==========
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] generatePrescriptionReceiptPdf(Long appointmentId) {
+        log.info("Generating Prescription Receipt PDF for appointment: {}", appointmentId);
+
+        Appointment appointment = appointmentRepository.findByIdWithDetails(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", appointmentId));
+
+        Prescription prescription = prescriptionRepository.findByAppointmentId(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("No prescription found for appointment: " + appointmentId));
+
+        if (!"PAID".equals(prescription.getPrescriptionPaymentStatus())) {
+            throw new ResourceNotFoundException("Prescription is not paid for appointment: " + appointmentId);
+        }
+
+        String patientName = appointment.getPatient().getUser().getFullName();
+        String appointmentCode = appointment.getAppointmentCode();
+
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            com.itextpdf.kernel.pdf.PdfWriter writer = new com.itextpdf.kernel.pdf.PdfWriter(out);
+            com.itextpdf.kernel.pdf.PdfDocument pdfDoc = new com.itextpdf.kernel.pdf.PdfDocument(writer);
+            com.itextpdf.layout.Document document = new com.itextpdf.layout.Document(pdfDoc);
+
+            document.add(new com.itextpdf.layout.element.Paragraph("PRESCRIPTION RECEIPT")
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                    .setFontSize(18).setBold().setMarginBottom(5));
+            document.add(new com.itextpdf.layout.element.Paragraph("Medical Tech Clinic")
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER)
+                    .setFontSize(10).setMarginBottom(15));
+
+            document.add(new com.itextpdf.layout.element.Paragraph()
+                    .setFontSize(10)
+                    .add("Appointment: " + appointmentCode + "\n")
+                    .add("Prescription: " + (prescription.getPrescriptionCode() != null ? prescription.getPrescriptionCode() : "N/A") + "\n")
+                    .add("Patient: " + patientName + "\n")
+                    .add("Date: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
+
+            // Medication table
+            float[] cols = {4, 2, 1, 2, 2};
+            com.itextpdf.layout.element.Table table = new com.itextpdf.layout.element.Table(cols)
+                    .useAllAvailableWidth().setFontSize(9).setMarginTop(15);
+            table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph("Medication").setBold()));
+            table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph("Dosage").setBold()));
+            table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph("Qty").setBold()));
+            table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph("Unit Price").setBold()));
+            table.addHeaderCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph("Amount").setBold()));
+
+            java.math.BigDecimal total = java.math.BigDecimal.ZERO;
+            if (prescription.getItems() != null) {
+                for (PrescriptionItem item : prescription.getItems()) {
+                    table.addCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph(item.getMedicineName())));
+                    table.addCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph(item.getDosage() != null ? item.getDosage() : "")));
+                    table.addCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph(String.valueOf(item.getQuantity() != null ? item.getQuantity() : 0))));
+                    table.addCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph(formatCurrency(item.getPrice()))));
+                    java.math.BigDecimal lineTotal = (item.getPrice() != null && item.getQuantity() != null)
+                            ? item.getPrice().multiply(java.math.BigDecimal.valueOf(item.getQuantity()))
+                            : java.math.BigDecimal.ZERO;
+                    table.addCell(new com.itextpdf.layout.element.Cell().add(new com.itextpdf.layout.element.Paragraph(formatCurrency(lineTotal))));
+                    total = total.add(lineTotal);
+                }
+            }
+            document.add(table);
+
+            // Use prescription totalCost if available, else calculated total
+            java.math.BigDecimal displayTotal = prescription.getTotalCost() != null ? prescription.getTotalCost() : total;
+            document.add(new com.itextpdf.layout.element.Paragraph("Total: " + formatCurrency(displayTotal) + " VND")
+                    .setTextAlignment(com.itextpdf.layout.properties.TextAlignment.RIGHT)
+                    .setFontSize(12).setBold().setMarginTop(10));
+
+            document.add(new com.itextpdf.layout.element.Paragraph()
+                    .setMarginTop(30).setTextAlignment(com.itextpdf.layout.properties.TextAlignment.CENTER).setFontSize(9)
+                    .add("Generated: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")))
+                    .add("\nThank you for choosing Medical Tech Clinic!"));
+
+            document.close();
+            log.info("Prescription Receipt PDF generated, size: {} bytes", out.size());
+            return out.toByteArray();
+        } catch (Exception e) {
+            log.error("Error generating Prescription Receipt PDF for appointment: {}", appointmentId, e);
+            throw new RuntimeException("Failed to generate Prescription Receipt PDF: " + e.getMessage(), e);
+        }
+    }
+
+    // ========== SEND SERVICE ORDER / PRESCRIPTION RECEIPT ==========
+
+    @Override
+    @Transactional
+    public SendInvoiceResultDTO sendServiceOrderReceipt(Long appointmentId, SendInvoiceDTO dto, Long currentUserId) {
+        log.info("Sending Service Order receipt for appointment: {}", appointmentId);
+
+        Appointment appointment = appointmentRepository.findByIdWithDetails(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", appointmentId));
+
+        String recipientEmail = dto.getEmail() != null ? dto.getEmail()
+                : appointment.getPatient().getUser().getEmail();
+
+        SendInvoiceResultDTO result = SendInvoiceResultDTO.builder().success(true).build();
+
+        if (Boolean.TRUE.equals(dto.getSendEmail()) && recipientEmail != null) {
+            try {
+                byte[] pdfBytes = generateServiceOrderReceiptPdf(appointmentId);
+                String subject = "Service Orders Receipt - " + appointment.getAppointmentCode() + " - Medical Tech";
+                String body = buildSimpleReceiptEmail(appointment.getPatient().getUser().getFullName(),
+                        "Service Orders Receipt", appointment.getAppointmentCode());
+                emailService.sendEmailWithAttachment(recipientEmail, subject, body, pdfBytes,
+                        "ServiceOrders_Receipt_" + appointment.getAppointmentCode() + ".pdf");
+                result.setEmailSent(true);
+                result.setEmailStatus("Email sent successfully to " + recipientEmail);
+            } catch (Exception e) {
+                log.error("Failed to send service order receipt email", e);
+                result.setEmailSent(false);
+                result.setEmailStatus("Failed: " + e.getMessage());
+                result.setSuccess(false);
+            }
+        }
+        result.setMessage("Service order receipt delivery: " + (Boolean.TRUE.equals(result.getEmailSent()) ? "sent" : "failed"));
+        return result;
+    }
+
+    @Override
+    @Transactional
+    public SendInvoiceResultDTO sendPrescriptionReceipt(Long appointmentId, SendInvoiceDTO dto, Long currentUserId) {
+        log.info("Sending Prescription receipt for appointment: {}", appointmentId);
+
+        Appointment appointment = appointmentRepository.findByIdWithDetails(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", appointmentId));
+
+        String recipientEmail = dto.getEmail() != null ? dto.getEmail()
+                : appointment.getPatient().getUser().getEmail();
+
+        SendInvoiceResultDTO result = SendInvoiceResultDTO.builder().success(true).build();
+
+        if (Boolean.TRUE.equals(dto.getSendEmail()) && recipientEmail != null) {
+            try {
+                byte[] pdfBytes = generatePrescriptionReceiptPdf(appointmentId);
+                String subject = "Prescription Receipt - " + appointment.getAppointmentCode() + " - Medical Tech";
+                String body = buildSimpleReceiptEmail(appointment.getPatient().getUser().getFullName(),
+                        "Prescription Receipt", appointment.getAppointmentCode());
+                emailService.sendEmailWithAttachment(recipientEmail, subject, body, pdfBytes,
+                        "Prescription_Receipt_" + appointment.getAppointmentCode() + ".pdf");
+                result.setEmailSent(true);
+                result.setEmailStatus("Email sent successfully to " + recipientEmail);
+            } catch (Exception e) {
+                log.error("Failed to send prescription receipt email", e);
+                result.setEmailSent(false);
+                result.setEmailStatus("Failed: " + e.getMessage());
+                result.setSuccess(false);
+            }
+        }
+        result.setMessage("Prescription receipt delivery: " + (Boolean.TRUE.equals(result.getEmailSent()) ? "sent" : "failed"));
+        return result;
+    }
+
+    private String buildSimpleReceiptEmail(String patientName, String receiptType, String appointmentCode) {
+        StringBuilder html = new StringBuilder();
+        html.append("<html><body style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>");
+        html.append("<div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;'>");
+        html.append("<h1 style='color: white; margin: 0;'>Medical Tech</h1>");
+        html.append("</div>");
+        html.append("<div style='padding: 20px;'>");
+        html.append("<h2 style='color: #333;'>").append(receiptType).append("</h2>");
+        html.append("<p>Dear <strong>").append(patientName).append("</strong>,</p>");
+        html.append("<p>Please find your ").append(receiptType.toLowerCase()).append(" for appointment <strong>").append(appointmentCode).append("</strong> attached to this email.</p>");
+        html.append("<p style='color: #666;'>The receipt PDF is attached to this email.</p>");
+        html.append("<hr style='border: none; border-top: 1px solid #ddd; margin: 20px 0;'>");
+        html.append("<p style='color: #999; font-size: 12px;'>Best regards,<br><strong>Medical Tech Clinic</strong><br>Hotline: 1900-xxxx</p>");
+        html.append("</div></body></html>");
+        return html.toString();
     }
 }

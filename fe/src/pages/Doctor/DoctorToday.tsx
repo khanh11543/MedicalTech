@@ -324,6 +324,19 @@ export default function DoctorToday() {
             items={timeline}
             filter={timelineFilter}
             onFilterChange={setTimelineFilter}
+            onContinue={(item) => {
+              navigate('/doctor/consultation', {
+                state: {
+                  fromDoctorToday: true,
+                  appointmentId: item.appointmentId,
+                  appointmentCode: item.appointmentCode,
+                  patientName: item.patientName,
+                  queueNumber: item.queueNumber,
+                  age: item.age,
+                  reasonForVisit: item.reasonForVisit,
+                },
+              });
+            }}
           />
         )}
       </div>
@@ -954,10 +967,12 @@ function TimelineView({
   items,
   filter,
   onFilterChange,
+  onContinue,
 }: {
   items: TimelineItem[];
   filter: string | null;
   onFilterChange: (f: string | null) => void;
+  onContinue?: (item: TimelineItem) => void;
 }) {
   const filterPills = [
     { key: null, label: 'All' },
@@ -1170,6 +1185,17 @@ function TimelineView({
                           <span className='text-[10px] font-bold text-brand-600 dark:text-brand-400 uppercase'>
                             Next &#x27A4;
                           </span>
+                        )}
+                        {(item.status === 'AWAITING_SERVICE_RESULTS' || item.status === 'IN_PROGRESS') && onContinue && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onContinue(item);
+                            }}
+                            className='ml-1 px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full bg-brand-500 text-white hover:bg-brand-600 transition-colors shadow-sm'
+                          >
+                            Continue &#x27A4;
+                          </button>
                         )}
                       </div>
                     ))}
