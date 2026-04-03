@@ -121,12 +121,17 @@ const PaymentList: React.FC = () => {
       return { blob, format: params.format };
     },
     onSuccess: ({ blob, format }) => {
-      const filename = `payments_export_${dayjs().format('YYYY-MM-DD')}.${format.toLowerCase()}`;
+      const ext = paymentService.paymentExportFileExtension(format);
+      const filename = `payments_export_${dayjs().format('YYYY-MM-DD')}.${ext}`;
       paymentService.downloadFile(blob, filename);
       alert('Export completed successfully');
     },
-    onError: (error: any) => {
-      alert(error?.response?.data?.message || 'Export failed');
+    onError: (error: unknown) => {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      alert(msg || 'Export failed');
     },
   });
 

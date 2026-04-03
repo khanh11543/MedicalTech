@@ -13,7 +13,6 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class MedicationCreateDTO {
 
-    @NotBlank(message = "Code is required")
     private String code;
 
     @NotBlank(message = "Name is required")

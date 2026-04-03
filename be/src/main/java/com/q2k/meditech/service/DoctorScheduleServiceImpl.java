@@ -3,15 +3,21 @@ package com.q2k.meditech.service;
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.dto.mapper.DoctorScheduleMapper;
 import com.q2k.meditech.entity.*;
+import com.q2k.meditech.entity.enums.ActivityType;
 import com.q2k.meditech.entity.enums.SlotSource;
 import com.q2k.meditech.entity.enums.TimeSlotStatus;
 import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.*;
+import com.q2k.meditech.util.HttpRequestUtil;
+import com.q2k.meditech.util.SecurityUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -21,18 +27,71 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * Implementation of Doctor Schedule Service
+ * Implementation of Doctor Schedule Service.
  */
 @Service
-@RequiredArgsConstructor
-@Slf4j
 public class DoctorScheduleServiceImpl implements DoctorScheduleService {
+
+    private static final Logger log = LoggerFactory.getLogger(DoctorScheduleServiceImpl.class);
 
     private final DoctorRepository doctorRepository;
     private final DoctorScheduleRepository scheduleRepository;
     private final ScheduleExceptionRepository exceptionRepository;
     private final TimeSlotRepository timeSlotRepository;
     private final DoctorScheduleMapper mapper;
+    private final ActivityLoggingService activityLoggingService;
+
+    public DoctorScheduleServiceImpl(
+            DoctorRepository doctorRepository,
+            DoctorScheduleRepository scheduleRepository,
+            ScheduleExceptionRepository exceptionRepository,
+            TimeSlotRepository timeSlotRepository,
+            DoctorScheduleMapper mapper,
+            ActivityLoggingService activityLoggingService
+    ) {
+        this.doctorRepository = doctorRepository;
+        this.scheduleRepository = scheduleRepository;
+        this.exceptionRepository = exceptionRepository;
+        this.timeSlotRepository = timeSlotRepository;
+        this.mapper = mapper;
+        this.activityLoggingService = activityLoggingService;
+    }
+
+    private static final String RESOURCE_TYPE_SCHEDULE = "SCHEDULE";
+    private static final String RESOURCE_TYPE_TIME_SLOT = "TIME_SLOT";
+
+    private static final class RequestInfo {
+        private final String ipAddress;
+        private final String userAgent;
+
+        private RequestInfo(String ipAddress, String userAgent) {
+            this.ipAddress = ipAddress;
+            this.userAgent = userAgent;
+        }
+
+        public String getIpAddress() {
+            return ipAddress;
+        }
+
+        public String getUserAgent() {
+            return userAgent;
+        }
+    }
+
+    private RequestInfo getRequestInfoSafe() {
+        try {
+            ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs == null) return new RequestInfo(null, null);
+            HttpServletRequest request = attrs.getRequest();
+            return new RequestInfo(
+                    HttpRequestUtil.getClientIp(request),
+                    HttpRequestUtil.getUserAgent(request)
+            );
+        } catch (Exception e) {
+            log.warn("Could not get request info for activity log: {}", e.getMessage());
+            return new RequestInfo(null, null);
+        }
+    }
 
     // ========== SCHEDULE MANAGEMENT ==========
 
@@ -71,6 +130,20 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
 
         schedule = scheduleRepository.save(schedule);
         log.info("Schedule created successfully with ID: {}", schedule.getId());
+
+        // Activity log (doctor)
+        Long userId = SecurityUtil.getCurrentUserId();
+        RequestInfo req = getRequestInfoSafe();
+        String desc = "Created schedule: day " + dto.getDayOfWeek() + ", " + dto.getStartTime() + "-" + dto.getEndTime();
+        activityLoggingService.log(
+                userId,
+                ActivityType.CREATED_SCHEDULE,
+                desc,
+                RESOURCE_TYPE_SCHEDULE,
+                schedule.getId(),
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
 
         return mapper.toDTO(schedule);
     }
@@ -119,6 +192,19 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
         schedule = scheduleRepository.save(schedule);
         log.info("Schedule updated successfully: {}", scheduleId);
 
+        // Activity log (doctor)
+        Long userId = SecurityUtil.getCurrentUserId();
+        RequestInfo req = getRequestInfoSafe();
+        activityLoggingService.log(
+                userId,
+                ActivityType.UPDATED_SCHEDULE,
+                "Updated schedule #" + scheduleId,
+                RESOURCE_TYPE_SCHEDULE,
+                scheduleId,
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
+
         return mapper.toDTO(schedule);
     }
 
@@ -136,6 +222,19 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
 
         scheduleRepository.delete(schedule);
         log.info("Schedule deleted successfully: {}", scheduleId);
+
+        // Activity log (doctor)
+        Long userId = SecurityUtil.getCurrentUserId();
+        RequestInfo req = getRequestInfoSafe();
+        activityLoggingService.log(
+                userId,
+                ActivityType.DELETED_SCHEDULE,
+                "Deleted schedule #" + scheduleId,
+                RESOURCE_TYPE_SCHEDULE,
+                scheduleId,
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
     }
 
     // ========== SCHEDULE EXCEPTIONS ==========
@@ -171,6 +270,22 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
         exception = exceptionRepository.save(exception);
         log.info("Schedule exception created with ID: {}", exception.getId());
 
+        // Activity log (doctor)
+        Long userId = SecurityUtil.getCurrentUserId();
+        RequestInfo req = getRequestInfoSafe();
+        String desc = "Added schedule exception: " + dto.getExceptionDate()
+                + ", type: " + dto.getExceptionType()
+                + (dto.getReason() != null && !dto.getReason().isBlank() ? ", reason: " + dto.getReason() : "");
+        activityLoggingService.log(
+                userId,
+                ActivityType.ADDED_SCHEDULE_EXCEPTION,
+                desc,
+                RESOURCE_TYPE_SCHEDULE,
+                exception.getId(),
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
+
         return mapper.toExceptionDTO(exception);
     }
 
@@ -195,6 +310,19 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
 
         exceptionRepository.delete(exception);
         log.info("Exception deleted successfully: {}", exceptionId);
+
+        // Activity log (doctor)
+        Long userId = SecurityUtil.getCurrentUserId();
+        RequestInfo req = getRequestInfoSafe();
+        activityLoggingService.log(
+                userId,
+                ActivityType.DELETED_SCHEDULE_EXCEPTION,
+                "Deleted schedule exception #" + exceptionId,
+                RESOURCE_TYPE_SCHEDULE,
+                exceptionId,
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
     }
 
     // ========== TIME SLOTS ==========
@@ -310,6 +438,22 @@ public class DoctorScheduleServiceImpl implements DoctorScheduleService {
         String message = String.format("Generated %d time slots from %s to %s",
                 slotsToSave.size(), dto.getStartDate(), dto.getEndDate());
         log.info(message);
+
+        // Activity log (doctor)
+        Long userId = SecurityUtil.getCurrentUserId();
+        RequestInfo req = getRequestInfoSafe();
+        String desc = "Generated time slots: " + dto.getStartDate() + " -> " + dto.getEndDate()
+                + (Boolean.TRUE.equals(dto.getOverwriteExisting()) ? " (overwrite)" : "")
+                + ", created: " + slotsToSave.size();
+        activityLoggingService.log(
+                userId,
+                ActivityType.GENERATED_TIME_SLOTS,
+                desc,
+                RESOURCE_TYPE_TIME_SLOT,
+                null,
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
 
         return MessageDTO.success(message);
     }

@@ -18,7 +18,6 @@ const PaymentExport: React.FC<PaymentExportProps> = ({
     { value: 'EXCEL', label: 'Excel (.xlsx)', icon: '' },
     { value: 'CSV', label: 'CSV (.csv)', icon: '' },
     { value: 'PDF', label: 'PDF (.pdf)', icon: '' },
-    { value: 'JSON', label: 'JSON (.json)', icon: '' },
   ];
 
   const handleExport = () => {

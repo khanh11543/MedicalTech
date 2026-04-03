@@ -3,6 +3,7 @@ package com.q2k.meditech.controller;
 import com.q2k.meditech.dto.*;
 import com.q2k.meditech.entity.Role;
 import com.q2k.meditech.repository.RoleRepository;
+import com.q2k.meditech.service.UserProfileService;
 import com.q2k.meditech.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -15,8 +16,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -42,6 +45,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 public class AdminUserController {
 
     private final UserService userService;
+    private final UserProfileService userProfileService;
     private final RoleRepository roleRepository;
     private final UserRepository userRepository;
 
@@ -144,6 +148,26 @@ public class AdminUserController {
         UserDTO user = userService.updateUser(userId, dto);
 
         return ResponseEntity.ok(user);
+    }
+
+    /**
+     * POST /api/admin/users/{userId}/avatar
+     * Upload or replace profile image for any user (Admin only).
+     */
+    @PostMapping(value = "/{userId}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload user avatar", description = "Upload an image file as the user's profile avatar (Cloudinary/local storage per app config)")
+    public ResponseEntity<Map<String, String>> uploadUserAvatar(
+            @Parameter(description = "User ID") @PathVariable Long userId,
+            @Parameter(description = "Image file (jpg, png, gif, webp; max 5MB)") @RequestParam("file") MultipartFile file) {
+
+        log.info("POST /admin/users/{}/avatar", userId);
+
+        UserDTO updated = userProfileService.uploadAvatar(userId, file);
+        String url = updated.getAvatarUrl() != null ? updated.getAvatarUrl() : "";
+
+        return ResponseEntity.ok(Map.of(
+                "avatarUrl", url,
+                "message", "Avatar updated successfully"));
     }
 
     /**

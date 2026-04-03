@@ -10,9 +10,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Admin Medication Management Controller
@@ -50,6 +52,12 @@ public class AdminMedicationController {
     @Operation(summary = "Get medication by ID")
     public ResponseEntity<MedicationDTO> getMedicationById(@PathVariable Long id) {
         return ResponseEntity.ok(medicationService.getMedicationById(id));
+    }
+
+    @GetMapping("/next-code")
+    @Operation(summary = "Get next medication code (auto-generated)")
+    public ResponseEntity<String> getNextCode() {
+        return ResponseEntity.ok(medicationService.getNextMedicationCode());
     }
 
     @PostMapping
@@ -100,5 +108,14 @@ public class AdminMedicationController {
     @Operation(summary = "Get overall inventory summary stats")
     public ResponseEntity<InventorySummaryDTO> getInventorySummary() {
         return ResponseEntity.ok(medicationService.getInventorySummary());
+    }
+
+    @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Import medications from CSV/Excel (.csv/.xlsx)")
+    public ResponseEntity<MedicationImportResultDTO> importMedications(
+            @RequestPart("file") MultipartFile file
+    ) {
+        log.info("Admin importing medications from file: {}", file != null ? file.getOriginalFilename() : null);
+        return ResponseEntity.ok(medicationService.importMedications(file));
     }
 }

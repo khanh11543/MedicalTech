@@ -17,6 +17,7 @@ import medicationService, {
   MedicationCreateDTO,
   MedicationUpdateDTO,
   InventoryUpdateDTO,
+  MedicationImportResultDTO,
 } from "../../services/medicationService";
 
 // ==================== ICONS ====================
@@ -43,6 +44,11 @@ const InventoryIcon = () => (
 const RefreshIcon = () => (
   <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+);
+const UploadIcon = () => (
+  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5-5m0 0l5 5m-5-5v12" />
   </svg>
 );
 const FilterIcon = () => (
@@ -96,9 +102,62 @@ interface MedFormProps {
   onClose: () => void;
   onSave: (data: MedicationCreateDTO | MedicationUpdateDTO) => void;
   loading: boolean;
+  dynamicOptions?: {
+    brandNames: string[];
+    manufacturers: string[];
+    genericNames: string[];
+  };
 }
 
-function MedicationFormModal({ initial, onClose, onSave, loading }: MedFormProps) {
+const DOSAGE_FORM_OPTIONS = [
+  "Tablet",
+  "Capsule",
+  "Syrup",
+  "Injection",
+  "Cream",
+  "Ointment",
+  "Drops",
+  "Powder",
+  "Solution",
+  "Inhaler",
+  "Suppository",
+];
+
+const UNIT_OPTIONS = [
+  "Tablet",
+  "Capsule",
+  "Bottle",
+  "Box",
+  "Pack",
+  "Sachet",
+  "Vial",
+  "Ampoule",
+  "Tube",
+  "Blister",
+  "Dropper Bottle",
+  "Inhaler",
+  "mL",
+  "mg",
+  "g",
+];
+
+const CATEGORY_OPTIONS = [
+  "Painkiller",
+  "Antibiotic",
+  "Antiviral",
+  "Antifungal",
+  "Anti-inflammatory",
+  "Antihistamine",
+  "Gastrointestinal",
+  "Cardiovascular",
+  "Respiratory",
+  "Endocrine",
+  "Dermatology",
+  "Vitamin/Supplement",
+  "Other",
+];
+
+function MedicationFormModal({ initial, onClose, onSave, loading, dynamicOptions }: MedFormProps) {
   const isEdit = !!initial;
   const [form, setForm] = useState({
     code: initial?.code ?? "",
@@ -120,10 +179,28 @@ function MedicationFormModal({ initial, onClose, onSave, loading }: MedFormProps
   const set = (field: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
+  const brandDatalistId = isEdit ? `brand-list-${initial!.id}` : "brand-list-new";
+  const manufacturerDatalistId = isEdit ? `manufacturer-list-${initial!.id}` : "manufacturer-list-new";
+  const genericDatalistId = isEdit ? `generic-list-${initial!.id}` : "generic-list-new";
+
+  useEffect(() => {
+    if (isEdit) return;
+    let mounted = true;
+    medicationService.getNextCode()
+      .then((code) => {
+        if (!mounted) return;
+        setForm((prev) => ({ ...prev, code: code || prev.code }));
+      })
+      .catch(() => {
+        // fallback: allow manual display placeholder if API fails
+      });
+    return () => { mounted = false; };
+  }, [isEdit]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) { toast.error("Name is required"); return; }
-    if (!isEdit && !form.code.trim()) { toast.error("Code is required"); return; }
+    if (!isEdit && !form.code.trim()) { toast.error("Code is not ready yet"); return; }
 
     const payload: any = {
       name: form.name,
@@ -148,6 +225,7 @@ function MedicationFormModal({ initial, onClose, onSave, loading }: MedFormProps
 
   const inputCls = "w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm focus:border-brand-300 focus:outline-none focus:ring-3 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white";
   const labelCls = "mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300";
+  const selectCls = inputCls;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -168,8 +246,14 @@ function MedicationFormModal({ initial, onClose, onSave, loading }: MedFormProps
             {!isEdit && (
               <div>
                 <label className={labelCls}>Code <span className="text-red-500">*</span></label>
-                <input className={inputCls} value={form.code} onChange={e => set("code", e.target.value)}
-                  placeholder="e.g. MED001" required />
+                <input
+                  className={`${inputCls} bg-gray-100 dark:bg-gray-800`}
+                  value={form.code}
+                  placeholder="Generating..."
+                  readOnly
+                  disabled
+                />
+                <p className="mt-1 text-xs text-gray-400">Auto-generated from database</p>
               </div>
             )}
             <div className={isEdit ? "sm:col-span-2" : ""}>
@@ -179,23 +263,47 @@ function MedicationFormModal({ initial, onClose, onSave, loading }: MedFormProps
             </div>
             <div>
               <label className={labelCls}>Generic Name</label>
-              <input className={inputCls} value={form.genericName} onChange={e => set("genericName", e.target.value)}
-                placeholder="e.g. Acetaminophen" />
+              <input
+                className={inputCls}
+                value={form.genericName}
+                list={genericDatalistId}
+                onChange={e => set("genericName", e.target.value)}
+                placeholder="Search/select..."
+              />
+              <datalist id={genericDatalistId}>
+                {(dynamicOptions?.genericNames ?? []).map(v => <option key={v} value={v} />)}
+              </datalist>
             </div>
             <div>
               <label className={labelCls}>Brand Name</label>
-              <input className={inputCls} value={form.brandName} onChange={e => set("brandName", e.target.value)}
-                placeholder="e.g. Tylenol" />
+              <input
+                className={inputCls}
+                value={form.brandName}
+                list={brandDatalistId}
+                onChange={e => set("brandName", e.target.value)}
+                placeholder="Search/select..."
+              />
+              <datalist id={brandDatalistId}>
+                {(dynamicOptions?.brandNames ?? []).map(v => <option key={v} value={v} />)}
+              </datalist>
             </div>
             <div>
               <label className={labelCls}>Category</label>
-              <input className={inputCls} value={form.category} onChange={e => set("category", e.target.value)}
-                placeholder="e.g. Painkiller, Antibiotic" />
+              <select className={selectCls} value={form.category} onChange={e => set("category", e.target.value)}>
+                <option value="">—</option>
+                {CATEGORY_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={labelCls}>Dosage Form</label>
-              <input className={inputCls} value={form.dosageForm} onChange={e => set("dosageForm", e.target.value)}
-                placeholder="e.g. Tablet, Syrup, Capsule" />
+              <select className={selectCls} value={form.dosageForm} onChange={e => set("dosageForm", e.target.value)}>
+                <option value="">—</option>
+                {DOSAGE_FORM_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={labelCls}>Strength</label>
@@ -204,13 +312,25 @@ function MedicationFormModal({ initial, onClose, onSave, loading }: MedFormProps
             </div>
             <div>
               <label className={labelCls}>Unit</label>
-              <input className={inputCls} value={form.unit} onChange={e => set("unit", e.target.value)}
-                placeholder="e.g. Viên, Chai, Ống" />
+              <select className={selectCls} value={form.unit} onChange={e => set("unit", e.target.value)}>
+                <option value="">—</option>
+                {UNIT_OPTIONS.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className={labelCls}>Manufacturer</label>
-              <input className={inputCls} value={form.manufacturer} onChange={e => set("manufacturer", e.target.value)}
-                placeholder="e.g. ABC Pharma" />
+              <input
+                className={inputCls}
+                value={form.manufacturer}
+                list={manufacturerDatalistId}
+                onChange={e => set("manufacturer", e.target.value)}
+                placeholder="Search/select..."
+              />
+              <datalist id={manufacturerDatalistId}>
+                {(dynamicOptions?.manufacturers ?? []).map(v => <option key={v} value={v} />)}
+              </datalist>
             </div>
             <div>
               <label className={labelCls}>Unit Price (VNĐ)</label>
@@ -373,6 +493,87 @@ function InventoryModal({ medication, onClose, onSave, loading }: InventoryModal
   );
 }
 
+// ==================== IMPORT MODAL ====================
+function ImportMedicationModal({
+  onClose,
+  onImported,
+}: {
+  onClose: () => void;
+  onImported: (result: MedicationImportResultDTO) => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const importMut = useMutation({
+    mutationFn: (f: File) => medicationService.importFile(f),
+    onSuccess: (res) => onImported(res),
+    onError: (err: any) => toast.error(err?.response?.data?.message || "Failed to import file"),
+  });
+
+  const inputCls =
+    "w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm focus:border-brand-300 focus:outline-none focus:ring-3 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900 dark:text-white";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-xl dark:bg-gray-900">
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Import Medications</h2>
+          <button onClick={onClose} className="rounded-lg p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800">
+            <XIcon />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-300">
+            <p className="font-medium">Accepted formats</p>
+            <ul className="mt-1 list-disc pl-5 text-xs text-gray-600 dark:text-gray-400">
+              <li>.csv (UTF-8)</li>
+              <li>.xlsx</li>
+            </ul>
+            <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+              Required columns: <span className="font-mono">code</span>, <span className="font-mono">name</span>.
+              Optional: genericName, brandName, category, dosageForm, strength, unit, manufacturer, description, sideEffects, requiresPrescription, unitPrice, initialQuantity.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              File <span className="text-red-500">*</span>
+            </label>
+            <input
+              className={inputCls}
+              type="file"
+              accept=".csv,.xlsx"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+            {file && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Selected: <span className="font-medium">{file.name}</span>
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!file || importMut.isPending}
+              onClick={() => file && importMut.mutate(file)}
+              className="rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-60"
+            >
+              {importMut.isPending ? "Importing..." : "Import"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ==================== MAIN PAGE ====================
 export default function MedicationList() {
   const queryClient = useQueryClient();
@@ -394,6 +595,7 @@ export default function MedicationList() {
   const [showCreate, setShowCreate] = useState(false);
   const [editTarget, setEditTarget] = useState<MedicationDTO | null>(null);
   const [inventoryTarget, setInventoryTarget] = useState<MedicationDTO | null>(null);
+  const [showImport, setShowImport] = useState(false);
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
@@ -479,7 +681,26 @@ export default function MedicationList() {
   const lowStockCount = allItems.filter(m => m.availableQuantity <= 10).length;
   const rxCount = allItems.filter(m => m.requiresPrescription).length;
 
+  const dynamicOptions = {
+    brandNames: Array.from(new Set(allItems.map(m => (m.brandName || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    manufacturers: Array.from(new Set(allItems.map(m => (m.manufacturer || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+    genericNames: Array.from(new Set(allItems.map(m => (m.genericName || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b)),
+  };
+
   const selectCls = "rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm focus:border-brand-300 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-white";
+
+  const handleImported = (res: MedicationImportResultDTO) => {
+    const errCount = res.errors?.length ?? 0;
+    toast.success(
+      `Imported: ${res.successCount}/${res.totalRows} (created ${res.createdCount}, updated ${res.updatedCount}, skipped ${res.skippedCount})`
+    );
+    if (errCount > 0) {
+      const preview = res.errors.slice(0, 3).map(e => `Row ${e.rowNumber}: ${e.message}`).join(" | ");
+      toast.warning(`Some rows failed (${errCount}). ${preview}${errCount > 3 ? " ..." : ""}`);
+    }
+    setShowImport(false);
+    queryClient.invalidateQueries({ queryKey: ["medications"] });
+  };
 
   return (
     <>
@@ -540,6 +761,10 @@ export default function MedicationList() {
               <button onClick={handleReset}
                 className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
                 <RefreshIcon /> Reset
+              </button>
+              <button onClick={() => setShowImport(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
+                <UploadIcon /> Import CSV/Excel
               </button>
               <button onClick={() => setShowCreate(true)}
                 className="flex items-center gap-1.5 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
@@ -804,6 +1029,7 @@ export default function MedicationList() {
           onClose={() => setShowCreate(false)}
           onSave={(dto) => createMut.mutate(dto)}
           loading={createMut.isPending}
+          dynamicOptions={dynamicOptions}
         />
       )}
       {editTarget && (
@@ -812,6 +1038,7 @@ export default function MedicationList() {
           onClose={() => setEditTarget(null)}
           onSave={(dto) => updateMut.mutate({ id: editTarget.id, dto: dto as MedicationUpdateDTO })}
           loading={updateMut.isPending}
+          dynamicOptions={dynamicOptions}
         />
       )}
       {inventoryTarget && (
@@ -820,6 +1047,12 @@ export default function MedicationList() {
           onClose={() => setInventoryTarget(null)}
           onSave={(dto) => inventoryMut.mutate({ id: inventoryTarget.id, dto })}
           loading={inventoryMut.isPending}
+        />
+      )}
+      {showImport && (
+        <ImportMedicationModal
+          onClose={() => setShowImport(false)}
+          onImported={handleImported}
         />
       )}
     </>

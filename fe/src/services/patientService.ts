@@ -498,6 +498,24 @@ export interface ReviewCreateRequest {
   imageUrls?: string[];
 }
 
+export interface ReviewDTO {
+  id: number;
+  appointmentId: number | null;
+  patientId: number | null;
+  patientName: string | null;
+  doctorId: number | null;
+  doctorName: string | null;
+  rating: number;
+  comment: string | null;
+  imageUrls?: string[];
+  isAnonymous?: boolean;
+  isVisible?: boolean;
+  adminResponse?: string | null;
+  respondedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface BookAppointmentRequest {
   patientId: number;
   doctorId: number;
@@ -943,6 +961,11 @@ const patientService = {
 
   createReview: async (data: ReviewCreateRequest): Promise<any> => {
     const response = await api.post('/patient/reviews', data);
+    return response.data;
+  },
+
+  getMyReviewByAppointmentId: async (appointmentId: number): Promise<ReviewDTO> => {
+    const response = await api.get(`/patient/reviews/by-appointment/${appointmentId}`);
     return response.data;
   },
 

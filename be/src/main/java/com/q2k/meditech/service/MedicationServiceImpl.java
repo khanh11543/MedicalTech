@@ -11,8 +11,11 @@ import com.q2k.meditech.repository.MedicationInventoryLogRepository;
 import com.q2k.meditech.repository.MedicationInventoryRepository;
 import com.q2k.meditech.repository.MedicationRepository;
 import com.q2k.meditech.repository.UserRepository;
+import com.opencsv.CSVReader;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -25,12 +28,21 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.persistence.criteria.Predicate;
 import jakarta.servlet.http.HttpServletRequest;
+import java.sql.SQLIntegrityConstraintViolationException;
+import java.io.InputStreamReader;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -71,47 +83,70 @@ public class MedicationServiceImpl implements MedicationService {
 
     @Override
     public MedicationDTO createMedication(MedicationCreateDTO dto) {
-        log.info("Creating medication with code: {}", dto.getCode());
+        log.info("Creating medication (auto code). Requested code: {}", dto.getCode());
 
-        if (medicationRepository.existsByCode(dto.getCode())) {
-            throw new AppException("Medication code already exists: " + dto.getCode(), HttpStatus.CONFLICT);
+        // Always tie to DB: generate code if missing
+        // (frontend will call next-code, but backend still guarantees correctness)
+        int attempts = 0;
+        while (attempts++ < 3) {
+            String code = StringUtils.hasText(dto.getCode()) ? dto.getCode().trim() : getNextMedicationCode();
+
+            if (medicationRepository.existsByCode(code)) {
+                // If user tried to force a code, reject; otherwise retry generation.
+                if (StringUtils.hasText(dto.getCode())) {
+                    throw new AppException("Medication code already exists: " + code, HttpStatus.CONFLICT);
+                }
+                continue;
+            }
+
+            Medication med = Medication.builder()
+                    .code(code)
+                    .name(dto.getName())
+                    .genericName(dto.getGenericName())
+                    .brandName(dto.getBrandName())
+                    .category(dto.getCategory())
+                    .dosageForm(dto.getDosageForm())
+                    .strength(dto.getStrength())
+                    .unit(dto.getUnit())
+                    .manufacturer(dto.getManufacturer())
+                    .countryOfOrigin(dto.getCountryOfOrigin())
+                    .description(dto.getDescription())
+                    .sideEffects(dto.getSideEffects())
+                    .contraindications(dto.getContraindications())
+                    .storageConditions(dto.getStorageConditions())
+                    .requiresPrescription(dto.getRequiresPrescription() != null ? dto.getRequiresPrescription() : true)
+                    .unitPrice(dto.getUnitPrice())
+                    .isActive(true)
+                    .build();
+
+            try {
+                med = medicationRepository.save(med);
+
+                int initialQty = dto.getInitialQuantity() != null ? dto.getInitialQuantity() : 0;
+                MedicationInventory inventory = MedicationInventory.builder()
+                        .medication(med)
+                        .quantity(initialQty)
+                        .lastNote("Initial stock")
+                        .build();
+                inventoryRepository.save(inventory);
+
+                saveLog(med, "INITIAL", 0, initialQty, "Initial stock");
+                log.info("Medication created with ID: {} code: {}", med.getId(), code);
+                return toDTO(med);
+            } catch (Exception ex) {
+                // If unique constraint race, retry auto generation.
+                Throwable root = ex.getCause();
+                if (!StringUtils.hasText(dto.getCode()) &&
+                        (ex instanceof org.springframework.dao.DataIntegrityViolationException
+                                || root instanceof SQLIntegrityConstraintViolationException)) {
+                    log.warn("Code race on {}. Retrying...", code);
+                    continue;
+                }
+                throw ex;
+            }
         }
 
-        Medication med = Medication.builder()
-                .code(dto.getCode())
-                .name(dto.getName())
-                .genericName(dto.getGenericName())
-                .brandName(dto.getBrandName())
-                .category(dto.getCategory())
-                .dosageForm(dto.getDosageForm())
-                .strength(dto.getStrength())
-                .unit(dto.getUnit())
-                .manufacturer(dto.getManufacturer())
-                .countryOfOrigin(dto.getCountryOfOrigin())
-                .description(dto.getDescription())
-                .sideEffects(dto.getSideEffects())
-                .contraindications(dto.getContraindications())
-                .storageConditions(dto.getStorageConditions())
-                .requiresPrescription(dto.getRequiresPrescription() != null ? dto.getRequiresPrescription() : true)
-                .unitPrice(dto.getUnitPrice())
-                .isActive(true)
-                .build();
-
-        med = medicationRepository.save(med);
-
-        int initialQty = dto.getInitialQuantity() != null ? dto.getInitialQuantity() : 0;
-        MedicationInventory inventory = MedicationInventory.builder()
-                .medication(med)
-                .quantity(initialQty)
-                .lastNote("Initial stock")
-                .build();
-        inventoryRepository.save(inventory);
-
-        // Log initial stock
-        saveLog(med, "INITIAL", 0, initialQty, "Initial stock");
-
-        log.info("Medication created with ID: {}", med.getId());
-        return toDTO(med);
+        throw new AppException("Failed to generate medication code. Please retry.", HttpStatus.CONFLICT);
     }
 
     // ───────────── Update ─────────────
@@ -235,6 +270,138 @@ public class MedicationServiceImpl implements MedicationService {
                 .outOfStockCount(outOfStock)
                 .totalUnits(totalUnits)
                 .build();
+    }
+
+    // ───────────── Import (CSV / Excel) ─────────────
+
+    @Override
+    public MedicationImportResultDTO importMedications(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new AppException("File is required", HttpStatus.BAD_REQUEST);
+        }
+
+        String originalName = String.valueOf(file.getOriginalFilename());
+        String lower = originalName.toLowerCase(Locale.ROOT);
+
+        List<MedicationImportErrorDTO> errors = new ArrayList<>();
+        int totalRows = 0;
+        int success = 0;
+        int created = 0;
+        int updated = 0;
+        int skipped = 0;
+
+        try {
+            List<Map<String, String>> rows;
+            if (lower.endsWith(".csv")) {
+                rows = parseCsv(file);
+            } else if (lower.endsWith(".xlsx")) {
+                rows = parseXlsx(file);
+            } else {
+                throw new AppException("Unsupported file type. Please upload .csv or .xlsx", HttpStatus.BAD_REQUEST);
+            }
+
+            totalRows = rows.size();
+            for (int i = 0; i < rows.size(); i++) {
+                int rowNumber = i + 2; // +1 header, +1 1-based
+                Map<String, String> r = rows.get(i);
+
+                String code = norm(r.get("code"));
+                String name = norm(r.get("name"));
+                if (!StringUtils.hasText(code) || !StringUtils.hasText(name)) {
+                    skipped++;
+                    errors.add(MedicationImportErrorDTO.builder()
+                            .rowNumber(rowNumber)
+                            .code(code)
+                            .message("Missing required fields: code and name")
+                            .build());
+                    continue;
+                }
+
+                Boolean requiresRx = parseBooleanNullable(r.get("requiresPrescription"));
+                BigDecimal unitPrice = parseBigDecimalNullable(r.get("unitPrice"));
+                Integer initialQuantity = parseIntNullable(r.get("initialQuantity"));
+                if (initialQuantity != null && initialQuantity < 0) {
+                    skipped++;
+                    errors.add(MedicationImportErrorDTO.builder()
+                            .rowNumber(rowNumber)
+                            .code(code)
+                            .message("initialQuantity must be >= 0")
+                            .build());
+                    continue;
+                }
+
+                try {
+                    Optional<Medication> existingOpt = medicationRepository.findByCode(code);
+                    if (existingOpt.isPresent()) {
+                        Medication existing = existingOpt.get();
+                        applyUpsert(existing, r, name, requiresRx, unitPrice);
+                        medicationRepository.save(existing);
+                        updated++;
+                        success++;
+                    } else {
+                        Medication med = Medication.builder()
+                                .code(code)
+                                .name(name)
+                                .genericName(emptyToNull(r.get("genericName")))
+                                .brandName(emptyToNull(r.get("brandName")))
+                                .category(emptyToNull(r.get("category")))
+                                .dosageForm(emptyToNull(r.get("dosageForm")))
+                                .strength(emptyToNull(r.get("strength")))
+                                .unit(emptyToNull(r.get("unit")))
+                                .manufacturer(emptyToNull(r.get("manufacturer")))
+                                .countryOfOrigin(emptyToNull(r.get("countryOfOrigin")))
+                                .description(emptyToNull(r.get("description")))
+                                .sideEffects(emptyToNull(r.get("sideEffects")))
+                                .contraindications(emptyToNull(r.get("contraindications")))
+                                .storageConditions(emptyToNull(r.get("storageConditions")))
+                                .requiresPrescription(requiresRx != null ? requiresRx : true)
+                                .unitPrice(unitPrice)
+                                .isActive(true)
+                                .build();
+                        med = medicationRepository.save(med);
+
+                        int initQty = initialQuantity != null ? initialQuantity : 0;
+                        MedicationInventory inventory = MedicationInventory.builder()
+                                .medication(med)
+                                .quantity(initQty)
+                                .lastNote("Initial stock (import)")
+                                .build();
+                        inventoryRepository.save(inventory);
+                        saveLog(med, "IMPORT_INITIAL", 0, initQty, "Initial stock (import)");
+
+                        created++;
+                        success++;
+                    }
+                } catch (AppException ae) {
+                    skipped++;
+                    errors.add(MedicationImportErrorDTO.builder()
+                            .rowNumber(rowNumber)
+                            .code(code)
+                            .message(ae.getMessage())
+                            .build());
+                } catch (Exception ex) {
+                    skipped++;
+                    errors.add(MedicationImportErrorDTO.builder()
+                            .rowNumber(rowNumber)
+                            .code(code)
+                            .message("Unexpected error: " + ex.getMessage())
+                            .build());
+                }
+            }
+
+            return MedicationImportResultDTO.builder()
+                    .totalRows(totalRows)
+                    .successCount(success)
+                    .createdCount(created)
+                    .updatedCount(updated)
+                    .skippedCount(skipped)
+                    .errors(errors)
+                    .build();
+        } catch (AppException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new AppException("Failed to import file: " + e.getMessage(), HttpStatus.BAD_REQUEST);
+        }
     }
 
     // ───────────── Doctor Search ─────────────
@@ -399,5 +566,163 @@ public class MedicationServiceImpl implements MedicationService {
             case "category" -> "category";
             default -> "name";
         };
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public String getNextMedicationCode() {
+        long max = 0L;
+        try {
+            Long v = medicationRepository.findMaxMedicationCodeNumber();
+            if (v != null) max = v;
+        } catch (Exception ignored) {
+            // If there are legacy codes not matching MED####, ignore and start from 1
+        }
+        long next = max + 1;
+        return "MED" + String.format("%04d", next);
+    }
+
+    private List<Map<String, String>> parseCsv(MultipartFile file) throws Exception {
+        try (CSVReader reader = new CSVReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+            String[] headers = reader.readNext();
+            if (headers == null || headers.length == 0) {
+                throw new AppException("CSV header row is required", HttpStatus.BAD_REQUEST);
+            }
+
+            Map<Integer, String> idxToKey = new HashMap<>();
+            for (int i = 0; i < headers.length; i++) {
+                String k = normalizeHeader(headers[i]);
+                if (StringUtils.hasText(k)) idxToKey.put(i, k);
+            }
+
+            if (!idxToKey.containsValue("code") || !idxToKey.containsValue("name")) {
+                throw new AppException("CSV must include 'code' and 'name' columns", HttpStatus.BAD_REQUEST);
+            }
+
+            List<Map<String, String>> rows = new ArrayList<>();
+            String[] line;
+            while ((line = reader.readNext()) != null) {
+                boolean allEmpty = true;
+                Map<String, String> row = new HashMap<>();
+                for (int i = 0; i < line.length; i++) {
+                    String key = idxToKey.get(i);
+                    if (key == null) continue;
+                    String val = line[i];
+                    if (StringUtils.hasText(val)) allEmpty = false;
+                    row.put(key, val);
+                }
+                if (!allEmpty) rows.add(row);
+            }
+            return rows;
+        }
+    }
+
+    private List<Map<String, String>> parseXlsx(MultipartFile file) throws Exception {
+        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
+            Sheet sheet = workbook.getNumberOfSheets() > 0 ? workbook.getSheetAt(0) : null;
+            if (sheet == null) {
+                throw new AppException("Excel file must contain at least 1 sheet", HttpStatus.BAD_REQUEST);
+            }
+
+            Row headerRow = sheet.getRow(sheet.getFirstRowNum());
+            if (headerRow == null) {
+                throw new AppException("Excel header row is required", HttpStatus.BAD_REQUEST);
+            }
+
+            Map<Integer, String> idxToKey = new HashMap<>();
+            DataFormatter formatter = new DataFormatter();
+            for (int i = 0; i < headerRow.getLastCellNum(); i++) {
+                Cell cell = headerRow.getCell(i);
+                String k = normalizeHeader(cell != null ? formatter.formatCellValue(cell) : null);
+                if (StringUtils.hasText(k)) idxToKey.put(i, k);
+            }
+
+            if (!idxToKey.containsValue("code") || !idxToKey.containsValue("name")) {
+                throw new AppException("Excel must include 'code' and 'name' columns", HttpStatus.BAD_REQUEST);
+            }
+
+            List<Map<String, String>> rows = new ArrayList<>();
+            int firstDataRow = headerRow.getRowNum() + 1;
+            int lastRow = sheet.getLastRowNum();
+            for (int r = firstDataRow; r <= lastRow; r++) {
+                Row rowObj = sheet.getRow(r);
+                if (rowObj == null) continue;
+
+                boolean allEmpty = true;
+                Map<String, String> row = new HashMap<>();
+                for (Map.Entry<Integer, String> e : idxToKey.entrySet()) {
+                    Cell cell = rowObj.getCell(e.getKey());
+                    String val = cell != null ? formatter.formatCellValue(cell) : null;
+                    if (StringUtils.hasText(val)) allEmpty = false;
+                    row.put(e.getValue(), val);
+                }
+                if (!allEmpty) rows.add(row);
+            }
+            return rows;
+        }
+    }
+
+    private String normalizeHeader(String raw) {
+        String h = norm(raw);
+        if (!StringUtils.hasText(h)) return null;
+        h = h.replace("\uFEFF", ""); // BOM
+        h = h.replace(" ", "");
+        h = h.replace("_", "");
+        h = h.replace("-", "");
+        return h.toLowerCase(Locale.ROOT);
+    }
+
+    private String norm(String s) {
+        return s == null ? "" : s.trim();
+    }
+
+    private String emptyToNull(String s) {
+        String v = norm(s);
+        return StringUtils.hasText(v) ? v : null;
+    }
+
+    private Boolean parseBooleanNullable(String raw) {
+        String v = norm(raw).toLowerCase(Locale.ROOT);
+        if (!StringUtils.hasText(v)) return null;
+        return v.equals("true") || v.equals("1") || v.equals("yes") || v.equals("y");
+    }
+
+    private Integer parseIntNullable(String raw) {
+        String v = norm(raw);
+        if (!StringUtils.hasText(v)) return null;
+        try {
+            return Integer.parseInt(v);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private BigDecimal parseBigDecimalNullable(String raw) {
+        String v = norm(raw);
+        if (!StringUtils.hasText(v)) return null;
+        try {
+            v = v.replace(",", "");
+            return new BigDecimal(v);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void applyUpsert(Medication med, Map<String, String> r, String name, Boolean requiresRx, BigDecimal unitPrice) {
+        med.setName(name);
+        med.setGenericName(emptyToNull(r.get("genericName")));
+        med.setBrandName(emptyToNull(r.get("brandName")));
+        med.setCategory(emptyToNull(r.get("category")));
+        med.setDosageForm(emptyToNull(r.get("dosageForm")));
+        med.setStrength(emptyToNull(r.get("strength")));
+        med.setUnit(emptyToNull(r.get("unit")));
+        med.setManufacturer(emptyToNull(r.get("manufacturer")));
+        med.setCountryOfOrigin(emptyToNull(r.get("countryOfOrigin")));
+        med.setDescription(emptyToNull(r.get("description")));
+        med.setSideEffects(emptyToNull(r.get("sideEffects")));
+        med.setContraindications(emptyToNull(r.get("contraindications")));
+        med.setStorageConditions(emptyToNull(r.get("storageConditions")));
+        if (requiresRx != null) med.setRequiresPrescription(requiresRx);
+        if (unitPrice != null) med.setUnitPrice(unitPrice);
     }
 }

@@ -171,7 +171,7 @@ public class AdminPaymentController {
 
         switch (format.toUpperCase()) {
             case "CSV":
-                contentType = "text/csv";
+                contentType = "text/csv; charset=UTF-8";
                 filename = "payments_export.csv";
                 break;
             case "PDF":
@@ -179,8 +179,9 @@ public class AdminPaymentController {
                 filename = "payments_export.pdf";
                 break;
             default:
-                contentType = "application/vnd.ms-excel";
-                filename = "payments_export.xls";
+                // XSSFWorkbook produces OOXML (.xlsx), not BIFF (.xls)
+                contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                filename = "payments_export.xlsx";
                 break;
         }
 

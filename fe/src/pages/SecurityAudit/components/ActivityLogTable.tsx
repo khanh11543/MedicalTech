@@ -67,7 +67,7 @@ export default function ActivityLogTable({
         <table className="w-full">
           <thead>
             <tr className="bg-gray-50 dark:bg-gray-800">
-              {["ID", "User", "Activity", "Description", "Resource", "Date", "IP", ""].map((h) => (
+              {["ID", "User", "Activity", "Description", "Resource", "Date", "IP", "Open", ""].map((h) => (
                 <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">{h}</th>
               ))}
             </tr>
@@ -75,7 +75,7 @@ export default function ActivityLogTable({
           <tbody>
             {Array.from({ length: 8 }).map((_, i) => (
               <tr key={i} className="border-t border-gray-100 dark:border-gray-700">
-                {Array.from({ length: 8 }).map((_, j) => (
+                {Array.from({ length: 9 }).map((_, j) => (
                   <td key={j} className="px-3 py-3">
                     <div className="h-4 w-full animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
                   </td>
@@ -132,6 +132,9 @@ export default function ActivityLogTable({
               </th>
               <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400">
                 IP Address
+              </th>
+              <th className="px-3 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 w-24">
+                Open
               </th>
               <th className="px-3 py-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 w-20">
                 Actions
@@ -228,6 +231,24 @@ export default function ActivityLogTable({
                       >
                         {log.ipAddress}
                       </button>
+                    ) : (
+                      <span className="text-xs text-gray-300">—</span>
+                    )}
+                  </td>
+
+                  {/* Open */}
+                  <td className="px-3 py-2.5">
+                    {log.resourceType === "APPOINTMENT" && log.resourceId ? (
+                      <a
+                        href={`/admin/appointments?appointmentId=${log.resourceId}`}
+                        className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-2.5 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                      >
+                        Open
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 3h7m0 0v7m0-7L10 14" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10v11h11" />
+                        </svg>
+                      </a>
                     ) : (
                       <span className="text-xs text-gray-300">—</span>
                     )}

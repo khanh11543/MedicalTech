@@ -296,6 +296,34 @@ export interface RefundFilterParams {
   sortDir?: string;
 }
 
+/** Download extension for admin refund export (BE: EXCEL → XLSX, CSV, PDF). */
+export function refundExportFileExtension(format: string): string {
+  switch (format.toUpperCase()) {
+    case 'CSV':
+      return 'csv';
+    case 'PDF':
+      return 'pdf';
+    case 'EXCEL':
+    default:
+      return 'xlsx';
+  }
+}
+
+async function readBlobErrorMessage(blob: Blob): Promise<string> {
+  try {
+    const text = await blob.text();
+    if (!text?.trim()) return 'Export failed';
+    try {
+      const j = JSON.parse(text) as { message?: string; error?: string; detail?: string };
+      return j.message || j.error || (typeof j.detail === 'string' ? j.detail : '') || text.slice(0, 300);
+    } catch {
+      return text.slice(0, 300);
+    }
+  } catch {
+    return 'Export failed';
+  }
+}
+
 export interface PageResponse<T> {
   content: T[];
   totalElements: number;
@@ -439,11 +467,25 @@ export const retryRefund = async (
 export const exportRefunds = async (
   params: RefundFilterParams & { format: string }
 ): Promise<Blob> => {
-  const response = await api.get('/admin/refunds/export', {
-    params,
-    responseType: 'blob',
-  });
-  return response.data;
+  const { format, ...filterParams } = params;
+  try {
+    const response = await api.get('/admin/refunds/export', {
+      params: { ...filterParams, format },
+      responseType: 'blob',
+    });
+    const blob = response.data as Blob;
+    if (blob.type?.includes('application/json')) {
+      throw new Error(await readBlobErrorMessage(blob));
+    }
+    return blob;
+  } catch (err: unknown) {
+    const ax = err as { response?: { data?: unknown } };
+    const data = ax?.response?.data;
+    if (data instanceof Blob) {
+      throw new Error(await readBlobErrorMessage(data));
+    }
+    throw err;
+  }
 };
 
 // ==================== HELPER FUNCTIONS ====================
@@ -515,6 +557,7 @@ export default {
   rejectRefund,
   processRefund,
   retryRefund,
+  refundExportFileExtension,
   exportRefunds,
   getRefundStatusColor,
   getRefundStatusIcon,

@@ -244,6 +244,31 @@ public class ReviewService {
         return convertToDTO(review);
     }
 
+    @Transactional(readOnly = true)
+    public ReviewDTO getMyReviewByAppointment(Long appointmentId, Long currentUserId) {
+        if (appointmentId == null) {
+            throw new IllegalArgumentException("appointmentId is required");
+        }
+        if (currentUserId == null) {
+            throw new IllegalArgumentException("currentUserId is required");
+        }
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", appointmentId));
+
+        Patient patient = patientRepository.findByUserId(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Patient not found for current user"));
+
+        if (appointment.getPatient() == null || !appointment.getPatient().getId().equals(patient.getId())) {
+            throw new IllegalArgumentException("You can only access reviews for your own appointments");
+        }
+
+        Review review = reviewRepository.findByAppointmentId(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found for appointmentId: " + appointmentId));
+
+        return convertToDTO(review);
+    }
+
     @Transactional
     public void deleteReview(Long reviewId) {
         Review review = reviewRepository.findById(reviewId)

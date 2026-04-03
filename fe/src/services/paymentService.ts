@@ -182,6 +182,34 @@ export interface PaymentFilterParams {
   sortDir?: string;
 }
 
+/** Extension for downloaded file (backend: EXCEL → XLSX, CSV, PDF only). */
+export function paymentExportFileExtension(format: string): string {
+  switch (format.toUpperCase()) {
+    case 'CSV':
+      return 'csv';
+    case 'PDF':
+      return 'pdf';
+    case 'EXCEL':
+    default:
+      return 'xlsx';
+  }
+}
+
+async function readBlobErrorMessage(blob: Blob): Promise<string> {
+  try {
+    const text = await blob.text();
+    if (!text?.trim()) return 'Export failed';
+    try {
+      const j = JSON.parse(text) as { message?: string; error?: string; detail?: string };
+      return j.message || j.error || (typeof j.detail === 'string' ? j.detail : '') || text.slice(0, 300);
+    } catch {
+      return text.slice(0, 300);
+    }
+  } catch {
+    return 'Export failed';
+  }
+}
+
 export interface PageResponse<T> {
   content: T[];
   totalElements: number;
@@ -235,11 +263,25 @@ export const bulkMarkAsPaid = async (
 export const exportPayments = async (
   params: PaymentFilterParams & { format: string }
 ): Promise<Blob> => {
-  const response = await api.get('/admin/payments/export', {
-    params,
-    responseType: 'blob',
-  });
-  return response.data;
+  try {
+    const response = await api.get('/admin/payments/export', {
+      params,
+      responseType: 'blob',
+    });
+    const blob = response.data as Blob;
+    // Some error responses are JSON with responseType blob
+    if (blob.type?.includes('application/json')) {
+      throw new Error(await readBlobErrorMessage(blob));
+    }
+    return blob;
+  } catch (err: unknown) {
+    const ax = err as { response?: { data?: unknown } };
+    const data = ax?.response?.data;
+    if (data instanceof Blob) {
+      throw new Error(await readBlobErrorMessage(data));
+    }
+    throw err;
+  }
 };
 
 /**
@@ -559,6 +601,7 @@ export default {
   getAllPayments,
   getPaymentStatistics,
   bulkMarkAsPaid,
+  paymentExportFileExtension,
   exportPayments,
   getPaymentDetail,
   markPaymentAsPaid,

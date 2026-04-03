@@ -291,6 +291,15 @@ const adminService = {
     return response.data;
   },
 
+  uploadUserAvatar: async (userId: number, file: File): Promise<{ avatarUrl: string; message: string }> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await api.post(`/admin/users/${userId}/avatar`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  },
+
   updateUserStatus: async (userId: number, isActive: boolean): Promise<void> => {
     await api.patch(`/admin/users/${userId}/status`, { isActive });
   },
@@ -341,10 +350,6 @@ const adminService = {
   updateRoom: async (roomId: number, data: UpsertRoomRequest): Promise<Room> => {
     const response = await api.put(`/admin/rooms/${roomId}`, data);
     return response.data;
-  },
-
-  deleteRoom: async (roomId: number): Promise<void> => {
-    await api.delete(`/admin/rooms/${roomId}`);
   },
 
   assignDoctorToRoom: async (roomId: number, doctorId?: number | null): Promise<Room> => {

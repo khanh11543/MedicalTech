@@ -42,4 +42,12 @@ public class PatientReviewController {
         ReviewDTO review = reviewService.createReviewForPatient(dto, currentUserId);
         return ResponseEntity.status(HttpStatus.CREATED).body(review);
     }
+
+    @GetMapping("/by-appointment/{appointmentId}")
+    @Operation(summary = "Get my review by appointment", description = "Returns the current user's review for a completed appointment (if exists)")
+    public ResponseEntity<ReviewDTO> getMyReviewByAppointment(@PathVariable Long appointmentId) {
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        ReviewDTO review = reviewService.getMyReviewByAppointment(appointmentId, currentUserId);
+        return ResponseEntity.ok(review);
+    }
 }

@@ -4,6 +4,7 @@ import com.q2k.meditech.dto.*;
 import com.q2k.meditech.dto.receptionist.*;
 import com.q2k.meditech.dto.statistics.*;
 import com.q2k.meditech.entity.*;
+import com.q2k.meditech.entity.enums.ActivityType;
 import com.q2k.meditech.entity.enums.AppointmentStatus;
 import com.q2k.meditech.entity.enums.BookedBy;
 import com.q2k.meditech.entity.enums.NotificationType;
@@ -15,6 +16,8 @@ import com.q2k.meditech.dto.mapper.TimeSlotMapper;
 import com.q2k.meditech.dto.settings.GeneralSettingsDTO;
 import com.q2k.meditech.repository.*;
 import com.q2k.meditech.util.ExportUtil;
+import com.q2k.meditech.util.HttpRequestUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,6 +27,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStreamWriter;
@@ -63,6 +68,43 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final PrivacyMaskingService privacyMaskingService;
     private final PaymentService paymentService;
     private final SystemSettingService systemSettingService;
+    private final ActivityLoggingService activityLoggingService;
+    private final UserRoleRepository userRoleRepository;
+
+    private static final String RESOURCE_TYPE_APPOINTMENT = "APPOINTMENT";
+
+    private static final class RequestInfo {
+        private final String ipAddress;
+        private final String userAgent;
+
+        private RequestInfo(String ipAddress, String userAgent) {
+            this.ipAddress = ipAddress;
+            this.userAgent = userAgent;
+        }
+
+        public String getIpAddress() {
+            return ipAddress;
+        }
+
+        public String getUserAgent() {
+            return userAgent;
+        }
+    }
+
+    private RequestInfo getRequestInfoSafe() {
+        try {
+            ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs == null) return new RequestInfo(null, null);
+            HttpServletRequest request = attrs.getRequest();
+            return new RequestInfo(
+                    HttpRequestUtil.getClientIp(request),
+                    HttpRequestUtil.getUserAgent(request)
+            );
+        } catch (Exception e) {
+            log.warn("Could not get request info for activity log: {}", e.getMessage());
+            return new RequestInfo(null, null);
+        }
+    }
 
     // ==================== BOOKING ====================
     
@@ -85,9 +127,6 @@ public class AppointmentServiceImpl implements AppointmentService {
             }
             dto.setStartTime(bookedSlot.getStartTime());
             dto.setEndTime(bookedSlot.getEndTime());
-            // Mark slot as booked
-            bookedSlot.setStatus(TimeSlotStatus.BOOKED);
-            timeSlotRepository.save(bookedSlot);
         }
         
         // Validate startTime and endTime are present
@@ -103,6 +142,15 @@ public class AppointmentServiceImpl implements AppointmentService {
         Doctor doctor = doctorRepository.findByIdWithUser(dto.getDoctorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + dto.getDoctorId()));
         
+        // If admin changed role DOCTOR -> PATIENT, doctor must not be bookable/showable
+        if (doctor.getUser() == null || !Boolean.TRUE.equals(doctor.getUser().getIsActive())) {
+            throw new AppointmentException("Doctor is not available for appointments");
+        }
+        boolean stillDoctorRole = userRoleRepository.existsByUserIdAndRoleName(doctor.getUser().getId(), "DOCTOR");
+        if (!stillDoctorRole) {
+            throw new AppointmentException("Doctor is not available for appointments");
+        }
+
         // Check doctor availability (null is treated as available=true by default)
         if (Boolean.FALSE.equals(doctor.getIsAvailable())) {
             throw new AppointmentException("Doctor is not available for appointments");
@@ -118,6 +166,12 @@ public class AppointmentServiceImpl implements AppointmentService {
         
         if (!conflicts.isEmpty()) {
             throw new AppointmentException.TimeSlotConflictException();
+        }
+
+        // Mark slot as booked AFTER all validations passed
+        if (bookedSlot != null) {
+            bookedSlot.setStatus(TimeSlotStatus.BOOKED);
+            timeSlotRepository.save(bookedSlot);
         }
         
         // Get the user who booked the appointment
@@ -145,6 +199,24 @@ public class AppointmentServiceImpl implements AppointmentService {
         // Create history entry
         createHistory(appointment, "CREATED", null, AppointmentStatus.PENDING,
                 bookedByUserId, bookedBy.name(), "Appointment booked");
+
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        String description = "Created appointment"
+                + " for " + appointment.getAppointmentDate() + " " + appointment.getStartTime()
+                + "–" + appointment.getEndTime()
+                + (dto.getReasonForVisit() != null && !dto.getReasonForVisit().isBlank()
+                    ? ", reason: " + dto.getReasonForVisit()
+                    : "");
+        activityLoggingService.log(
+                bookedByUserId,
+                ActivityType.CREATED_APPOINTMENT,
+                description,
+                RESOURCE_TYPE_APPOINTMENT,
+                appointment.getId(),
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
 
         log.info("Appointment created with ID: {}", appointment.getId());
 
@@ -340,6 +412,20 @@ public class AppointmentServiceImpl implements AppointmentService {
         }
         createHistory(appointment, "CONFIRMED", oldStatus, AppointmentStatus.CONFIRMED,
                 userId, callerRole.toUpperCase(), reason);
+
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        String description = "Confirmed appointment"
+                + (adminNote != null && !adminNote.isBlank() ? ", note: " + adminNote : "");
+        activityLoggingService.log(
+                userId,
+                ActivityType.CONFIRMED_APPOINTMENT,
+                description,
+                RESOURCE_TYPE_APPOINTMENT,
+                appointment.getId(),
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
         
         return appointmentMapper.toDTO(appointment);
     }
@@ -424,6 +510,18 @@ public class AppointmentServiceImpl implements AppointmentService {
         String role = "RECEPTIONIST";
         createHistory(appointment, "CHECKED_IN", oldStatus, AppointmentStatus.CHECKED_IN,
                 receptionistUserId, role, "Patient checked in, queue number: " + newQueueNumber);
+
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        activityLoggingService.log(
+                receptionistUserId,
+                ActivityType.CHECKED_IN_PATIENT,
+                "Checked in patient, queue number: " + newQueueNumber,
+                RESOURCE_TYPE_APPOINTMENT,
+                appointment.getId(),
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
 
         // 6. Send notification: patient checked in
         try {
@@ -1141,6 +1239,20 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .build();
         historyRepository.save(history);
 
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        String description = "Rescheduled from " + oldStartTime + " to " + dto.getNewStartTime()
+                + (dto.getReason() != null && !dto.getReason().isBlank() ? ", reason: " + dto.getReason() : "");
+        activityLoggingService.log(
+                userId,
+                ActivityType.RESCHEDULED_APPOINTMENT,
+                description,
+                RESOURCE_TYPE_APPOINTMENT,
+                appointment.getId(),
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
+
         // ── 12. Send notification ────────────────────────────────────────
         try {
             notificationEventService.onAppointmentRescheduled(appointment);
@@ -1223,6 +1335,20 @@ public class AppointmentServiceImpl implements AppointmentService {
         // Create history
         createHistory(appointment, "CANCELLED", oldStatus, AppointmentStatus.CANCELLED,
                 userId, userRole, dto.getReason());
+
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        String description = "Cancelled appointment"
+                + (dto.getReason() != null && !dto.getReason().isBlank() ? ", reason: " + dto.getReason() : "");
+        activityLoggingService.log(
+                userId,
+                ActivityType.CANCELLED_APPOINTMENT,
+                description,
+                RESOURCE_TYPE_APPOINTMENT,
+                appointment.getId(),
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
 
         // Apply refund policy (role-based & time-based)
         applyRefundPolicy(appointment, userId, userRole, false);
@@ -1505,6 +1631,9 @@ public class AppointmentServiceImpl implements AppointmentService {
         List<BulkActionResultDTO.ItemResult> results = new ArrayList<>();
         int successCount = 0;
         int failCount = 0;
+
+        // Activity log request context (safe)
+        RequestInfo req = getRequestInfoSafe();
         
         for (Long appointmentId : dto.getAppointmentIds()) {
             try {
@@ -1532,6 +1661,19 @@ public class AppointmentServiceImpl implements AppointmentService {
                 // Create history
                 createHistory(appointment, "CANCELLED", oldStatus, AppointmentStatus.CANCELLED,
                         userId, callerRole, "Bulk cancel: " + dto.getReason());
+
+                // Activity log
+                String description = "Bulk cancelled appointment"
+                        + (dto.getReason() != null && !dto.getReason().isBlank() ? ", reason: " + dto.getReason() : "");
+                activityLoggingService.log(
+                        userId,
+                        ActivityType.CANCELLED_APPOINTMENT,
+                        description,
+                        RESOURCE_TYPE_APPOINTMENT,
+                        appointment.getId(),
+                        req.getIpAddress(),
+                        req.getUserAgent()
+                );
                 
                 // Handle payment: apply refund policy (role-based & time-based)
                 applyRefundPolicy(appointment, userId, callerRole, false);

@@ -5,12 +5,15 @@ import com.q2k.meditech.dto.MessageDTO;
 import com.q2k.meditech.dto.TimeSlotDTO;
 import com.q2k.meditech.dto.timeslot.*;
 import com.q2k.meditech.entity.*;
+import com.q2k.meditech.entity.enums.ActivityType;
 import com.q2k.meditech.entity.enums.BlockReason;
 import com.q2k.meditech.entity.enums.SlotSource;
 import com.q2k.meditech.entity.enums.TimeSlotStatus;
 import com.q2k.meditech.exception.BadRequestException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.repository.*;
+import com.q2k.meditech.util.HttpRequestUtil;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -20,6 +23,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.*;
 import java.time.format.TextStyle;
@@ -52,6 +57,42 @@ public class TimeSlotServiceImpl implements TimeSlotService {
     private final ClinicHolidayRepository holidayRepository;
     private final ClinicWorkingHoursRepository workingHoursRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final ActivityLoggingService activityLoggingService;
+
+    private static final String RESOURCE_TYPE_TIME_SLOT = "TIME_SLOT";
+
+    private static final class RequestInfo {
+        private final String ipAddress;
+        private final String userAgent;
+
+        private RequestInfo(String ipAddress, String userAgent) {
+            this.ipAddress = ipAddress;
+            this.userAgent = userAgent;
+        }
+
+        public String getIpAddress() {
+            return ipAddress;
+        }
+
+        public String getUserAgent() {
+            return userAgent;
+        }
+    }
+
+    private RequestInfo getRequestInfoSafe() {
+        try {
+            ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs == null) return new RequestInfo(null, null);
+            HttpServletRequest request = attrs.getRequest();
+            return new RequestInfo(
+                    HttpRequestUtil.getClientIp(request),
+                    HttpRequestUtil.getUserAgent(request)
+            );
+        } catch (Exception e) {
+            log.warn("Could not get request info for activity log: {}", e.getMessage());
+            return new RequestInfo(null, null);
+        }
+    }
 
     // ======================== SLOT LISTING ========================
 
@@ -131,6 +172,18 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         slot = timeSlotRepository.save(slot);
         log.info("SLOT_CREATED: id={}, doctor={}, date={}, time={}-{}, by user={}",
                 slot.getId(), doctor.getId(), dto.getSlotDate(), dto.getStartTime(), dto.getEndTime(), userId);
+
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        activityLoggingService.log(
+                userId,
+                ActivityType.CREATED_TIME_SLOT,
+                "Created time slot " + dto.getSlotDate() + " " + dto.getStartTime() + "–" + dto.getEndTime(),
+                RESOURCE_TYPE_TIME_SLOT,
+                slot.getId(),
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
         return toDTO(slot);
     }
 
@@ -169,6 +222,18 @@ public class TimeSlotServiceImpl implements TimeSlotService {
 
         log.info("SLOT_UPDATED: id={}, oldTime={}, newTime={}-{}, by user={}",
                 slotId, oldTime, dto.getStartTime(), dto.getEndTime(), userId);
+
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        activityLoggingService.log(
+                userId,
+                ActivityType.UPDATED_TIME_SLOT,
+                "Updated time slot #" + slotId + " from " + oldTime + " to " + dto.getStartTime() + "-" + dto.getEndTime(),
+                RESOURCE_TYPE_TIME_SLOT,
+                slotId,
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
         return toDTO(slot);
     }
 
@@ -190,6 +255,18 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         if (slot.getSource() != SlotSource.MANUAL) {
             log.info("MANUAL_OVERRIDE: deleted a {} slot (id={})", slot.getSource(), slotId);
         }
+
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        activityLoggingService.log(
+                userId,
+                ActivityType.DELETED_TIME_SLOT,
+                "Deleted time slot #" + slotId + " (" + info + ")",
+                RESOURCE_TYPE_TIME_SLOT,
+                slotId,
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
 
         return MessageDTO.success("Slot deleted successfully");
     }
@@ -218,6 +295,18 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         slot = timeSlotRepository.save(slot);
 
         log.info("SLOT_BLOCKED: id={}, reason={}, by user={}", slotId, reason, userId);
+
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        activityLoggingService.log(
+                userId,
+                ActivityType.BLOCKED_TIME_SLOT,
+                "Blocked time slot #" + slotId + ", reason: " + reason,
+                RESOURCE_TYPE_TIME_SLOT,
+                slotId,
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
         return toDTO(slot);
     }
 
@@ -241,6 +330,18 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         slot = timeSlotRepository.save(slot);
 
         log.info("SLOT_UNBLOCKED: id={}, by user={}", slotId, userId);
+
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        activityLoggingService.log(
+                userId,
+                ActivityType.UNBLOCKED_TIME_SLOT,
+                "Unblocked time slot #" + slotId,
+                RESOURCE_TYPE_TIME_SLOT,
+                slotId,
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
         return toDTO(slot);
     }
 
@@ -282,6 +383,18 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         }
 
         log.info("BULK_BLOCK: {} blocked, {} failed, by user={}", successCount, failCount, userId);
+
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        activityLoggingService.log(
+                userId,
+                ActivityType.BULK_BLOCKED_TIME_SLOTS,
+                "Bulk blocked time slots: requested=" + dto.getTimeSlotIds().size() + ", blocked=" + successCount + ", failed=" + failCount,
+                RESOURCE_TYPE_TIME_SLOT,
+                null,
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
         return buildBulkResult(dto.getTimeSlotIds().size(), successCount, failCount, results,
                 String.format("Blocked %d of %d slots", successCount, dto.getTimeSlotIds().size()));
     }
@@ -320,6 +433,18 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         }
 
         log.info("BULK_UNBLOCK: {} unblocked, {} failed, by user={}", successCount, failCount, userId);
+
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        activityLoggingService.log(
+                userId,
+                ActivityType.BULK_UNBLOCKED_TIME_SLOTS,
+                "Bulk unblocked time slots: requested=" + dto.getTimeSlotIds().size() + ", unblocked=" + successCount + ", failed=" + failCount,
+                RESOURCE_TYPE_TIME_SLOT,
+                null,
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
         return buildBulkResult(dto.getTimeSlotIds().size(), successCount, failCount, results,
                 String.format("Unblocked %d of %d slots", successCount, dto.getTimeSlotIds().size()));
     }
@@ -424,6 +549,18 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         }
 
         log.info("BULK_SLOTS_CREATED: batchId={}, {} doctors, {} slots, by user={}", batchId, successDoctors, totalInserted, userId);
+
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        activityLoggingService.log(
+                userId,
+                ActivityType.BULK_CREATED_TIME_SLOTS,
+                "Bulk created time slots: batchId=" + batchId + ", doctors=" + successDoctors + ", slots=" + totalInserted,
+                RESOURCE_TYPE_TIME_SLOT,
+                null,
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
         BulkActionResultDTO result = buildBulkResult(dto.getDoctorIds().size(), successDoctors, failDoctors, results,
                 String.format("Created %d slots for %d doctors. BatchId: %s",
                         totalInserted, successDoctors, batchId));
@@ -435,6 +572,18 @@ public class TimeSlotServiceImpl implements TimeSlotService {
         log.info("Rolling back batch: {}, by user={}", batchId, userId);
         int deleted = timeSlotRepository.deleteAvailableByBatchId(batchId);
         log.info("BATCH_ROLLBACK: batchId={}, deleted {} AVAILABLE slots, by user={}", batchId, deleted, userId);
+
+        // Activity log
+        RequestInfo req = getRequestInfoSafe();
+        activityLoggingService.log(
+                userId,
+                ActivityType.ROLLED_BACK_TIME_SLOTS,
+                "Rolled back batchId=" + batchId + ", deleted=" + deleted,
+                RESOURCE_TYPE_TIME_SLOT,
+                null,
+                req.getIpAddress(),
+                req.getUserAgent()
+        );
         return MessageDTO.success("Rolled back " + deleted + " available slots from batch " + batchId);
     }
 
