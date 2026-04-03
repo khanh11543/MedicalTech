@@ -80,6 +80,15 @@ public interface PaymentService {
     PaymentDTO cancelPayment(Long paymentId, CancelPaymentDTO dto, Long currentUserId);
 
     /**
+     * Create a PENDING payment for service orders and initialize MoMo QR payment
+     * @param appointmentId Appointment ID
+     * @param serviceOrderIds List of service order IDs to pay
+     * @param currentUserId User initializing the payment
+     * @return Payment init result with QR code URL
+     */
+    PaymentInitDTO createAndInitMomoForServiceOrders(Long appointmentId, java.util.List<Long> serviceOrderIds, Long currentUserId);
+
+    /**
      * Handle MoMo webhook callback
      * @param webhookDto MoMo webhook data
      * @return Updated payment

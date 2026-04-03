@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type { ReceptionistAppointmentListDTO } from "../../../services/receptionistService";
+import receptionistService from "../../../services/receptionistService";
 import serviceOrderService from "../../../services/serviceOrderService";
 import type { ServiceOrderDTO } from "../../../services/serviceOrderService";
 import { SERVICE_CATEGORY_LABELS } from "../../../services/serviceOrderService";
@@ -37,13 +38,21 @@ export function CollectServiceOrderPaymentModal({
   onError,
   onRefresh,
 }: CollectServiceOrderPaymentModalProps) {
-  const [step, setStep] = useState<"list" | "confirm" | "success">("list");
+  const [step, setStep] = useState<"list" | "confirm" | "momo-qr" | "success">("list");
   const [orders, setOrders] = useState<ServiceOrderDTO[]>([]);
   const [allOrders, setAllOrders] = useState<ServiceOrderDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("CASH");
+
+  // MoMo QR state
+  const [momoPaymentId, setMomoPaymentId] = useState<number | null>(null);
+  const [momoQrUrl, setMomoQrUrl] = useState<string>("");
+  const [momoStatus, setMomoStatus] = useState<"idle" | "waiting" | "success" | "expired" | "failed">("idle");
+  const [qrCountdown, setQrCountdown] = useState(300);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch service orders
   const fetchOrders = useCallback(async () => {
@@ -70,8 +79,16 @@ export function CollectServiceOrderPaymentModal({
       setStep("list");
       setPaymentMethod("CASH");
       setSelectedIds(new Set());
+      setMomoPaymentId(null);
+      setMomoQrUrl("");
+      setMomoStatus("idle");
+      setQrCountdown(300);
       fetchOrders();
     }
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
   }, [isOpen, appointment, fetchOrders]);
 
   // Toggle selection
@@ -98,13 +115,111 @@ export function CollectServiceOrderPaymentModal({
   // Handle payment
   const handleCollectPayment = async () => {
     if (selectedIds.size === 0) return;
+
+    if (paymentMethod === "MOMO") {
+      // MoMo: init MoMo payment and show QR
+      await handleInitMomo();
+      return;
+    }
+
+    // CASH: collect payment directly
     try {
       setLoading(true);
       const ids = Array.from(selectedIds);
-      await serviceOrderService.collectPaymentBatch(ids, paymentMethod);
+      await serviceOrderService.collectPaymentBatch(ids, "CASH");
       setStep("success");
     } catch {
       onError("Failed to collect payment. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // MoMo payment init
+  const handleInitMomo = async () => {
+    if (!appointment || selectedIds.size === 0) return;
+    try {
+      setLoading(true);
+      setMomoStatus("waiting");
+      const ids = Array.from(selectedIds);
+      const result = await serviceOrderService.initMomoForServiceOrders(appointment.id, ids);
+      setMomoPaymentId(result.paymentId);
+      setMomoQrUrl(result.qrCodeUrl || "");
+      setStep("momo-qr");
+
+      // Start countdown (5 min)
+      setQrCountdown(300);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+      countdownRef.current = setInterval(() => {
+        setQrCountdown((prev) => {
+          if (prev <= 1) {
+            if (countdownRef.current) clearInterval(countdownRef.current);
+            setMomoStatus("expired");
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      // Start polling for payment status
+      startPolling(result.paymentId);
+    } catch {
+      onError("Failed to initialize MoMo payment");
+      setMomoStatus("failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Poll for MoMo payment status
+  const startPolling = useCallback(
+    (paymentId: number) => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      pollingRef.current = setInterval(async () => {
+        try {
+          const pd = await receptionistService.getPaymentById(paymentId);
+          if (pd.paymentStatus === "PAID" || pd.status === "PAID") {
+            setMomoStatus("success");
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            if (countdownRef.current) clearInterval(countdownRef.current);
+
+            // Also mark service orders as PAID
+            try {
+              const ids = Array.from(selectedIds);
+              await serviceOrderService.collectPaymentBatch(ids, "MOMO");
+            } catch {
+              // Service orders will still need manual update if this fails
+            }
+
+            setTimeout(() => setStep("success"), 1500);
+          } else if (
+            pd.paymentStatus === "FAILED" ||
+            pd.paymentStatus === "CANCELLED"
+          ) {
+            setMomoStatus("failed");
+            if (pollingRef.current) clearInterval(pollingRef.current);
+            if (countdownRef.current) clearInterval(countdownRef.current);
+          }
+        } catch {
+          /* continue polling */
+        }
+      }, 3000);
+    },
+    [selectedIds]
+  );
+
+  // Refresh QR code
+  const handleRefreshQR = async () => {
+    if (!momoPaymentId) return;
+    try {
+      setLoading(true);
+      const result = await receptionistService.refreshPaymentQR(momoPaymentId);
+      setMomoQrUrl(result.qrCodeUrl || result.qrCode || "");
+      setQrCountdown(300);
+      setMomoStatus("waiting");
+      startPolling(momoPaymentId);
+    } catch {
+      onError("Failed to refresh QR code");
     } finally {
       setLoading(false);
     }
@@ -357,6 +472,125 @@ export function CollectServiceOrderPaymentModal({
                   </button>
                 </div>
               </>
+            )}
+          </div>
+        )}
+
+        {/* Step: MoMo QR */}
+        {step === "momo-qr" && (
+          <div className="px-6 py-5 space-y-4">
+            <button
+              onClick={() => {
+                setStep("list");
+                setMomoStatus("idle");
+                if (pollingRef.current) clearInterval(pollingRef.current);
+                if (countdownRef.current) clearInterval(countdownRef.current);
+              }}
+              className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
+            </button>
+
+            <div className="text-center">
+              <p className="text-xs text-pink-600 dark:text-pink-400 font-medium uppercase">Scan to Pay</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{formatCurrency(totalAmount)}</p>
+            </div>
+
+            {/* QR waiting */}
+            {momoStatus === "waiting" && momoQrUrl && (
+              <div className="space-y-3">
+                <div className="bg-white dark:bg-gray-700 p-4 rounded-xl border border-gray-200 dark:border-gray-600 flex justify-center">
+                  <img src={momoQrUrl} alt="MoMo QR" className="w-48 h-48 object-contain" />
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500 dark:text-gray-400">Expires in</span>
+                  <span className={`font-mono font-bold ${qrCountdown < 60 ? "text-red-500" : "text-gray-700 dark:text-gray-300"}`}>
+                    {Math.floor(qrCountdown / 60)}:{String(qrCountdown % 60).padStart(2, "0")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 justify-center">
+                  <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse" />
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Waiting for payment...</span>
+                </div>
+              </div>
+            )}
+
+            {/* MoMo loading */}
+            {(momoStatus === "idle" || (momoStatus === "waiting" && !momoQrUrl)) && (
+              <div className="text-center py-8">
+                <div className="w-8 h-8 border-3 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">Generating QR code...</p>
+              </div>
+            )}
+
+            {/* MoMo success */}
+            {momoStatus === "success" && (
+              <div className="text-center py-6">
+                <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-8 h-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <p className="text-lg font-bold text-green-600">Payment Received!</p>
+              </div>
+            )}
+
+            {/* MoMo expired */}
+            {momoStatus === "expired" && (
+              <div className="text-center py-6 space-y-3">
+                <div className="w-14 h-14 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center mx-auto">
+                  <svg className="w-7 h-7 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-bold text-orange-600">QR Code Expired</p>
+                <div className="flex justify-center gap-2">
+                  <button onClick={handleRefreshQR} disabled={loading} className="px-4 py-2 text-xs font-semibold text-white bg-pink-500 rounded-lg hover:bg-pink-600 disabled:opacity-50">
+                    {loading ? "Refreshing..." : "New QR Code"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setStep("list");
+                      setPaymentMethod("CASH");
+                      setMomoStatus("idle");
+                      if (pollingRef.current) clearInterval(pollingRef.current);
+                    }}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-green-500 rounded-lg hover:bg-green-600"
+                  >
+                    Switch to Cash
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* MoMo failed */}
+            {momoStatus === "failed" && (
+              <div className="text-center py-6 space-y-3">
+                <div className="w-14 h-14 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto">
+                  <svg className="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <p className="text-sm font-bold text-red-600">Payment Failed</p>
+                <div className="flex justify-center gap-2">
+                  <button onClick={handleInitMomo} disabled={loading} className="px-4 py-2 text-xs font-semibold text-white bg-pink-500 rounded-lg hover:bg-pink-600 disabled:opacity-50">
+                    Retry MoMo
+                  </button>
+                  <button
+                    onClick={() => {
+                      setStep("list");
+                      setPaymentMethod("CASH");
+                      setMomoStatus("idle");
+                    }}
+                    className="px-4 py-2 text-xs font-semibold text-white bg-green-500 rounded-lg hover:bg-green-600"
+                  >
+                    Switch to Cash
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}

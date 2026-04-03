@@ -169,6 +169,22 @@ class ServiceOrderService {
     );
     return response.data;
   }
+
+  async initMomoForServiceOrders(appointmentId: number, serviceOrderIds: number[]): Promise<{
+    paymentId: number;
+    paymentCode: string;
+    payUrl: string;
+    qrCodeUrl: string;
+    orderId: string;
+    message: string;
+    success: boolean;
+  }> {
+    const response = await api.post(
+      `/receptionist/service-orders/momo-init`,
+      { appointmentId, serviceOrderIds }
+    );
+    return response.data;
+  }
 }
 
 const serviceOrderService = new ServiceOrderService();

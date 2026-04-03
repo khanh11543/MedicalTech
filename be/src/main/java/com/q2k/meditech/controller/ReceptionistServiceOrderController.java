@@ -1,6 +1,8 @@
 package com.q2k.meditech.controller;
 
+import com.q2k.meditech.dto.PaymentInitDTO;
 import com.q2k.meditech.dto.ServiceOrderDTO;
+import com.q2k.meditech.service.PaymentService;
 import com.q2k.meditech.service.ServiceOrderService;
 import com.q2k.meditech.util.SecurityUtil;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,6 +29,7 @@ import java.util.Map;
 public class ReceptionistServiceOrderController {
 
     private final ServiceOrderService serviceOrderService;
+    private final PaymentService paymentService;
 
     /**
      * Get all service orders for an appointment
@@ -93,5 +96,25 @@ public class ReceptionistServiceOrderController {
                 .toList();
 
         return ResponseEntity.ok(results);
+    }
+
+    /**
+     * Initialize MoMo payment for service orders (create Payment + get QR code)
+     * POST /api/receptionist/service-orders/momo-init
+     * Body: { "appointmentId": 123, "serviceOrderIds": [1,2,3] }
+     */
+    @PostMapping("/momo-init")
+    @Operation(summary = "Init MoMo for service orders", description = "Create payment and get MoMo QR code for service orders")
+    public ResponseEntity<PaymentInitDTO> initMomoForServiceOrders(@RequestBody Map<String, Object> body) {
+        Long appointmentId = ((Number) body.get("appointmentId")).longValue();
+        @SuppressWarnings("unchecked")
+        List<Integer> ids = (List<Integer>) body.get("serviceOrderIds");
+        List<Long> serviceOrderIds = ids.stream().map(Integer::longValue).toList();
+
+        log.info("POST /receptionist/service-orders/momo-init - appointmentId: {}, ids: {}", appointmentId, serviceOrderIds);
+
+        Long currentUserId = SecurityUtil.getCurrentUserId();
+        PaymentInitDTO result = paymentService.createAndInitMomoForServiceOrders(appointmentId, serviceOrderIds, currentUserId);
+        return ResponseEntity.ok(result);
     }
 }

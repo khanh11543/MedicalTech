@@ -70,6 +70,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PrivacyMaskingService privacyMaskingService;
     private final ObjectMapper objectMapper;
     private final PlatformTransactionManager transactionManager;
+    private final com.q2k.meditech.repository.ServiceOrderRepository serviceOrderRepository;
 
     // QR refresh rate limiting: paymentId -> list of refresh timestamps
     private static final int QR_REFRESH_MAX = 3;
@@ -286,6 +287,65 @@ public class PaymentServiceImpl implements PaymentService {
         log.info("Prescription payment created with ID: {}, code: {}, total: {}", payment.getId(), payment.getPaymentCode(), totalAmount);
 
         return mapToDTO(payment);
+    }
+
+    @Override
+    @Transactional
+    public PaymentInitDTO createAndInitMomoForServiceOrders(Long appointmentId, List<Long> serviceOrderIds, Long currentUserId) {
+        log.info("Creating MoMo payment for service orders: {} (appointment: {}, user: {})", serviceOrderIds, appointmentId, currentUserId);
+
+        if (serviceOrderIds == null || serviceOrderIds.isEmpty()) {
+            throw new BadRequestException("Service order IDs cannot be empty");
+        }
+
+        Appointment appointment = appointmentRepository.findById(appointmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", appointmentId));
+        Patient patient = appointment.getPatient();
+
+        // Calculate total from service orders
+        BigDecimal totalAmount = BigDecimal.ZERO;
+        StringBuilder orderNotes = new StringBuilder("Service Orders: ");
+        for (Long soId : serviceOrderIds) {
+            com.q2k.meditech.entity.ServiceOrder so = serviceOrderRepository.findById(soId)
+                    .orElseThrow(() -> new ResourceNotFoundException("ServiceOrder", "id", soId));
+            if (so.getPrice() != null) {
+                totalAmount = totalAmount.add(so.getPrice());
+            }
+            orderNotes.append("#").append(soId).append(" ");
+        }
+
+        if (totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("Total amount must be greater than zero");
+        }
+
+        User processedBy = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id", currentUserId));
+
+        // Create Payment entity
+        Payment payment = Payment.builder()
+                .paymentCode(generatePaymentCode())
+                .appointment(appointment)
+                .patient(patient)
+                .amount(totalAmount)
+                .discountAmount(BigDecimal.ZERO)
+                .taxAmount(BigDecimal.ZERO)
+                .totalAmount(totalAmount)
+                .currency("VND")
+                .paymentMethod("MOMO")
+                .paymentStatus("PENDING")
+                .referenceType("SERVICE_ORDER")
+                .processedBy(processedBy)
+                .notes(orderNotes.toString().trim())
+                .build();
+
+        payment = paymentRepository.save(payment);
+        log.info("Service order payment created with ID: {}, code: {}, total: {}", payment.getId(), payment.getPaymentCode(), totalAmount);
+
+        // Init MoMo payment
+        MomoInitDTO momoDto = MomoInitDTO.builder()
+                .orderInfo("Service Order Payment " + payment.getPaymentCode())
+                .build();
+        return initMomoPaymentInternal(payment.getId(), momoDto, currentUserId, false);
     }
 
     @Override
