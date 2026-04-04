@@ -308,6 +308,25 @@ export interface Payment {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
+  /** APPOINTMENT | PRESCRIPTION | SERVICE_ORDER */
+  referenceType?: string | null;
+  prescriptionCode?: string | null;
+}
+
+/** Service order lines still awaiting payment (patient portal). */
+export interface PatientPendingServiceOrder {
+  id: number;
+  appointmentId: number;
+  consultationId?: number;
+  serviceName: string;
+  category?: string;
+  price?: number;
+  status: string;
+  orderedAt?: string;
+  orderedByDoctorName?: string;
+  targetDepartment?: string;
+  appointmentCode?: string;
+  patientName?: string;
 }
 
 export interface DashboardStats {
@@ -836,6 +855,11 @@ const patientService = {
   }): Promise<PageResponse<Payment>> => {
     const response = await api.get('/patient/payments', { params });
     return response.data;
+  },
+
+  getMyPendingPaymentServiceOrders: async (): Promise<PatientPendingServiceOrder[]> => {
+    const response = await api.get('/patient/service-orders/pending-payment');
+    return response.data ?? [];
   },
 
   // Search doctors (public)
