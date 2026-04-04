@@ -7,6 +7,7 @@ export type AppointmentStatus =
   | "CONFIRMED"
   | "CHECKED_IN"
   | "IN_PROGRESS"
+  | "AWAITING_SERVICE_RESULTS"
   | "COMPLETED"
   | "CANCELLED"
   | "NO_SHOW"

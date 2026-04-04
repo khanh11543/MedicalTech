@@ -21,6 +21,11 @@ export const STATUS_CONFIG: Record<string, { label: string; color: string; bg: s
     color: "text-indigo-800 dark:text-indigo-400",
     bg: "bg-indigo-100 dark:bg-indigo-900/30",
   },
+  AWAITING_SERVICE_RESULTS: {
+    label: "Awaiting Results",
+    color: "text-cyan-800 dark:text-cyan-400",
+    bg: "bg-cyan-100 dark:bg-cyan-900/30",
+  },
   COMPLETED: {
     label: "Completed",
     color: "text-emerald-800 dark:text-emerald-400",
@@ -62,7 +67,14 @@ export const PAYMENT_STATUS_CONFIG: Record<string, { label: string; color: strin
 };
 
 export const ALL_STATUSES: AppointmentStatus[] = [
-  "PENDING", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS", "COMPLETED", "CANCELLED", "NO_SHOW",
+  "PENDING",
+  "CONFIRMED",
+  "CHECKED_IN",
+  "IN_PROGRESS",
+  "AWAITING_SERVICE_RESULTS",
+  "COMPLETED",
+  "CANCELLED",
+  "NO_SHOW",
 ];
 
 export const HISTORY_STATUSES: AppointmentStatus[] = ["COMPLETED", "CANCELLED", "NO_SHOW"];
@@ -73,6 +85,7 @@ export const ACTIONS_PER_STATUS: Record<string, string[]> = {
   CONFIRMED: ["CHECK_IN", "RESCHEDULE", "CANCEL", "SEND_REMINDER", "PRINT_SLIP", "COLLECT_PAYMENT", "RECEIPT"],
   CHECKED_IN: ["VIEW_QUEUE", "MARK_NO_SHOW", "NOTIFY_DOCTOR", "COLLECT_PAYMENT", "RECEIPT", "COLLECT_RX_PAYMENT"],
   IN_PROGRESS: ["VIEW", "COLLECT_PAYMENT", "RECEIPT", "COLLECT_RX_PAYMENT"],
+  AWAITING_SERVICE_RESULTS: ["VIEW", "COLLECT_PAYMENT", "RECEIPT", "COLLECT_RX_PAYMENT"],
   COMPLETED: ["COLLECT_PAYMENT", "RECEIPT", "CREATE_FOLLOW_UP", "COLLECT_RX_PAYMENT"],
   CANCELLED: ["VIEW_REASON", "REBOOK"],
   NO_SHOW: ["VIEW_REASON", "REBOOK"],

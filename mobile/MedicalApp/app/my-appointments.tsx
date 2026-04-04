@@ -124,6 +124,7 @@ function statusDisplay(status: string | undefined): { label: string; color: stri
     CONFIRMED: { label: 'Confirmed', color: '#22c55e' },
     CHECKED_IN: { label: 'Checked in', color: '#0ea5e9' },
     IN_PROGRESS: { label: 'In progress', color: '#8b5cf6' },
+    AWAITING_SERVICE_RESULTS: { label: 'Awaiting results', color: '#06b6d4' },
     COMPLETED: { label: 'Completed', color: '#6b7280' },
     CANCELLED: { label: 'Cancelled', color: '#ef4444' },
     NO_SHOW: { label: 'No-show', color: '#b45309' },

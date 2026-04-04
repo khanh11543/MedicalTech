@@ -890,7 +890,7 @@ public class AppointmentServiceImpl implements AppointmentService {
             case SCHEDULED -> List.of("VIEW", "CONFIRM", "RESCHEDULE", "CANCEL");
             case CONFIRMED -> List.of("CHECK_IN", "RESCHEDULE", "CANCEL", "SEND_REMINDER", "PRINT_SLIP");
             case CHECKED_IN -> List.of("VIEW_QUEUE", "MARK_NO_SHOW", "NOTIFY_DOCTOR");
-            case IN_PROGRESS -> List.of("VIEW");
+            case IN_PROGRESS, AWAITING_SERVICE_RESULTS -> List.of("VIEW");
             case COMPLETED -> List.of("COLLECT_PAYMENT", "RECEIPT", "CREATE_FOLLOW_UP");
             case CANCELLED, NO_SHOW -> List.of("VIEW_REASON", "REBOOK");
             case RESCHEDULED -> List.of("VIEW");
@@ -1042,6 +1042,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         // IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW, RESCHEDULED → always rejected.
         AppointmentStatus status = appointment.getStatus();
         if (status == AppointmentStatus.IN_PROGRESS ||
+            status == AppointmentStatus.AWAITING_SERVICE_RESULTS ||
             status == AppointmentStatus.COMPLETED ||
             status == AppointmentStatus.CANCELLED ||
             status == AppointmentStatus.NO_SHOW ||
@@ -1826,7 +1827,8 @@ public class AppointmentServiceImpl implements AppointmentService {
         return appointment.getStatus() == AppointmentStatus.PENDING ||
                appointment.getStatus() == AppointmentStatus.CONFIRMED ||
                appointment.getStatus() == AppointmentStatus.CHECKED_IN ||
-               appointment.getStatus() == AppointmentStatus.IN_PROGRESS;
+               appointment.getStatus() == AppointmentStatus.IN_PROGRESS ||
+               appointment.getStatus() == AppointmentStatus.AWAITING_SERVICE_RESULTS;
     }
 
     /**
@@ -2794,6 +2796,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 AppointmentStatus.CONFIRMED, "#2196F3",
                 AppointmentStatus.CHECKED_IN, "#9C27B0",
                 AppointmentStatus.IN_PROGRESS, "#3F51B5",
+                AppointmentStatus.AWAITING_SERVICE_RESULTS, "#00ACC1",
                 AppointmentStatus.COMPLETED, "#4CAF50",
                 AppointmentStatus.CANCELLED, "#F44336",
                 AppointmentStatus.NO_SHOW, "#9E9E9E",
