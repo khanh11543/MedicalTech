@@ -24,6 +24,19 @@ public interface ServiceOrderRepository extends JpaRepository<ServiceOrder, Long
 
     List<ServiceOrder> findByAppointmentIdIn(List<Long> appointmentIds);
 
+    @Query("SELECT so FROM ServiceOrder so " +
+           "JOIN FETCH so.appointment a " +
+           "JOIN FETCH a.doctor d " +
+           "JOIN FETCH d.user du " +
+           "JOIN FETCH so.orderedByDoctor od " +
+           "JOIN FETCH od.user ou " +
+           "WHERE a.patient.id = :patientId " +
+           "AND so.status IN :statuses " +
+           "ORDER BY so.orderedAt DESC")
+    List<ServiceOrder> findByPatientIdAndStatusIn(
+            @Param("patientId") Long patientId,
+            @Param("statuses") List<ServiceOrderStatus> statuses);
+
     // ── Department Worklist queries (using specialty FK) ──
 
     @Query("SELECT so FROM ServiceOrder so " +

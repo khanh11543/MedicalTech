@@ -57,6 +57,29 @@ public class NotificationEventService {
     }
 
     /**
+     * Appointment confirmed by doctor or staff.
+     * Notifies: all RECEPTIONIST + ADMIN users.
+     */
+    @Async
+    public void onAppointmentConfirmed(Appointment appointment) {
+        String patientName = appointment.getPatient().getUser().getFullName();
+        String doctorName = appointment.getDoctor().getUser().getFullName();
+        String date = appointment.getAppointmentDate().toString();
+
+        String message = String.format("Appointment confirmed: %s with Dr. %s on %s",
+                patientName, doctorName, date);
+
+        sendToReceptionistsAndAdmins(
+                "Appointment Confirmed",
+                message,
+                NotificationCategory.APPOINTMENT_CONFIRMED,
+                NotificationPriority.INFO,
+                "APPOINTMENT",
+                appointment.getId()
+        );
+    }
+
+    /**
      * Appointment cancelled.
      * Notifies: all RECEPTIONIST + ADMIN users.
      */
@@ -424,7 +447,7 @@ public class NotificationEventService {
      */
     private NotificationType mapCategoryToType(NotificationCategory category) {
         return switch (category) {
-            case NEW_BOOKING, APPOINTMENT_CANCELLED, APPOINTMENT_RESCHEDULED,
+            case NEW_BOOKING, APPOINTMENT_CONFIRMED, APPOINTMENT_CANCELLED, APPOINTMENT_RESCHEDULED,
                  PATIENT_CHECKED_IN, NO_SHOW_MARKED, DOCTOR_NOTIFIED -> NotificationType.APPOINTMENT;
             case MOMO_PAYMENT_RECEIVED, PAYMENT_FAILED,
                  NEW_PENDING_PAYMENT, OVERDUE_PAYMENT -> NotificationType.PAYMENT;

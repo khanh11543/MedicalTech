@@ -1,12 +1,17 @@
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "react-toastify";
 import PageMeta from "../../components/common/PageMeta";
-import patientService, { type Payment, type InvoiceDTO } from "../../services/patientService";
+import patientService, {
+  type Payment,
+  type InvoiceDTO,
+  type PatientPendingServiceOrder,
+} from "../../services/patientService";
 import MomoQrModal from "../../components/payment/MomoQrModal";
 
 const statusConfig: Record<string, { label: string; classes: string }> = {
   PENDING: { label: "Pending", classes: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
   INITIATED: { label: "Processing", classes: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
+  PROCESSING: { label: "Processing", classes: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
   PAID: { label: "Paid", classes: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" },
   FAILED: { label: "Failed", classes: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
   REFUNDED: { label: "Refunded", classes: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" },
@@ -14,13 +19,23 @@ const statusConfig: Record<string, { label: string; classes: string }> = {
   CANCELLED: { label: "Cancelled", classes: "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400" },
 };
 
-type PaymentTabKey = "PAID" | "UNPAID" | "COMPLETED" | "CANCELLED";
+type PaymentTabKey = "PAID" | "UNPAID" | "CANCELLED";
 const PAYMENT_TABS: { key: PaymentTabKey; label: string; statusParam: string }[] = [
   { key: "PAID", label: "Paid", statusParam: "PAID" },
   { key: "UNPAID", label: "Unpaid", statusParam: "UNPAID" },
-  { key: "COMPLETED", label: "Completed", statusParam: "COMPLETED" },
   { key: "CANCELLED", label: "Cancelled", statusParam: "CANCELLED" },
 ];
+
+function paymentCardTitle(payment: Payment): string {
+  const rt = (payment.referenceType || "APPOINTMENT").toUpperCase();
+  if (rt === "SERVICE_ORDER") return "Service order payment";
+  if (rt === "PRESCRIPTION") {
+    const code = payment.prescriptionCode;
+    return code ? `Prescription (${code})` : "Prescription payment";
+  }
+  const name = payment.doctorName?.trim();
+  return name ? `Dr. ${name}` : "Consultation payment";
+}
 
 export default function PaymentHistory() {
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -28,8 +43,10 @@ export default function PaymentHistory() {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
-  const [tabCounts, setTabCounts] = useState<Record<PaymentTabKey, number>>({ PAID: 0, UNPAID: 0, COMPLETED: 0, CANCELLED: 0 });
+  const [tabCounts, setTabCounts] = useState<Record<PaymentTabKey, number>>({ PAID: 0, UNPAID: 0, CANCELLED: 0 });
   const [activeTab, setActiveTab] = useState<PaymentTabKey>("UNPAID");
+  const [pendingServiceOrders, setPendingServiceOrders] = useState<PatientPendingServiceOrder[]>([]);
+  const [loadingServiceOrders, setLoadingServiceOrders] = useState(true);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [qrModalPayment, setQrModalPayment] = useState<Payment | null>(null);
   const [cancelModalPayment, setCancelModalPayment] = useState<Payment | null>(null);
@@ -61,11 +78,29 @@ export default function PaymentHistory() {
     fetchPayments();
   }, [fetchPayments]);
 
+  const fetchPendingServiceOrders = useCallback(async () => {
+    setLoadingServiceOrders(true);
+    try {
+      const rows = await patientService.getMyPendingPaymentServiceOrders();
+      setPendingServiceOrders(rows);
+    } catch (e) {
+      console.error("Failed to load pending service orders:", e);
+      setPendingServiceOrders([]);
+    } finally {
+      setLoadingServiceOrders(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPendingServiceOrders();
+  }, [fetchPendingServiceOrders]);
+
   const handlePaymentUpdated = () => {
     toast.success("Payment successful! Thank you.", { autoClose: 5000 });
     setQrModalPayment(null);
     setCancelModalPayment(null);
     fetchPayments();
+    fetchPendingServiceOrders();
   };
 
   return (
@@ -105,6 +140,37 @@ export default function PaymentHistory() {
           </p>
         </div>
 
+        {!loadingServiceOrders && pendingServiceOrders.length > 0 && (
+          <div className="rounded-2xl border border-cyan-200 dark:border-cyan-900/40 bg-cyan-50/80 dark:bg-cyan-950/20 p-4 sm:p-5 space-y-3">
+            <h2 className="text-sm font-semibold text-cyan-900 dark:text-cyan-200">
+              Service orders — payment due
+            </h2>
+            <p className="text-xs text-cyan-800/80 dark:text-cyan-300/80">
+              Your doctor ordered these services. Pay any linked invoice below (MoMo), or complete payment at reception.
+            </p>
+            <ul className="space-y-2">
+              {pendingServiceOrders.map((o) => (
+                <li
+                  key={o.id}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl bg-white/80 dark:bg-gray-900/40 border border-cyan-100 dark:border-cyan-900/30 px-3 py-2.5"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{o.serviceName}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      {[o.appointmentCode && `Appt ${o.appointmentCode}`, o.targetDepartment, o.orderedByDoctorName && `Dr. ${o.orderedByDoctorName}`]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-white shrink-0">
+                    {(o.price ?? 0).toLocaleString("en-US")} VND
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div className="flex gap-2 overflow-x-auto pb-1 border-b border-gray-200 dark:border-gray-700">
           {PAYMENT_TABS.map((t) => (
             <button
@@ -142,14 +208,23 @@ export default function PaymentHistory() {
             </div>
             <h3 className="text-lg font-semibold text-gray-700 dark:text-white mb-2">No payments found</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {activeTab === "UNPAID" ? "No unpaid payments" : activeTab === "CANCELLED" ? "No cancelled payments" : "Your payments will appear here"}
+              {activeTab === "UNPAID" && pendingServiceOrders.length === 0
+                ? "No unpaid invoices. If you have new lab or imaging orders, they appear above when payment is still due."
+                : activeTab === "UNPAID" && pendingServiceOrders.length > 0
+                  ? "No open invoices yet — use Pay Now on a service-order invoice when reception or the app creates one."
+                  : activeTab === "CANCELLED"
+                    ? "No cancelled payments"
+                    : "Your payments will appear here"}
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             {payments.map((payment) => {
               const sc = statusConfig[payment.paymentStatus] || statusConfig.PENDING;
-              const isPending = payment.paymentStatus === "PENDING" || payment.paymentStatus === "INITIATED";
+              const isPending =
+                payment.paymentStatus === "PENDING" ||
+                payment.paymentStatus === "INITIATED" ||
+                payment.paymentStatus === "PROCESSING";
               const displayDate = payment.appointmentDate
                 ? new Date(payment.appointmentDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
                 : new Date(payment.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -168,7 +243,7 @@ export default function PaymentHistory() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
-                        Dr. {payment.doctorName}
+                        {paymentCardTitle(payment)}
                       </h3>
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{subtitle}</p>
                       <p className="text-base font-bold text-gray-800 dark:text-white mt-1">
@@ -182,7 +257,7 @@ export default function PaymentHistory() {
                     </div>
                     <div className="flex flex-col items-end gap-2 shrink-0">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${sc.classes}`}>
-                        • {payment.paymentStatus === "PAID" && activeTab === "COMPLETED" ? "Completed" : sc.label}
+                        • {sc.label}
                       </span>
                       <div className="flex gap-2">
                         {isPending && (
@@ -362,7 +437,8 @@ function PaymentDetailModal({
   const sc = statusConfig[p.paymentStatus] || statusConfig.PENDING;
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceError, setInvoiceError] = useState("");
-  const isPending = p.paymentStatus === "PENDING" || p.paymentStatus === "INITIATED";
+  const isPending =
+    p.paymentStatus === "PENDING" || p.paymentStatus === "INITIATED" || p.paymentStatus === "PROCESSING";
 
   const handleDownloadInvoice = async () => {
     setInvoiceLoading(true);

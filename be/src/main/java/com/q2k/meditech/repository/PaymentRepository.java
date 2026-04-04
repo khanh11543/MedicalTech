@@ -2,9 +2,11 @@ package com.q2k.meditech.repository;
 
 import com.q2k.meditech.entity.Payment;
 import com.q2k.meditech.entity.PaymentQr;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -51,6 +53,13 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             "LEFT JOIN FETCH p.prescription pre " +
             "WHERE p.id = :id")
     Optional<Payment> findByIdWithDetails(@Param("id") Long id);
+
+    /**
+     * Lock payment row for update (MoMo init / QR) to avoid concurrent duplicate transactions and deadlocks.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Payment p WHERE p.id = :id")
+    Optional<Payment> findByIdForUpdate(@Param("id") Long id);
 
     /**
      * Find payment by prescription ID (active/non-cancelled)
@@ -134,7 +143,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             "WHERE p.patient.id = :patientId " +
             "AND (:statuses IS NULL OR p.paymentStatus IN :statuses) " +
             "AND (:appointmentStatus IS NULL OR a.status = :appointmentStatus) " +
-            "AND (:excludeAppointmentStatuses IS NULL OR a.status NOT IN :excludeAppointmentStatuses) " +
+            "AND (:excludeAppointmentStatuses IS NULL OR a IS NULL OR a.status NOT IN :excludeAppointmentStatuses) " +
             "AND (:method IS NULL OR p.paymentMethod = :method) " +
             "AND (:fromDate IS NULL OR p.createdAt >= :fromDate) " +
             "AND (:toDate IS NULL OR p.createdAt <= :toDate) " +
@@ -144,7 +153,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             "WHERE p.patient.id = :patientId " +
             "AND (:statuses IS NULL OR p.paymentStatus IN :statuses) " +
             "AND (:appointmentStatus IS NULL OR a.status = :appointmentStatus) " +
-            "AND (:excludeAppointmentStatuses IS NULL OR a.status NOT IN :excludeAppointmentStatuses) " +
+            "AND (:excludeAppointmentStatuses IS NULL OR a IS NULL OR a.status NOT IN :excludeAppointmentStatuses) " +
             "AND (:method IS NULL OR p.paymentMethod = :method) " +
             "AND (:fromDate IS NULL OR p.createdAt >= :fromDate) " +
             "AND (:toDate IS NULL OR p.createdAt <= :toDate)")
@@ -239,7 +248,6 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
             "LEFT JOIN FETCH p.patient pat " +
             "LEFT JOIN FETCH pat.user pu " +
             "LEFT JOIN FETCH p.processedBy pb " +
-            "LEFT JOIN FETCH p.prescription " +
             "WHERE (:search IS NULL OR :search = '' OR " +
             "       LOWER(p.paymentCode) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
             "       LOWER(pu.fullName) LIKE LOWER(CONCAT('%', :search, '%')) OR " +

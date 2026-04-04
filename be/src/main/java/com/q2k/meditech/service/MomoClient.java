@@ -64,12 +64,8 @@ public class MomoClient {
             String orderInfo,
             String extraData) {
         try {
-            log.info("=== Creating MoMo Payment Order ===");
-            log.info("OrderId: {}, Amount: {}", orderId, amount);
-            
-            // Log configuration values for debugging
-            log.info("Config - partnerCode: {}, accessKey: {}", partnerCode, accessKey);
-            log.info("Config - redirectUrl: {}, ipnUrl: {}", returnUrl, ipnUrl);
+            log.debug("MoMo create order: orderId={}, amount={}", orderId, amount);
+            log.debug("MoMo config: partnerCode={}, redirectUrl present={}", partnerCode, !isBlank(returnUrl));
 
             if (isBlank(momoEndpoint) || isBlank(createUrl) || isBlank(partnerCode) || isBlank(accessKey)
                     || isBlank(secretKey) || isBlank(returnUrl) || isBlank(ipnUrl)) {
@@ -95,13 +91,10 @@ public class MomoClient {
                     + "&requestId=" + requestId 
                     + "&requestType=" + requestTypeValue;
             
-            log.info("--------------------RAW SIGNATURE----------------");
-            log.info(rawSignature);
-            
-            // Create HMAC SHA256 signature
+            log.trace("MoMo create raw signature: {}", rawSignature);
+
             String signature = new HmacUtils(HmacAlgorithms.HMAC_SHA_256, secretKey).hmacHex(rawSignature);
-            log.info("--------------------SIGNATURE----------------");
-            log.info(signature);
+            log.trace("MoMo create signature: {}", signature);
 
             // Build request body
             Map<String, Object> requestData = new LinkedHashMap<>();
@@ -121,10 +114,8 @@ public class MomoClient {
 
             // Call MoMo API
             String apiUrl = momoEndpoint + createUrl;
-            log.info("Calling MoMo API: {}", apiUrl);
-            
             String requestBody = objectMapper.writeValueAsString(requestData);
-            log.info("MoMo request body: {}", requestBody);
+            log.debug("MoMo POST {}", apiUrl);
 
             // Make HTTP call to MoMo
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
@@ -142,7 +133,7 @@ public class MomoClient {
             }
             
             Map<String, Object> responseBody = objectMapper.readValue(responseEntity.getBody(), Map.class);
-            log.info("MoMo response: {}", responseBody);
+            log.debug("MoMo create response resultCode={}", responseBody.get("resultCode"));
             
             Integer resultCode = (Integer) responseBody.get("resultCode");
             if (resultCode != null && resultCode == 0) {
@@ -180,7 +171,7 @@ public class MomoClient {
      */
     public MomoQueryResponse queryPaymentStatus(String orderId) {
         try {
-            log.info("Querying MoMo payment status - orderId: {}", orderId);
+            log.trace("MoMo query orderId={}", orderId);
 
             String requestId = UUID.randomUUID().toString();
 
@@ -200,7 +191,7 @@ public class MomoClient {
             requestData.put("lang", "vi");
 
             String apiUrl = momoEndpoint + "/query";
-            log.info("Calling MoMo Query API: {}", apiUrl);
+            log.trace("MoMo query POST {}", apiUrl);
 
             String requestBody = objectMapper.writeValueAsString(requestData);
 
@@ -217,7 +208,7 @@ public class MomoClient {
             }
 
             Map<String, Object> responseBody = objectMapper.readValue(responseEntity.getBody(), Map.class);
-            log.info("MoMo query response: {}", responseBody);
+            log.trace("MoMo query resultCode={} orderId={}", responseBody.get("resultCode"), orderId);
 
             Integer resultCode = (Integer) responseBody.get("resultCode");
             Long transId = responseBody.get("transId") != null 
@@ -241,7 +232,7 @@ public class MomoClient {
                         .createdTime(rt.get("createdTime") != null ? Long.valueOf(rt.get("createdTime").toString()) : null)
                         .build()
                 ).collect(java.util.stream.Collectors.toList());
-                log.info("MoMo query found {} refund transactions for orderId: {}", refundTrans.size(), orderId);
+                log.trace("MoMo query refundTrans count={} orderId={}", refundTrans.size(), orderId);
             }
 
             return MomoQueryResponse.builder()
@@ -278,7 +269,7 @@ public class MomoClient {
             String requestId = UUID.randomUUID().toString();
             String description = refundReason != null ? refundReason : "Refund";
 
-            log.info("Refunding MoMo payment - refundOrderId: {}, origTransId: {}, amount: {}", orderId, transId, amount);
+            log.debug("MoMo refund refundOrderId={} origTransId={} amount={}", orderId, transId, amount);
 
             // Build raw signature (alphabetical order per MoMo v2 docs)
             String rawSignature = "accessKey=" + accessKey
@@ -289,7 +280,7 @@ public class MomoClient {
                     + "&requestId=" + requestId
                     + "&transId=" + transId;
 
-            log.info("Refund raw signature: {}", rawSignature);
+            log.trace("MoMo refund raw signature: {}", rawSignature);
             String signature = new HmacUtils(HmacAlgorithms.HMAC_SHA_256, secretKey).hmacHex(rawSignature);
 
             Map<String, Object> requestData = new LinkedHashMap<>();
@@ -303,10 +294,8 @@ public class MomoClient {
             requestData.put("signature", signature);
 
             String apiUrl = momoEndpoint + "/refund";
-            log.info("Calling MoMo Refund API: {}", apiUrl);
-
             String requestBody = objectMapper.writeValueAsString(requestData);
-            log.info("MoMo refund request body: {}", requestBody);
+            log.debug("MoMo POST {}", apiUrl);
 
             org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
             headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
@@ -321,7 +310,7 @@ public class MomoClient {
             }
 
             Map<String, Object> responseBody = objectMapper.readValue(responseEntity.getBody(), Map.class);
-            log.info("MoMo refund response: {}", responseBody);
+            log.debug("MoMo refund resultCode={}", responseBody.get("resultCode"));
 
             Integer resultCode = (Integer) responseBody.get("resultCode");
             Long refundTransId = responseBody.get("transId") != null
@@ -329,7 +318,7 @@ public class MomoClient {
                     : null;
 
             if (resultCode != null && resultCode == 0) {
-                log.info("MoMo refund successful - orderId: {}, refundTransId: {}", orderId, refundTransId);
+                log.debug("MoMo refund successful orderId={} refundTransId={}", orderId, refundTransId);
                 return MomoRefundResponse.builder()
                         .orderId(orderId)
                         .resultCode(resultCode)

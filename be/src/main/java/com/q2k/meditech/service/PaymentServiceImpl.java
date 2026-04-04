@@ -19,6 +19,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.dao.CannotAcquireLockException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -70,7 +71,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PrivacyMaskingService privacyMaskingService;
     private final ObjectMapper objectMapper;
     private final PlatformTransactionManager transactionManager;
-    private final com.q2k.meditech.repository.ServiceOrderRepository serviceOrderRepository;
+    private final ServiceOrderRepository serviceOrderRepository;
 
     // QR refresh rate limiting: paymentId -> list of refresh timestamps
     private static final int QR_REFRESH_MAX = 3;
@@ -290,9 +291,11 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    @Transactional
-    public PaymentInitDTO createAndInitMomoForServiceOrders(Long appointmentId, List<Long> serviceOrderIds, Long currentUserId) {
-        log.info("Creating MoMo payment for service orders: {} (appointment: {}, user: {})", serviceOrderIds, appointmentId, currentUserId);
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public PaymentInitDTO createAndInitMomoForServiceOrders(
+            Long appointmentId, List<Long> serviceOrderIds, Long currentUserId) {
+        log.info("Creating MoMo payment for service orders: {} (appointment: {}, user: {})",
+                serviceOrderIds, appointmentId, currentUserId);
 
         if (serviceOrderIds == null || serviceOrderIds.isEmpty()) {
             throw new BadRequestException("Service order IDs cannot be empty");
@@ -302,11 +305,10 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Appointment", "id", appointmentId));
         Patient patient = appointment.getPatient();
 
-        // Calculate total from service orders
         BigDecimal totalAmount = BigDecimal.ZERO;
         StringBuilder orderNotes = new StringBuilder("Service Orders: ");
         for (Long soId : serviceOrderIds) {
-            com.q2k.meditech.entity.ServiceOrder so = serviceOrderRepository.findById(soId)
+            ServiceOrder so = serviceOrderRepository.findById(soId)
                     .orElseThrow(() -> new ResourceNotFoundException("ServiceOrder", "id", soId));
             if (so.getPrice() != null) {
                 totalAmount = totalAmount.add(so.getPrice());
@@ -321,7 +323,6 @@ public class PaymentServiceImpl implements PaymentService {
         User processedBy = userRepository.findById(currentUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", currentUserId));
 
-        // Create Payment entity
         Payment payment = Payment.builder()
                 .paymentCode(generatePaymentCode())
                 .appointment(appointment)
@@ -339,9 +340,9 @@ public class PaymentServiceImpl implements PaymentService {
                 .build();
 
         payment = paymentRepository.save(payment);
-        log.info("Service order payment created with ID: {}, code: {}, total: {}", payment.getId(), payment.getPaymentCode(), totalAmount);
+        log.info("Service order payment created with ID: {}, code: {}, total: {}",
+                payment.getId(), payment.getPaymentCode(), totalAmount);
 
-        // Init MoMo payment
         MomoInitDTO momoDto = MomoInitDTO.builder()
                 .orderInfo("Service Order Payment " + payment.getPaymentCode())
                 .build();
@@ -359,26 +360,46 @@ public class PaymentServiceImpl implements PaymentService {
      * @param isRefresh if true, generates a new unique orderId with timestamp suffix
      */
     private PaymentInitDTO initMomoPaymentInternal(Long paymentId, MomoInitDTO dto, Long currentUserId, boolean isRefresh) {
-        log.info("Initializing MoMo payment for payment ID: {}, isRefresh: {}", paymentId, isRefresh);
+        log.debug("Initializing MoMo payment for payment ID: {}, isRefresh: {}", paymentId, isRefresh);
 
-        // Validate paymentId is not null
         if (paymentId == null) {
             throw new BadRequestException("Payment ID cannot be null");
         }
 
-        Payment payment = paymentRepository.findByIdWithDetails(paymentId)
+        Payment payment = paymentRepository.findByIdForUpdate(paymentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment", "id", paymentId));
 
-        // Validate payment method — auto-switch to MOMO if needed
         if (!"MOMO".equals(payment.getPaymentMethod())) {
-            log.info("Switching payment {} method from {} to MOMO", paymentId, payment.getPaymentMethod());
+            log.debug("Switching payment {} method from {} to MOMO", paymentId, payment.getPaymentMethod());
             payment.setPaymentMethod("MOMO");
             paymentRepository.save(payment);
         }
 
-        // Validate payment status
         if ("PAID".equals(payment.getPaymentStatus()) || "CANCELLED".equals(payment.getPaymentStatus())) {
             throw new BadRequestException("Cannot initialize payment with status: " + payment.getPaymentStatus());
+        }
+
+        // Duplicate POST / concurrent clients: return existing session without a second MoMo create call
+        if (!isRefresh) {
+            String ps = payment.getPaymentStatus();
+            if (("INITIATED".equals(ps) || "PROCESSING".equals(ps)) && payment.getMomoOrderId() != null) {
+                java.util.Optional<PaymentQr> activeQr = paymentQrRepository.findActiveByPaymentId(paymentId);
+                if (activeQr.isPresent()) {
+                    PaymentQr pq = activeQr.get();
+                    if (pq.getExpiresAt() == null || pq.getExpiresAt().isAfter(LocalDateTime.now())) {
+                        log.debug("MoMo init idempotent for payment {} (reuse existing QR)", paymentId);
+                        return PaymentInitDTO.builder()
+                                .paymentId(payment.getId())
+                                .paymentCode(payment.getPaymentCode())
+                                .payUrl(pq.getPayUrl())
+                                .qrCodeUrl(pq.getQrPayload())
+                                .orderId(payment.getMomoOrderId())
+                                .message("Payment already initialized")
+                                .success(true)
+                                .build();
+                    }
+                }
+            }
         }
 
         // Build order info (simple, no special characters)
@@ -420,7 +441,7 @@ public class PaymentServiceImpl implements PaymentService {
         // Create or update PaymentQr with QR code image URL and payUrl
         createOrUpdatePaymentQr(payment, "MOMO", qrCodeUrl, payUrl);
 
-        log.info("MoMo payment initialized for payment: {}", paymentId);
+        log.debug("MoMo payment initialized for payment: {}", paymentId);
 
         return PaymentInitDTO.builder()
                 .paymentId(payment.getId())
@@ -959,29 +980,45 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private void createOrUpdatePaymentQr(Payment payment, String provider, String qrPayload, String payUrl) {
-        // Check for existing QR and update it, or create new
+        final int maxAttempts = 4;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                doCreateOrUpdatePaymentQr(payment, provider, qrPayload, payUrl);
+                return;
+            } catch (CannotAcquireLockException e) {
+                if (attempt >= maxAttempts) {
+                    throw e;
+                }
+                log.warn("payment_qr save deadlock on attempt {}/{}, retrying", attempt, maxAttempts);
+                try {
+                    Thread.sleep(40L * attempt);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
+    }
+
+    private void doCreateOrUpdatePaymentQr(Payment payment, String provider, String qrPayload, String payUrl) {
         PaymentQr paymentQr = paymentQrRepository.findByPaymentId(payment.getId())
                 .map(existingQr -> {
-                    // Update existing QR
                     existingQr.setProvider(provider);
                     existingQr.setQrPayload(qrPayload);
                     existingQr.setPayUrl(payUrl);
                     existingQr.setExpiresAt(LocalDateTime.now().plusMinutes(15));
                     existingQr.setStatus("ACTIVE");
-                    existingQr.setRevokedAt(null); // Clear revoked timestamp
+                    existingQr.setRevokedAt(null);
                     return existingQr;
                 })
-                .orElseGet(() -> {
-                    // Create new QR
-                    return PaymentQr.builder()
-                            .payment(payment)
-                            .provider(provider)
-                            .qrPayload(qrPayload)
-                            .payUrl(payUrl)
-                            .expiresAt(LocalDateTime.now().plusMinutes(15))
-                            .status("ACTIVE")
-                            .build();
-                });
+                .orElseGet(() -> PaymentQr.builder()
+                        .payment(payment)
+                        .provider(provider)
+                        .qrPayload(qrPayload)
+                        .payUrl(payUrl)
+                        .expiresAt(LocalDateTime.now().plusMinutes(15))
+                        .status("ACTIVE")
+                        .build());
 
         paymentQrRepository.save(paymentQr);
     }
@@ -1135,7 +1172,7 @@ public class PaymentServiceImpl implements PaymentService {
             int pageNumber,
             int pageSize) {
 
-        log.info("Getting payments for patient ID: {}, status: {}, method: {}", patientId, status, method);
+        log.debug("Getting payments for patient ID: {}, status: {}, method: {}", patientId, status, method);
 
         // Sync pending MoMo payments with MoMo API before returning results
         syncPendingMomoPayments(patientId);
@@ -1170,15 +1207,11 @@ public class PaymentServiceImpl implements PaymentService {
         java.util.List<com.q2k.meditech.entity.enums.AppointmentStatus> excludeAppointmentStatuses = null;
 
         if ("UNPAID".equals(status)) {
-            // Unpaid tab: PENDING, INITIATED, FAILED — show for any appointment status (pre-payment flow)
-            paymentStatuses = java.util.List.of("PENDING", "INITIATED", "FAILED");
-            // No appointment status filter — allow payment before exam
+            // Unpaid tab: not yet settled (includes MoMo in-flight PROCESSING)
+            paymentStatuses = java.util.List.of("PENDING", "INITIATED", "PROCESSING", "FAILED");
             excludeAppointmentStatuses = java.util.List.of(
                     com.q2k.meditech.entity.enums.AppointmentStatus.CANCELLED
             );
-        } else if ("COMPLETED".equals(status)) {
-            // Completed tab: payment PAID (any appointment status)
-            paymentStatuses = java.util.List.of("PAID");
         } else if (status != null && !status.isBlank()) {
             // Direct status filter (e.g. PAID, CANCELLED)
             paymentStatuses = java.util.List.of(status);
@@ -1205,46 +1238,48 @@ public class PaymentServiceImpl implements PaymentService {
             List<Payment> pendingMomoPayments = paymentRepository.findByPatientIdAndPaymentMethodAndPaymentStatusIn(
                     patientId, "MOMO", java.util.List.of("INITIATED", "PROCESSING"));
 
-            // Limit to 5 queries to avoid slow response
-            int limit = Math.min(pendingMomoPayments.size(), 5);
-            for (int i = 0; i < limit; i++) {
-                Payment p = pendingMomoPayments.get(i);
-                if (p.getMomoOrderId() == null) continue;
-                try {
-                    MomoClient.MomoQueryResponse queryResult = momoClient.queryPaymentStatus(p.getMomoOrderId());
-                    if (queryResult.resultCode != null && queryResult.resultCode == 0) {
-                        String transId = queryResult.transId != null
-                                ? String.valueOf(queryResult.transId)
-                                : "MOMO-" + p.getMomoOrderId();
-                        updatePaymentStatusSuccess(p.getId(), transId, queryResult.responseTime);
-                        try {
-                            invoiceService.createInvoiceForPayment(p.getId());
-                        } catch (Exception e) {
-                            log.error("Failed to create invoice for synced payment {}: {}", p.getId(), e.getMessage());
-                        }
-                        try {
-                            invoiceDeliveryService.autoSendInvoiceOnPaymentSuccess(p.getId());
-                        } catch (Exception e) {
-                            log.error("Failed to send invoice for synced payment {}: {}", p.getId(), e.getMessage());
-                        }
-                        log.info("Synced MoMo payment {} → PAID", p.getId());
-                    } else if (queryResult.resultCode != null && queryResult.resultCode == 1006) {
-                        updatePaymentStatusFailed(p.getId(), queryResult.message);
-                        log.info("Synced MoMo payment {} → FAILED (user denied)", p.getId());
+            // At most one MoMo query per list request — avoids log/API spam and reduces lock contention
+            if (pendingMomoPayments.isEmpty()) {
+                return;
+            }
+            Payment p = pendingMomoPayments.get(0);
+            if (p.getMomoOrderId() == null) {
+                return;
+            }
+            try {
+                MomoClient.MomoQueryResponse queryResult = momoClient.queryPaymentStatus(p.getMomoOrderId());
+                if (queryResult.resultCode != null && queryResult.resultCode == 0) {
+                    String transId = queryResult.transId != null
+                            ? String.valueOf(queryResult.transId)
+                            : "MOMO-" + p.getMomoOrderId();
+                    updatePaymentStatusSuccess(p.getId(), transId, queryResult.responseTime);
+                    try {
+                        invoiceService.createInvoiceForPayment(p.getId());
+                    } catch (Exception e) {
+                        log.error("Failed to create invoice for synced payment {}: {}", p.getId(), e.getMessage());
                     }
-                } catch (Exception e) {
-                    log.warn("MoMo sync failed for payment {}: {}", p.getId(), e.getMessage());
+                    try {
+                        invoiceDeliveryService.autoSendInvoiceOnPaymentSuccess(p.getId());
+                    } catch (Exception e) {
+                        log.error("Failed to send invoice for synced payment {}: {}", p.getId(), e.getMessage());
+                    }
+                    log.debug("Synced MoMo payment {} to PAID", p.getId());
+                } else if (queryResult.resultCode != null && queryResult.resultCode == 1006) {
+                    updatePaymentStatusFailed(p.getId(), queryResult.message);
+                    log.debug("Synced MoMo payment {} to FAILED (user denied)", p.getId());
                 }
+            } catch (Exception e) {
+                log.debug("MoMo sync skipped for payment {}: {}", p.getId(), e.getMessage());
             }
         } catch (Exception e) {
-            log.warn("Failed to sync pending MoMo payments for patient {}: {}", patientId, e.getMessage());
+            log.debug("Pending MoMo sync failed for patient {}: {}", patientId, e.getMessage());
         }
     }
 
     @Override
     @Transactional
     public PaymentDTO getPaymentByIdForPatient(Long paymentId, Long patientId) {
-        log.info("Getting payment ID: {} for patient ID: {}", paymentId, patientId);
+        log.debug("Getting payment ID: {} for patient ID: {}", paymentId, patientId);
 
         // Validate parameters
         if (paymentId == null) {
@@ -1269,8 +1304,7 @@ public class PaymentServiceImpl implements PaymentService {
                 && payment.getMomoOrderId() != null) {
             try {
                 MomoClient.MomoQueryResponse queryResult = momoClient.queryPaymentStatus(payment.getMomoOrderId());
-                log.info("MoMo query for patient payment {}: resultCode={}, message={}",
-                        paymentId, queryResult.resultCode, queryResult.message);
+                log.debug("MoMo query for patient payment {}: resultCode={}", paymentId, queryResult.resultCode);
 
                 if (queryResult.resultCode != null && queryResult.resultCode == 0) {
                     // Payment successful — update status
@@ -1311,7 +1345,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional(readOnly = true)
     public PaymentQrDTO getPaymentQrForPatient(Long paymentId, Long patientId) {
-        log.info("Getting QR for payment ID: {} for patient ID: {}", paymentId, patientId);
+        log.debug("Getting QR for payment ID: {} for patient ID: {}", paymentId, patientId);
 
         // Validate parameters
         if (paymentId == null) {
@@ -1345,7 +1379,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentInitDTO initMomoPaymentForPatient(Long paymentId, Long patientId) {
-        log.info("Patient {} initiating MoMo payment for payment ID: {}", patientId, paymentId);
+        log.debug("Patient {} initiating MoMo payment for payment ID: {}", patientId, paymentId);
 
         if (paymentId == null) throw new BadRequestException("Payment ID cannot be null");
         if (patientId == null) throw new BadRequestException("Patient ID cannot be null");
@@ -2238,7 +2272,6 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    @Transactional(readOnly = true)
     public byte[] exportPayments(
             String search,
             String status,

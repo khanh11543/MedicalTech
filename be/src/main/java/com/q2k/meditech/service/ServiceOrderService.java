@@ -39,4 +39,9 @@ public interface ServiceOrderService {
      * Get pending-payment service orders for an appointment
      */
     List<ServiceOrderDTO> getPendingPaymentOrders(Long appointmentId);
+
+    /**
+     * All service orders across the patient's appointments that still need payment (patient portal).
+     */
+    List<ServiceOrderDTO> getPendingPaymentServiceOrdersForPatient(Long patientId);
 }

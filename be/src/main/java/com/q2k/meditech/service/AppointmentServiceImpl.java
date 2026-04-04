@@ -4,7 +4,6 @@ import com.q2k.meditech.dto.*;
 import com.q2k.meditech.dto.receptionist.*;
 import com.q2k.meditech.dto.statistics.*;
 import com.q2k.meditech.entity.*;
-import com.q2k.meditech.entity.enums.ActivityType;
 import com.q2k.meditech.entity.enums.AppointmentStatus;
 import com.q2k.meditech.entity.enums.BookedBy;
 import com.q2k.meditech.entity.enums.NotificationType;
@@ -13,11 +12,8 @@ import com.q2k.meditech.exception.AppointmentException;
 import com.q2k.meditech.exception.ResourceNotFoundException;
 import com.q2k.meditech.dto.mapper.AppointmentMapper;
 import com.q2k.meditech.dto.mapper.TimeSlotMapper;
-import com.q2k.meditech.dto.settings.GeneralSettingsDTO;
 import com.q2k.meditech.repository.*;
 import com.q2k.meditech.util.ExportUtil;
-import com.q2k.meditech.util.HttpRequestUtil;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -25,10 +21,10 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import com.q2k.meditech.event.AppointmentBookedEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStreamWriter;
@@ -39,8 +35,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.Locale;
-import java.util.Objects;
 import java.time.temporal.WeekFields;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -67,44 +61,7 @@ public class AppointmentServiceImpl implements AppointmentService {
     private final EmailService emailService;
     private final PrivacyMaskingService privacyMaskingService;
     private final PaymentService paymentService;
-    private final SystemSettingService systemSettingService;
-    private final ActivityLoggingService activityLoggingService;
-    private final UserRoleRepository userRoleRepository;
-
-    private static final String RESOURCE_TYPE_APPOINTMENT = "APPOINTMENT";
-
-    private static final class RequestInfo {
-        private final String ipAddress;
-        private final String userAgent;
-
-        private RequestInfo(String ipAddress, String userAgent) {
-            this.ipAddress = ipAddress;
-            this.userAgent = userAgent;
-        }
-
-        public String getIpAddress() {
-            return ipAddress;
-        }
-
-        public String getUserAgent() {
-            return userAgent;
-        }
-    }
-
-    private RequestInfo getRequestInfoSafe() {
-        try {
-            ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-            if (attrs == null) return new RequestInfo(null, null);
-            HttpServletRequest request = attrs.getRequest();
-            return new RequestInfo(
-                    HttpRequestUtil.getClientIp(request),
-                    HttpRequestUtil.getUserAgent(request)
-            );
-        } catch (Exception e) {
-            log.warn("Could not get request info for activity log: {}", e.getMessage());
-            return new RequestInfo(null, null);
-        }
-    }
+    private final ApplicationEventPublisher eventPublisher;
 
     // ==================== BOOKING ====================
     
@@ -127,6 +84,9 @@ public class AppointmentServiceImpl implements AppointmentService {
             }
             dto.setStartTime(bookedSlot.getStartTime());
             dto.setEndTime(bookedSlot.getEndTime());
+            // Mark slot as booked
+            bookedSlot.setStatus(TimeSlotStatus.BOOKED);
+            timeSlotRepository.save(bookedSlot);
         }
         
         // Validate startTime and endTime are present
@@ -142,15 +102,6 @@ public class AppointmentServiceImpl implements AppointmentService {
         Doctor doctor = doctorRepository.findByIdWithUser(dto.getDoctorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Doctor not found with id: " + dto.getDoctorId()));
         
-        // If admin changed role DOCTOR -> PATIENT, doctor must not be bookable/showable
-        if (doctor.getUser() == null || !Boolean.TRUE.equals(doctor.getUser().getIsActive())) {
-            throw new AppointmentException("Doctor is not available for appointments");
-        }
-        boolean stillDoctorRole = userRoleRepository.existsByUserIdAndRoleName(doctor.getUser().getId(), "DOCTOR");
-        if (!stillDoctorRole) {
-            throw new AppointmentException("Doctor is not available for appointments");
-        }
-
         // Check doctor availability (null is treated as available=true by default)
         if (Boolean.FALSE.equals(doctor.getIsAvailable())) {
             throw new AppointmentException("Doctor is not available for appointments");
@@ -166,12 +117,6 @@ public class AppointmentServiceImpl implements AppointmentService {
         
         if (!conflicts.isEmpty()) {
             throw new AppointmentException.TimeSlotConflictException();
-        }
-
-        // Mark slot as booked AFTER all validations passed
-        if (bookedSlot != null) {
-            bookedSlot.setStatus(TimeSlotStatus.BOOKED);
-            timeSlotRepository.save(bookedSlot);
         }
         
         // Get the user who booked the appointment
@@ -200,24 +145,6 @@ public class AppointmentServiceImpl implements AppointmentService {
         createHistory(appointment, "CREATED", null, AppointmentStatus.PENDING,
                 bookedByUserId, bookedBy.name(), "Appointment booked");
 
-        // Activity log
-        RequestInfo req = getRequestInfoSafe();
-        String description = "Created appointment"
-                + " for " + appointment.getAppointmentDate() + " " + appointment.getStartTime()
-                + "–" + appointment.getEndTime()
-                + (dto.getReasonForVisit() != null && !dto.getReasonForVisit().isBlank()
-                    ? ", reason: " + dto.getReasonForVisit()
-                    : "");
-        activityLoggingService.log(
-                bookedByUserId,
-                ActivityType.CREATED_APPOINTMENT,
-                description,
-                RESOURCE_TYPE_APPOINTMENT,
-                appointment.getId(),
-                req.getIpAddress(),
-                req.getUserAgent()
-        );
-
         log.info("Appointment created with ID: {}", appointment.getId());
 
         // Send notification: new booking
@@ -235,83 +162,8 @@ public class AppointmentServiceImpl implements AppointmentService {
             log.warn("Failed to create payment for appointment {}: {}", appointment.getId(), e.getMessage());
         }
 
-        // Init MoMo payment to get real payment QR code for email
-        PaymentInitDTO momoInit = null;
-        if (createdPayment != null && createdPayment.getTotalAmount() != null
-                && createdPayment.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
-            try {
-                momoInit = paymentService.initMomoPayment(createdPayment.getId(), new MomoInitDTO(), bookedByUserId);
-                log.info("MoMo payment initialized for email QR: paymentId={}, orderId={}", createdPayment.getId(), momoInit.getOrderId());
-            } catch (Exception e) {
-                log.warn("Failed to init MoMo payment for email QR (appointment {}): {}", appointment.getId(), e.getMessage());
-            }
-        }
-
-        // Send appointment confirmation email with payment info to patient's registered email
-        try {
-            User patientUser = patient.getUser();
-            if (patientUser != null && patientUser.getEmail() != null && !patientUser.getEmail().isBlank()) {
-                String patientName = patient.getFullName() != null ? patient.getFullName() : patientUser.getFullName();
-                if (patientName == null || patientName.isBlank()) {
-                    patientName = patientUser.getEmail();
-                }
-                String dateStr = appointment.getAppointmentDate().format(DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.ENGLISH));
-                String timeStr = appointment.getStartTime().format(DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH));
-                String department = doctor.getSpecialization() != null ? doctor.getSpecialization() : "";
-                String doctorName = doctor.getFullName() != null ? doctor.getFullName() : (doctor.getUser() != null ? doctor.getUser().getFullName() : "");
-
-                GeneralSettingsDTO settings = systemSettingService.getGeneralSettings();
-                String clinicName = settings != null && settings.getClinicName() != null ? settings.getClinicName() : "MedicalTech Clinic";
-                String hotline = settings != null ? settings.getPhone() : null;
-                String address = null;
-                if (settings != null) {
-                    address = java.util.stream.Stream.of(
-                            settings.getStreet(),
-                            settings.getCity(),
-                            settings.getState(),
-                            settings.getZipCode(),
-                            settings.getCountry()
-                    ).filter(Objects::nonNull).filter(s -> !s.isBlank()).collect(Collectors.joining(", "));
-                    if (address.isBlank()) address = null;
-                }
-
-                // Build payment info for email using real MoMo QR
-                String paymentAmount = null;
-                String paymentQrUrl = null;
-                String paymentPageUrl = null;
-                if (createdPayment != null && createdPayment.getTotalAmount() != null
-                        && createdPayment.getTotalAmount().compareTo(BigDecimal.ZERO) > 0) {
-                    paymentAmount = String.format("%,.0f", createdPayment.getTotalAmount());
-                    if (momoInit != null && Boolean.TRUE.equals(momoInit.getSuccess())) {
-                        // Use real MoMo QR code (scannable with MoMo app to pay directly)
-                        paymentQrUrl = momoInit.getQrCodeUrl();
-                        // Use MoMo payUrl as "Pay Online" link (opens MoMo web gateway)
-                        paymentPageUrl = momoInit.getPayUrl();
-                    }
-                }
-
-                emailService.sendAppointmentConfirmationEmail(
-                        patientUser.getEmail(),
-                        patientName,
-                        appointment.getAppointmentCode(),
-                        department,
-                        doctorName,
-                        dateStr,
-                        timeStr,
-                        appointment.getReasonForVisit(),
-                        clinicName,
-                        hotline,
-                        address,
-                        paymentAmount,
-                        paymentQrUrl,
-                        paymentPageUrl
-                );
-            } else {
-                log.debug("Patient has no email, skipping appointment confirmation email for appointment {}", appointment.getId());
-            }
-        } catch (Exception e) {
-            log.warn("Failed to send appointment confirmation email: {}", e.getMessage());
-        }
+        Long paymentId = createdPayment != null ? createdPayment.getId() : null;
+        eventPublisher.publishEvent(new AppointmentBookedEvent(appointment.getId(), bookedByUserId, paymentId));
 
         return appointmentMapper.toDTO(appointment);
     }
@@ -413,20 +265,12 @@ public class AppointmentServiceImpl implements AppointmentService {
         createHistory(appointment, "CONFIRMED", oldStatus, AppointmentStatus.CONFIRMED,
                 userId, callerRole.toUpperCase(), reason);
 
-        // Activity log
-        RequestInfo req = getRequestInfoSafe();
-        String description = "Confirmed appointment"
-                + (adminNote != null && !adminNote.isBlank() ? ", note: " + adminNote : "");
-        activityLoggingService.log(
-                userId,
-                ActivityType.CONFIRMED_APPOINTMENT,
-                description,
-                RESOURCE_TYPE_APPOINTMENT,
-                appointment.getId(),
-                req.getIpAddress(),
-                req.getUserAgent()
-        );
-        
+        try {
+            notificationEventService.onAppointmentConfirmed(appointment);
+        } catch (Exception e) {
+            log.warn("Failed to send patient confirmation notification: {}", e.getMessage());
+        }
+
         return appointmentMapper.toDTO(appointment);
     }
     
@@ -511,18 +355,6 @@ public class AppointmentServiceImpl implements AppointmentService {
         createHistory(appointment, "CHECKED_IN", oldStatus, AppointmentStatus.CHECKED_IN,
                 receptionistUserId, role, "Patient checked in, queue number: " + newQueueNumber);
 
-        // Activity log
-        RequestInfo req = getRequestInfoSafe();
-        activityLoggingService.log(
-                receptionistUserId,
-                ActivityType.CHECKED_IN_PATIENT,
-                "Checked in patient, queue number: " + newQueueNumber,
-                RESOURCE_TYPE_APPOINTMENT,
-                appointment.getId(),
-                req.getIpAddress(),
-                req.getUserAgent()
-        );
-
         // 6. Send notification: patient checked in
         try {
             notificationEventService.onPatientCheckedIn(appointment, newQueueNumber, null);
@@ -600,6 +432,12 @@ public class AppointmentServiceImpl implements AppointmentService {
                 }
                 createHistory(appointment, "CONFIRMED", oldStatus, AppointmentStatus.CONFIRMED,
                         receptionistUserId, "RECEPTIONIST", reason);
+
+                try {
+                    notificationEventService.onAppointmentConfirmed(appointment);
+                } catch (Exception e) {
+                    log.warn("Failed to send patient confirmation notification for {}: {}", appointmentId, e.getMessage());
+                }
 
                 results.add(BulkActionResultDTO.successItem(
                         appointmentId, appointment.getAppointmentCode(), "Confirmed successfully"));
@@ -976,8 +814,7 @@ public class AppointmentServiceImpl implements AppointmentService {
             case SCHEDULED -> List.of("VIEW", "CONFIRM", "RESCHEDULE", "CANCEL");
             case CONFIRMED -> List.of("CHECK_IN", "RESCHEDULE", "CANCEL", "SEND_REMINDER", "PRINT_SLIP");
             case CHECKED_IN -> List.of("VIEW_QUEUE", "MARK_NO_SHOW", "NOTIFY_DOCTOR");
-            case IN_PROGRESS -> List.of("VIEW");
-            case AWAITING_SERVICE_RESULTS -> List.of("VIEW");
+            case IN_PROGRESS, AWAITING_SERVICE_RESULTS -> List.of("VIEW");
             case COMPLETED -> List.of("COLLECT_PAYMENT", "RECEIPT", "CREATE_FOLLOW_UP");
             case CANCELLED, NO_SHOW -> List.of("VIEW_REASON", "REBOOK");
             case RESCHEDULED -> List.of("VIEW");
@@ -1129,6 +966,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         // IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW, RESCHEDULED → always rejected.
         AppointmentStatus status = appointment.getStatus();
         if (status == AppointmentStatus.IN_PROGRESS ||
+            status == AppointmentStatus.AWAITING_SERVICE_RESULTS ||
             status == AppointmentStatus.COMPLETED ||
             status == AppointmentStatus.CANCELLED ||
             status == AppointmentStatus.NO_SHOW ||
@@ -1239,20 +1077,6 @@ public class AppointmentServiceImpl implements AppointmentService {
                 .build();
         historyRepository.save(history);
 
-        // Activity log
-        RequestInfo req = getRequestInfoSafe();
-        String description = "Rescheduled from " + oldStartTime + " to " + dto.getNewStartTime()
-                + (dto.getReason() != null && !dto.getReason().isBlank() ? ", reason: " + dto.getReason() : "");
-        activityLoggingService.log(
-                userId,
-                ActivityType.RESCHEDULED_APPOINTMENT,
-                description,
-                RESOURCE_TYPE_APPOINTMENT,
-                appointment.getId(),
-                req.getIpAddress(),
-                req.getUserAgent()
-        );
-
         // ── 12. Send notification ────────────────────────────────────────
         try {
             notificationEventService.onAppointmentRescheduled(appointment);
@@ -1335,20 +1159,6 @@ public class AppointmentServiceImpl implements AppointmentService {
         // Create history
         createHistory(appointment, "CANCELLED", oldStatus, AppointmentStatus.CANCELLED,
                 userId, userRole, dto.getReason());
-
-        // Activity log
-        RequestInfo req = getRequestInfoSafe();
-        String description = "Cancelled appointment"
-                + (dto.getReason() != null && !dto.getReason().isBlank() ? ", reason: " + dto.getReason() : "");
-        activityLoggingService.log(
-                userId,
-                ActivityType.CANCELLED_APPOINTMENT,
-                description,
-                RESOURCE_TYPE_APPOINTMENT,
-                appointment.getId(),
-                req.getIpAddress(),
-                req.getUserAgent()
-        );
 
         // Apply refund policy (role-based & time-based)
         applyRefundPolicy(appointment, userId, userRole, false);
@@ -1631,9 +1441,6 @@ public class AppointmentServiceImpl implements AppointmentService {
         List<BulkActionResultDTO.ItemResult> results = new ArrayList<>();
         int successCount = 0;
         int failCount = 0;
-
-        // Activity log request context (safe)
-        RequestInfo req = getRequestInfoSafe();
         
         for (Long appointmentId : dto.getAppointmentIds()) {
             try {
@@ -1661,19 +1468,6 @@ public class AppointmentServiceImpl implements AppointmentService {
                 // Create history
                 createHistory(appointment, "CANCELLED", oldStatus, AppointmentStatus.CANCELLED,
                         userId, callerRole, "Bulk cancel: " + dto.getReason());
-
-                // Activity log
-                String description = "Bulk cancelled appointment"
-                        + (dto.getReason() != null && !dto.getReason().isBlank() ? ", reason: " + dto.getReason() : "");
-                activityLoggingService.log(
-                        userId,
-                        ActivityType.CANCELLED_APPOINTMENT,
-                        description,
-                        RESOURCE_TYPE_APPOINTMENT,
-                        appointment.getId(),
-                        req.getIpAddress(),
-                        req.getUserAgent()
-                );
                 
                 // Handle payment: apply refund policy (role-based & time-based)
                 applyRefundPolicy(appointment, userId, callerRole, false);
@@ -1957,7 +1751,8 @@ public class AppointmentServiceImpl implements AppointmentService {
         return appointment.getStatus() == AppointmentStatus.PENDING ||
                appointment.getStatus() == AppointmentStatus.CONFIRMED ||
                appointment.getStatus() == AppointmentStatus.CHECKED_IN ||
-               appointment.getStatus() == AppointmentStatus.IN_PROGRESS;
+               appointment.getStatus() == AppointmentStatus.IN_PROGRESS ||
+               appointment.getStatus() == AppointmentStatus.AWAITING_SERVICE_RESULTS;
     }
 
     /**
@@ -2925,6 +2720,7 @@ public class AppointmentServiceImpl implements AppointmentService {
                 AppointmentStatus.CONFIRMED, "#2196F3",
                 AppointmentStatus.CHECKED_IN, "#9C27B0",
                 AppointmentStatus.IN_PROGRESS, "#3F51B5",
+                AppointmentStatus.AWAITING_SERVICE_RESULTS, "#00ACC1",
                 AppointmentStatus.COMPLETED, "#4CAF50",
                 AppointmentStatus.CANCELLED, "#F44336",
                 AppointmentStatus.NO_SHOW, "#9E9E9E",

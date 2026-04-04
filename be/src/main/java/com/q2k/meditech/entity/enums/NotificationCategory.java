@@ -12,6 +12,7 @@ public enum NotificationCategory {
 
     // --- Appointment ---
     NEW_BOOKING,
+    APPOINTMENT_CONFIRMED,
     APPOINTMENT_CANCELLED,
     APPOINTMENT_RESCHEDULED,
     PATIENT_CHECKED_IN,

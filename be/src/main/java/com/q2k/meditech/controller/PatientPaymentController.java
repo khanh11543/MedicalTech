@@ -59,7 +59,7 @@ public class PatientPaymentController {
             @Parameter(description = "Page number (0-based)") @RequestParam(defaultValue = "0") int pageNumber,
             @Parameter(description = "Page size") @RequestParam(defaultValue = "10") int pageSize) {
 
-        log.info("GET /patient/payments - status: {}, method: {}, from: {}, to: {}", 
+        log.debug("GET /patient/payments - status: {}, method: {}, from: {}, to: {}",
                 status, method, from, to);
 
         Long patientId = getCurrentPatientId();
@@ -82,7 +82,7 @@ public class PatientPaymentController {
     public ResponseEntity<PaymentDTO> getPaymentDetail(
             @Parameter(description = "Payment ID") @PathVariable Long id) {
 
-        log.info("GET /patient/payments/{}", id);
+        log.debug("GET /patient/payments/{}", id);
 
         Long patientId = getCurrentPatientId();
 
@@ -103,7 +103,7 @@ public class PatientPaymentController {
     public ResponseEntity<PaymentQrDTO> getPaymentQr(
             @Parameter(description = "Payment ID") @PathVariable Long id) {
 
-        log.info("GET /patient/payments/{}/qr", id);
+        log.debug("GET /patient/payments/{}/qr", id);
 
         Long patientId = getCurrentPatientId();
 
@@ -124,7 +124,7 @@ public class PatientPaymentController {
     public ResponseEntity<PaymentInitDTO> initMomoPayment(
             @Parameter(description = "Payment ID") @PathVariable Long id) {
 
-        log.info("POST /patient/payments/{}/momo/init", id);
+        log.debug("POST /patient/payments/{}/momo/init", id);
 
         Long patientId = getCurrentPatientId();
         PaymentInitDTO result = paymentService.initMomoPaymentForPatient(id, patientId);

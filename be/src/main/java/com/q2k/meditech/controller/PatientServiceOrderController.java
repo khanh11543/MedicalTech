@@ -6,6 +6,7 @@ import com.q2k.meditech.entity.Appointment;
 import com.q2k.meditech.entity.Patient;
 import com.q2k.meditech.repository.AppointmentRepository;
 import com.q2k.meditech.repository.PatientRepository;
+import com.q2k.meditech.service.PatientProfileService;
 import com.q2k.meditech.service.ServiceOrderService;
 import com.q2k.meditech.service.ServiceResultService;
 import com.q2k.meditech.util.SecurityUtil;
@@ -30,6 +31,19 @@ public class PatientServiceOrderController {
     private final ServiceResultService serviceResultService;
     private final AppointmentRepository appointmentRepository;
     private final PatientRepository patientRepository;
+    private final PatientProfileService patientProfileService;
+
+    /**
+     * Service orders that still require payment (all appointments for the logged-in patient).
+     * GET /api/patient/service-orders/pending-payment
+     */
+    @GetMapping("/pending-payment")
+    public ResponseEntity<List<ServiceOrderDTO>> getMyPendingPaymentServiceOrders() {
+        Long userId = SecurityUtil.getCurrentUserId();
+        Long patientId = patientProfileService.getOrCreatePatientForUser(userId).getId();
+        List<ServiceOrderDTO> orders = serviceOrderService.getPendingPaymentServiceOrdersForPatient(patientId);
+        return ResponseEntity.ok(orders);
+    }
 
     /**
      * Get all service orders with results for a patient's appointment.

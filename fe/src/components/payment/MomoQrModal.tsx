@@ -1,9 +1,10 @@
 import { useEffect, useState, useRef } from "react";
 import patientService, {
   type Payment,
-  type PaymentQrDTO,
   type PaymentInitDTO,
+  type PaymentQrDTO,
 } from "../../services/patientService";
+import { initMomoPaymentDeduped } from "./momoInitDedupe";
 
 export default function MomoQrModal({
   payment,
@@ -21,32 +22,47 @@ export default function MomoQrModal({
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    initMomo();
+    let cancelled = false;
+    setStep("loading");
+    setErrorMsg("");
+    void (async () => {
+      try {
+        const { init, qr } = await initMomoPaymentDeduped(payment.id);
+        if (cancelled) return;
+        setInitData(init);
+        if (!init.success) {
+          setErrorMsg(init.message || "Failed to initialize MoMo payment");
+          setStep("error");
+          return;
+        }
+        if (qr) setQrData(qr);
+        setStep("qr");
+        startPolling();
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const msg = err instanceof Error ? err.message : "Failed to initialize MoMo payment";
+        setErrorMsg(msg);
+        setStep("error");
+      }
+    })();
     return () => {
+      cancelled = true;
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, []);
+  }, [payment.id]);
 
   const initMomo = async () => {
     setStep("loading");
     setErrorMsg("");
     try {
-      const init = await patientService.initMomoPayment(payment.id);
+      const { init, qr } = await initMomoPaymentDeduped(payment.id);
       setInitData(init);
-
       if (!init.success) {
         setErrorMsg(init.message || "Failed to initialize MoMo payment");
         setStep("error");
         return;
       }
-
-      try {
-        const qr = await patientService.getPaymentQr(payment.id);
-        setQrData(qr);
-      } catch {
-        // QR might not be ready yet, use payUrl from init
-      }
-
+      if (qr) setQrData(qr);
       setStep("qr");
       startPolling();
     } catch (err: unknown) {

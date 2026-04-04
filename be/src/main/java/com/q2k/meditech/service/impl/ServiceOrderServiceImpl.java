@@ -279,6 +279,19 @@ public class ServiceOrderServiceImpl implements ServiceOrderService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<ServiceOrderDTO> getPendingPaymentServiceOrdersForPatient(Long patientId) {
+        List<ServiceOrderStatus> pendingPaymentStatuses = List.of(
+                ServiceOrderStatus.ORDERED,
+                ServiceOrderStatus.PENDING_PAYMENT
+        );
+        return serviceOrderRepository.findByPatientIdAndStatusIn(patientId, pendingPaymentStatuses)
+                .stream()
+                .map(order -> toDTO(order, order.getOrderedByDoctor()))
+                .collect(Collectors.toList());
+    }
+
     private void revertStatusesIfAllDone(Long appointmentId) {
         if (!hasPendingServiceOrders(appointmentId)) {
             // All orders completed or cancelled → consultation can be finalized
