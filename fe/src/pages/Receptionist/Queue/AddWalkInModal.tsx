@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import queueService, { type QueueCallResultDTO } from "../../../services/queueService";
+import receptionistService, { type PatientBasicDTO } from "../../../services/receptionistService";
 
 interface AddWalkInModalProps {
   isOpen: boolean;
@@ -16,7 +17,12 @@ export default function AddWalkInModal({
   onClose,
   onSuccess,
 }: AddWalkInModalProps) {
-  const [patientId, setPatientId] = useState("");
+  const [patientSearch, setPatientSearch] = useState("");
+  const [patientResults, setPatientResults] = useState<PatientBasicDTO[]>([]);
+  const [selectedPatient, setSelectedPatient] = useState<PatientBasicDTO | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  
   const [reasonForVisit, setReasonForVisit] = useState("");
   const [preferredTime, setPreferredTime] = useState("");
   const [urgent, setUrgent] = useState(false);
@@ -24,11 +30,37 @@ export default function AddWalkInModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Patient search
+  const handlePatientSearch = useCallback(
+    (query: string) => {
+      setPatientSearch(query);
+      setSelectedPatient(null);
+      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+      if (query.length < 3) {
+        setPatientResults([]);
+        return;
+      }
+      searchTimeout.current = setTimeout(async () => {
+        try {
+          setSearchLoading(true);
+          const results = await receptionistService.searchPatients(query);
+          setPatientResults(results);
+        } catch (error: any) {
+          setError(error?.response?.data?.message || "Failed to search patients");
+          setPatientResults([]);
+        } finally {
+          setSearchLoading(false);
+        }
+      }, 400);
+    },
+    []
+  );
+
   if (!isOpen) return null;
 
   const handleSubmit = async () => {
-    if (!patientId.trim()) {
-      setError("Patient ID is required");
+    if (!selectedPatient) {
+      setError("Please select a patient");
       return;
     }
 
@@ -36,7 +68,7 @@ export default function AddWalkInModal({
       setLoading(true);
       setError("");
       const result = await queueService.addWalkIn(doctorId, {
-        patientId: parseInt(patientId),
+        patientId: selectedPatient.id,
         reasonForVisit: reasonForVisit || undefined,
         preferredTime: preferredTime || undefined,
         urgent,
@@ -52,7 +84,9 @@ export default function AddWalkInModal({
   };
 
   const handleClose = () => {
-    setPatientId("");
+    setPatientSearch("");
+    setPatientResults([]);
+    setSelectedPatient(null);
     setReasonForVisit("");
     setPreferredTime("");
     setUrgent(false);
@@ -92,19 +126,67 @@ export default function AddWalkInModal({
             </div>
           )}
 
-          {/* Patient ID */}
+          {/* Patient Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Patient ID <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              value={patientId}
-              onChange={(e) => setPatientId(e.target.value)}
-              placeholder="Enter patient ID"
-              min="1"
-              className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-            />
+            <h3 className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Select Patient <span className="text-red-500">*</span>
+            </h3>
+
+            {selectedPatient ? (
+              <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+                <div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">{selectedPatient.name}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{selectedPatient.maskedPhone} · {selectedPatient.email || "No email"}</div>
+                </div>
+                <button
+                  onClick={() => setSelectedPatient(null)}
+                  className="text-xs text-red-600 dark:text-red-400 hover:underline"
+                >
+                  Change
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Search */}
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={patientSearch}
+                    onChange={(e) => handlePatientSearch(e.target.value)}
+                    placeholder="Search patient by name or phone (min 3 characters)..."
+                    className="w-full px-4 py-2.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent pr-10"
+                  />
+                  {searchLoading && (
+                    <div className="absolute right-3 top-3">
+                      <div className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+                {patientSearch.length > 0 && patientSearch.length < 3 && (
+                  <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">Type at least 3 characters to search</p>
+                )}
+
+                {/* Results */}
+                {patientResults.length > 0 && (
+                  <div className="mt-2 max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900">
+                    {patientResults.map((p) => (
+                      <button
+                        key={p.id}
+                        onClick={() => { setSelectedPatient(p); setPatientResults([]); setPatientSearch(""); }}
+                        className="w-full text-left px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                      >
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{p.name}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">{p.maskedPhone} · {p.email || "No email"}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {patientSearch.length >= 3 && patientResults.length === 0 && !searchLoading && (
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No patients found</p>
+                )}
+              </>
+            )}
           </div>
 
           {/* Reason for Visit */}
@@ -181,7 +263,7 @@ export default function AddWalkInModal({
           </button>
           <button
             onClick={handleSubmit}
-            disabled={loading || !patientId.trim()}
+            disabled={loading || !selectedPatient}
             className="px-6 py-2 text-sm font-medium text-white bg-green-500 rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
             {loading ? (
