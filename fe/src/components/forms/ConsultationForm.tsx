@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../ui/button/Button';
 import Toast from '../common/Toast';
 import { useToast } from '../../hooks/useToast';
+import { SAMPLE_CONSULTATION_DATA } from '../../data/sampleConsultationData';
 import consultationService, {
   type ConsultationDTO,
 } from '../../services/consultationService';
@@ -40,6 +41,7 @@ interface ConsultationFormProps {
   appointmentId?: number;
   onBack: () => void;
   patientInfo?: PatientInfo;
+  onAutoFill?: (data: any) => void;
 }
 
 interface FormFields {
@@ -749,6 +751,28 @@ export default function ConsultationForm({
     };
   }, [appointmentId]);
 
+  // -- Auto Fill with Sample Data --
+  const handleAutoFill = () => {
+    const { height, weight, ...otherData } = SAMPLE_CONSULTATION_DATA as any;
+    
+    // Calculate BMI
+    let bmi = null;
+    if (height && weight && height > 0) {
+      bmi = Math.round((weight / (height / 100) ** 2) * 10) / 10;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      ...otherData,
+      height: height ?? null,
+      weight: weight ?? null,
+      bmi: bmi,
+    }));
+    
+    setIsDirty(true);
+    showToast('📋 Sample data populated! You can now edit and save.', 'success');
+  };
+
   // -- Save Draft --
   const handleSaveDraft = async () => {
     if (!appointmentId) {
@@ -1068,10 +1092,20 @@ export default function ConsultationForm({
             {!isFinalized && (
               <Button
                 variant='outline'
+                onClick={handleAutoFill}
+                disabled={saving}
+                title='Fill form with sample medical data'
+              >
+                📋 Auto Fill
+              </Button>
+            )}
+            {!isFinalized && (
+              <Button
+                variant='outline'
                 onClick={handleSaveDraft}
                 disabled={saving}
               >
-                {saving ? 'Saving...' : '\uD83D\uDCBE Save Draft'}
+                {saving ? 'Saving...' : '💾 Save Draft'}
               </Button>
             )}
             {!isFinalized && (
@@ -1104,7 +1138,7 @@ export default function ConsultationForm({
         {hasPendingOrders && !isFinalized && (
           <div className='bg-orange-50 border-t border-orange-200 px-4 py-2 dark:bg-orange-900/20 dark:border-orange-800'>
             <p className='text-xs font-medium text-orange-700 dark:text-orange-300'>
-              \u26A0 Pending service orders exist. Finalization is blocked until all orders are completed or cancelled.
+              ⚠️ Pending service orders exist. Finalization is blocked until all orders are completed or cancelled.
               <button
                 onClick={refreshServiceOrders}
                 className='ml-2 underline hover:no-underline'
@@ -1123,7 +1157,7 @@ export default function ConsultationForm({
           <div className='space-y-2'>
             {passedInfo.allergies && (
               <div className='flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-900/20'>
-                <span className='flex-shrink-0 font-bold text-red-600'>\u26A0</span>
+                <span className='flex-shrink-0 font-bold text-red-600'>⚠️</span>
                 <div>
                   <p className='text-xs font-semibold uppercase tracking-wide text-red-700 dark:text-red-400'>
                     Allergies
@@ -1137,7 +1171,7 @@ export default function ConsultationForm({
             {passedInfo.medicalHistory && (
               <div className='flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-900/20'>
                 <span className='flex-shrink-0 font-bold text-amber-600'>
-                  \uD83D\uDCCB
+                  📋
                 </span>
                 <div>
                   <p className='text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400'>

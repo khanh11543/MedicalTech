@@ -131,7 +131,7 @@ export default function CreateAppointment({ isOpen, onClose, onCreated, rebookDa
       setPatientSearch(query);
       setSelectedPatient(null);
       if (searchTimeout.current) clearTimeout(searchTimeout.current);
-      if (query.length < 2) {
+      if (query.length < 3) {
         setPatientResults([]);
         return;
       }
@@ -140,7 +140,9 @@ export default function CreateAppointment({ isOpen, onClose, onCreated, rebookDa
           setSearchLoading(true);
           const results = await receptionistService.searchPatients(query);
           setPatientResults(results);
-        } catch {
+        } catch (error: any) {
+          const message = error?.response?.data?.message || "Failed to search patients";
+          setToast({ message, type: "error" });
           setPatientResults([]);
         } finally {
           setSearchLoading(false);
@@ -332,7 +334,7 @@ export default function CreateAppointment({ isOpen, onClose, onCreated, rebookDa
                         type="text"
                         value={patientSearch}
                         onChange={(e) => handlePatientSearch(e.target.value)}
-                        placeholder="Search patient by name or phone..."
+                        placeholder="Search patient by name or phone (min 3 characters)..."
                         className="w-full px-4 py-2.5 text-sm rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 pr-10"
                       />
                       {searchLoading && (
@@ -341,6 +343,9 @@ export default function CreateAppointment({ isOpen, onClose, onCreated, rebookDa
                         </div>
                       )}
                     </div>
+                    {patientSearch.length > 0 && patientSearch.length < 3 && (
+                      <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">Type at least 3 characters to search</p>
+                    )}
 
                     {/* Results */}
                     {patientResults.length > 0 && (
@@ -358,8 +363,8 @@ export default function CreateAppointment({ isOpen, onClose, onCreated, rebookDa
                       </div>
                     )}
 
-                    {patientSearch.length >= 2 && patientResults.length === 0 && !searchLoading && (
-                      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No results found</p>
+                    {patientSearch.length >= 3 && patientResults.length === 0 && !searchLoading && (
+                      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">No patients found</p>
                     )}
 
                     {/* Create new patient toggle */}

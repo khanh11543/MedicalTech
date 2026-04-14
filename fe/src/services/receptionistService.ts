@@ -1028,7 +1028,8 @@ const receptionistService = {
   // Patient search
   searchPatients: async (query: string): Promise<PatientBasicDTO[]> => {
     const response = await api.get("/receptionist/patients/search", { params: { q: query } });
-    return response.data;
+    // Extract content from Page response - Page has { content: [...], pageable, totalElements, etc. }
+    return response.data.content || response.data || [];
   },
 
   // Create walk-in patient
